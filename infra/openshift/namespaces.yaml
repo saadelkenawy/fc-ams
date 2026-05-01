@@ -1,0 +1,39 @@
+---
+# Fadl Clinic — OpenShift Namespace Configuration
+# Ref: claude-plan.md — 4 namespaces: fadl-dev, fadl-staging, fadl-prod, fadl-migration
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: fadl-dev
+  labels:
+    app.kubernetes.io/part-of: fadl-clinic
+    environment: development
+    team: fadl-engineering
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: fadl-staging
+  labels:
+    app.kubernetes.io/part-of: fadl-clinic
+    environment: staging
+    team: fadl-engineering
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: fadl-prod
+  labels:
+    app.kubernetes.io/part-of: fadl-clinic
+    environment: production
+    team: fadl-engineering
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: fadl-migration
+  labels:
+    app.kubernetes.io/part-of: fadl-clinic
+    environment: migration
+    team: fadl-engineering

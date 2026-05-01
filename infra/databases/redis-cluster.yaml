@@ -1,0 +1,59 @@
+---
+# Redis Cluster — 6 nodes (3 masters + 3 replicas)
+# Ref: database.md — Redis Streams for notifications, distributed locks for slot booking
+
+apiVersion: redis.redis.opstreelabs.in/v1beta2
+kind: RedisCluster
+metadata:
+  name: fadl-redis
+  namespace: fadl-prod
+spec:
+  clusterSize: 3
+  clusterVersion: v7
+  persistenceEnabled: true
+  redisLeader:
+    replicas: 3
+    redisConfig:
+      additionalRedisConfig: |
+        maxmemory 4gb
+        maxmemory-policy allkeys-lru
+        save 900 1
+        save 300 10
+        save 60 10000
+        appendonly yes
+        appendfsync everysec
+        no-appendfsync-on-rewrite no
+        auto-aof-rewrite-percentage 100
+        auto-aof-rewrite-min-size 64mb
+        # Enable keyspace notifications for streams
+        notify-keyspace-events Ex
+    pvcDataSize: 20Gi
+    storageClass: odf-lvm-vg1
+  redisFollower:
+    replicas: 3
+    redisConfig:
+      additionalRedisConfig: |
+        replica-lazy-flush yes
+    pvcDataSize: 20Gi
+    storageClass: odf-lvm-vg1
+  kubernetesConfig:
+    image: redis:7-alpine
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 5Gi
+    redisSecret:
+      name: fadl-redis-secret
+      key: password
+  TLS:
+    ca: fadl-redis-tls
+    cert: fadl-redis-tls
+    key: fadl-redis-tls
+    tlsConfig:
+      ca:
+        secret:
+          name: fadl-redis-tls
+          key: ca.crt

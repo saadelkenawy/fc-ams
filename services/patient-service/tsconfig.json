@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "paths": {
+      "@fadl/types": ["../../shared/types/src"]
+    }
+  },
+  "include": ["src/**/*"],
+  "references": [{ "path": "../../shared/types" }]
+}

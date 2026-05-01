@@ -1,0 +1,94 @@
+---
+# Crunchy Data PostgreSQL HA Cluster — Production
+# Ref: database.md — 3-node HA, PgBouncer, pgBackRest, wal_level=logical for Debezium CDC
+
+apiVersion: postgres-operator.crunchydata.com/v1beta1
+kind: PostgresCluster
+metadata:
+  name: fadl-postgres
+  namespace: fadl-prod
+spec:
+  postgresVersion: 16
+
+  instances:
+    - name: pgha
+      replicas: 3
+      dataVolumeClaimSpec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 500Gi
+        storageClassName: odf-lvm-vg1
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  postgres-operator.crunchydata.com/cluster: fadl-postgres
+              topologyKey: kubernetes.io/hostname
+
+  patroni:
+    dynamicConfiguration:
+      postgresql:
+        parameters:
+          max_connections: "500"
+          shared_buffers: 4GB
+          effective_cache_size: 12GB
+          maintenance_work_mem: 1GB
+          wal_level: logical          # Required for Debezium CDC
+          max_wal_senders: "10"
+          max_replication_slots: "10"
+          random_page_cost: "1.1"     # SSD
+          effective_io_concurrency: "200"
+          work_mem: 16MB
+          log_min_duration_statement: "1000"
+          pgaudit.log: write,ddl
+
+  proxy:
+    pgBouncer:
+      replicas: 3
+      config:
+        global:
+          pool_mode: transaction
+          max_client_conn: "1000"
+          default_pool_size: "25"
+          server_idle_timeout: "600"
+          log_connections: "0"
+          log_disconnections: "0"
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    postgres-operator.crunchydata.com/role: pgbouncer
+                topologyKey: kubernetes.io/hostname
+
+  backups:
+    pgbackrest:
+      configuration:
+        - secret:
+            name: fadl-s3-creds
+      global:
+        repo1-retention-full: "30"
+        repo1-retention-archive: "30"
+        repo1-s3-key-type: secret
+      repos:
+        - name: repo1
+          s3:
+            bucket: fadl-clinic-postgres-backups
+            endpoint: s3.openshift-storage.svc.cluster.local
+            region: us-east-1
+      jobs:
+        priorityClassName: high-priority
+
+  monitoring:
+    pgmonitor:
+      enabled: true
+      exporter:
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi

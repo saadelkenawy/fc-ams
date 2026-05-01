@@ -1,0 +1,70 @@
+---
+# Default-deny all ingress — services must explicitly allow traffic
+# Ref: claude-plan.md Module 8 — default-deny NetworkPolicies
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: fadl-prod
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+---
+# Allow patient-service to receive traffic from API gateway and other services
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-patient-service
+  namespace: fadl-prod
+spec:
+  podSelector:
+    matchLabels:
+      app: patient-service
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              role: api-gateway
+        - podSelector:
+            matchLabels:
+              app: appointment-service
+        - podSelector:
+            matchLabels:
+              app: billing-service
+        - podSelector:
+            matchLabels:
+              app: ehr-service
+      ports:
+        - protocol: TCP
+          port: 3001
+---
+# Allow appointment-service ingress
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-appointment-service
+  namespace: fadl-prod
+spec:
+  podSelector:
+    matchLabels:
+      app: appointment-service
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              role: api-gateway
+        - podSelector:
+            matchLabels:
+              app: billing-service
+        - podSelector:
+            matchLabels:
+              app: notification-service
+      ports:
+        - protocol: TCP
+          port: 3002

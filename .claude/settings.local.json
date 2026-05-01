@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh auth *)",
+      "Bash(git --version)",
+      "Read(//root/.ssh/**)",
+      "Bash(git config *)",
+      "Bash(ssh-keygen -t ed25519 -C \"saadelkenawy0@gmail.com\" -f ~/.ssh/id_ed25519 -N \"\")",
+      "Bash(git init *)",
+      "Bash(git add *)",
+      "Bash(npm --version)",
+      "Bash(pnpm --version)",
+      "Bash(curl -fsSL https://rpm.nodesource.com/setup_20.x)",
+      "Bash(bash -)",
+      "Bash(dnf install *)",
+      "Bash(npm install *)",
+      "Bash(git branch *)",
+      "Bash(git commit -m ' *)"
+    ]
+  }
+}
