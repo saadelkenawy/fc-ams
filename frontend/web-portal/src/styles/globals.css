@@ -164,11 +164,11 @@
 
 /* Pill tab inactive in dark */
 [data-theme="dark"] .pill-tab:not(.active) {
-  color: #9CA3AF;
+  color: #D1D5DB;
 }
 [data-theme="dark"] .pill-tab:not(.active):hover {
   background-color: #262626;
-  color: #E5E7EB;
+  color: #F3F4F6;
 }
 
 /* Atmospheric — dark already driven by var(--color-bg) changing */

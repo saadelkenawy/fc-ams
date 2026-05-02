@@ -43,7 +43,7 @@ export default function DoctorsPage() {
       <div className="flex items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold font-display text-gray-900 dark:text-gray-100">{t('الأطباء', 'Doctors')}</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+          <p className="text-sm text-gray-500 dark:text-gray-300 mt-0.5">
             {t(`${MOCK_DOCTORS.filter(d => d.isActive).length} طبيب نشط`, `${MOCK_DOCTORS.filter(d => d.isActive).length} active doctors`)}
           </p>
         </div>
@@ -70,14 +70,14 @@ export default function DoctorsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
-                    <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('الطبيب', 'Doctor')}</th>
-                    <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('التخصص', 'Specialty')}</th>
+                    <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الطبيب', 'Doctor')}</th>
+                    <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('التخصص', 'Specialty')}</th>
                     {!selected && <>
-                      <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('اليوم', 'Today')}</th>
-                      <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('إيرادات الشهر', 'Month Revenue')}</th>
-                      <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('التقييم', 'Rating')}</th>
+                      <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('اليوم', 'Today')}</th>
+                      <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('إيرادات الشهر', 'Month Revenue')}</th>
+                      <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('التقييم', 'Rating')}</th>
                     </>}
-                    <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('الحالة', 'Status')}</th>
+                    <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الحالة', 'Status')}</th>
                     <th className="px-5 py-3" />
                   </tr>
                 </thead>
@@ -100,7 +100,7 @@ export default function DoctorsPage() {
                           </div>
                           <div>
                             <p className="font-medium text-gray-900 dark:text-gray-100">{lang === 'ar' ? d.nameAr : d.nameEn}</p>
-                            <p className="text-xs text-gray-400 dark:text-gray-500 font-mono">{d.mobile}</p>
+                            <p className="text-xs text-gray-400 dark:text-gray-300 font-mono">{d.mobile}</p>
                           </div>
                         </div>
                       </td>
@@ -159,7 +159,7 @@ export default function DoctorsPage() {
                   </div>
                   <div>
                     <h3 className="font-semibold text-gray-900 dark:text-gray-100">{lang === 'ar' ? doctor.nameAr : doctor.nameEn}</h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">{lang === 'ar' ? doctor.specialtyAr : doctor.specialtyEn}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-300">{lang === 'ar' ? doctor.specialtyAr : doctor.specialtyEn}</p>
                     <div className="flex items-center gap-1 mt-0.5 text-amber-500">
                       <Star className="w-3 h-3 fill-current" />
                       <span className="text-xs font-medium text-gray-600 dark:text-gray-300">{doctor.rating}/5.0</span>
@@ -168,11 +168,11 @@ export default function DoctorsPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div className="bg-gray-50 dark:bg-neutral-900 rounded-lg p-3">
-                    <p className="text-gray-400 dark:text-gray-500 text-xs mb-1">{t('مواعيد اليوم', "Today's Appts")}</p>
+                    <p className="text-gray-400 dark:text-gray-300 text-xs mb-1">{t('مواعيد اليوم', "Today's Appts")}</p>
                     <p className="font-bold text-gray-900 dark:text-gray-100 font-mono tabular-nums text-lg">{doctor.todayAppointments}</p>
                   </div>
                   <div className="bg-gray-50 dark:bg-neutral-900 rounded-lg p-3">
-                    <p className="text-gray-400 dark:text-gray-500 text-xs mb-1">{t('إيرادات الشهر', 'Month Revenue')}</p>
+                    <p className="text-gray-400 dark:text-gray-300 text-xs mb-1">{t('إيرادات الشهر', 'Month Revenue')}</p>
                     <p className="font-bold text-gray-900 dark:text-gray-100 font-mono tabular-nums">{formatCurrency(doctor.monthRevenue, 'EGP', 'en-US')}</p>
                   </div>
                 </div>
@@ -193,7 +193,7 @@ export default function DoctorsPage() {
                       <span className="text-gray-600 dark:text-gray-300">{lang === 'ar' ? s.labelAr : s.labelEn}</span>
                       <div className="flex gap-3">
                         <span className="font-semibold text-primary-700 dark:text-primary-400">{t('طبيب', 'Dr')} {s.pct}%</span>
-                        <span className="text-gray-400 dark:text-gray-500">{t('عيادة', 'Clinic')} {100 - s.pct}%</span>
+                        <span className="text-gray-400 dark:text-gray-300">{t('عيادة', 'Clinic')} {100 - s.pct}%</span>
                       </div>
                     </div>
                     <div className="h-2 bg-gray-100 dark:bg-neutral-700 rounded-full overflow-hidden">
@@ -211,7 +211,7 @@ export default function DoctorsPage() {
             <Card>
               <CardContent className="pt-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500 dark:text-gray-400">{t('طريقة الدفع', 'Payment Method')}</span>
+                  <span className="text-sm text-gray-500 dark:text-gray-300">{t('طريقة الدفع', 'Payment Method')}</span>
                   <Badge variant="outline">
                     {lang === 'ar' ? PAYMENT_LABELS[doctor.paymentMethod]?.ar : PAYMENT_LABELS[doctor.paymentMethod]?.en}
                   </Badge>

@@ -85,7 +85,7 @@ export default function ReceptionistPage() {
                 onChange={(e) => setSearchVal(e.target.value)}
                 lang={lang}
               />
-              <p className="text-xs text-gray-400 dark:text-gray-500 text-center py-6">
+              <p className="text-xs text-gray-400 dark:text-gray-300 text-center py-6">
                 {t('أدخل الموبايل أو الاسم للبحث', 'Enter mobile or name to search')}
               </p>
               <Button variant="secondary" className="w-full" size="sm">
@@ -110,22 +110,22 @@ export default function ReceptionistPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
-                    <th className="text-start px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400 text-xs w-10">#</th>
-                    <th className="text-start px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('المريض', 'Patient')}</th>
-                    <th className="text-start px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('النوع', 'Type')}</th>
-                    <th className="text-start px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('الحالة', 'Status')}</th>
-                    <th className="text-start px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('الانتظار', 'Wait')}</th>
+                    <th className="text-start px-4 py-2.5 font-medium text-gray-500 dark:text-gray-300 text-xs w-10">#</th>
+                    <th className="text-start px-4 py-2.5 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('المريض', 'Patient')}</th>
+                    <th className="text-start px-4 py-2.5 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('النوع', 'Type')}</th>
+                    <th className="text-start px-4 py-2.5 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الحالة', 'Status')}</th>
+                    <th className="text-start px-4 py-2.5 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الانتظار', 'Wait')}</th>
                     <th className="px-4 py-2.5 text-xs" />
                   </tr>
                 </thead>
                 <tbody>
                   {QUEUE.map((q) => (
                     <tr key={q.id} className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors">
-                      <td className="px-4 py-3 font-bold text-gray-400 dark:text-gray-500 font-mono tabular-nums">{q.num}</td>
+                      <td className="px-4 py-3 font-bold text-gray-400 dark:text-gray-300 font-mono tabular-nums">{q.num}</td>
                       <td className="px-4 py-3">
                         <div>
                           <p className="font-medium text-gray-900 dark:text-gray-100">{lang === 'ar' ? q.patientAr : q.patientEn}</p>
-                          <p className="text-xs text-gray-400 dark:text-gray-500">{lang === 'ar' ? q.doctorAr : q.doctorEn} · {formatTime(q.time)}</p>
+                          <p className="text-xs text-gray-400 dark:text-gray-300">{lang === 'ar' ? q.doctorAr : q.doctorEn} · {formatTime(q.time)}</p>
                         </div>
                       </td>
                       <td className="px-4 py-3">
@@ -138,7 +138,7 @@ export default function ReceptionistPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3"><AppointmentStatusBadge status={q.status} lang={lang} /></td>
-                      <td className="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs">
+                      <td className="px-4 py-3 text-gray-500 dark:text-gray-300 text-xs">
                         {q.wait > 0 ? (
                           <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{q.wait}{t('د', 'm')}</span>
                         ) : (

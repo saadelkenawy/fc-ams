@@ -44,7 +44,7 @@ export default function DashboardPage() {
         <h2 className="text-2xl font-bold font-display text-gray-900 dark:text-gray-100">
           {t(`${greetAr}،`, `${greetEn},`)} {lang === 'ar' ? user?.nameAr : user?.nameEn} 👋
         </h2>
-        <p className="text-gray-500 dark:text-gray-400 mt-1 text-sm">
+        <p className="text-gray-500 dark:text-gray-300 mt-1 text-sm">
           {t(
             `${now.toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`,
             `${now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`,
@@ -108,17 +108,17 @@ export default function DashboardPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-3">
               <CardTitle>{t('مواعيد اليوم', "Today's Appointments")}</CardTitle>
-              <span className="text-xs text-gray-400 dark:text-gray-500 font-normal">{t('الكل', 'See all')}</span>
+              <span className="text-xs text-gray-400 dark:text-gray-300 font-normal">{t('الكل', 'See all')}</span>
             </CardHeader>
             <CardContent className="p-0">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
-                    <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('المريض', 'Patient')}</th>
-                    <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('الوقت', 'Time')}</th>
-                    <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('التخصص', 'Specialty')}</th>
-                    <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('الحالة', 'Status')}</th>
-                    <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('المصدر', 'Source')}</th>
+                    <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('المريض', 'Patient')}</th>
+                    <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الوقت', 'Time')}</th>
+                    <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('التخصص', 'Specialty')}</th>
+                    <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الحالة', 'Status')}</th>
+                    <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('المصدر', 'Source')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -136,7 +136,7 @@ export default function DashboardPage() {
                       <td className="px-5 py-3.5">
                         <AppointmentStatusBadge status={appt.status} lang={lang} />
                       </td>
-                      <td className="px-5 py-3.5 text-gray-500 dark:text-gray-400 text-xs">{appt.source}</td>
+                      <td className="px-5 py-3.5 text-gray-500 dark:text-gray-300 text-xs">{appt.source}</td>
                     </tr>
                   ))}
                 </tbody>

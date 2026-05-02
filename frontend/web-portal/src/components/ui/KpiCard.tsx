@@ -32,7 +32,7 @@ export function KpiCard({
     )}>
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className={cn('text-sm font-medium mb-1', featured ? 'text-primary-100' : 'text-gray-500 dark:text-gray-400')}>
+          <p className={cn('text-sm font-medium mb-1', featured ? 'text-primary-100' : 'text-gray-500 dark:text-gray-300')}>
             {displayTitle}
           </p>
           <p className={cn('text-3xl font-bold font-mono tabular-nums', featured ? 'text-white' : 'text-gray-900 dark:text-gray-100')}>
@@ -50,7 +50,7 @@ export function KpiCard({
                   : <TrendingDown className="w-3 h-3" />}
               <span>{isPositive ? '+' : ''}{change}%</span>
               {changeLabel && (
-                <span className={featured ? 'text-primary-200' : 'text-gray-400 dark:text-gray-500'}>
+                <span className={featured ? 'text-primary-200' : 'text-gray-400 dark:text-gray-300'}>
                   {changeLabel}
                 </span>
               )}

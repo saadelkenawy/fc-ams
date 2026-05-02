@@ -58,7 +58,7 @@ export default function BillingPage() {
       <div className="flex items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold font-display text-gray-900 dark:text-gray-100">{t('الفواتير والمالية', 'Billing & Finance')}</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{t('السجل المحاسبي غير القابل للتعديل', 'Immutable financial ledger')}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-300 mt-0.5">{t('السجل المحاسبي غير القابل للتعديل', 'Immutable financial ledger')}</p>
         </div>
         <Button variant="outline" size="sm">
           <Download className="w-4 h-4" />
@@ -121,16 +121,16 @@ export default function BillingPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
-                    <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('التاريخ', 'Date')}</th>
-                    <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('المريض', 'Patient')}</th>
-                    <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('الطبيب', 'Doctor')}</th>
-                    <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('الإجراء', 'Procedure')}</th>
-                    <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('المصدر', 'Source')}</th>
-                    <th className="text-end px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('الرسوم', 'Charge')}</th>
-                    <th className="text-end px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('حصة الطبيب', 'Dr. Share')}</th>
-                    <th className="text-end px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('حصة العيادة', 'Clinic')}</th>
-                    <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('الحالة', 'Status')}</th>
-                    <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('الدفع', 'Payment')}</th>
+                    <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('التاريخ', 'Date')}</th>
+                    <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('المريض', 'Patient')}</th>
+                    <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الطبيب', 'Doctor')}</th>
+                    <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الإجراء', 'Procedure')}</th>
+                    <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('المصدر', 'Source')}</th>
+                    <th className="text-end px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الرسوم', 'Charge')}</th>
+                    <th className="text-end px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('حصة الطبيب', 'Dr. Share')}</th>
+                    <th className="text-end px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('حصة العيادة', 'Clinic')}</th>
+                    <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الحالة', 'Status')}</th>
+                    <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الدفع', 'Payment')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -138,7 +138,7 @@ export default function BillingPage() {
                     const cfg = STATUS_CONFIG[tx.status];
                     return (
                       <tr key={tx.id} className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors">
-                        <td className="px-5 py-3.5 text-gray-500 dark:text-gray-400 text-xs">{formatDate(tx.date, lang === 'ar' ? 'ar-EG' : 'en-US')}</td>
+                        <td className="px-5 py-3.5 text-gray-500 dark:text-gray-300 text-xs">{formatDate(tx.date, lang === 'ar' ? 'ar-EG' : 'en-US')}</td>
                         <td className="px-5 py-3.5 font-medium text-gray-900 dark:text-gray-100">{lang === 'ar' ? tx.patientAr : tx.patientEn}</td>
                         <td className="px-5 py-3.5 text-gray-600 dark:text-gray-300">{lang === 'ar' ? tx.doctorAr : tx.doctorEn}</td>
                         <td className="px-5 py-3.5 text-gray-600 dark:text-gray-300">{lang === 'ar' ? tx.procedureAr : tx.procedureEn}</td>
@@ -149,12 +149,12 @@ export default function BillingPage() {
                         <td className="px-5 py-3.5 text-end font-mono tabular-nums text-primary-700 dark:text-primary-400">{tx.doctorShare}</td>
                         <td className="px-5 py-3.5 text-end font-mono tabular-nums text-emerald-700 dark:text-emerald-400">{tx.clinicShare}</td>
                         <td className="px-5 py-3.5"><Badge variant={cfg.variant} dot>{lang === 'ar' ? cfg.labelAr : cfg.labelEn}</Badge></td>
-                        <td className="px-5 py-3.5 text-gray-500 dark:text-gray-400 text-xs capitalize">{tx.payMethod.replace('_', ' ')}</td>
+                        <td className="px-5 py-3.5 text-gray-500 dark:text-gray-300 text-xs capitalize">{tx.payMethod.replace('_', ' ')}</td>
                       </tr>
                     );
                   })}
                   {filtered.length === 0 && (
-                    <tr><td colSpan={10} className="px-5 py-12 text-center text-gray-400 dark:text-gray-500">{t('لا توجد نتائج', 'No results')}</td></tr>
+                    <tr><td colSpan={10} className="px-5 py-12 text-center text-gray-400 dark:text-gray-300">{t('لا توجد نتائج', 'No results')}</td></tr>
                   )}
                 </tbody>
               </table>
@@ -182,11 +182,11 @@ function SettlementsTab({ lang, t }: { lang: 'ar' | 'en'; t: (ar: string, en: st
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
-              <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('الطبيب', 'Doctor')}</th>
-              <th className="text-end px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('إجمالي الشهر', 'Gross (Month)')}</th>
-              <th className="text-end px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('حصته', 'Dr. Share')}</th>
-              <th className="text-end px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('مستحق', 'Pending Payout')}</th>
-              <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('الحالة', 'Status')}</th>
+              <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الطبيب', 'Doctor')}</th>
+              <th className="text-end px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('إجمالي الشهر', 'Gross (Month)')}</th>
+              <th className="text-end px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('حصته', 'Dr. Share')}</th>
+              <th className="text-end px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('مستحق', 'Pending Payout')}</th>
+              <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الحالة', 'Status')}</th>
               <th className="px-5 py-3" />
             </tr>
           </thead>

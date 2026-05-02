@@ -32,7 +32,7 @@ export default function PatientsPage() {
       <div className="flex items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold font-display text-gray-900 dark:text-gray-100">{t('المرضى', 'Patients')}</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+          <p className="text-sm text-gray-500 dark:text-gray-300 mt-0.5">
             {t(`${MOCK_PATIENTS.length} مريض مسجل`, `${MOCK_PATIENTS.length} registered patients`)}
           </p>
         </div>
@@ -63,12 +63,12 @@ export default function PatientsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
-                  <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('المريض', 'Patient')}</th>
-                  <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('الموبايل', 'Mobile')}</th>
-                  <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('تاريخ الميلاد', 'Date of Birth')}</th>
-                  <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('المصدر', 'Source')}</th>
-                  <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('آخر زيارة', 'Last Visit')}</th>
-                  <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('الزيارات', 'Visits')}</th>
+                  <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('المريض', 'Patient')}</th>
+                  <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الموبايل', 'Mobile')}</th>
+                  <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('تاريخ الميلاد', 'Date of Birth')}</th>
+                  <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('المصدر', 'Source')}</th>
+                  <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('آخر زيارة', 'Last Visit')}</th>
+                  <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الزيارات', 'Visits')}</th>
                   <th className="px-5 py-3" />
                 </tr>
               </thead>
@@ -82,7 +82,7 @@ export default function PatientsPage() {
                         </div>
                         <div>
                           <p className="font-medium text-gray-900 dark:text-gray-100">{lang === 'ar' ? p.nameAr : p.nameEn}</p>
-                          <p className="text-xs text-gray-400 dark:text-gray-500 font-mono">{p.nationalId}</p>
+                          <p className="text-xs text-gray-400 dark:text-gray-300 font-mono">{p.nationalId}</p>
                         </div>
                       </div>
                     </td>
@@ -104,7 +104,7 @@ export default function PatientsPage() {
                 ))}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-5 py-12 text-center text-gray-400 dark:text-gray-500">
+                    <td colSpan={7} className="px-5 py-12 text-center text-gray-400 dark:text-gray-300">
                       {t('لا توجد نتائج', 'No results found')}
                     </td>
                   </tr>
