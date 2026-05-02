@@ -7,34 +7,34 @@ import { Button } from '@/components/ui/Button';
 import { KpiCard } from '@/components/ui/KpiCard';
 import { Badge } from '@/components/ui/Badge';
 import { useLang } from '@/contexts/LanguageContext';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatNumber } from '@/lib/utils';
 
 // Mock analytics data — wire to analytics-service when available
 const MONTHLY_REVENUE = [
-  { month: 'Oct', monthAr: 'أكت', revenue: 180_000, appointments: 420 },
-  { month: 'Nov', monthAr: 'نوف', revenue: 210_000, appointments: 490 },
-  { month: 'Dec', monthAr: 'ديس', revenue: 195_000, appointments: 455 },
-  { month: 'Jan', monthAr: 'يناير', revenue: 240_000, appointments: 560 },
-  { month: 'Feb', monthAr: 'فبراير', revenue: 225_000, appointments: 530 },
-  { month: 'Mar', monthAr: 'مارس', revenue: 270_000, appointments: 620 },
-  { month: 'Apr', monthAr: 'أبريل', revenue: 258_000, appointments: 600 },
+  { month: 'Oct', monthAr: 'أكت',     revenue: 180_000, appointments: 420 },
+  { month: 'Nov', monthAr: 'نوف',     revenue: 210_000, appointments: 490 },
+  { month: 'Dec', monthAr: 'ديس',     revenue: 195_000, appointments: 455 },
+  { month: 'Jan', monthAr: 'يناير',   revenue: 240_000, appointments: 560 },
+  { month: 'Feb', monthAr: 'فبراير',  revenue: 225_000, appointments: 530 },
+  { month: 'Mar', monthAr: 'مارس',    revenue: 270_000, appointments: 620 },
+  { month: 'Apr', monthAr: 'أبريل',   revenue: 258_000, appointments: 600 },
 ];
 
 const SPECIALTY_STATS = [
-  { specialtyAr: 'النساء والعقم',      specialtyEn: 'Gynecology & Infertility', revenue: 110_000, appointments: 240, noShowRate: 8,  growthPct: 12 },
-  { specialtyAr: 'القلب',              specialtyEn: 'Cardiology',               revenue: 85_000,  appointments: 180, noShowRate: 5,  growthPct: 18 },
-  { specialtyAr: 'الجلدية',            specialtyEn: 'Dermatology',              revenue: 63_000,  appointments: 200, noShowRate: 12, growthPct: -3 },
-  { specialtyAr: 'الأطفال والمواليد',  specialtyEn: 'Pediatrics & Newborn',     revenue: 52_000,  appointments: 195, noShowRate: 7,  growthPct: 5 },
-  { specialtyAr: 'الباطنة',            specialtyEn: 'Internal Medicine',        revenue: 38_000,  appointments: 140, noShowRate: 15, growthPct: -8 },
+  { specialtyAr: 'النساء والعقم',     specialtyEn: 'Gynecology & Infertility', revenue: 110_000, appointments: 240, noShowRate: 8,  growthPct: 12 },
+  { specialtyAr: 'القلب',             specialtyEn: 'Cardiology',               revenue: 85_000,  appointments: 180, noShowRate: 5,  growthPct: 18 },
+  { specialtyAr: 'الجلدية',           specialtyEn: 'Dermatology',              revenue: 63_000,  appointments: 200, noShowRate: 12, growthPct: -3 },
+  { specialtyAr: 'الأطفال والمواليد', specialtyEn: 'Pediatrics & Newborn',     revenue: 52_000,  appointments: 195, noShowRate: 7,  growthPct: 5 },
+  { specialtyAr: 'الباطنة',           specialtyEn: 'Internal Medicine',        revenue: 38_000,  appointments: 140, noShowRate: 15, growthPct: -8 },
 ];
 
 const PATIENT_SOURCES = [
-  { sourceAr: 'مرضى العيادة', sourceEn: "Clinic's",   pct: 38, count: 235, color: '#DC2626' },
-  { sourceAr: 'مرضى الدكتور', sourceEn: "Doctor's",   pct: 28, count: 173, color: '#F87171' },
-  { sourceAr: 'VEZ',           sourceEn: 'VEZ',        pct: 14, count: 87,  color: '#6366F1' },
-  { sourceAr: 'EKF',           sourceEn: 'EKF',        pct: 10, count: 62,  color: '#8B5CF6' },
-  { sourceAr: 'أونلاين',      sourceEn: 'Online',     pct: 6,  count: 37,  color: '#EC4899' },
-  { sourceAr: 'أخرى',         sourceEn: 'Other',      pct: 4,  count: 25,  color: '#94A3B8' },
+  { sourceAr: 'مرضى العيادة', sourceEn: "Clinic's", pct: 38, count: 235, color: '#DC2626' },
+  { sourceAr: 'مرضى الدكتور', sourceEn: "Doctor's", pct: 28, count: 173, color: '#F87171' },
+  { sourceAr: 'VEZ',           sourceEn: 'VEZ',      pct: 14, count: 87,  color: '#6366F1' },
+  { sourceAr: 'EKF',           sourceEn: 'EKF',      pct: 10, count: 62,  color: '#8B5CF6' },
+  { sourceAr: 'أونلاين',      sourceEn: 'Online',   pct: 6,  count: 37,  color: '#EC4899' },
+  { sourceAr: 'أخرى',         sourceEn: 'Other',    pct: 4,  count: 25,  color: '#94A3B8' },
 ];
 
 const PERIODS = ['week', 'month', 'quarter', 'year'] as const;
@@ -47,9 +47,9 @@ const PERIOD_LABELS: Record<Period, { ar: string; en: string }> = {
   year:    { ar: 'سنة',   en: 'Year' },
 };
 
-// Simple SVG bar chart — no external dep required
-function BarChart({ data, lang }: { data: typeof MONTHLY_REVENUE; lang: string }) {
+function BarChart({ data, locale }: { data: typeof MONTHLY_REVENUE; locale: string }) {
   const maxRevenue = Math.max(...data.map((d) => d.revenue));
+  const isAr = locale === 'ar-EG';
   return (
     <div className="flex items-end gap-2 h-44 pt-4">
       {data.map((d, i) => {
@@ -58,17 +58,16 @@ function BarChart({ data, lang }: { data: typeof MONTHLY_REVENUE; lang: string }
         return (
           <div key={d.month} className="flex-1 flex flex-col items-center gap-1 group">
             <div className="relative w-full flex flex-col items-center">
-              {/* Tooltip */}
               <div className="absolute -top-10 left-1/2 -translate-x-1/2 hidden group-hover:flex bg-gray-900 text-white text-[10px] px-2 py-1 rounded-md whitespace-nowrap z-10 pointer-events-none">
-                {formatCurrency(d.revenue, 'EGP', 'en-US')}
+                {formatCurrency(d.revenue, 'EGP', locale)}
               </div>
               <div
                 className={`w-full rounded-t-md transition-all duration-300 ${isLast ? 'bg-primary-600' : 'bg-primary-200 group-hover:bg-primary-400'}`}
                 style={{ height: `${(heightPct / 100) * 140}px` }}
               />
             </div>
-            <span className="text-[10px] text-gray-400 tabular-nums">
-              {lang === 'ar' ? d.monthAr : d.month}
+            <span className="text-[10px] text-gray-400">
+              {isAr ? d.monthAr : d.month}
             </span>
           </div>
         );
@@ -77,15 +76,15 @@ function BarChart({ data, lang }: { data: typeof MONTHLY_REVENUE; lang: string }
   );
 }
 
-// Horizontal stacked bar for source breakdown
-function SourceBar({ sources, lang }: { sources: typeof PATIENT_SOURCES; lang: string }) {
+function SourceBar({ sources, locale, lang }: { sources: typeof PATIENT_SOURCES; locale: string; lang: string }) {
+  const isAr = lang === 'ar';
   return (
     <div className="space-y-3">
       <div className="flex h-5 rounded-full overflow-hidden gap-0.5">
         {sources.map((s) => (
           <div
             key={s.sourceEn}
-            title={`${lang === 'ar' ? s.sourceAr : s.sourceEn} — ${s.pct}%`}
+            title={`${isAr ? s.sourceAr : s.sourceEn} — ${formatNumber(s.pct, locale)}%`}
             style={{ width: `${s.pct}%`, backgroundColor: s.color }}
           />
         ))}
@@ -94,8 +93,8 @@ function SourceBar({ sources, lang }: { sources: typeof PATIENT_SOURCES; lang: s
         {sources.map((s) => (
           <div key={s.sourceEn} className="flex items-center gap-1.5 text-xs text-gray-600">
             <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
-            <span>{lang === 'ar' ? s.sourceAr : s.sourceEn}</span>
-            <span className="font-semibold tabular-nums text-gray-900">{s.pct}%</span>
+            <span>{isAr ? s.sourceAr : s.sourceEn}</span>
+            <span className="font-semibold text-gray-900">{formatNumber(s.pct, locale)}%</span>
           </div>
         ))}
       </div>
@@ -103,12 +102,20 @@ function SourceBar({ sources, lang }: { sources: typeof PATIENT_SOURCES; lang: s
   );
 }
 
+function pct(n: number, locale: string, showPlus = false): string {
+  const abs = Math.abs(n);
+  const sign = n > 0 && showPlus ? '+' : n < 0 ? '-' : '';
+  return `${sign}${formatNumber(abs, locale)}%`;
+}
+
 export default function AnalyticsPage() {
   const { lang, t } = useLang();
   const [period, setPeriod] = useState<Period>('month');
 
-  const currentMonth = MONTHLY_REVENUE[MONTHLY_REVENUE.length - 1];
-  const prevMonth    = MONTHLY_REVENUE[MONTHLY_REVENUE.length - 2];
+  const locale = lang === 'ar' ? 'ar-EG' : 'en-US';
+
+  const currentMonth  = MONTHLY_REVENUE[MONTHLY_REVENUE.length - 1];
+  const prevMonth     = MONTHLY_REVENUE[MONTHLY_REVENUE.length - 2];
   const revenueGrowth = Math.round(((currentMonth.revenue - prevMonth.revenue) / prevMonth.revenue) * 100);
   const apptGrowth    = Math.round(((currentMonth.appointments - prevMonth.appointments) / prevMonth.appointments) * 100);
   const totalPatients = PATIENT_SOURCES.reduce((s, p) => s + p.count, 0);
@@ -123,16 +130,13 @@ export default function AnalyticsPage() {
           <p className="text-sm text-gray-500 mt-0.5">{t('إبريل 2026', 'April 2026')}</p>
         </div>
         <div className="flex gap-2">
-          {/* Period selector */}
           <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
             {PERIODS.map((p) => (
               <button
                 key={p}
                 onClick={() => setPeriod(p)}
                 className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${
-                  period === p
-                    ? 'bg-white text-primary-700 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
+                  period === p ? 'bg-white text-primary-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
                 {t(PERIOD_LABELS[p].ar, PERIOD_LABELS[p].en)}
@@ -151,7 +155,7 @@ export default function AnalyticsPage() {
         <KpiCard
           title="Total Revenue"
           titleAr="إجمالي الإيرادات"
-          value={formatCurrency(currentMonth.revenue, 'EGP', lang === 'ar' ? 'ar-EG' : 'en-US')}
+          value={formatCurrency(currentMonth.revenue, 'EGP', locale)}
           icon={<DollarSign className="w-5 h-5" />}
           change={revenueGrowth}
           lang={lang as 'ar' | 'en'}
@@ -160,7 +164,7 @@ export default function AnalyticsPage() {
         <KpiCard
           title="Total Appointments"
           titleAr="إجمالي المواعيد"
-          value={currentMonth.appointments.toString()}
+          value={formatNumber(currentMonth.appointments, locale)}
           icon={<Calendar className="w-5 h-5" />}
           change={apptGrowth}
           lang={lang as 'ar' | 'en'}
@@ -168,7 +172,7 @@ export default function AnalyticsPage() {
         <KpiCard
           title="Unique Patients"
           titleAr="المرضى الفريدون"
-          value={totalPatients.toString()}
+          value={formatNumber(totalPatients, locale)}
           icon={<Users className="w-5 h-5" />}
           change={8}
           lang={lang as 'ar' | 'en'}
@@ -176,7 +180,7 @@ export default function AnalyticsPage() {
         <KpiCard
           title="No-Show Rate"
           titleAr="معدل الغياب"
-          value={`${avgNoShow}%`}
+          value={`${formatNumber(avgNoShow, locale)}%`}
           icon={<Activity className="w-5 h-5" />}
           change={-2}
           lang={lang as 'ar' | 'en'}
@@ -191,27 +195,25 @@ export default function AnalyticsPage() {
             <span className="text-xs text-gray-400">{t('آخر 7 أشهر', 'Last 7 months')}</span>
           </CardHeader>
           <CardContent>
-            <BarChart data={MONTHLY_REVENUE} lang={lang} />
+            <BarChart data={MONTHLY_REVENUE} locale={locale} />
             <div className="flex gap-6 mt-4 pt-4 border-t border-gray-50">
               <div>
                 <p className="text-xs text-gray-400 mb-0.5">{t('الشهر الحالي', 'Current month')}</p>
                 <p className="font-bold tabular-nums font-mono text-gray-900">
-                  {formatCurrency(currentMonth.revenue, 'EGP', 'en-US')}
+                  {formatCurrency(currentMonth.revenue, 'EGP', locale)}
                 </p>
               </div>
               <div>
                 <p className="text-xs text-gray-400 mb-0.5">{t('نمو شهري', 'MoM growth')}</p>
                 <p className={`font-bold tabular-nums font-mono flex items-center gap-1 ${revenueGrowth >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-                  {revenueGrowth >= 0
-                    ? <TrendingUp className="w-3.5 h-3.5" />
-                    : <TrendingDown className="w-3.5 h-3.5" />}
-                  {revenueGrowth > 0 ? '+' : ''}{revenueGrowth}%
+                  {revenueGrowth >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                  {pct(revenueGrowth, locale, true)}
                 </p>
               </div>
               <div>
                 <p className="text-xs text-gray-400 mb-0.5">{t('متوسط/موعد', 'Avg / appt')}</p>
                 <p className="font-bold tabular-nums font-mono text-gray-900">
-                  {formatCurrency(Math.round(currentMonth.revenue / currentMonth.appointments), 'EGP', 'en-US')}
+                  {formatCurrency(Math.round(currentMonth.revenue / currentMonth.appointments), 'EGP', locale)}
                 </p>
               </div>
             </div>
@@ -221,7 +223,7 @@ export default function AnalyticsPage() {
         <Card>
           <CardHeader><CardTitle>{t('مصادر المرضى', 'Patient Sources')}</CardTitle></CardHeader>
           <CardContent className="space-y-5">
-            <SourceBar sources={PATIENT_SOURCES} lang={lang} />
+            <SourceBar sources={PATIENT_SOURCES} locale={locale} lang={lang} />
             <div className="space-y-2">
               {PATIENT_SOURCES.map((s) => (
                 <div key={s.sourceEn} className="flex items-center justify-between text-sm">
@@ -229,7 +231,9 @@ export default function AnalyticsPage() {
                     <span className="w-2 h-2 rounded-full" style={{ backgroundColor: s.color }} />
                     <span className="text-gray-700">{lang === 'ar' ? s.sourceAr : s.sourceEn}</span>
                   </div>
-                  <span className="font-mono tabular-nums font-medium text-gray-900">{s.count}</span>
+                  <span className="font-mono tabular-nums font-medium text-gray-900">
+                    {formatNumber(s.count, locale)}
+                  </span>
                 </div>
               ))}
             </div>
@@ -265,22 +269,20 @@ export default function AnalyticsPage() {
                       {lang === 'ar' ? s.specialtyAr : s.specialtyEn}
                     </td>
                     <td className="px-5 py-3.5 font-mono tabular-nums text-gray-700">
-                      {formatCurrency(s.revenue, 'EGP', 'en-US')}
+                      {formatCurrency(s.revenue, 'EGP', locale)}
                     </td>
                     <td className="px-5 py-3.5 tabular-nums text-gray-600 hidden md:table-cell">
-                      {s.appointments}
+                      {formatNumber(s.appointments, locale)}
                     </td>
                     <td className="px-5 py-3.5">
                       <Badge variant={s.noShowRate > 10 ? 'danger' : s.noShowRate > 7 ? 'warning' : 'success'}>
-                        {s.noShowRate}%
+                        {formatNumber(s.noShowRate, locale)}%
                       </Badge>
                     </td>
                     <td className="px-5 py-3.5">
-                      <span className={`flex items-center gap-1 text-xs font-medium tabular-nums ${s.growthPct >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-                        {s.growthPct >= 0
-                          ? <TrendingUp className="w-3.5 h-3.5" />
-                          : <TrendingDown className="w-3.5 h-3.5" />}
-                        {s.growthPct > 0 ? '+' : ''}{s.growthPct}%
+                      <span className={`flex items-center gap-1 text-xs font-medium ${s.growthPct >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                        {s.growthPct >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                        {pct(s.growthPct, locale, true)}
                       </span>
                     </td>
                     <td className="px-5 py-3.5 hidden lg:table-cell">
@@ -288,7 +290,7 @@ export default function AnalyticsPage() {
                         <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden w-20">
                           <div className="h-full bg-primary-500 rounded-full" style={{ width: `${sharePct}%` }} />
                         </div>
-                        <span className="text-xs text-gray-500 tabular-nums w-8">{sharePct}%</span>
+                        <span className="text-xs text-gray-500 w-8">{formatNumber(sharePct, locale)}%</span>
                       </div>
                     </td>
                   </tr>
@@ -299,7 +301,7 @@ export default function AnalyticsPage() {
         </CardContent>
       </Card>
 
-      {/* No-show trend */}
+      {/* No-show trend + top doctors */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <Card>
           <CardHeader><CardTitle>{t('معدل الغياب حسب اليوم', 'No-Show Rate by Day')}</CardTitle></CardHeader>
@@ -316,8 +318,8 @@ export default function AnalyticsPage() {
                 <div key={d.dayEn}>
                   <div className="flex justify-between text-xs mb-1">
                     <span className="text-gray-600 w-20">{lang === 'ar' ? d.dayAr : d.dayEn}</span>
-                    <span className={`font-semibold tabular-nums ${d.rate >= 15 ? 'text-red-500' : d.rate >= 10 ? 'text-amber-600' : 'text-emerald-600'}`}>
-                      {d.rate}%
+                    <span className={`font-semibold ${d.rate >= 15 ? 'text-red-500' : d.rate >= 10 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                      {formatNumber(d.rate, locale)}%
                     </span>
                   </div>
                   <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
@@ -337,24 +339,28 @@ export default function AnalyticsPage() {
           <CardContent>
             <div className="space-y-3">
               {[
-                { rankNum: 1, nameAr: 'د. سامر نور',   nameEn: 'Dr. Samer Nour',   revenue: 55_000, growthPct: 18 },
-                { rankNum: 2, nameAr: 'د. هدى إبراهيم', nameEn: 'Dr. Hoda Ibrahim',revenue: 48_000, growthPct: 12 },
-                { rankNum: 3, nameAr: 'د. رانيا سعيد',  nameEn: 'Dr. Rania Said',  revenue: 38_000, growthPct: -3 },
-                { rankNum: 4, nameAr: 'د. خالد رشاد',   nameEn: 'Dr. Khaled Rashad',revenue: 32_000, growthPct: 5 },
+                { rankNum: 1, nameAr: 'د. سامر نور',    nameEn: 'Dr. Samer Nour',    revenue: 55_000, growthPct: 18 },
+                { rankNum: 2, nameAr: 'د. هدى إبراهيم',  nameEn: 'Dr. Hoda Ibrahim',  revenue: 48_000, growthPct: 12 },
+                { rankNum: 3, nameAr: 'د. رانيا سعيد',   nameEn: 'Dr. Rania Said',    revenue: 38_000, growthPct: -3 },
+                { rankNum: 4, nameAr: 'د. خالد رشاد',    nameEn: 'Dr. Khaled Rashad', revenue: 32_000, growthPct: 5 },
               ].map((dr) => {
                 const maxRev = 55_000;
                 return (
                   <div key={dr.rankNum} className="flex items-center gap-3">
-                    <span className="text-xs font-bold text-gray-300 tabular-nums w-4">{dr.rankNum}</span>
+                    <span className="text-xs font-bold text-gray-300 w-4">
+                      {formatNumber(dr.rankNum, locale)}
+                    </span>
                     <div className="flex-1">
                       <div className="flex justify-between text-xs mb-1">
                         <span className="font-medium text-gray-800">{lang === 'ar' ? dr.nameAr : dr.nameEn}</span>
                         <div className="flex items-center gap-2">
                           <span className={`flex items-center gap-0.5 ${dr.growthPct >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
                             {dr.growthPct >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                            {dr.growthPct > 0 ? '+' : ''}{dr.growthPct}%
+                            {pct(dr.growthPct, locale, true)}
                           </span>
-                          <span className="font-mono tabular-nums text-gray-700">{formatCurrency(dr.revenue, 'EGP', 'en-US')}</span>
+                          <span className="font-mono tabular-nums text-gray-700">
+                            {formatCurrency(dr.revenue, 'EGP', locale)}
+                          </span>
                         </div>
                       </div>
                       <div className="h-2 bg-gray-100 rounded-full overflow-hidden">

@@ -9,6 +9,10 @@ export function formatCurrency(amount: number, currency = 'EGP', locale = 'ar-EG
   return new Intl.NumberFormat(locale, { style: 'currency', currency }).format(amount);
 }
 
+export function formatNumber(n: number, locale = 'ar-EG'): string {
+  return new Intl.NumberFormat(locale).format(n);
+}
+
 export function formatDate(date: string | Date, locale = 'ar-EG'): string {
   return new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(new Date(date));
 }
