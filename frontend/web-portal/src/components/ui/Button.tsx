@@ -7,17 +7,23 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        primary:   'bg-primary-600 text-white hover:bg-primary-700 active:scale-[0.98] shadow-2',
-        secondary: 'bg-white text-primary-700 border border-primary-200 hover:bg-primary-50 active:scale-[0.98]',
-        ghost:     'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
-        danger:    'bg-red-600 text-white hover:bg-red-700 active:scale-[0.98]',
-        success:   'bg-emerald-600 text-white hover:bg-emerald-700 active:scale-[0.98]',
-        outline:   'border border-gray-200 text-gray-700 hover:bg-gray-50',
+        primary:
+          'bg-primary-600 text-white hover:bg-primary-700 active:scale-[0.98] shadow-2',
+        secondary:
+          'bg-white dark:bg-neutral-800 text-primary-700 dark:text-primary-400 border border-primary-200 dark:border-primary-800 hover:bg-primary-50 dark:hover:bg-primary-900/30 active:scale-[0.98]',
+        ghost:
+          'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-neutral-700 hover:text-gray-900 dark:hover:text-gray-100',
+        danger:
+          'bg-red-600 text-white hover:bg-red-700 active:scale-[0.98]',
+        success:
+          'bg-emerald-600 text-white hover:bg-emerald-700 active:scale-[0.98]',
+        outline:
+          'border border-gray-200 dark:border-neutral-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-neutral-700',
       },
       size: {
-        sm: 'h-8 px-3 text-xs',
-        md: 'h-10 px-4 text-sm',
-        lg: 'h-11 px-6 text-base',
+        sm:   'h-8 px-3 text-xs',
+        md:   'h-10 px-4 text-sm',
+        lg:   'h-11 px-6 text-base',
         icon: 'h-9 w-9',
       },
     },

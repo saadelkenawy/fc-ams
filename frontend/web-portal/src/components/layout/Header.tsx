@@ -25,15 +25,13 @@ export function Header({ title, titleAr }: HeaderProps) {
   }
 
   return (
-    <header className="h-16 bg-white border-b border-gray-100 flex items-center px-6 gap-4 flex-shrink-0">
-      {/* Page title */}
+    <header className="h-16 bg-white dark:bg-neutral-900 border-b border-gray-100 dark:border-neutral-800 flex items-center px-6 gap-4 flex-shrink-0 transition-colors duration-200">
       {(title ?? titleAr) && (
-        <h1 className="text-lg font-semibold text-gray-900 font-display me-auto">
+        <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100 font-display me-auto">
           {lang === 'ar' ? (titleAr ?? title) : (title ?? titleAr)}
         </h1>
       )}
 
-      {/* Search */}
       <div className={cn('flex-1 max-w-sm', !(title ?? titleAr) && 'ms-0')}>
         <Input
           placeholder={t('بحث...', 'Search...')}
@@ -43,31 +41,28 @@ export function Header({ title, titleAr }: HeaderProps) {
         />
       </div>
 
-      {/* Actions */}
-      <div className="flex items-center gap-2 ms-auto">
-        {/* Language toggle */}
+      <div className="flex items-center gap-1 ms-auto">
         <Button
           variant="ghost"
           size="icon"
           onClick={toggle}
           title={t('English', 'عربي')}
-          className="text-gray-500 hover:text-primary-600"
         >
           <Globe className="w-4 h-4" />
         </Button>
 
-        {/* Dark mode */}
         <Button
           variant="ghost"
           size="icon"
           onClick={toggleTheme}
-          className="text-gray-500 hover:text-primary-600"
+          title={dark ? t('وضع النهار', 'Light mode') : t('وضع الليل', 'Dark mode')}
         >
-          {dark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          {dark
+            ? <Sun className="w-4 h-4 text-amber-400" />
+            : <Moon className="w-4 h-4" />}
         </Button>
 
-        {/* Notifications */}
-        <Button variant="ghost" size="icon" className="relative text-gray-500 hover:text-primary-600">
+        <Button variant="ghost" size="icon" className="relative">
           <Bell className="w-4 h-4" />
           {notifCount > 0 && (
             <span className="absolute -top-0.5 -end-0.5 min-w-[16px] h-4 bg-primary-600 text-white text-[9px] font-bold rounded-full flex items-center justify-center px-0.5">

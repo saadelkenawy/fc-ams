@@ -15,13 +15,13 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="flex flex-col gap-1.5">
         {displayLabel && (
-          <label htmlFor={id} className="text-sm font-medium text-gray-700">
+          <label htmlFor={id} className="text-sm font-medium text-gray-700 dark:text-gray-300">
             {displayLabel}
           </label>
         )}
         <div className="relative">
           {icon && (
-            <span className="absolute inset-y-0 start-3 flex items-center text-gray-400 pointer-events-none">
+            <span className="absolute inset-y-0 start-3 flex items-center text-gray-400 dark:text-gray-500 pointer-events-none">
               {icon}
             </span>
           )}
@@ -29,10 +29,10 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             ref={ref}
             id={id}
             className={cn(
-              'w-full h-11 rounded-lg border border-gray-200 bg-white px-4 text-sm text-gray-900',
-              'placeholder:text-gray-400',
+              'w-full h-11 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-4 text-sm text-gray-900 dark:text-gray-100',
+              'placeholder:text-gray-400 dark:placeholder:text-gray-500',
               'focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent',
-              'disabled:bg-gray-50 disabled:text-gray-500',
+              'disabled:bg-gray-50 dark:disabled:bg-neutral-900 disabled:text-gray-500 dark:disabled:text-gray-600',
               'transition-shadow duration-150',
               icon && 'ps-10',
               error && 'border-red-400 focus:ring-red-500',
