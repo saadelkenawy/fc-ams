@@ -1,0 +1,193 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Design tokens ──────────────────────────────────────────────────────── */
+@layer base {
+  :root {
+    --gradient-logo:      linear-gradient(135deg,#1A0000 0%,#5C0F0F 18%,#B91C1C 42%,#DC2626 65%,#EF4444 85%,#FF2A4A 100%);
+    --gradient-sidebar:   linear-gradient(180deg,#DC2626 0%,#991B1B 50%,#7F1D1D 100%);
+    --gradient-hero:      linear-gradient(135deg,#FEF2F2 0%,#FFE4D6 35%,#FFFFFF 60%,#F5EFE5 100%);
+    --gradient-glass:     linear-gradient(135deg,rgba(255,255,255,0.75) 0%,rgba(255,255,255,0.5) 100%);
+    --gradient-card-warm: linear-gradient(135deg,#FFFFFF 0%,#FEF2F2 100%);
+
+    /* Surfaces */
+    --color-bg:            #F9FAFB;
+    --color-bg-elevated:   #FFFFFF;
+    --color-bg-card:       #FFFFFF;
+    --color-bg-input:      #FFFFFF;
+    --color-border:        #E5E7EB;
+    --color-border-strong: #D1D5DB;
+
+    /* Text */
+    --color-text-primary:   #111827;
+    --color-text-secondary: #374151;
+    --color-text-tertiary:  #6B7280;
+    --color-text-disabled:  #9CA3AF;
+
+    /* Semantic */
+    --color-success: #10B981;
+    --color-warning: #F59E0B;
+    --color-danger:  #EF4444;
+    --color-info:    #3B82F6;
+
+    /* Appointment status */
+    --status-tbc:   #F59E0B;
+    --status-ok:    #3B82F6;
+    --status-conf:  #10B981;
+    --status-comp:  #6B7280;
+    --status-canc:  #EF4444;
+    --status-resch: #8B5CF6;
+    --status-inf:   #FDA4AF;
+
+    /* Motion */
+    --duration-fast:   150ms;
+    --duration-base:   200ms;
+    --duration-medium: 300ms;
+    --ease-out:   cubic-bezier(0.0,0.0,0.2,1);
+    --ease-spring:cubic-bezier(0.34,1.56,0.64,1);
+    --ease-snap:  cubic-bezier(0.16,1,0.3,1);
+  }
+
+  [data-theme="dark"] {
+    --color-bg:            #0A0A0A;
+    --color-bg-elevated:   #171717;
+    --color-bg-card:       #1F1F1F;
+    --color-bg-input:      #262626;
+    --color-border:        #262626;
+    --color-border-strong: #404040;
+    --color-text-primary:  #F9FAFB;
+    --color-text-secondary:#D1D5DB;
+    --color-text-tertiary: #9CA3AF;
+    --color-text-disabled: #6B7280;
+    --gradient-glass:      linear-gradient(135deg,rgba(31,31,31,0.85) 0%,rgba(23,23,23,0.7) 100%);
+  }
+
+  /* Density modes */
+  [data-density="compact"]    { --row-height:36px; --btn-height:32px; --input-height:36px; --card-padding:12px; --field-gap:8px; }
+  [data-density="comfortable"]{ --row-height:52px; --btn-height:40px; --input-height:44px; --card-padding:20px; --field-gap:16px; }
+  [data-density="spacious"]   { --row-height:64px; --btn-height:48px; --input-height:52px; --card-padding:24px; --field-gap:24px; }
+
+  /* Font size scaling */
+  :root[data-text-size="sm"] { font-size:14px; }
+  :root[data-text-size="md"] { font-size:16px; }
+  :root[data-text-size="lg"] { font-size:18px; }
+  :root[data-text-size="xl"] { font-size:20px; }
+
+  html { @apply antialiased; }
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-text-primary);
+    font-family: var(--font-manrope), var(--font-tajawal), system-ui, sans-serif;
+    transition: background-color 200ms ease, color 200ms ease;
+  }
+  body[dir="rtl"] {
+    font-family: var(--font-tajawal), var(--font-manrope), system-ui, sans-serif;
+  }
+
+  * { @apply border-[var(--color-border)]; }
+}
+
+/* ── Utility classes ────────────────────────────────────────────────────── */
+@layer components {
+  /* Glassmorphism — light mode */
+  .glass {
+    background: rgba(255,255,255,0.65);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(255,255,255,0.5);
+  }
+  .glass-primary {
+    background: linear-gradient(135deg,rgba(220,38,38,0.85) 0%,rgba(153,27,27,0.75) 100%);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: white;
+  }
+
+  /* Status dot */
+  .status-dot {
+    @apply inline-block w-2 h-2 rounded-full;
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+
+  /* Floating panel */
+  .panel-floating {
+    transform: perspective(1000px) rotateY(-2deg) rotateX(1deg);
+    transform-style: preserve-3d;
+    transition: transform var(--duration-medium) var(--ease-out);
+  }
+  .panel-floating:hover {
+    transform: perspective(1000px) rotateY(0deg) rotateX(0deg) translateY(-4px);
+  }
+
+  /* Atmospheric background */
+  .bg-atmospheric {
+    background:
+      radial-gradient(ellipse at top left,  rgba(220,38,38,0.06) 0%, transparent 50%),
+      radial-gradient(ellipse at bottom right, rgba(240,98,62,0.04) 0%, transparent 50%),
+      var(--color-bg);
+  }
+
+  /* Sidebar nav item */
+  .nav-item {
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
+           text-white/75 hover:text-white hover:bg-white/10
+           transition-all duration-150 cursor-pointer;
+  }
+  .nav-item.active { @apply text-white bg-white/20; }
+
+  /* Pill tabs — base */
+  .pill-tab {
+    @apply px-5 py-2 rounded-full text-sm font-medium transition-all duration-150;
+  }
+  .pill-tab.active {
+    @apply bg-primary-600 text-white shadow-glow-primary;
+  }
+  .pill-tab:not(.active) {
+    @apply text-gray-600 hover:bg-gray-100;
+  }
+
+  /* Pill tab wrapper (the white rounded-full strip) */
+  .pill-tab-bar {
+    @apply flex items-center gap-1 p-1 bg-white dark:bg-neutral-800 rounded-full shadow-1 border border-gray-100 dark:border-neutral-700;
+  }
+}
+
+/* ── Dark mode overrides ────────────────────────────────────────────────── */
+/* Glass */
+[data-theme="dark"] .glass {
+  background: rgba(31,31,31,0.88);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255,255,255,0.07);
+}
+
+/* Pill tab inactive in dark */
+[data-theme="dark"] .pill-tab:not(.active) {
+  color: #D1D5DB;
+}
+[data-theme="dark"] .pill-tab:not(.active):hover {
+  background-color: #262626;
+  color: #F3F4F6;
+}
+
+/* Atmospheric — dark already driven by var(--color-bg) changing */
+
+/* ── Reduced motion ──────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── Print ──────────────────────────────────────────────────────────────── */
+@media print {
+  @page { size: A4; margin: 20mm 15mm; }
+  nav, aside, .no-print, button { display: none !important; }
+  body { background: white !important; color: black !important; font-size: 11pt; }
+  table { border-collapse: collapse; width: 100%; }
+  table th, table td { border: 1px solid #000; padding: 4mm; }
+}

@@ -1,0 +1,500 @@
+
+
+# ─── Fadl Clinic — Local Development Stack ────────────────────────────────────
+# Usage:
+#   docker compose up -d postgres redis          # just infrastructure
+#   docker compose up -d                         # everything
+#   docker compose logs -f patient-service
+#   docker compose down -v                       # teardown + wipe volumes
+#
+# Each service has its own PostgreSQL database (microservice isolation).
+# A single Postgres instance runs all databases for local dev simplicity.
+
+x-service-defaults: &service-defaults
+  restart: unless-stopped
+  networks:
+    - fadl-net
+
+x-pg-env: &pg-env
+  POSTGRES_USER: fadl
+  POSTGRES_PASSWORD: fadl_dev_secret
+  PGPASSWORD: fadl_dev_secret
+
+x-jwt-env: &jwt-env
+  JWT_SECRET: fadl_super_secret_jwt_key_min_32_chars_dev
+  JWT_EXPIRY: 15m
+
+# ─── SERVICES ─────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── Infrastructure ──────────────────────────────────────────────────────────
+
+  postgres:
+    <<: *service-defaults
+    image: postgres:16-alpine
+    environment:
+      <<: *pg-env
+      POSTGRES_DB: postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/00_init.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fadl"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    <<: *service-defaults
+    image: redis:7-alpine
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redisdata:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  minio:
+    <<: *service-defaults
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: fadl_minio
+      MINIO_ROOT_PASSWORD: fadl_minio_secret
+    volumes:
+      - miniodata:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://127.0.0.1:9000/minio/health/live || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # ── Microservices ───────────────────────────────────────────────────────────
+
+  identity-service:
+    <<: *service-defaults
+    build:
+      context: .
+      dockerfile: services/Dockerfile.backend
+      args:
+        SERVICE_DIR: identity-service
+    environment:
+      <<: *jwt-env
+      NODE_ENV: development
+      PORT: 3000
+      DATABASE_URL: postgresql://fadl:fadl_dev_secret@postgres:5432/fadl_identity
+      DATABASE_POOL_MIN: 2
+      DATABASE_POOL_MAX: 10
+      LOG_LEVEL: info
+      BRANCH_ID: 1
+      SERVICE_NAME: identity-service
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  patient-service:
+    <<: *service-defaults
+    build:
+      context: .
+      dockerfile: services/Dockerfile.backend
+      args:
+        SERVICE_DIR: patient-service
+    environment:
+      <<: *jwt-env
+      NODE_ENV: development
+      PORT: 3002
+      DATABASE_URL: postgresql://fadl:fadl_dev_secret@postgres:5432/fadl_patients
+      DATABASE_POOL_MIN: 2
+      DATABASE_POOL_MAX: 10
+      LOG_LEVEL: info
+      BRANCH_ID: 1
+      SERVICE_NAME: patient-service
+    ports:
+      - "3002:3002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3002/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  appointment-service:
+    <<: *service-defaults
+    build:
+      context: .
+      dockerfile: services/Dockerfile.backend
+      args:
+        SERVICE_DIR: appointment-service
+    environment:
+      <<: *jwt-env
+      NODE_ENV: development
+      PORT: 3001
+      DATABASE_URL: postgresql://fadl:fadl_dev_secret@postgres:5432/fadl_appointments
+      REDIS_URL: redis://redis:6379
+      DATABASE_POOL_MIN: 2
+      DATABASE_POOL_MAX: 10
+      LOG_LEVEL: info
+      BRANCH_ID: 1
+      SERVICE_NAME: appointment-service
+      NOTIFICATION_SERVICE_URL: http://notification-service:3007/api/v1
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      notification-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3001/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  doctor-service:
+    <<: *service-defaults
+    build:
+      context: .
+      dockerfile: services/Dockerfile.backend
+      args:
+        SERVICE_DIR: doctor-service
+    environment:
+      <<: *jwt-env
+      NODE_ENV: development
+      PORT: 3003
+      DATABASE_URL: postgresql://fadl:fadl_dev_secret@postgres:5432/fadl_doctors
+      DATABASE_POOL_MIN: 2
+      DATABASE_POOL_MAX: 10
+      LOG_LEVEL: info
+      BRANCH_ID: 1
+      SERVICE_NAME: doctor-service
+    ports:
+      - "3003:3003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3003/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  billing-service:
+    <<: *service-defaults
+    build:
+      context: .
+      dockerfile: services/Dockerfile.backend
+      args:
+        SERVICE_DIR: billing-service
+    environment:
+      <<: *jwt-env
+      NODE_ENV: development
+      PORT: 3004
+      DATABASE_URL: postgresql://fadl:fadl_dev_secret@postgres:5432/fadl_billing
+      DATABASE_POOL_MIN: 2
+      DATABASE_POOL_MAX: 10
+      LOG_LEVEL: info
+      BRANCH_ID: 1
+      SERVICE_NAME: billing-service
+    ports:
+      - "3004:3004"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3004/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  notification-service:
+    <<: *service-defaults
+    build:
+      context: .
+      dockerfile: services/Dockerfile.backend
+      args:
+        SERVICE_DIR: notification-service
+    environment:
+      <<: *jwt-env
+      NODE_ENV: development
+      PORT: 3007
+      DATABASE_URL: postgresql://fadl:fadl_dev_secret@postgres:5432/fadl_notifications
+      DATABASE_POOL_MIN: 2
+      DATABASE_POOL_MAX: 10
+      LOG_LEVEL: info
+      BRANCH_ID: 1
+      SERVICE_NAME: notification-service
+    ports:
+      - "3007:3007"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3007/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  ai-chatbot-service:
+    <<: *service-defaults
+    build:
+      context: .
+      dockerfile: services/Dockerfile.backend
+      args:
+        SERVICE_DIR: ai-chatbot-service
+    environment:
+      <<: *jwt-env
+      NODE_ENV: development
+      PORT: 3008
+      DATABASE_URL: postgresql://fadl:fadl_dev_secret@postgres:5432/fadl_chatbot
+      DATABASE_POOL_MIN: 2
+      DATABASE_POOL_MAX: 10
+      LOG_LEVEL: info
+      BRANCH_ID: 1
+      SERVICE_NAME: ai-chatbot-service
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: claude-haiku-4-5-20251001
+    ports:
+      - "3008:3008"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3008/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  file-service:
+    <<: *service-defaults
+    build:
+      context: .
+      dockerfile: services/Dockerfile.backend
+      args:
+        SERVICE_DIR: file-service
+    environment:
+      <<: *jwt-env
+      NODE_ENV: development
+      PORT: 3011
+      DATABASE_URL: postgresql://fadl:fadl_dev_secret@postgres:5432/fadl_files
+      DATABASE_POOL_MIN: 2
+      DATABASE_POOL_MAX: 10
+      LOG_LEVEL: info
+      BRANCH_ID: 1
+      SERVICE_NAME: file-service
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_ACCESS_KEY: fadl_minio
+      MINIO_SECRET_KEY: fadl_minio_secret
+      MINIO_BUCKET: fadl-files
+      MINIO_USE_SSL: "false"
+    ports:
+      - "3011:3011"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3011/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  analytics-service:
+    <<: *service-defaults
+    build:
+      context: .
+      dockerfile: services/Dockerfile.backend
+      args:
+        SERVICE_DIR: analytics-service
+    environment:
+      <<: *jwt-env
+      NODE_ENV: development
+      PORT: 3009
+      LOG_LEVEL: info
+      BRANCH_ID: 1
+      SERVICE_NAME: analytics-service
+      BILLING_SERVICE_URL: http://billing-service:3004/api/v1
+      APPOINTMENT_SERVICE_URL: http://appointment-service:3001/api/v1
+      PATIENT_SERVICE_URL: http://patient-service:3002/api/v1
+    ports:
+      - "3009:3009"
+    depends_on:
+      - billing-service
+      - appointment-service
+      - patient-service
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3009/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  ehr-service:
+    <<: *service-defaults
+    build:
+      context: .
+      dockerfile: services/Dockerfile.backend
+      args:
+        SERVICE_DIR: ehr-service
+    environment:
+      <<: *jwt-env
+      NODE_ENV: development
+      PORT: 3005
+      DATABASE_URL: postgresql://fadl:fadl_dev_secret@postgres:5432/fadl_ehr
+      DATABASE_POOL_MIN: 2
+      DATABASE_POOL_MAX: 10
+      LOG_LEVEL: info
+      BRANCH_ID: 1
+      SERVICE_NAME: ehr-service
+    ports:
+      - "3005:3005"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3005/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  procedure-service:
+    <<: *service-defaults
+    build:
+      context: .
+      dockerfile: services/Dockerfile.backend
+      args:
+        SERVICE_DIR: procedure-service
+    environment:
+      <<: *jwt-env
+      NODE_ENV: development
+      PORT: 3006
+      DATABASE_URL: postgresql://fadl:fadl_dev_secret@postgres:5432/fadl_procedures
+      DATABASE_POOL_MIN: 2
+      DATABASE_POOL_MAX: 10
+      LOG_LEVEL: info
+      BRANCH_ID: 1
+      SERVICE_NAME: procedure-service
+    ports:
+      - "3006:3006"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3006/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  web-portal:
+    <<: *service-defaults
+    build:
+      context: .
+      dockerfile: frontend/web-portal/Dockerfile
+    environment:
+      NODE_ENV: development
+      PORT: 3010
+      # Server-side vars for next.config.js rewrites (resolved inside Docker network)
+      IDENTITY_SERVICE_URL: http://identity-service:3000/api/v1
+      PATIENT_SERVICE_URL: http://patient-service:3002/api/v1
+      APPOINTMENT_SERVICE_URL: http://appointment-service:3001/api/v1
+      DOCTOR_SERVICE_URL: http://doctor-service:3003/api/v1
+      BILLING_SERVICE_URL: http://billing-service:3004/api/v1
+      EHR_SERVICE_URL: http://ehr-service:3005/api/v1
+      PROCEDURE_SERVICE_URL: http://procedure-service:3006/api/v1
+      NOTIFICATION_SERVICE_URL: http://notification-service:3007/api/v1
+      ANALYTICS_SERVICE_URL: http://analytics-service:3009/api/v1
+      CHATBOT_SERVICE_URL: http://ai-chatbot-service:3008/api/v1
+      FILE_SERVICE_URL: http://file-service:3011/api/v1
+      INTEGRATION_SERVICE_URL: http://integration-service:3012/api/v1
+    ports:
+      - "3010:3010"
+    depends_on:
+      - identity-service
+      - patient-service
+      - appointment-service
+      - doctor-service
+      - billing-service
+      - ehr-service
+      - procedure-service
+
+  integration-service:
+    <<: *service-defaults
+    build:
+      context: .
+      dockerfile: services/Dockerfile.backend
+      args:
+        SERVICE_DIR: integration-service
+    environment:
+      <<: *jwt-env
+      NODE_ENV: development
+      PORT: 3012
+      DATABASE_URL: postgresql://fadl:fadl_dev_secret@postgres:5432/fadl_integrations
+      DATABASE_POOL_MIN: 2
+      DATABASE_POOL_MAX: 10
+      LOG_LEVEL: info
+      BRANCH_ID: 1
+      SERVICE_NAME: integration-service
+      APPOINTMENT_SERVICE_URL: http://appointment-service:3001/api/v1
+      BILLING_SERVICE_URL: http://billing-service:3004/api/v1
+      PATIENT_SERVICE_URL: http://patient-service:3002/api/v1
+      VIZITA_WEBHOOK_SECRET: ${VIZITA_WEBHOOK_SECRET:-}
+      EKSHF_WEBHOOK_SECRET: ${EKSHF_WEBHOOK_SECRET:-}
+      CLINIDO_WEBHOOK_SECRET: ${CLINIDO_WEBHOOK_SECRET:-}
+      INSTAPAY_WEBHOOK_SECRET: ${INSTAPAY_WEBHOOK_SECRET:-}
+    ports:
+      - "3012:3012"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      appointment-service:
+        condition: service_healthy
+      patient-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3012/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+# ─── NETWORKS & VOLUMES ───────────────────────────────────────────────────────
+
+networks:
+  fadl-net:
+    driver: bridge
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:
