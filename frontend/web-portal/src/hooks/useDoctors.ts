@@ -9,8 +9,8 @@ export function useDoctors(params: { isActive?: boolean; limit?: number } = {}) 
     queryFn: async () => {
       const qs: Record<string, string> = { limit: String(params.limit ?? 100) };
       if (params.isActive !== undefined) qs.isActive = String(params.isActive);
-      const { data } = await doctorApi.get<ApiResponse<PaginatedResponse<Doctor>>>('/doctors', { params: qs });
-      return data.data!;
+      const res = await doctorApi.get('/doctors', { params: qs });
+      return res.data as PaginatedResponse<Doctor>;
     },
     staleTime: 60_000,
   });

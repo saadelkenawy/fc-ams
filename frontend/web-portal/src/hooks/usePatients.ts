@@ -12,8 +12,8 @@ export function usePatients(params: PatientListParams = {}) {
   return useQuery({
     queryKey: ['patients', params],
     queryFn: async () => {
-      const { data } = await patientApi.get<ApiResponse<PaginatedResponse<Patient>>>('/patients', { params });
-      return data.data!;
+      const res = await patientApi.get('/patients', { params });
+      return res.data as PaginatedResponse<Patient>;
     },
     staleTime: 30_000,
     keepPreviousData: true,

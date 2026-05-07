@@ -23,8 +23,8 @@ export function useTransactions(params: TransactionListParams = {}) {
       if (params.doctorId) qs.doctorId = params.doctorId;
       if (params.patientId) qs.patientId = params.patientId;
       if (params.page)     qs.page     = params.page;
-      const { data } = await billingApi.get<ApiResponse<PaginatedResponse<FinancialTransaction>>>('/transactions', { params: qs });
-      return data.data!;
+      const res = await billingApi.get('/transactions', { params: qs });
+      return res.data as PaginatedResponse<FinancialTransaction>;
     },
     staleTime: 20_000,
     keepPreviousData: true,
@@ -42,8 +42,8 @@ export function useSettlements(params: SettlementParams) {
   return useQuery({
     queryKey: ['settlements', params],
     queryFn: async () => {
-      const { data } = await billingApi.get<ApiResponse<PaginatedResponse<DoctorSettlement>>>('/settlements', { params });
-      return data.data!;
+      const res = await billingApi.get('/settlements', { params });
+      return res.data as PaginatedResponse<DoctorSettlement>;
     },
     enabled: !!params.from && !!params.to,
     staleTime: 30_000,
