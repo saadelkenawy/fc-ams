@@ -1,15 +1,179 @@
 'use client';
 
-import { Bell, Search, Sun, Moon, Globe, LayoutGrid, Minus, Plus, X, User } from 'lucide-react';
+import { Bell, Search, Sun, Moon, Globe, LayoutGrid, Minus, Plus, X, User, CheckCircle2, AlertCircle, Clock, MessageSquare } from 'lucide-react';
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { useLang } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/Button';
 import { usePatients } from '@/hooks/usePatients';
 import { useDebounce } from '@/hooks/useDebounce';
+import { notificationApi } from '@/lib/api';
 import type { Patient } from '@fadl/types';
+
+// ─── Notification types ───────────────────────────────────────────────────────
+
+interface NotifItem {
+  id: string;
+  channel: string;
+  recipientType: string;
+  body: string;
+  status: 'queued' | 'sent' | 'delivered' | 'failed' | 'cancelled';
+  createdAt: string;
+}
+
+const NOTIF_ICON: Record<string, React.ComponentType<{ className?: string }>> = {
+  sent:      CheckCircle2,
+  delivered: CheckCircle2,
+  failed:    AlertCircle,
+  queued:    Clock,
+  cancelled: X,
+};
+
+const NOTIF_COLOR: Record<string, string> = {
+  sent:      'text-emerald-500',
+  delivered: 'text-emerald-600',
+  failed:    'text-red-500',
+  queued:    'text-amber-500',
+  cancelled: 'text-gray-400',
+};
+
+function useRecentNotifications(enabled: boolean) {
+  return useQuery({
+    queryKey: ['notifications-bell'],
+    queryFn: async () => {
+      const { data } = await notificationApi.get<{ data: NotifItem[]; total: number }>(
+        '/notifications?limit=8',
+      );
+      return data;
+    },
+    enabled,
+    refetchInterval: 30_000,
+    staleTime: 20_000,
+    retry: false,
+  });
+}
+
+// ─── Bell + dropdown ──────────────────────────────────────────────────────────
+
+function NotificationBell() {
+  const { lang, t } = useLang();
+  const { user } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [seenAt, setSeenAt] = useState<string>(() =>
+    typeof window !== 'undefined'
+      ? (localStorage.getItem('fcms_notif_seen') ?? new Date(0).toISOString())
+      : new Date(0).toISOString(),
+  );
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  const canSee = user?.role === 'admin' || user?.role === 'receptionist' || user?.role === 'finance';
+  const { data } = useRecentNotifications(canSee);
+
+  const notifications: NotifItem[] = data?.data ?? [];
+  const unseen = notifications.filter((n) => n.createdAt > seenAt).length;
+
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  function handleOpen() {
+    setOpen((o) => !o);
+    if (!open) {
+      const now = new Date().toISOString();
+      setSeenAt(now);
+      localStorage.setItem('fcms_notif_seen', now);
+    }
+  }
+
+  function formatRelative(iso: string): string {
+    const diff = Date.now() - new Date(iso).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return t('الآن', 'Just now');
+    if (mins < 60) return lang === 'ar' ? `${mins} د` : `${mins}m`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return lang === 'ar' ? `${hrs} س` : `${hrs}h`;
+    return lang === 'ar' ? `${Math.floor(hrs / 24)} ي` : `${Math.floor(hrs / 24)}d`;
+  }
+
+  return (
+    <div className="relative" ref={panelRef}>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="relative h-8 w-8 me-2"
+        onClick={handleOpen}
+        title={t('الإشعارات', 'Notifications')}
+      >
+        <Bell className="w-4 h-4" />
+        {unseen > 0 && (
+          <span className="absolute -top-0.5 -end-0.5 min-w-[16px] h-4 bg-primary-600 text-white text-[9px] font-bold rounded-full flex items-center justify-center px-0.5">
+            {unseen > 9 ? '9+' : unseen}
+          </span>
+        )}
+      </Button>
+
+      {open && (
+        <div className="absolute top-10 end-0 z-50 w-80 bg-white dark:bg-neutral-800 rounded-xl shadow-xl border border-gray-100 dark:border-neutral-700 overflow-hidden animate-slide-down">
+          <div className="px-4 py-3 border-b border-gray-100 dark:border-neutral-700 flex items-center justify-between">
+            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+              {t('الإشعارات', 'Notifications')}
+            </p>
+            {data?.total !== undefined && (
+              <span className="text-xs text-gray-400">{data.total} {t('إجمالي', 'total')}</span>
+            )}
+          </div>
+
+          {notifications.length === 0 ? (
+            <div className="px-4 py-8 text-center">
+              <MessageSquare className="w-8 h-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+              <p className="text-sm text-gray-400 dark:text-gray-500">{t('لا توجد إشعارات', 'No notifications')}</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-50 dark:divide-neutral-700 max-h-80 overflow-y-auto">
+              {notifications.map((n) => {
+                const Icon = NOTIF_ICON[n.status] ?? Bell;
+                const isNew = n.createdAt > seenAt;
+                return (
+                  <div
+                    key={n.id}
+                    className={cn(
+                      'px-4 py-3 flex gap-3 items-start transition-colors',
+                      isNew ? 'bg-primary-50/50 dark:bg-primary-900/10' : 'hover:bg-gray-50 dark:hover:bg-neutral-700/40',
+                    )}
+                  >
+                    <Icon className={cn('w-4 h-4 mt-0.5 flex-shrink-0', NOTIF_COLOR[n.status] ?? 'text-gray-400')} />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs text-gray-800 dark:text-gray-200 line-clamp-2">{n.body}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-[10px] text-gray-400 capitalize">{n.channel}</span>
+                        <span className="text-[10px] text-gray-300 dark:text-gray-600">·</span>
+                        <span className="text-[10px] text-gray-400">{formatRelative(n.createdAt)}</span>
+                      </div>
+                    </div>
+                    {isNew && <span className="w-1.5 h-1.5 rounded-full bg-primary-500 flex-shrink-0 mt-1.5" />}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {!canSee && (
+            <div className="px-4 py-6 text-center text-xs text-gray-400 dark:text-gray-500">
+              {t('غير متاح لدورك', 'Not available for your role')}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 type Density = 'compact' | 'comfortable' | 'spacious';
 const DENSITIES: { key: Density; labelAr: string; labelEn: string }[] = [
@@ -144,7 +308,6 @@ export function Header() {
   const { lang, toggle, t }     = useLang();
   const { user }                = useAuth();
   const [dark, setDark]         = useState(false);
-  const [notifCount]            = useState(0);
   const [density, setDensity]   = useState<Density>('comfortable');
   const [textSize, setTextSize] = useState<TextSize>('md');
   const [showDensity, setShowDensity] = useState(false);
@@ -254,14 +417,7 @@ export function Header() {
         </Button>
 
         {/* Notifications */}
-        <Button variant="ghost" size="icon" className="relative h-8 w-8 me-2">
-          <Bell className="w-4 h-4" />
-          {notifCount > 0 && (
-            <span className="absolute -top-0.5 -end-0.5 min-w-[16px] h-4 bg-primary-600 text-white text-[9px] font-bold rounded-full flex items-center justify-center px-0.5">
-              {notifCount}
-            </span>
-          )}
-        </Button>
+        <NotificationBell />
 
         {/* User pill */}
         {userName && (
