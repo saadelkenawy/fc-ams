@@ -10,7 +10,6 @@ const nextConfig = {
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'fadl-clinic.com' },
-      { protocol: 'https', hostname: 'images.unsplash.com' },
     ],
   },
   async rewrites() {

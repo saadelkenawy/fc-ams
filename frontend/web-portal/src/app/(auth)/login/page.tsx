@@ -19,7 +19,7 @@ const schema = z.object({
 });
 type FormValues = z.infer<typeof schema>;
 
-const HERO_IMAGE = 'https://images.unsplash.com/photo-1631217868264-e5b90bb7e133?w=2560&q=100';
+const HERO_IMAGE = '/images/login-bg.jpg';
 
 const FEATURE_PILLS = [
   { icon: ShieldCheck, labelAr: 'آمن ومشفر',     labelEn: 'Secure & Encrypted' },

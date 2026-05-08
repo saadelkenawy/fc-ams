@@ -138,22 +138,22 @@ function SuggestionPills({ suggestions, onSelect, disabled }: {
   disabled?: boolean;
 }) {
   return (
-    <div className="flex flex-wrap gap-2 mt-2">
+    <div className="flex flex-wrap gap-2 mt-3">
       {suggestions.map((s) => (
         <button
           key={s.value}
           onClick={() => !disabled && onSelect(s)}
           disabled={disabled}
           className={cn(
-            'px-3 py-1.5 rounded-full border text-sm font-medium transition-all duration-150',
-            'flex items-center gap-1.5',
+            'px-4 py-2 rounded-full border text-sm font-medium transition-all duration-150',
+            'flex items-center gap-1.5 cursor-pointer',
             disabled
               ? 'border-gray-200 text-gray-400 cursor-not-allowed dark:border-neutral-700 dark:text-gray-600'
               : [
-                  'border-primary-200 dark:border-primary-800',
-                  'text-primary-700 dark:text-primary-300',
-                  'hover:bg-primary-600 hover:text-white hover:border-primary-600',
-                  'dark:hover:bg-primary-600 dark:hover:border-primary-600 dark:hover:text-white',
+                  'border-blue-600 text-blue-600',
+                  'hover:bg-blue-600 hover:text-white',
+                  'dark:border-blue-500 dark:text-blue-400',
+                  'dark:hover:bg-blue-600 dark:hover:text-white dark:hover:border-blue-600',
                 ],
           )}
         >
