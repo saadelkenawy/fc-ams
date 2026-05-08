@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { appointmentApi } from '@/lib/api';
-import type { Appointment, AppointmentStatus, PaginatedResponse, ApiResponse } from '@fadl/types';
+import type { Appointment, AppointmentStatus, PaginatedResponse } from '@fadl/types';
 
 export interface AppointmentListParams {
   date?: string;

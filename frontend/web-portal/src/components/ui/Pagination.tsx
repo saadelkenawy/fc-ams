@@ -72,7 +72,7 @@ export function Pagination({
               : (
                 <button
                   key={p}
-                  onClick={() => onPageChange(p as number)}
+                  onClick={() => onPageChange(p)}
                   className={cn(
                     'w-7 h-7 text-xs rounded-md font-medium transition-colors',
                     p === page

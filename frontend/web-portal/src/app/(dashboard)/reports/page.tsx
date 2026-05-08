@@ -2,17 +2,16 @@
 
 import { useState } from 'react';
 import {
-  FileText, TrendingUp, Users, Calendar, Download, Filter,
-  ChevronDown, RefreshCw, Loader2, DollarSign, Activity,
-  BarChart3, Table2, PieChart,
+  TrendingUp, Download, Loader2, DollarSign, Activity, PieChart,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { useLang } from '@/contexts/LanguageContext';
-import { formatCurrency, formatNumber, formatDate } from '@/lib/utils';
+import { formatCurrency, formatNumber } from '@/lib/utils';
 import { useTransactions, useSettlements } from '@/hooks/useBilling';
-import { useDoctors, useSpecialtyMap } from '@/hooks/useDoctors';
+import { useDoctors } from '@/hooks/useDoctors';
+import type { DoctorSettlement } from '@fadl/types';
 
 const REPORT_TABS = [
   { key: 'financial',    iconEl: DollarSign,  labelAr: 'الملخص المالي',     labelEn: 'Financial Summary' },
@@ -22,14 +21,6 @@ const REPORT_TABS = [
 ] as const;
 type ReportTab = typeof REPORT_TABS[number]['key'];
 
-function SectionHeading({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-2 mb-4">
-      <div className="h-4 w-1 rounded-full bg-primary-600" />
-      <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100 uppercase tracking-wide">{children}</h3>
-    </div>
-  );
-}
 
 function StatRow({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
   return (
@@ -156,7 +147,7 @@ function SettlementsReport({ lang, locale }: { lang: string; locale: string }) {
     </div>
   );
 
-  const totalDue = settlements.reduce((s: number, d: any) => s + (d.totalDoctorShare ?? 0), 0);
+  const totalDue = settlements.reduce((s: number, d: DoctorSettlement) => s + (d.doctorShare ?? 0), 0);
 
   return (
     <div className="animate-fade-in space-y-4">
@@ -194,12 +185,12 @@ function SettlementsReport({ lang, locale }: { lang: string; locale: string }) {
               </tr>
             </thead>
             <tbody>
-              {settlements.map((s: any, i: number) => (
+              {settlements.map((s: DoctorSettlement, i: number) => (
                 <tr key={s.doctorId ?? i} className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors">
-                  <td className="px-5 py-3.5 font-medium text-gray-900 dark:text-gray-100">{lang === 'ar' ? (s.doctorNameAr ?? s.doctorName) : s.doctorName}</td>
-                  <td className="px-5 py-3.5 font-mono tabular-nums text-gray-600 dark:text-gray-400">{formatNumber(s.transactionCount ?? 0, locale)}</td>
-                  <td className="px-5 py-3.5 font-mono tabular-nums text-gray-700 dark:text-gray-300">{formatCurrency(s.totalCharged ?? 0, 'EGP', locale)}</td>
-                  <td className="px-5 py-3.5 font-mono tabular-nums font-semibold text-primary-700 dark:text-primary-400">{formatCurrency(s.totalDoctorShare ?? 0, 'EGP', locale)}</td>
+                  <td className="px-5 py-3.5 font-medium text-gray-900 dark:text-gray-100">{s.doctorNameEn}</td>
+                  <td className="px-5 py-3.5 font-mono tabular-nums text-gray-600 dark:text-gray-400">{formatNumber(s.totalConsultations ?? 0, locale)}</td>
+                  <td className="px-5 py-3.5 font-mono tabular-nums text-gray-700 dark:text-gray-300">{formatCurrency(s.grossRevenue ?? 0, 'EGP', locale)}</td>
+                  <td className="px-5 py-3.5 font-mono tabular-nums font-semibold text-primary-700 dark:text-primary-400">{formatCurrency(s.doctorShare ?? 0, 'EGP', locale)}</td>
                   <td className="px-5 py-3.5"><Badge variant="warning">{lang === 'ar' ? 'بانتظار التسوية' : 'Pending'}</Badge></td>
                 </tr>
               ))}

@@ -12,10 +12,11 @@ import { formatCurrency, formatDate } from '@/lib/utils';
 import { billingApi } from '@/lib/api';
 import type { DoctorSettlement } from '@fadl/types';
 
-function getUser() {
+function getUser(): Record<string, unknown> {
   if (typeof window === 'undefined') return {};
   try {
-    return JSON.parse(localStorage.getItem('fadl_user') ?? '{}');
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return JSON.parse(localStorage.getItem('fadl_user') ?? '{}') as Record<string, unknown>;
   } catch {
     return {};
   }

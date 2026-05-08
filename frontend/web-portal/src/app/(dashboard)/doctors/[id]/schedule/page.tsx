@@ -3,13 +3,12 @@
 import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  ArrowLeft, Clock, Calendar, Plus, Trash2, Edit3, Save, X,
-  CheckCircle, AlertTriangle, Loader2, CalendarX,
+  ArrowLeft, Clock, Calendar, Edit3, Save, X,
+  CheckCircle, Loader2, CalendarX,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { Input } from '@/components/ui/Input';
 import { useLang } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
 import {
@@ -18,8 +17,6 @@ import {
   useUpsertSchedule,
   useCreateOverride,
 } from '@/hooks/useDoctors';
-import { doctorApi } from '@/lib/api';
-import { useQueryClient } from '@tanstack/react-query';
 import type { DoctorSchedule, DoctorScheduleOverride } from '@fadl/types';
 
 /* ── Constants ───────────────────────────────────────────────────────── */
@@ -80,16 +77,6 @@ function DayCard({
     setEditing(false);
   }
 
-  async function handleDeactivate() {
-    await upsert.mutateAsync({
-      dayOfWeek:            day.num,
-      startTime:            schedule!.startTime,
-      endTime:              schedule!.endTime,
-      slotDurationMinutes:  schedule!.slotDurationMinutes,
-      validFrom:            schedule!.validFrom,
-    });
-  }
-
   return (
     <div className={cn(
       'rounded-2xl border transition-all duration-200 overflow-hidden',
@@ -142,11 +129,11 @@ function DayCard({
         <div className="px-4 py-3 flex items-center gap-4 flex-wrap">
           <div className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
             <Clock className="w-3.5 h-3.5" />
-            <span className="font-mono">{schedule!.startTime} – {schedule!.endTime}</span>
+            <span className="font-mono">{schedule?.startTime} – {schedule?.endTime}</span>
           </div>
           <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-500">
             <span className="font-medium text-gray-800 dark:text-gray-200">{slots}</span>
-            <span>{t('موعد', 'slots')} · {schedule!.slotDurationMinutes}{t('د', 'min')}</span>
+            <span>{t('موعد', 'slots')} · {schedule?.slotDurationMinutes}{t('د', 'min')}</span>
           </div>
         </div>
       )}
@@ -217,7 +204,7 @@ function DayCard({
           )}
 
           <div className="flex gap-2 pt-1">
-            <Button size="sm" onClick={handleSave} loading={upsert.isPending} className="gap-1">
+            <Button size="sm" onClick={() => void handleSave()} loading={upsert.isPending} className="gap-1">
               <Save className="w-3.5 h-3.5" />
               {t('حفظ', 'Save')}
             </Button>
@@ -370,7 +357,7 @@ function AddOverrideForm({
 
         <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100 dark:border-neutral-700">
           <Button variant="outline" size="sm" onClick={onDone}>{t('إلغاء', 'Cancel')}</Button>
-          <Button size="sm" onClick={handleSubmit} loading={create.isPending} disabled={!form.overrideDate}>
+          <Button size="sm" onClick={() => void handleSubmit()} loading={create.isPending} disabled={!form.overrideDate}>
             {t('حفظ الاستثناء', 'Save Override')}
           </Button>
         </div>
@@ -435,9 +422,9 @@ function WeekVisualGrid({
   return (
     <div className="flex gap-1">
       {DAYS.map((day) => {
-        const sched = scheduleByDay.get(day.num as 0|1|2|3|4|5|6);
+        const sched = scheduleByDay.get(day.num);
         const active = sched?.isActive ?? false;
-        const slots = active ? slotsPerDay(sched!.startTime, sched!.endTime, sched!.slotDurationMinutes) : 0;
+        const slots = active && sched ? slotsPerDay(sched.startTime, sched.endTime, sched.slotDurationMinutes) : 0;
 
         return (
           <div key={day.num} className="flex-1 flex flex-col items-center gap-1.5">
@@ -559,7 +546,7 @@ export default function DoctorSchedulePage() {
             <DayCard
               key={day.num}
               day={day}
-              schedule={scheduleByDay.get(day.num as 0|1|2|3|4|5|6)}
+              schedule={scheduleByDay.get(day.num)}
               lang={lang}
               doctorId={doctorId}
             />

@@ -37,7 +37,7 @@ export default function PatientsPage() {
   const deletePatient  = useDeletePatient();
 
   const { data, isLoading, isError } = usePatients({
-    q: debouncedQuery || undefined,
+    query: debouncedQuery || undefined,
     page,
     limit,
   });

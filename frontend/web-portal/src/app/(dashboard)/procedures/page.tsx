@@ -392,7 +392,7 @@ export default function ProceduresPage() {
                       </td>
                       <td className="px-5 py-3.5">
                         <button
-                          onClick={() => handleToggleStatus(proc)}
+                          onClick={() => void handleToggleStatus(proc)}
                           className="flex items-center gap-1.5 group"
                           title={proc.isActive ? t('تعطيل', 'Deactivate') : t('تفعيل', 'Activate')}
                         >
@@ -452,7 +452,7 @@ export default function ProceduresPage() {
             <Button variant="ghost" size="sm" onClick={() => setModalOpen(false)} disabled={isSaving}>
               {t('إلغاء', 'Cancel')}
             </Button>
-            <Button size="sm" onClick={handleSubmit} disabled={isSaving} className="min-w-[100px]">
+            <Button size="sm" onClick={() => void handleSubmit()} disabled={isSaving} className="min-w-[100px]">
               {isSaving
                 ? t('جارٍ الحفظ...', 'Saving...')
                 : editTarget
@@ -469,7 +469,7 @@ export default function ProceduresPage() {
       <ConfirmDialog
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
-        onConfirm={handleDelete}
+        onConfirm={() => void handleDelete()}
         title={t('حذف الإجراء', 'Delete Procedure')}
         message={
           deleteTarget

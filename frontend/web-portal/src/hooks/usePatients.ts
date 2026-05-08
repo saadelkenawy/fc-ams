@@ -4,7 +4,7 @@ import { patientApi } from '@/lib/api';
 import type { Patient, PaginatedResponse, ApiResponse } from '@fadl/types';
 
 export interface PatientListParams {
-  q?: string;
+  query?: string;
   page?: number;
   limit?: number;
 }

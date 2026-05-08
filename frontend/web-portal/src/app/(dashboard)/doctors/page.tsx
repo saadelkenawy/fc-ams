@@ -29,7 +29,6 @@ const PAYMENT_LABELS: Record<string, { ar: string; en: string }> = {
 
 export default function DoctorsPage() {
   const { lang, t } = useLang();
-  const router = useRouter();
   const { toast } = useToast();
   const [query, setQuery]             = useState('');
   const [page, setPage]               = useState(1);

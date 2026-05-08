@@ -4,7 +4,6 @@ import { useState, type FormEvent } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { UserPlus, Phone, CreditCard, Calendar, Heart, MapPin, Users, Globe2, AlertCircle } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
-import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { useLang } from '@/contexts/LanguageContext';
 import { patientApi } from '@/lib/api';
@@ -91,7 +90,7 @@ export function AddPatientModal({ open, onClose, onCreated }: AddPatientModalPro
       if (payload.emergencyContactName)  body.emergencyContactName = payload.emergencyContactName;
       if (payload.emergencyContactMobile) body.emergencyContactMobile = mobileToE164(payload.emergencyContactMobile);
       const { data } = await patientApi.post<{ data: { patientId: string } }>('/patients', body);
-      return data.data!;
+      return data.data;
     },
     onSuccess: (created) => {
       void qc.invalidateQueries({ queryKey: ['patients'] });

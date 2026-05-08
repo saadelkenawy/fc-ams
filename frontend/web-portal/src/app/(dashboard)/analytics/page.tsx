@@ -134,7 +134,6 @@ export default function AnalyticsPage() {
   }));
 
   const lastBar  = chartData[chartData.length - 1];
-  const prevBar  = chartData[chartData.length - 2];
 
   const currentRevenue  = overview?.revenue.current      ?? lastBar?.revenue      ?? 0;
   const revenueGrowth   = overview?.revenue.growthPct    ?? 0;

@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Loader2, CheckCircle, XCircle, Clock } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge, AppointmentStatusBadge } from '@/components/ui/Badge';
 import { useLang } from '@/contexts/LanguageContext';
@@ -15,10 +15,11 @@ import type { DoctorSchedule } from '@fadl/types';
 const DAYS_AR = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
 const DAYS_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-function getUser() {
+function getUser(): Record<string, unknown> {
   if (typeof window === 'undefined') return {};
   try {
-    return JSON.parse(localStorage.getItem('fadl_user') ?? '{}');
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return JSON.parse(localStorage.getItem('fadl_user') ?? '{}') as Record<string, unknown>;
   } catch {
     return {};
   }

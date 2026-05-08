@@ -47,7 +47,7 @@ function PatientPicker({ lang, t, value, onChange }: {
   const [q, setQ] = useState('');
   const dq = useDebounce(q, 300);
   const enabled = dq.length >= 2;
-  const { data, isFetching } = usePatients(enabled ? { q: dq, limit: 8 } : {});
+  const { data, isFetching } = usePatients(enabled ? { query: dq, limit: 8 } : {});
   const results: Patient[] = enabled ? (data?.data ?? []) : [];
 
   if (value) {

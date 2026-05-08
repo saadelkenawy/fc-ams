@@ -10,10 +10,11 @@ import { formatDate, getInitials } from '@/lib/utils';
 import { useAppointments } from '@/hooks/useAppointments';
 import { usePatients } from '@/hooks/usePatients';
 
-function getUser() {
+function getUser(): Record<string, unknown> {
   if (typeof window === 'undefined') return {};
   try {
-    return JSON.parse(localStorage.getItem('fadl_user') ?? '{}');
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return JSON.parse(localStorage.getItem('fadl_user') ?? '{}') as Record<string, unknown>;
   } catch {
     return {};
   }

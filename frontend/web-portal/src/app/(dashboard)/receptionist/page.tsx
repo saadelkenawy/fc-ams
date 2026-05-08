@@ -72,7 +72,7 @@ function PatientLookup({ lang, t, selectedPatient, onSelect, onRegisterClick }: 
   const debouncedSearch = useDebounce(searchVal, 300);
   const enabled = debouncedSearch.length >= 2;
   const { data, isFetching } = usePatients(
-    enabled ? { q: debouncedSearch, limit: 10 } : {},
+    enabled ? { query: debouncedSearch, limit: 10 } : {},
   );
   const results: Patient[] = enabled ? (data?.data ?? []) : [];
 
@@ -260,7 +260,7 @@ function NewAppointmentFormPanel({ lang, t, initialPatient, onClose, onSuccess }
   const debouncedPatientSearch = useDebounce(patientSearch, 300);
   const patientSearchEnabled = !form.patientId && debouncedPatientSearch.length >= 2;
   const { data: patientResults } = usePatients(
-    patientSearchEnabled ? { q: debouncedPatientSearch, limit: 5 } : {},
+    patientSearchEnabled ? { query: debouncedPatientSearch, limit: 5 } : {},
   );
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
@@ -281,7 +281,7 @@ function NewAppointmentFormPanel({ lang, t, initialPatient, onClose, onSuccess }
       return data.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['appointments'] });
+      void queryClient.invalidateQueries({ queryKey: ['appointments'] });
       setSuccess(true);
       setTimeout(onSuccess, 800);
     },

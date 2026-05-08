@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { CalendarPlus, ChevronLeft, ChevronRight, Loader2, CalendarDays } from 'lucide-react';
+import { CalendarPlus, ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { AppointmentStatusBadge } from '@/components/ui/Badge';

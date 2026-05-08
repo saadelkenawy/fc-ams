@@ -148,7 +148,7 @@ export function AddDoctorModal({ open, onClose, onCreated }: AddDoctorModalProps
         overbookingBufferPercentage: 10,
       };
       const { data } = await doctorApi.post<{ data: { id: string } }>('/doctors', body);
-      return data.data!;
+      return data.data;
     },
     onSuccess: (created) => {
       void qc.invalidateQueries({ queryKey: ['doctors'] });
