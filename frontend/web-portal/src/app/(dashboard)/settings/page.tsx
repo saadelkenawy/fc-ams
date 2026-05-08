@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  Building2, Users, Activity, Check, X, Loader2, Key,
+  Building2, Users, Activity, Check, Loader2, Key, RefreshCw, X,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -11,7 +11,6 @@ import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
 import { useLang } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
-import axios from 'axios';
 
 function getUser() {
   if (typeof window === 'undefined') return {} as Record<string, string>;
@@ -22,18 +21,13 @@ function getUser() {
   }
 }
 
-const SERVICES = [
-  { name: 'Identity Service',      nameAr: 'خدمة الهوية',         url: 'http://localhost:3000/health' },
-  { name: 'Appointment Service',   nameAr: 'خدمة المواعيد',        url: 'http://localhost:3001/health' },
-  { name: 'Patient Service',       nameAr: 'خدمة المرضى',          url: 'http://localhost:3002/health' },
-  { name: 'Doctor Service',        nameAr: 'خدمة الأطباء',         url: 'http://localhost:3003/health' },
-  { name: 'Billing Service',       nameAr: 'خدمة الفواتير',        url: 'http://localhost:3004/health' },
-  { name: 'EHR Service',           nameAr: 'خدمة السجل الطبي',     url: 'http://localhost:3005/health' },
-  { name: 'Procedure Service',     nameAr: 'خدمة الإجراءات',       url: 'http://localhost:3006/health' },
-  { name: 'Notification Service',  nameAr: 'خدمة الإشعارات',       url: 'http://localhost:3007/health' },
-  { name: 'AI Chatbot Service',    nameAr: 'خدمة المساعد الذكي',   url: 'http://localhost:3008/health' },
-  { name: 'Analytics Service',     nameAr: 'خدمة التحليلات',       url: 'http://localhost:3009/health' },
-] as const;
+interface ServiceStatus {
+  key: string;
+  name: string;
+  nameAr: string;
+  ok: boolean;
+  ms: number | null;
+}
 
 const TABS = [
   { key: 'clinic',  labelAr: 'معلومات العيادة', labelEn: 'Clinic Info',  icon: Building2 },
@@ -201,73 +195,68 @@ function UsersTab({
 }
 
 /* ──────────────── System Tab ──────────────── */
-function ServiceHealthRow({
-  name,
-  nameAr,
-  url,
-  lang,
-}: {
-  name: string;
-  nameAr: string;
-  url: string;
-  lang: 'ar' | 'en';
-}) {
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ['health', url],
-    queryFn: async () => {
-      // Use a short timeout; CORS will reject most of these — that's expected
-      const res = await axios.get(url, { timeout: 3_000 });
-      return res.status === 200;
+function SystemTab({ t, lang }: { t: (ar: string, en: string) => string; lang: 'ar' | 'en' }) {
+  const { data, isLoading, refetch, isFetching } = useQuery({
+    queryKey: ['service-health'],
+    queryFn: async (): Promise<{ services: ServiceStatus[]; checkedAt: string }> => {
+      const res = await fetch('/api/health');
+      return res.json() as Promise<{ services: ServiceStatus[]; checkedAt: string }>;
     },
-    retry: false,
     staleTime: 30_000,
+    retry: false,
   });
 
-  const displayName = lang === 'ar' ? nameAr : name;
+  const services = data?.services ?? [];
+  const checkedAt = data?.checkedAt;
 
-  return (
-    <div className="flex items-center justify-between py-3 border-b border-gray-50 dark:border-neutral-700/50 last:border-0">
-      <span className="text-sm text-gray-700 dark:text-gray-300">{displayName}</span>
-      <div className="flex items-center gap-2">
-        <span className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">{url.replace('http://localhost', ':')}</span>
-        {isLoading ? (
-          <Badge variant="default" className="gap-1">
-            <Loader2 className="w-3 h-3 animate-spin" />
-            {lang === 'ar' ? 'جاري...' : 'Checking'}
-          </Badge>
-        ) : isError || !data ? (
-          <Badge variant="default" className="gap-1 text-gray-500 dark:text-gray-400">
-            <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
-            {lang === 'ar' ? 'غير متاح' : 'Unavailable'}
-          </Badge>
-        ) : (
-          <Badge variant="success" className="gap-1">
-            <Check className="w-3 h-3" />
-            {lang === 'ar' ? 'متاح' : 'Online'}
-          </Badge>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function SystemTab({ t, lang }: { t: (ar: string, en: string) => string; lang: 'ar' | 'en' }) {
   return (
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle>{t('حالة الخدمات', 'Service Health')}</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>{t('حالة الخدمات', 'Service Health')}</CardTitle>
+            <Button variant="ghost" size="sm" onClick={() => void refetch()} disabled={isFetching} className="gap-1.5">
+              <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? 'animate-spin' : ''}`} />
+              {t('تحديث', 'Refresh')}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="pt-2">
-          <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">
-            {t(
-              'الخدمات تعمل داخل شبكة Docker الداخلية — معظمها غير متاح من المتصفح (CORS). هذا أمر طبيعي.',
-              'Services run inside Docker — most will be unavailable from the browser (CORS). This is expected.',
-            )}
-          </p>
-          {SERVICES.map((svc) => (
-            <ServiceHealthRow key={svc.url} {...svc} lang={lang} />
-          ))}
+          {checkedAt && (
+            <p className="text-[10px] text-gray-400 dark:text-gray-500 mb-4 font-mono">
+              {t('آخر فحص:', 'Last checked:')} {new Date(checkedAt).toLocaleTimeString()}
+            </p>
+          )}
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8 gap-2 text-gray-400">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span className="text-sm">{t('جاري الفحص...', 'Checking services...')}</span>
+            </div>
+          ) : (
+            services.map((svc) => (
+              <div key={svc.key} className="flex items-center justify-between py-3 border-b border-gray-50 dark:border-neutral-700/50 last:border-0">
+                <span className="text-sm text-gray-700 dark:text-gray-300">
+                  {lang === 'ar' ? svc.nameAr : svc.name}
+                </span>
+                <div className="flex items-center gap-2">
+                  {svc.ms !== null && (
+                    <span className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">{svc.ms}ms</span>
+                  )}
+                  {svc.ok ? (
+                    <Badge variant="success" className="gap-1">
+                      <Check className="w-3 h-3" />
+                      {t('متاح', 'Online')}
+                    </Badge>
+                  ) : (
+                    <Badge variant="default" className="gap-1 text-gray-500 dark:text-gray-400">
+                      <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
+                      {t('غير متاح', 'Down')}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
         </CardContent>
       </Card>
     </div>
