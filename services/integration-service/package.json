@@ -24,6 +24,7 @@
     "@fastify/rate-limit": "^9.1.0",
     "@fastify/swagger": "^8.14.0",
     "@fastify/swagger-ui": "^3.0.0",
+    "axios": "^1.6.0",
     "pg": "^8.11.0",
     "zod": "^3.22.0",
     "uuid": "^9.0.0",

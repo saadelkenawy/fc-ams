@@ -136,8 +136,8 @@ CREATE TABLE IF NOT EXISTS appointments (
     original_appointment_id UUID,
     reschedule_count        INT DEFAULT 0,
 
-    -- Idempotency for retry safety
-    idempotency_key VARCHAR(100) UNIQUE,
+    -- Idempotency for retry safety (uniqueness enforced via index on leaf partitions)
+    idempotency_key VARCHAR(100),
 
     -- Optimistic concurrency
     version     INT NOT NULL DEFAULT 1,
@@ -152,18 +152,8 @@ CREATE TABLE IF NOT EXISTS appointments (
     branch_id   INT NOT NULL DEFAULT 1,
 
     -- ⭐ Composite PK required for list+range partitioning
-    PRIMARY KEY (branch_id, appointment_date, id),
+    PRIMARY KEY (branch_id, appointment_date, id)
 
-    -- ⭐ Prevent double-booking the same doctor at overlapping times
-    --    Exempts cancelled/rescheduled and explicitly overbooked slots
-    EXCLUDE USING gist (
-        doctor_id        WITH =,
-        appointment_range WITH &&
-    ) WHERE (
-        status NOT IN ('Canc.', 'Resch.')
-        AND is_overbooked = FALSE
-        AND deleted_at IS NULL
-    )
 ) PARTITION BY LIST (branch_id);
 
 -- ─── PARTITIONS ───────────────────────────────────────────────────────────────
@@ -178,6 +168,19 @@ CREATE TABLE appointments_branch_1
 CREATE TABLE appointments_branch_1_y2026m05
     PARTITION OF appointments_branch_1
     FOR VALUES FROM ('2026-05-01') TO ('2026-06-01');
+
+-- ⭐ Exclusion constraint on leaf partition: prevents double-booking the same doctor
+--    at overlapping times. Unsupported on partitioned parents — must live on leaf tables.
+ALTER TABLE appointments_branch_1_y2026m05
+    ADD CONSTRAINT appt_no_double_book_b1_2026m05
+    EXCLUDE USING gist (
+        doctor_id         WITH =,
+        appointment_range WITH &&
+    ) WHERE (
+        status NOT IN ('Canc.', 'Resch.')
+        AND is_overbooked = FALSE
+        AND deleted_at IS NULL
+    );
 
 -- ─── INDEXES ──────────────────────────────────────────────────────────────────
 
@@ -194,8 +197,9 @@ CREATE INDEX IF NOT EXISTS idx_appointments_status
 CREATE INDEX IF NOT EXISTS idx_appointments_source
     ON appointments (patient_source, appointment_date);
 
-CREATE INDEX IF NOT EXISTS idx_appointments_idempotency
-    ON appointments (idempotency_key)
+-- Idempotency uniqueness enforced per-partition (partitioned tables can't have global UNIQUE)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_appointments_idempotency_b1_2026m05
+    ON appointments_branch_1_y2026m05 (idempotency_key)
     WHERE idempotency_key IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_appointments_branch

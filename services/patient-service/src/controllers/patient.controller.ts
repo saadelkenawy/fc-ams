@@ -1,7 +1,7 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import * as repo from '../repositories/patient.repository';
-import type { CreatePatientInput, UpdatePatientInput } from '@fadl/types';
+import type { CreatePatientInput, UpdatePatientInput, JwtPayload } from '@fadl/types';
 
 const createSchema = z.object({
   mobile: z.string().regex(/^\+20\d{10}$/, 'Mobile must be Egyptian format (+20XXXXXXXXXX)'),
@@ -29,8 +29,9 @@ const searchSchema = z.object({
   limit: z.coerce.number().int().positive().max(100).default(20),
 });
 
-export async function getPatient(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply): Promise<void> {
-  const patient = await repo.findPatientById(request.params.id);
+export async function getPatient(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { id } = request.params as { id: string };
+  const patient = await repo.findPatientById(id);
   if (!patient) {
     void reply.status(404).send({ success: false, error: { code: 'PATIENT_NOT_FOUND', message: 'Patient not found' } });
     return;
@@ -46,6 +47,7 @@ export async function searchPatients(request: FastifyRequest, reply: FastifyRepl
 
 export async function createPatient(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const input = createSchema.parse(request.body) as CreatePatientInput;
+  const user = request.user as JwtPayload;
 
   const existing = await repo.findPatientByMobile(input.mobile);
   if (existing) {
@@ -56,23 +58,21 @@ export async function createPatient(request: FastifyRequest, reply: FastifyReply
     return;
   }
 
-  const patient = await repo.createPatient(input, request.user.sub, request.user.branchId);
+  const patient = await repo.createPatient(input, user.sub, user.branchId);
   void reply.status(201).send({ success: true, data: patient });
 }
 
-export async function updatePatient(
-  request: FastifyRequest<{ Params: { id: string } }>,
-  reply: FastifyReply,
-): Promise<void> {
+export async function updatePatient(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { id } = request.params as { id: string };
   const input = updateSchema.parse(request.body) as UpdatePatientInput;
-  const patient = await repo.updatePatient(request.params.id, input, request.user.sub);
+  const user = request.user as JwtPayload;
+  const patient = await repo.updatePatient(id, input, user.sub);
   void reply.send({ success: true, data: patient });
 }
 
-export async function deletePatient(
-  request: FastifyRequest<{ Params: { id: string } }>,
-  reply: FastifyReply,
-): Promise<void> {
-  await repo.softDeletePatient(request.params.id, request.user.sub);
+export async function deletePatient(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { id } = request.params as { id: string };
+  const user = request.user as JwtPayload;
+  await repo.softDeletePatient(id, user.sub);
   void reply.status(204).send();
 }

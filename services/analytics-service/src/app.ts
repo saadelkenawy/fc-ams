@@ -3,7 +3,10 @@ import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import jwt from '@fastify/jwt';
 import rateLimit from '@fastify/rate-limit';
+import swagger from '@fastify/swagger';
+import swaggerUi from '@fastify/swagger-ui';
 import { config } from './config';
+import { analyticsRoutes } from './routes/analytics.routes';
 
 export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
   const app = Fastify({
@@ -27,7 +30,32 @@ export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
     sign: { expiresIn: config.JWT_EXPIRY },
   });
 
-  app.get('/health', { logLevel: 'silent' }, async () => ({ status: 'ok', service: 'analytics-service' }));
+  await app.register(swagger, {
+    openapi: {
+      openapi: '3.0.0',
+      info: {
+        title: 'Fadl Clinic — Analytics Service',
+        version: '1.0.0',
+        description: 'Aggregated analytics across billing, appointments and patients',
+      },
+      tags: [{ name: 'analytics', description: 'Revenue, sources and doctor performance analytics' }],
+      components: {
+        securitySchemes: {
+          bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+        },
+      },
+      security: [{ bearerAuth: [] }],
+    },
+  });
+
+  await app.register(swaggerUi, { routePrefix: '/docs' });
+
+  app.get('/health', { logLevel: 'silent' }, async () => ({
+    status: 'ok',
+    service: 'analytics-service',
+  }));
+
+  await app.register(analyticsRoutes, { prefix: '/api/v1' });
 
   app.setErrorHandler(async (error, request, reply) => {
     const statusCode = (error as { statusCode?: number }).statusCode ?? 500;

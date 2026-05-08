@@ -1,0 +1,122 @@
+import { FastifyInstance } from 'fastify';
+import { requireAuth, requireRole } from '../middleware/auth';
+import * as ctrl from '../controllers/billing.controller';
+
+const idParam = {
+  type: 'object' as const,
+  properties: { id: { type: 'string', format: 'uuid' } },
+  required: ['id'],
+};
+
+const STATUS_ENUM = ['pending', 'verified', 'approved', 'paid', 'reconciled', 'refunded'];
+
+export async function billingRoutes(app: FastifyInstance): Promise<void> {
+  app.addHook('onRequest', requireAuth);
+
+  // GET /transactions
+  app.get('/transactions', {
+    preHandler: [requireRole('admin', 'finance', 'doctor', 'receptionist')],
+    schema: {
+      tags: ['billing'],
+      querystring: {
+        type: 'object',
+        properties: {
+          appointmentId: { type: 'string', format: 'uuid' },
+          patientId:     { type: 'string', format: 'uuid' },
+          doctorId:      { type: 'string', format: 'uuid' },
+          status:        { type: 'string', enum: STATUS_ENUM },
+          dateFrom:      { type: 'string', format: 'date' },
+          dateTo:        { type: 'string', format: 'date' },
+          page:          { type: 'integer', minimum: 1, default: 1 },
+          limit:         { type: 'integer', minimum: 1, maximum: 100, default: 20 },
+        },
+      },
+    },
+  }, ctrl.listTransactions);
+
+  // GET /transactions/:id
+  app.get('/transactions/:id', {
+    preHandler: [requireRole('admin', 'finance', 'doctor', 'receptionist')],
+    schema: { tags: ['billing'], params: idParam },
+  }, ctrl.getTransaction);
+
+  // POST /transactions
+  app.post('/transactions', {
+    preHandler: [requireRole('admin', 'finance', 'receptionist')],
+    schema: {
+      tags: ['billing'],
+      body: {
+        type: 'object',
+        required: ['idempotencyKey', 'patientId', 'patientSource', 'approvedCharge', 'splitDoctorPercentage', 'splitClinicPercentage'],
+        properties: {
+          idempotencyKey:        { type: 'string', maxLength: 100 },
+          appointmentId:         { type: 'string', format: 'uuid' },
+          patientId:             { type: 'string', format: 'uuid' },
+          doctorId:              { type: 'string', format: 'uuid' },
+          procedureId:           { type: 'string', format: 'uuid' },
+          patientSource:         { type: 'string' },
+          approvedCharge:        { type: 'number', exclusiveMinimum: 0 },
+          procedureCost:         { type: 'number', exclusiveMinimum: 0 },
+          splitDoctorPercentage: { type: 'number', minimum: 0, maximum: 100 },
+          splitClinicPercentage: { type: 'number', minimum: 0, maximum: 100 },
+          paymentMethod:         { type: 'string' },
+          currencyCode:          { type: 'string', enum: ['EGP', 'USD', 'EUR', 'SAR', 'AED'], default: 'EGP' },
+        },
+      },
+    },
+  }, ctrl.createTransaction);
+
+  // PATCH /transactions/:id/status
+  app.patch('/transactions/:id/status', {
+    preHandler: [requireRole('admin', 'finance')],
+    schema: {
+      tags: ['billing'],
+      params: idParam,
+      body: {
+        type: 'object',
+        required: ['status'],
+        properties: {
+          status:              { type: 'string', enum: STATUS_ENUM },
+          settlementReference: { type: 'string' },
+          checkInAmount:       { type: 'number', exclusiveMinimum: 0 },
+          checkOutAmount:      { type: 'number', exclusiveMinimum: 0 },
+        },
+      },
+    },
+  }, ctrl.updateStatus);
+
+  // GET /settlements (list all doctors)
+  app.get('/settlements', {
+    preHandler: [requireRole('admin', 'finance')],
+    schema: {
+      tags: ['billing'],
+      querystring: {
+        type: 'object',
+        required: ['from', 'to'],
+        properties: {
+          from:  { type: 'string', format: 'date' },
+          to:    { type: 'string', format: 'date' },
+          page:  { type: 'integer', minimum: 1, default: 1 },
+          limit: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
+        },
+      },
+    },
+  }, ctrl.listSettlements);
+
+  // GET /settlements/doctor (single doctor settlement detail)
+  app.get('/settlements/doctor', {
+    preHandler: [requireRole('admin', 'finance', 'doctor')],
+    schema: {
+      tags: ['billing'],
+      querystring: {
+        type: 'object',
+        required: ['doctorId', 'from', 'to'],
+        properties: {
+          doctorId: { type: 'string', format: 'uuid' },
+          from:     { type: 'string', format: 'date' },
+          to:       { type: 'string', format: 'date' },
+        },
+      },
+    },
+  }, ctrl.getDoctorSettlement);
+}
