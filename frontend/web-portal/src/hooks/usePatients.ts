@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMemo } from 'react';
 import { patientApi } from '@/lib/api';
 import type { Patient, PaginatedResponse, ApiResponse } from '@fadl/types';
 
@@ -43,6 +44,15 @@ export function useUpdatePatient() {
       void qc.invalidateQueries({ queryKey: ['patients'] });
     },
   });
+}
+
+export function usePatientMap() {
+  const { data } = usePatients({ limit: 500 });
+  return useMemo(() => {
+    const map = new Map<string, Patient>();
+    data?.data?.forEach((p) => map.set(p.patientId, p));
+    return map;
+  }, [data]);
 }
 
 export function useDeletePatient() {

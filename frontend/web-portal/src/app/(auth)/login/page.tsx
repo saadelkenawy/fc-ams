@@ -19,7 +19,7 @@ const schema = z.object({
 });
 type FormValues = z.infer<typeof schema>;
 
-const HERO_IMAGE = '/images/login-bg.jpg';
+const HERO_IMAGE = 'https://images.unsplash.com/photo-1631217868264-e5b90bb7e133?w=2560&q=100';
 
 const FEATURE_PILLS = [
   { icon: ShieldCheck, labelAr: 'آمن ومشفر',     labelEn: 'Secure & Encrypted' },
@@ -66,7 +66,7 @@ export default function LoginPage() {
       dir={lang === 'ar' ? 'rtl' : 'ltr'}
     >
       {/* ── Left / Top: Hero image panel ─────────────────────────────────── */}
-      <div className="relative hidden lg:flex lg:w-[60%] min-h-screen flex-col">
+      <div className="relative hidden lg:flex lg:w-[60%] min-h-screen flex-col bg-gradient-to-br from-blue-900 via-blue-800 to-blue-600">
         {/* Background image */}
         <Image
           src={HERO_IMAGE}
