@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/Input';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { ActionButtons } from '@/components/ui/ActionButtons';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { Pagination } from '@/components/ui/Pagination';
 import { useLang } from '@/contexts/LanguageContext';
 import { useDoctors, useSpecialtyMap, useToggleDoctorActive, useDeleteDoctor } from '@/hooks/useDoctors';
 import { AddDoctorModal } from '@/components/doctors/AddDoctorModal';
@@ -30,22 +31,27 @@ export default function DoctorsPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [query, setQuery]             = useState('');
+  const [page, setPage]               = useState(1);
+  const [limit, setLimit]             = useState(10);
   const [selected, setSelected]       = useState<string | null>(null);
   const [addOpen, setAddOpen]         = useState(false);
   const [editDoctor, setEditDoctor]   = useState<Doctor | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Doctor | null>(null);
 
-  const { data, isLoading, isError } = useDoctors({ limit: 100 });
+  const { data, isLoading, isError } = useDoctors({ limit: 500 });
   const specialtyMap   = useSpecialtyMap();
   const toggleActive   = useToggleDoctorActive();
   const deleteDoctor   = useDeleteDoctor();
 
-  const allDoctors = data?.data ?? [];
-  const filtered   = allDoctors.filter((d) =>
+  const allDoctors  = data?.data ?? [];
+  const filtered    = allDoctors.filter((d) =>
     (lang === 'ar' ? (d.nameAr ?? d.nameEn) : d.nameEn).toLowerCase().includes(query.toLowerCase()),
   );
   const activeCount = allDoctors.filter((d) => d.isActive).length;
+  const pagedDoctors = filtered.slice((page - 1) * limit, page * limit);
   const doctor      = allDoctors.find((d) => d.id === selected) ?? null;
+
+  function handleSearch(q: string) { setQuery(q); setPage(1); }
 
   function handleToggle(d: Doctor) {
     toggleActive.mutate({ id: d.id, isActive: !d.isActive }, {
@@ -146,14 +152,14 @@ export default function DoctorsPage() {
                 placeholder={t('بحث بالاسم...', 'Search by name...')}
                 icon={<Search className="w-4 h-4" />}
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(e) => handleSearch(e.target.value)}
                 lang={lang}
               />
             </div>
             <CardContent className="p-0">
               <DataTable
                 columns={columns}
-                data={filtered}
+                data={pagedDoctors}
                 getRowKey={(d) => d.id}
                 onRowClick={(d) => setSelected(selected === d.id ? null : d.id)}
                 selectedKey={selected}
@@ -163,6 +169,14 @@ export default function DoctorsPage() {
                 onAddNew={() => setAddOpen(true)}
                 addNewLabel={t('إضافة طبيب', 'Add Doctor')}
                 errorMessage={t('تعذّر تحميل البيانات', 'Failed to load doctors')}
+              />
+              <Pagination
+                page={page}
+                total={filtered.length}
+                limit={limit}
+                onPageChange={setPage}
+                onLimitChange={(l) => { setLimit(l); setPage(1); }}
+                pageSizes={[10, 25, 50]}
               />
             </CardContent>
           </Card>
@@ -190,7 +204,7 @@ export default function DoctorsPage() {
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
-        loading={deleteDoctor.isPending}
+        loading={deleteDoctor.isLoading}
         title={t('حذف الطبيب', 'Delete Doctor')}
         message={
           deleteTarget

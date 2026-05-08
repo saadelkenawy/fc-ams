@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/Input';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { ActionButtons } from '@/components/ui/ActionButtons';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { Pagination } from '@/components/ui/Pagination';
 import { useLang } from '@/contexts/LanguageContext';
 import { formatDate } from '@/lib/utils';
 import { usePatients, useDeletePatient } from '@/hooks/usePatients';
@@ -23,17 +24,29 @@ export default function PatientsPage() {
   const { lang, t } = useLang();
   const router = useRouter();
   const { toast } = useToast();
+
   const [query, setQuery]               = useState('');
+  const [page, setPage]                 = useState(1);
+  const [limit, setLimit]               = useState(10);
   const [addOpen, setAddOpen]           = useState(false);
   const [editPatient, setEditPatient]   = useState<Patient | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Patient | null>(null);
-  const debouncedQuery                  = useDebounce(query, 300);
 
-  const { data, isLoading, isError } = usePatients({ q: debouncedQuery || undefined, limit: 50 });
-  const deletePatient = useDeletePatient();
+  const debouncedQuery = useDebounce(query, 300);
+  const deletePatient  = useDeletePatient();
+
+  const { data, isLoading, isError } = usePatients({
+    q: debouncedQuery || undefined,
+    page,
+    limit,
+  });
 
   const patients = data?.data ?? [];
   const total    = data?.total ?? 0;
+
+  function handleSearch(q: string) { setQuery(q); setPage(1); }
+  function handlePageChange(p: number) { setPage(p); }
+  function handleLimitChange(l: number) { setLimit(l); setPage(1); }
 
   function handleDelete() {
     if (!deleteTarget) return;
@@ -124,7 +137,7 @@ export default function PatientsPage() {
             placeholder={t('بحث بالاسم، الموبايل، أو الرقم القومي...', 'Search by name, mobile, or national ID...')}
             icon={<Search className="w-4 h-4" />}
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => handleSearch(e.target.value)}
             lang={lang}
           />
         </div>
@@ -140,6 +153,14 @@ export default function PatientsPage() {
             onAddNew={() => setAddOpen(true)}
             addNewLabel={t('إضافة مريض', 'Add Patient')}
             errorMessage={t('تعذّر تحميل البيانات', 'Failed to load patients')}
+          />
+          <Pagination
+            page={page}
+            total={total}
+            limit={limit}
+            onPageChange={handlePageChange}
+            onLimitChange={handleLimitChange}
+            pageSizes={[10, 25, 50]}
           />
         </CardContent>
       </Card>
@@ -158,7 +179,7 @@ export default function PatientsPage() {
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
-        loading={deletePatient.isPending}
+        loading={deletePatient.isLoading}
         title={t('حذف المريض', 'Delete Patient')}
         message={
           deleteTarget
