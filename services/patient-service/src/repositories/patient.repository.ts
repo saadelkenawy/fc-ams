@@ -190,7 +190,7 @@ export async function updatePatient(
     for (const [key, col] of updatable) {
       if (key in input && key !== 'version') {
         fields.push(`${col} = $${idx++}`);
-        values.push((input as Record<string, unknown>)[key] ?? null);
+        values.push((input as unknown as Record<string, unknown>)[key] ?? null);
       }
     }
 

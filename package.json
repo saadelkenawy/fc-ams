@@ -13,7 +13,16 @@
     "test": "pnpm -r test",
     "lint": "pnpm -r lint",
     "type-check": "pnpm -r type-check",
-    "clean": "pnpm -r --parallel exec rm -rf dist node_modules"
+    "clean": "pnpm -r --parallel exec rm -rf dist node_modules",
+    "db:migrate": "bash scripts/migrate.sh",
+    "db:migrate:identity": "bash scripts/migrate.sh identity",
+    "db:migrate:patient": "bash scripts/migrate.sh patient",
+    "db:migrate:appointment": "bash scripts/migrate.sh appointment",
+    "db:migrate:doctor": "bash scripts/migrate.sh doctor",
+    "db:migrate:billing": "bash scripts/migrate.sh billing",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^7.0.0",
