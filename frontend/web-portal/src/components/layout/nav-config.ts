@@ -38,7 +38,7 @@ const NAV: Record<UserRole, NavGroup[]> = {
       groupEn: 'Analytics',
       items: [
         { key: 'analytics',    href: '/analytics',    labelAr: 'الإحصائيات',      labelEn: 'Analytics',    icon: 'BarChart3' },
-        { key: 'reports',      href: '/analytics/reports', labelAr: 'التقارير',   labelEn: 'Reports',      icon: 'FileText' },
+        { key: 'reports',      href: '/reports',          labelAr: 'التقارير',   labelEn: 'Reports',      icon: 'FileText' },
       ],
     },
     {
@@ -46,6 +46,8 @@ const NAV: Record<UserRole, NavGroup[]> = {
       groupEn: 'System',
       items: [
         { key: 'procedures',   href: '/procedures',   labelAr: 'الإجراءات',       labelEn: 'Procedures',   icon: 'Clipboard' },
+        { key: 'encounters',   href: '/encounters',   labelAr: 'الحالات السريرية', labelEn: 'Encounters',   icon: 'FileHeart' },
+        { key: 'chatbot',      href: '/chatbot',      labelAr: 'المساعد الذكي',   labelEn: 'AI Assistant', icon: 'Bot' },
         { key: 'settings',     href: '/settings',     labelAr: 'الإعدادات',       labelEn: 'Settings',     icon: 'Settings' },
       ],
     },
@@ -70,6 +72,7 @@ const NAV: Record<UserRole, NavGroup[]> = {
         { key: 'patients',     href: '/doctor/patients',  labelAr: 'مرضاي',        labelEn: 'My Patients',  icon: 'Users' },
         { key: 'earnings',     href: '/doctor/earnings',  labelAr: 'أرباحي',       labelEn: 'My Earnings',  icon: 'TrendingUp' },
         { key: 'notes',        href: '/doctor/notes',     labelAr: 'الملاحظات',    labelEn: 'Clinical Notes', icon: 'FileText' },
+        { key: 'encounters',   href: '/encounters',       labelAr: 'الحالات السريرية', labelEn: 'Encounters', icon: 'FileHeart' },
       ],
     },
   ],
@@ -80,7 +83,7 @@ const NAV: Record<UserRole, NavGroup[]> = {
         { key: 'dashboard',    href: '/',             labelAr: 'الرئيسية',        labelEn: 'Dashboard',    icon: 'LayoutDashboard' },
         { key: 'transactions', href: '/billing',      labelAr: 'المعاملات',       labelEn: 'Transactions', icon: 'Receipt' },
         { key: 'settlements',  href: '/billing/settlements', labelAr: 'التسويات', labelEn: 'Settlements',  icon: 'Banknote' },
-        { key: 'reports',      href: '/analytics/reports', labelAr: 'التقارير',   labelEn: 'Reports',      icon: 'FileText' },
+        { key: 'reports',      href: '/reports',          labelAr: 'التقارير',   labelEn: 'Reports',      icon: 'FileText' },
       ],
     },
   ],
