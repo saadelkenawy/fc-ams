@@ -379,3 +379,120 @@ export async function listDoctorSettlements(params: {
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   });
 }
+
+// ─── Source Fee Rules ─────────────────────────────────────────────────────────
+
+export interface SourceFeeRule {
+  id: number;
+  sourceCode: string;
+  sourceNameEn: string;
+  sourceNameAr: string;
+  feeType: 'percentage' | 'fixed';
+  feeValue: number;
+  deductFrom: 'clinic' | 'doctor' | 'both';
+  isActive: boolean;
+  validFrom: string;
+  validUntil: string | null;
+  specialtyId: number | null;
+  lastModifiedAt: string;
+}
+
+export interface CreateSourceInput {
+  sourceCode: string;
+  sourceNameEn: string;
+  sourceNameAr: string;
+  feeType: 'percentage' | 'fixed';
+  feeValue: number;
+  deductFrom: 'clinic' | 'doctor' | 'both';
+  isActive?: boolean;
+  validFrom: string;
+  validUntil?: string;
+}
+
+export interface UpdateSourceInput {
+  sourceNameEn?: string;
+  sourceNameAr?: string;
+  feeType?: 'percentage' | 'fixed';
+  feeValue?: number;
+  deductFrom?: 'clinic' | 'doctor' | 'both';
+  isActive?: boolean;
+  validFrom?: string;
+  validUntil?: string | null;
+}
+
+function rowToSource(row: Record<string, unknown>): SourceFeeRule {
+  return {
+    id:            row.id as number,
+    sourceCode:    row.source_code as string,
+    sourceNameEn:  (row.source_name_en as string) ?? '',
+    sourceNameAr:  (row.source_name_ar as string) ?? '',
+    feeType:       row.fee_type as 'percentage' | 'fixed',
+    feeValue:      Number(row.fee_value),
+    deductFrom:    row.deduct_from as 'clinic' | 'doctor' | 'both',
+    isActive:      row.is_active as boolean,
+    validFrom:     row.valid_from as string,
+    validUntil:    (row.valid_until as string | null) ?? null,
+    specialtyId:   (row.specialty_id as number | null) ?? null,
+    lastModifiedAt: (row.last_modified_at as Date).toISOString(),
+  };
+}
+
+export async function listSources(): Promise<SourceFeeRule[]> {
+  const { rows } = await pool.query(
+    `SELECT * FROM source_fee_rules ORDER BY is_active DESC, source_code ASC`,
+  );
+  return rows.map((r) => rowToSource(r as Record<string, unknown>));
+}
+
+export async function createSource(input: CreateSourceInput, userId: string): Promise<SourceFeeRule> {
+  const { rows } = await pool.query(
+    `INSERT INTO source_fee_rules
+       (source_code, source_name_en, source_name_ar, fee_type, fee_value, deduct_from, is_active, valid_from, valid_until, last_modified_by)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+     RETURNING *`,
+    [
+      input.sourceCode,
+      input.sourceNameEn,
+      input.sourceNameAr,
+      input.feeType,
+      input.feeValue,
+      input.deductFrom ?? 'clinic',
+      input.isActive ?? true,
+      input.validFrom,
+      input.validUntil ?? null,
+      userId,
+    ],
+  );
+  return rowToSource(rows[0] as Record<string, unknown>);
+}
+
+export async function updateSource(sourceCode: string, input: UpdateSourceInput, userId: string): Promise<SourceFeeRule> {
+  const fields: string[] = ['last_modified_by = $1', 'last_modified_at = NOW()'];
+  const values: unknown[] = [userId];
+  let idx = 2;
+
+  if (input.sourceNameEn !== undefined) { fields.push(`source_name_en = $${idx++}`); values.push(input.sourceNameEn); }
+  if (input.sourceNameAr !== undefined) { fields.push(`source_name_ar = $${idx++}`); values.push(input.sourceNameAr); }
+  if (input.feeType       !== undefined) { fields.push(`fee_type = $${idx++}`);       values.push(input.feeType); }
+  if (input.feeValue      !== undefined) { fields.push(`fee_value = $${idx++}`);      values.push(input.feeValue); }
+  if (input.deductFrom    !== undefined) { fields.push(`deduct_from = $${idx++}`);    values.push(input.deductFrom); }
+  if (input.isActive      !== undefined) { fields.push(`is_active = $${idx++}`);      values.push(input.isActive); }
+  if (input.validFrom     !== undefined) { fields.push(`valid_from = $${idx++}`);     values.push(input.validFrom); }
+  if ('validUntil' in input)             { fields.push(`valid_until = $${idx++}`);    values.push(input.validUntil ?? null); }
+
+  values.push(sourceCode);
+  const { rows } = await pool.query(
+    `UPDATE source_fee_rules SET ${fields.join(', ')} WHERE source_code = $${idx} RETURNING *`,
+    values,
+  );
+  if (!rows.length) throw Object.assign(new Error('Source not found'), { statusCode: 404, code: 'NOT_FOUND' });
+  return rowToSource(rows[0] as Record<string, unknown>);
+}
+
+export async function deleteSource(sourceCode: string): Promise<void> {
+  const result = await pool.query(
+    `DELETE FROM source_fee_rules WHERE source_code = $1`,
+    [sourceCode],
+  );
+  if (result.rowCount === 0) throw Object.assign(new Error('Source not found'), { statusCode: 404, code: 'NOT_FOUND' });
+}

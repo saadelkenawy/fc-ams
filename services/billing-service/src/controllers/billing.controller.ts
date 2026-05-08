@@ -102,3 +102,47 @@ export async function listSettlements(request: FastifyRequest, reply: FastifyRep
   const result = await repo.listDoctorSettlements(params);
   void reply.send({ success: true, ...result });
 }
+
+// ─── Source Fee Rules ─────────────────────────────────────────────────────────
+
+const createSourceSchema = z.object({
+  sourceCode:   z.string().min(1).max(50),
+  sourceNameEn: z.string().min(1).max(100),
+  sourceNameAr: z.string().min(1).max(100),
+  feeType:      z.enum(['percentage', 'fixed']),
+  feeValue:     z.number().min(0),
+  deductFrom:   z.enum(['clinic', 'doctor', 'both']).default('clinic'),
+  isActive:     z.boolean().default(true),
+  validFrom:    z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  validUntil:   z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+});
+
+const updateSourceSchema = createSourceSchema.omit({ sourceCode: true }).partial().extend({
+  validUntil: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+});
+
+export async function listSourcesHandler(_req: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const sources = await repo.listSources();
+  void reply.send({ success: true, data: sources });
+}
+
+export async function createSourceHandler(req: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const user = req.user as JwtPayload;
+  const input = createSourceSchema.parse(req.body);
+  const source = await repo.createSource(input, user.sub);
+  void reply.status(201).send({ success: true, data: source });
+}
+
+export async function updateSourceHandler(req: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { code } = req.params as { code: string };
+  const user = req.user as JwtPayload;
+  const input = updateSourceSchema.parse(req.body);
+  const source = await repo.updateSource(code, input, user.sub);
+  void reply.send({ success: true, data: source });
+}
+
+export async function deleteSourceHandler(req: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { code } = req.params as { code: string };
+  await repo.deleteSource(code);
+  void reply.status(204).send();
+}

@@ -103,6 +103,50 @@ export async function billingRoutes(app: FastifyInstance): Promise<void> {
     },
   }, ctrl.listSettlements);
 
+  // ── Source Fee Rules ────────────────────────────────────────────────────────
+  app.get('/sources', {
+    preHandler: [requireRole('admin', 'finance', 'receptionist')],
+    schema: { tags: ['billing'] },
+  }, ctrl.listSourcesHandler);
+
+  app.post('/sources', {
+    preHandler: [requireRole('admin', 'finance')],
+    schema: {
+      tags: ['billing'],
+      body: {
+        type: 'object',
+        required: ['sourceCode', 'sourceNameEn', 'sourceNameAr', 'feeType', 'feeValue', 'validFrom'],
+        properties: {
+          sourceCode:   { type: 'string', maxLength: 50 },
+          sourceNameEn: { type: 'string', maxLength: 100 },
+          sourceNameAr: { type: 'string', maxLength: 100 },
+          feeType:      { type: 'string', enum: ['percentage', 'fixed'] },
+          feeValue:     { type: 'number', minimum: 0 },
+          deductFrom:   { type: 'string', enum: ['clinic', 'doctor', 'both'] },
+          isActive:     { type: 'boolean' },
+          validFrom:    { type: 'string', format: 'date' },
+          validUntil:   { type: 'string', format: 'date' },
+        },
+      },
+    },
+  }, ctrl.createSourceHandler);
+
+  app.patch('/sources/:code', {
+    preHandler: [requireRole('admin', 'finance')],
+    schema: {
+      tags: ['billing'],
+      params: { type: 'object', properties: { code: { type: 'string' } }, required: ['code'] },
+    },
+  }, ctrl.updateSourceHandler);
+
+  app.delete('/sources/:code', {
+    preHandler: [requireRole('admin')],
+    schema: {
+      tags: ['billing'],
+      params: { type: 'object', properties: { code: { type: 'string' } }, required: ['code'] },
+    },
+  }, ctrl.deleteSourceHandler);
+
   // GET /settlements/doctor (single doctor settlement detail)
   app.get('/settlements/doctor', {
     preHandler: [requireRole('admin', 'finance', 'doctor')],

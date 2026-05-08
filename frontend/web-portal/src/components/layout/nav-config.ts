@@ -46,6 +46,7 @@ const NAV: Record<UserRole, NavGroup[]> = {
       groupEn: 'System',
       items: [
         { key: 'procedures',   href: '/procedures',   labelAr: 'الإجراءات',       labelEn: 'Procedures',   icon: 'Clipboard' },
+        { key: 'sources',      href: '/sources',      labelAr: 'مصادر المرضى',    labelEn: 'Sources',      icon: 'Share2' },
         { key: 'encounters',   href: '/encounters',   labelAr: 'الحالات السريرية', labelEn: 'Encounters',   icon: 'FileHeart' },
         { key: 'chatbot',      href: '/chatbot',      labelAr: 'المساعد الذكي',   labelEn: 'AI Assistant', icon: 'Bot' },
         { key: 'settings',     href: '/settings',     labelAr: 'الإعدادات',       labelEn: 'Settings',     icon: 'Settings' },
@@ -83,7 +84,8 @@ const NAV: Record<UserRole, NavGroup[]> = {
         { key: 'dashboard',    href: '/',             labelAr: 'الرئيسية',        labelEn: 'Dashboard',    icon: 'LayoutDashboard' },
         { key: 'transactions', href: '/billing',      labelAr: 'المعاملات',       labelEn: 'Transactions', icon: 'Receipt' },
         { key: 'settlements',  href: '/billing/settlements', labelAr: 'التسويات', labelEn: 'Settlements',  icon: 'Banknote' },
-        { key: 'reports',      href: '/reports',          labelAr: 'التقارير',   labelEn: 'Reports',      icon: 'FileText' },
+        { key: 'sources',      href: '/sources',      labelAr: 'مصادر المرضى',    labelEn: 'Sources',      icon: 'Share2' },
+        { key: 'reports',      href: '/reports',      labelAr: 'التقارير',        labelEn: 'Reports',      icon: 'FileText' },
       ],
     },
   ],
