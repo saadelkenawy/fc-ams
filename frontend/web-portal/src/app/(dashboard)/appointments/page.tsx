@@ -45,7 +45,7 @@ export default function AppointmentsPage() {
   const [addOpen, setAddOpen]     = useState(false);
 
   /* always fetch all statuses so we can show counts per tab */
-  const { data, isLoading, isError, refetch } = useAppointments({ date, limit: 200 });
+  const { data, isLoading, isError, refetch } = useAppointments({ date, limit: 100 });
   const appointments = data?.data ?? [];
   const doctorMap    = useDoctorMap();
   const specialtyMap = useSpecialtyMap();
