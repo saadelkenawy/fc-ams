@@ -158,7 +158,9 @@ export default function AnalyticsPage() {
       <div className="flex items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold font-display text-gray-900 dark:text-gray-100">{t('التحليلات', 'Analytics')}</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{t('إبريل 2026', 'April 2026')}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+            {new Date().toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-US', { month: 'long', year: 'numeric' })}
+          </p>
         </div>
         <div className="flex gap-2">
           <div className="flex gap-1 bg-gray-100 dark:bg-neutral-800 rounded-lg p-1">

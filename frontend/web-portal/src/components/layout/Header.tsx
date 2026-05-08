@@ -47,7 +47,7 @@ function QuickSearch() {
   function handleSelect(patient: Patient) {
     setOpen(false);
     setValue('');
-    router.push(`/patients?highlight=${patient.patientId}`);
+    router.push(`/patients/${patient.patientId}`);
   }
 
   function handleViewAll() {
@@ -144,7 +144,7 @@ export function Header() {
   const { lang, toggle, t }     = useLang();
   const { user }                = useAuth();
   const [dark, setDark]         = useState(false);
-  const [notifCount]            = useState(3);
+  const [notifCount]            = useState(0);
   const [density, setDensity]   = useState<Density>('comfortable');
   const [textSize, setTextSize] = useState<TextSize>('md');
   const [showDensity, setShowDensity] = useState(false);

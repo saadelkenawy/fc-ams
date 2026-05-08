@@ -48,11 +48,12 @@ interface MonthlyRevenue {
 }
 
 interface SourceStat {
-  source: string;
-  label: SourceLabel;
-  count: number;
-  pct: number;
-  revenue: number;
+  sourceCode:   string;
+  sourceNameEn: string;
+  sourceNameAr: string;
+  count:        number;
+  pct:          number;
+  revenue:      number;
 }
 
 interface DoctorStat {
@@ -144,7 +145,7 @@ export async function getOverview(_req: FastifyRequest, reply: FastifyReply): Pr
       revenue:      { current: currentRevenue, previous: previousRevenue, growthPct },
       appointments: { current: currentAppts,   previous: 0, growthPct: 0 },
       patients:     { total: totalPatients },
-      noShowRate:   { rate: 0 },
+      noShowRate:   { current: 0 },
     },
   });
 }
@@ -190,13 +191,17 @@ export async function getSourceBreakdown(_req: FastifyRequest, reply: FastifyRep
 
   const total = transactions.length;
 
-  const data: SourceStat[] = Array.from(map.entries()).map(([source, stats]) => ({
-    source,
-    label: SOURCE_LABELS[source] ?? { en: source, ar: source },
-    count: stats.count,
-    pct:   total === 0 ? 0 : Math.round((stats.count / total) * 1000) / 10,
-    revenue: stats.revenue,
-  }));
+  const data: SourceStat[] = Array.from(map.entries()).map(([source, stats]) => {
+    const label = SOURCE_LABELS[source] ?? { en: source, ar: source };
+    return {
+      sourceCode:   source,
+      sourceNameEn: label.en,
+      sourceNameAr: label.ar,
+      count:        stats.count,
+      pct:          total === 0 ? 0 : Math.round((stats.count / total) * 1000) / 10,
+      revenue:      stats.revenue,
+    };
+  });
 
   void reply.send({ success: true, data });
 }
