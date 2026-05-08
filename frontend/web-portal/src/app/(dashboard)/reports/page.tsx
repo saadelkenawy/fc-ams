@@ -21,6 +21,14 @@ const REPORT_TABS = [
 ] as const;
 type ReportTab = typeof REPORT_TABS[number]['key'];
 
+function currentMonthRange() {
+  const now = new Date();
+  const from = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const to = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${lastDay}`;
+  return { from, to };
+}
+
 
 function StatRow({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
   return (
@@ -137,7 +145,8 @@ function FinancialReport({ lang, locale }: { lang: string; locale: string }) {
 
 /* ──────────────── Doctor Settlements ──────────────── */
 function SettlementsReport({ lang, locale }: { lang: string; locale: string }) {
-  const { data, isLoading } = useSettlements({ from: '2026-05-01', to: '2026-05-31' });
+  const { from, to } = currentMonthRange();
+  const { data, isLoading } = useSettlements({ from, to });
   const settlements = data?.data ?? [];
 
   if (isLoading) return (
@@ -167,7 +176,7 @@ function SettlementsReport({ lang, locale }: { lang: string; locale: string }) {
         <Card>
           <CardContent className="pt-5">
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{lang === 'ar' ? 'الفترة' : 'Period'}</p>
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">May 2026</p>
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{new Date().toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-US', { month: 'long', year: 'numeric' })}</p>
           </CardContent>
         </Card>
       </div>
