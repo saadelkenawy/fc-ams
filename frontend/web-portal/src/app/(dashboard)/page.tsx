@@ -107,10 +107,10 @@ export default function DashboardPage() {
                     const spec = appt.specialtyId ? specialtyMap.get(appt.specialtyId) : null;
                     return (
                       <tr key={appt.id} className="border-b border-gray-50 dark:border-neutral-800 hover:bg-blue-50/40 dark:hover:bg-blue-900/10 transition-colors">
-                        <td className="px-5 py-3.5 font-mono text-gray-600 dark:text-gray-300 text-xs">
+                        <td className="px-5 py-3.5 font-mono text-gray-600 dark:text-gray-300 text-xs" dir="ltr">
                           {appt.patientId.slice(-8).toUpperCase()}
                         </td>
-                        <td className="px-5 py-3.5 text-gray-600 dark:text-gray-300 font-mono tabular-nums">
+                        <td className="px-5 py-3.5 text-gray-600 dark:text-gray-300 font-mono tabular-nums" dir="ltr">
                           {formatTime(appt.startTime)}
                         </td>
                         <td className="px-5 py-3.5 text-gray-600 dark:text-gray-300">
@@ -155,7 +155,7 @@ export default function DashboardPage() {
                       {appt.patientId.slice(-1).toUpperCase()}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-gray-900 dark:text-gray-100 text-sm font-medium font-mono truncate">
+                      <p className="text-gray-900 dark:text-gray-100 text-sm font-medium font-mono truncate" dir="ltr">
                         {appt.patientId.slice(-8).toUpperCase()}
                       </p>
                       <p className="text-gray-500 dark:text-gray-400 text-xs truncate">
@@ -164,7 +164,7 @@ export default function DashboardPage() {
                           : (spec ? (lang === 'ar' ? spec.nameAr : spec.nameEn) : '—')}
                       </p>
                     </div>
-                    <span className="text-gray-500 dark:text-gray-400 text-xs font-mono flex-shrink-0">{appt.startTime}</span>
+                    <span className="text-gray-500 dark:text-gray-400 text-xs font-mono flex-shrink-0" dir="ltr">{appt.startTime}</span>
                   </div>
                 );
               })}

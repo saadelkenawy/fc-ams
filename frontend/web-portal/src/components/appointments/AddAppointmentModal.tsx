@@ -61,7 +61,7 @@ function PatientPicker({ lang, t, value, onChange }: {
             <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-200">
               {lang === 'ar' ? (value.nameAr ?? value.nameEn) : value.nameEn}
             </p>
-            <p className="text-xs text-emerald-600 dark:text-emerald-400 font-mono">{value.mobile}</p>
+            <p className="text-xs text-emerald-600 dark:text-emerald-400 font-mono" dir="ltr">{value.mobile}</p>
           </div>
         </div>
         <button onClick={() => onChange(null)} className="text-emerald-500 hover:text-emerald-700 text-xs underline">
@@ -99,7 +99,7 @@ function PatientPicker({ lang, t, value, onChange }: {
                 <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
                   {lang === 'ar' ? (p.nameAr ?? p.nameEn) : p.nameEn}
                 </p>
-                <p className="text-xs text-gray-400 font-mono">{p.mobile}</p>
+                <p className="text-xs text-gray-400 font-mono" dir="ltr">{p.mobile}</p>
               </div>
             </button>
           ))}

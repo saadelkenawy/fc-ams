@@ -70,7 +70,7 @@ export default function PatientsPage() {
           </div>
           <div>
             <p className="font-medium text-gray-900 dark:text-gray-100">{lang === 'ar' ? (p.nameAr ?? p.nameEn) : p.nameEn}</p>
-            <p className="text-xs text-gray-400 dark:text-gray-500 font-mono">{p.nationalId ?? '—'}</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 font-mono" dir="ltr">{p.nationalId ?? '—'}</p>
           </div>
         </div>
       ),
@@ -78,7 +78,7 @@ export default function PatientsPage() {
     {
       key: 'mobile',
       header: t('الموبايل', 'Mobile'),
-      render: (p) => <span className="text-gray-600 dark:text-gray-300 font-mono text-xs">{p.mobile}</span>,
+      render: (p) => <span className="text-gray-600 dark:text-gray-300 font-mono text-xs" dir="ltr">{p.mobile}</span>,
     },
     {
       key: 'dob',

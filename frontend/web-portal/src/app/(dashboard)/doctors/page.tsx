@@ -86,7 +86,7 @@ export default function DoctorsPage() {
           </div>
           <div>
             <p className="font-medium text-gray-900 dark:text-gray-100">{lang === 'ar' ? (d.nameAr ?? d.nameEn) : d.nameEn}</p>
-            <p className="text-xs text-gray-400 dark:text-gray-500 font-mono">{d.mobile}</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 font-mono" dir="ltr">{d.mobile}</p>
           </div>
         </div>
       ),

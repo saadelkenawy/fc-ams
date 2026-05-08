@@ -112,7 +112,7 @@ export default function PatientDetailPage() {
         </button>
         <div className="flex-1">
           <h2 className="text-xl font-bold font-display text-gray-900 dark:text-gray-100">{displayName}</h2>
-          <p className="text-xs text-gray-400 dark:text-gray-300 font-mono mt-0.5">{patient.patientId}</p>
+          <p className="text-xs text-gray-400 dark:text-gray-300 font-mono mt-0.5" dir="ltr">{patient.patientId}</p>
         </div>
         <Button
           variant={editing ? 'outline' : 'secondary'}
