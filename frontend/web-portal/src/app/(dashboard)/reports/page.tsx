@@ -319,7 +319,7 @@ function ActivityReport({ lang, locale }: { lang: string; locale: string }) {
     <div className="animate-fade-in">
       <Card>
         <CardHeader>
-          <CardTitle>{lang === 'ar' ? 'أداء الأطباء — مايو 2026' : 'Doctor Performance — May 2026'}</CardTitle>
+          <CardTitle>{lang === 'ar' ? `أداء الأطباء — ${new Date().toLocaleString('ar-EG', { month: 'long', year: 'numeric' })}` : `Doctor Performance — ${new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' })}`}</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <table className="w-full text-sm">
@@ -373,7 +373,9 @@ export default function ReportsPage() {
       <div className="flex items-center justify-between gap-4">
         <div className="animate-slide-down">
           <h2 className="text-xl font-bold font-display text-gray-900 dark:text-gray-100">{t('التقارير', 'Reports')}</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-300 mt-0.5">{t('مايو 2026', 'May 2026')}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-300 mt-0.5">
+            {new Date().toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-US', { month: 'long', year: 'numeric' })}
+          </p>
         </div>
         <div className="flex gap-2 animate-slide-down" style={{ animationDelay: '40ms' }}>
           <Button size="sm" variant="outline">

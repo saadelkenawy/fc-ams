@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { useEncounters, type Encounter } from '@/hooks/useEncounters';
+import { usePatientMap } from '@/hooks/usePatients';
+import { useDoctorMap } from '@/hooks/useDoctors';
 import { useLang } from '@/contexts/LanguageContext';
 import { ehrApi } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
@@ -64,6 +66,8 @@ export default function EncountersPage() {
   const { lang, t } = useLang();
   const locale = lang === 'ar' ? 'ar-EG' : 'en-US';
   const queryClient = useQueryClient();
+  const patientMap = usePatientMap();
+  const doctorMap  = useDoctorMap();
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [dateFrom, setDateFrom] = useState('');
@@ -192,10 +196,10 @@ export default function EncountersPage() {
                   {t('التاريخ', 'Date')}
                 </th>
                 <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">
-                  {t('المريض', 'Patient ID')}
+                  {t('المريض', 'Patient')}
                 </th>
                 <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs hidden md:table-cell">
-                  {t('الطبيب', 'Doctor ID')}
+                  {t('الطبيب', 'Doctor')}
                 </th>
                 <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">
                   {t('النوع', 'Type')}
@@ -233,11 +237,11 @@ export default function EncountersPage() {
                       <td className="px-5 py-3.5 text-gray-700 dark:text-gray-300">
                         {formatDate(enc.encounterDate, locale)}
                       </td>
-                      <td className="px-5 py-3.5 font-mono text-xs text-gray-600 dark:text-gray-400">
-                        {truncateUUID(enc.patientId)}
+                      <td className="px-5 py-3.5 text-gray-700 dark:text-gray-200 text-sm">
+                        {(() => { const p = patientMap.get(enc.patientId); return p ? (lang === 'ar' ? (p.nameAr ?? p.nameEn) : p.nameEn) : truncateUUID(enc.patientId); })()}
                       </td>
-                      <td className="px-5 py-3.5 font-mono text-xs text-gray-600 dark:text-gray-400 hidden md:table-cell">
-                        {truncateUUID(enc.doctorId)}
+                      <td className="px-5 py-3.5 text-gray-700 dark:text-gray-200 text-sm hidden md:table-cell">
+                        {(() => { const d = doctorMap.get(enc.doctorId); return d ? (lang === 'ar' ? (d.nameAr ?? d.nameEn) : d.nameEn) : truncateUUID(enc.doctorId); })()}
                       </td>
                       <td className="px-5 py-3.5">
                         <span className="text-xs text-gray-600 dark:text-gray-400">
