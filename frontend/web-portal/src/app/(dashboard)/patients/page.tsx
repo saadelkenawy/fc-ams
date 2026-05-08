@@ -115,8 +115,9 @@ export default function PatientsPage() {
       <div className="flex items-center justify-between gap-4">
         <div className="animate-slide-down">
           <h2 className="text-xl font-bold font-display text-gray-900 dark:text-gray-100">{t('المرضى', 'Patients')}</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-            {t(`${total} مريض مسجل`, `${total} registered patients`)}
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 flex items-center gap-1">
+            <span>{total}</span>
+            <span>{t('مريض مسجل', 'registered patients')}</span>
           </p>
         </div>
         <div className="flex items-center gap-2 animate-slide-down" style={{ animationDelay: '40ms' }}>

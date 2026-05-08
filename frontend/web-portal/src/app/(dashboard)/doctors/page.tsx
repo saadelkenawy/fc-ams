@@ -134,8 +134,9 @@ export default function DoctorsPage() {
       <div className="flex items-center justify-between gap-4">
         <div className="animate-slide-down">
           <h2 className="text-xl font-bold font-display text-gray-900 dark:text-gray-100">{t('الأطباء', 'Doctors')}</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-            {t(`${activeCount} طبيب نشط`, `${activeCount} active doctors`)}
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 flex items-center gap-1">
+            <span>{activeCount}</span>
+            <span>{t('طبيب نشط', 'active doctors')}</span>
           </p>
         </div>
         <Button size="sm" onClick={() => setAddOpen(true)} className="gap-1.5 animate-slide-down" style={{ animationDelay: '40ms' }}>
