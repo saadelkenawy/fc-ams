@@ -170,15 +170,23 @@ export async function createAppointment(
       }
     }
 
-    // Get next queue number, locking to prevent races
+    // Get next queue number; lock existing rows first, then aggregate
+    await client.query(
+      `SELECT id FROM appointments
+       WHERE doctor_id = $1
+         AND appointment_date = $2
+         AND status NOT IN ('Canc.', 'Resch.')
+         AND deleted_at IS NULL
+       FOR UPDATE`,
+      [input.doctorId, input.appointmentDate],
+    );
     const { rows: queueRows } = await client.query(
       `SELECT COALESCE(MAX(queue_number), 0) + 1 AS next_queue
        FROM appointments
        WHERE doctor_id = $1
          AND appointment_date = $2
          AND status NOT IN ('Canc.', 'Resch.')
-         AND deleted_at IS NULL
-       FOR UPDATE`,
+         AND deleted_at IS NULL`,
       [input.doctorId, input.appointmentDate],
     );
     const queueNumber = (queueRows[0] as { next_queue: number }).next_queue;
