@@ -18,6 +18,11 @@ import {
   Droplets,
   AlertCircle,
   ClipboardList,
+  Paperclip,
+  Upload,
+  FileText,
+  Download,
+  Trash2,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -29,11 +34,12 @@ import { usePatient } from '@/hooks/usePatients';
 import { useAppointments } from '@/hooks/useAppointments';
 import { useDoctorMap } from '@/hooks/useDoctors';
 import { patientApi } from '@/lib/api';
+import { useEntityFiles, useUploadFile, useDeleteFile } from '@/hooks/useFiles';
 import type { Patient, UpdatePatientInput } from '@fadl/types';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type Tab = 'demographics' | 'visits';
+type Tab = 'demographics' | 'visits' | 'files';
 
 const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] as const;
 
@@ -164,6 +170,7 @@ export default function PatientDetailPage() {
         {([
           { key: 'demographics', ar: 'البيانات الأساسية', en: 'Demographics' },
           { key: 'visits',       ar: 'سجل الزيارات',      en: 'Visit History' },
+          { key: 'files',        ar: 'الملفات والمستندات', en: 'Files' },
         ] as const).map((tab_) => (
           <button
             key={tab_.key}
@@ -187,8 +194,10 @@ export default function PatientDetailPage() {
         ) : (
           <DemographicsView patient={patient} lang={lang} t={t} />
         )
-      ) : (
+      ) : tab === 'visits' ? (
         <VisitHistoryTab patientId={patient.patientId} lang={lang} t={t} />
+      ) : (
+        <PatientFilesTab patientId={patient.patientId} lang={lang} t={t} />
       )}
     </div>
   );
@@ -574,6 +583,131 @@ function VisitHistoryTab({
                 })}
               </tbody>
             </table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Patient files tab ────────────────────────────────────────────────────────
+
+function PatientFilesTab({
+  patientId,
+  lang,
+  t,
+}: {
+  patientId: string;
+  lang: 'ar' | 'en';
+  t: (ar: string, en: string) => string;
+}) {
+  const { data: files, isLoading } = useEntityFiles('patient', patientId);
+  const upload = useUploadFile('patient', patientId);
+  const remove = useDeleteFile('patient', patientId);
+  const [dragOver, setDragOver] = useState(false);
+
+  function handleFiles(fileList: FileList | null) {
+    if (!fileList) return;
+    Array.from(fileList).forEach((f) => upload.mutate(f));
+  }
+
+  function humanSize(bytes: number) {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  }
+
+  const MIME_ICON: Record<string, React.ReactNode> = {
+    'application/pdf': <FileText className="w-4 h-4 text-red-400" />,
+    'image/jpeg': <FileText className="w-4 h-4 text-blue-400" />,
+    'image/png':  <FileText className="w-4 h-4 text-blue-400" />,
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle><Paperclip className="w-4 h-4" />{t('الملفات والمستندات', 'Files & Documents')}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Drop zone */}
+        <label
+          className={cn(
+            'flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-xl p-6 cursor-pointer transition-colors',
+            dragOver
+              ? 'border-primary-400 bg-primary-50 dark:bg-primary-900/20'
+              : 'border-gray-200 dark:border-neutral-600 hover:border-primary-300 dark:hover:border-primary-700',
+          )}
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => { e.preventDefault(); setDragOver(false); handleFiles(e.dataTransfer.files); }}
+        >
+          <input
+            type="file"
+            multiple
+            accept=".pdf,.jpg,.jpeg,.png,.webp,.txt"
+            className="sr-only"
+            onChange={(e) => handleFiles(e.target.files)}
+          />
+          <Upload className="w-6 h-6 text-gray-400" />
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {t('اسحب ملفات هنا أو اضغط للرفع', 'Drag files here or click to upload')}
+          </p>
+          <p className="text-xs text-gray-400 dark:text-gray-500">
+            {t('PDF، صور — بحد أقصى 50 ميجابايت', 'PDF, images — max 50 MB')}
+          </p>
+          {upload.isPending && (
+            <div className="flex items-center gap-2 text-xs text-primary-600">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              {t('جاري الرفع...', 'Uploading...')}
+            </div>
+          )}
+          {upload.isError && (
+            <p className="text-xs text-red-500">{t('فشل الرفع', 'Upload failed')}</p>
+          )}
+        </label>
+
+        {/* File list */}
+        {isLoading ? (
+          <div className="space-y-2">
+            {[1, 2].map((i) => (
+              <div key={i} className="h-12 rounded-xl bg-gray-100 dark:bg-neutral-700 animate-pulse" />
+            ))}
+          </div>
+        ) : !files || files.length === 0 ? (
+          <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">
+            {t('لا توجد ملفات مرفوعة', 'No files uploaded yet')}
+          </p>
+        ) : (
+          <div className="divide-y divide-gray-50 dark:divide-neutral-700">
+            {files.map((file) => (
+              <div key={file.id} className="flex items-center gap-3 py-3">
+                <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-neutral-700 flex items-center justify-center flex-shrink-0">
+                  {MIME_ICON[file.mimeType] ?? <FileText className="w-4 h-4 text-gray-400" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{file.originalName}</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">{humanSize(file.sizeBytes)}</p>
+                </div>
+                <div className="flex items-center gap-1">
+                  <a
+                    href={`/api/proxy/files/files/${file.id}/download`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-700 text-gray-400 hover:text-primary-600 transition-colors"
+                    title={t('تحميل', 'Download')}
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                  </a>
+                  <button
+                    onClick={() => remove.mutate(file.id)}
+                    className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500 transition-colors"
+                    title={t('حذف', 'Delete')}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </CardContent>

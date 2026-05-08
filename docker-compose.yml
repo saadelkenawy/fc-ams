@@ -248,6 +248,14 @@ services:
       LOG_LEVEL: info
       BRANCH_ID: 1
       SERVICE_NAME: notification-service
+      SMTP_HOST:     ${SMTP_HOST:-}
+      SMTP_PORT:     ${SMTP_PORT:-587}
+      SMTP_USER:     ${SMTP_USER:-}
+      SMTP_PASS:     ${SMTP_PASS:-}
+      SMTP_FROM:     ${SMTP_FROM:-Fadl Clinic <noreply@fadlclinic.com>}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN:  ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_FROM_NUMBER: ${TWILIO_FROM_NUMBER:-}
     ports:
       - "3007:3007"
     depends_on:
@@ -325,6 +333,7 @@ services:
       MINIO_SECRET_KEY: fadl_minio_secret
       MINIO_BUCKET: fadl-files
       MINIO_USE_SSL: "false"
+      MINIO_PUBLIC_URL: http://localhost:9000
     ports:
       - "3011:3011"
     depends_on:

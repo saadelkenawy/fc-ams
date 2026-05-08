@@ -58,9 +58,14 @@ export async function initiateUpload(request: FastifyRequest, reply: FastifyRepl
     branchId:     user.branchId ?? 1,
   });
 
+  // Replace internal MinIO hostname with public URL so browsers can reach it
+  const publicPutUrl = config.MINIO_PUBLIC_URL
+    ? putUrl.replace(/^https?:\/\/[^/]+/, config.MINIO_PUBLIC_URL)
+    : putUrl;
+
   void reply.status(201).send({
     success: true,
-    data: { fileId: record.id, uploadUrl: putUrl, fileKey, expiresIn: 600 },
+    data: { fileId: record.id, uploadUrl: publicPutUrl, fileKey, expiresIn: 600 },
   });
 }
 
@@ -83,7 +88,11 @@ export async function getDownloadUrl(request: FastifyRequest, reply: FastifyRepl
     { expiresIn: config.PRESIGN_TTL_SECS },
   );
 
-  void reply.send({ success: true, data: { ...record, downloadUrl: url, expiresIn: config.PRESIGN_TTL_SECS } });
+  const publicUrl = config.MINIO_PUBLIC_URL
+    ? url.replace(/^https?:\/\/[^/]+/, config.MINIO_PUBLIC_URL)
+    : url;
+
+  void reply.send({ success: true, data: { ...record, downloadUrl: publicUrl, expiresIn: config.PRESIGN_TTL_SECS } });
 }
 
 export async function listFiles(request: FastifyRequest, reply: FastifyReply): Promise<void> {

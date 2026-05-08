@@ -9,7 +9,7 @@ import { Badge, AppointmentStatusBadge } from '@/components/ui/Badge';
 import { useLang } from '@/contexts/LanguageContext';
 import { formatTime } from '@/lib/utils';
 import { useAppointments } from '@/hooks/useAppointments';
-import { useDoctorMap, useSpecialtyMap } from '@/hooks/useDoctors';
+import { useDoctors, useDoctorMap, useSpecialtyMap } from '@/hooks/useDoctors';
 import { usePatientMap } from '@/hooks/usePatients';
 import { AddAppointmentModal } from '@/components/appointments/AddAppointmentModal';
 import { appointmentApi } from '@/lib/api';
@@ -260,15 +260,21 @@ export default function AppointmentsPage() {
   const qc = useQueryClient();
   const [activeTab, setActiveTab] = useState<AppointmentStatus | 'all'>('all');
   const [date, setDate]           = useState(todayStr);
+  const [doctorId, setDoctorId]   = useState<string>('');
   const [addOpen, setAddOpen]     = useState(false);
   const [statusAppt, setStatusAppt] = useState<Appointment | null>(null);
   const [deleteAppt, setDeleteAppt] = useState<Appointment | null>(null);
 
-  const { data, isLoading, isError, refetch } = useAppointments({ date, limit: 100 });
+  const { data, isLoading, isError, refetch } = useAppointments({
+    date,
+    limit:    100,
+    doctorId: doctorId || undefined,
+  });
   const appointments = data?.data ?? [];
   const doctorMap    = useDoctorMap();
   const specialtyMap = useSpecialtyMap();
   const patientMap   = usePatientMap();
+  const { data: doctorList } = useDoctors({ isActive: true, limit: 200 });
 
   const statusCounts = useMemo(() => {
     const m: Record<string, number> = {};
@@ -304,7 +310,7 @@ export default function AppointmentsPage() {
         </Button>
       </div>
 
-      {/* Date nav + status tabs */}
+      {/* Date nav + doctor filter + status tabs */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 flex-wrap">
         <div className="flex items-center gap-2">
           <button
@@ -335,6 +341,20 @@ export default function AppointmentsPage() {
             </button>
           )}
         </div>
+
+        {/* Doctor filter */}
+        <select
+          value={doctorId}
+          onChange={(e) => { setDoctorId(e.target.value); setActiveTab('all'); }}
+          className="h-9 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-gray-700 dark:text-gray-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600 min-w-[160px]"
+        >
+          <option value="">{t('كل الأطباء', 'All Doctors')}</option>
+          {(doctorList?.data ?? []).map((d) => (
+            <option key={d.id} value={d.id}>
+              {lang === 'ar' ? (d.nameAr ?? d.nameEn) : d.nameEn}
+            </option>
+          ))}
+        </select>
 
         <div className="pill-tab-bar overflow-x-auto">
           {STATUS_TABS.map((tab) => {

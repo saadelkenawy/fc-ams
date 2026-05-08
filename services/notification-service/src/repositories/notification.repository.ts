@@ -1,5 +1,7 @@
 import { withRlsContext, withTransaction } from '../config/database';
 import { config } from '../config';
+import { sendEmail } from '../delivery/email';
+import { sendSms } from '../delivery/sms';
 
 export interface Notification {
   id: string;
@@ -215,11 +217,28 @@ export async function createNotification(
     return rowToNotification(rows[0] as Record<string, unknown>);
   });
 
-  // Phase 1: log to console, mark as sent immediately
-  console.info(
-    `[notification-service] Would send ${input.channel} to ${input.recipientMobile ?? input.recipientEmail}: ${input.body}`,
-  );
-  await markSent(notif.id);
+  // Attempt real delivery based on channel
+  let deliveryStatus: 'sent' | 'failed' = 'sent';
+
+  if (input.channel === 'email' && input.recipientEmail) {
+    const result = await sendEmail({
+      to:      input.recipientEmail,
+      subject: input.subject ?? 'Notification from Fadl Clinic',
+      body:    input.body,
+    });
+    if (result === 'failed') deliveryStatus = 'failed';
+  } else if ((input.channel === 'sms' || input.channel === 'whatsapp') && input.recipientMobile) {
+    const result = await sendSms(input.recipientMobile, input.body);
+    if (result === 'failed') deliveryStatus = 'failed';
+  } else {
+    console.info(`[notification-service] ${input.channel} delivery not configured — queued for: ${input.recipientMobile ?? input.recipientEmail}`);
+  }
+
+  if (deliveryStatus === 'failed') {
+    await markFailed(notif.id, 'Delivery gateway error');
+  } else {
+    await markSent(notif.id);
+  }
 
   const updated = await findNotificationById(notif.id);
   if (!updated) {

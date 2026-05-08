@@ -17,6 +17,7 @@ const envSchema = z.object({
   MINIO_SECRET_KEY: z.string().default('fadl_minio_secret'),
   MINIO_BUCKET:     z.string().default('fadl-files'),
   MINIO_USE_SSL:    z.coerce.boolean().default(false),
+  MINIO_PUBLIC_URL: z.string().optional(), // override host in presigned URLs for browser access
   PRESIGN_TTL_SECS: z.coerce.number().default(3600),
 });
 
