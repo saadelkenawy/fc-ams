@@ -41,7 +41,7 @@ function StatusDropdown({
 }: { txId: string; current: PaymentStatus; lang: 'ar' | 'en'; onClose: () => void }) {
   const { t } = useLang();
   const { toast } = useToast();
-  const { mutateAsync, isPending } = useUpdateTransactionStatus();
+  const { mutateAsync, isLoading: isPending } = useUpdateTransactionStatus();
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

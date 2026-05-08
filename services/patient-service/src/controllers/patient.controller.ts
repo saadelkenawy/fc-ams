@@ -26,7 +26,7 @@ const searchSchema = z.object({
   mobile: z.string().optional(),
   nationalId: z.string().optional(),
   page: z.coerce.number().int().positive().default(1),
-  limit: z.coerce.number().int().positive().max(100).default(20),
+  limit: z.coerce.number().int().positive().max(500).default(20),
 });
 
 export async function getPatient(request: FastifyRequest, reply: FastifyReply): Promise<void> {
