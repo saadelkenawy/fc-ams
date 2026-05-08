@@ -11,6 +11,7 @@ const envSchema = z.object({
   BILLING_SERVICE_URL:     z.string().default('http://localhost:3004/api/v1'),
   APPOINTMENT_SERVICE_URL: z.string().default('http://localhost:3001/api/v1'),
   PATIENT_SERVICE_URL:     z.string().default('http://localhost:3002/api/v1'),
+  DOCTOR_SERVICE_URL:      z.string().default('http://localhost:3003/api/v1'),
 });
 
 const parsed = envSchema.safeParse(process.env);

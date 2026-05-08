@@ -104,6 +104,13 @@ export async function recordLoginFailure(email: string): Promise<void> {
   );
 }
 
+export async function updatePasswordHash(userId: string, passwordHash: string): Promise<void> {
+  await pool.query(
+    `UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2`,
+    [passwordHash, userId],
+  );
+}
+
 // ─── Refresh Tokens ───────────────────────────────────────────────────────────
 
 function hashToken(token: string): string {

@@ -1,6 +1,6 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
-import { billingClient, patientClient, appointmentClient } from '../clients/internal';
+import { billingClient, patientClient, appointmentClient, doctorClient } from '../clients/internal';
 import { buildPdf } from '../utils/pdf';
 import type { PdfColumn } from '../utils/pdf';
 
@@ -58,10 +58,13 @@ interface SourceStat {
 }
 
 interface DoctorStat {
-  doctorId: string;
-  revenue: number;
+  doctorId:   string;
+  nameEn:     string;
+  nameAr:     string;
+  specialtyId: number | null;
+  revenue:    number;
   appointments: number;
-  share: number;
+  share:      number;
 }
 
 const SPECIALTY_LABELS: Record<number, SourceLabel> = {
@@ -283,15 +286,37 @@ export async function getTopDoctors(req: FastifyRequest, reply: FastifyReply): P
 
   const totalRevenue = Array.from(map.values()).reduce((s, e) => s + e.revenue, 0);
 
-  const data: DoctorStat[] = Array.from(map.entries())
-    .map(([doctorId, stats]) => ({
+  const ranked = Array.from(map.entries())
+    .sort((a, b) => b[1].revenue - a[1].revenue)
+    .slice(0, topN);
+
+  // Resolve doctor names in one batch call
+  const nameMap = new Map<string, { nameEn: string; nameAr: string; specialtyId: number | null }>();
+  try {
+    const ids = ranked.map(([id]) => id).filter((id) => id !== 'unknown');
+    if (ids.length) {
+      const res = await doctorClient.get<{ data?: { id: string; nameEn: string; nameAr?: string; specialtyId?: number }[] }>(
+        '/doctors',
+        { params: { limit: 100 } },
+      );
+      for (const d of res.data.data ?? []) {
+        nameMap.set(d.id, { nameEn: d.nameEn, nameAr: d.nameAr ?? d.nameEn, specialtyId: d.specialtyId ?? null });
+      }
+    }
+  } catch { /* doctor service unreachable — return IDs only */ }
+
+  const data: DoctorStat[] = ranked.map(([doctorId, stats]) => {
+    const info = nameMap.get(doctorId);
+    return {
       doctorId,
+      nameEn:      info?.nameEn     ?? doctorId,
+      nameAr:      info?.nameAr     ?? doctorId,
+      specialtyId: info?.specialtyId ?? null,
       revenue:      stats.revenue,
       appointments: stats.appointments,
       share:        totalRevenue === 0 ? 0 : Math.round((stats.revenue / totalRevenue) * 1000) / 10,
-    }))
-    .sort((a, b) => b.revenue - a.revenue)
-    .slice(0, topN);
+    };
+  });
 
   void reply.send({ success: true, data });
 }

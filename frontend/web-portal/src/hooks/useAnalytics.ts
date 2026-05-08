@@ -58,6 +58,16 @@ export function useSourceBreakdown() {
   });
 }
 
+export interface DoctorStat {
+  doctorId:    string;
+  nameEn:      string;
+  nameAr:      string;
+  specialtyId: number | null;
+  revenue:     number;
+  appointments: number;
+  share:       number;
+}
+
 export interface SpecialtyStat {
   specialtyId:  number;
   specialtyEn:  string;
@@ -75,6 +85,17 @@ export interface NoShowDay {
   total:      number;
   cancelled:  number;
   noShowRate: number;
+}
+
+export function useTopDoctors(limit = 5) {
+  return useQuery({
+    queryKey: ['analytics', 'doctors', 'top', limit],
+    queryFn: async () => {
+      const { data } = await analyticsApi.get<{ success: boolean; data: DoctorStat[] }>('/analytics/doctors/top', { params: { limit } });
+      return data.data;
+    },
+    staleTime: 60_000,
+  });
 }
 
 export function useSpecialtyBreakdown() {

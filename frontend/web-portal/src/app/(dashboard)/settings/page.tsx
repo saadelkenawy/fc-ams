@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { identityApi } from '@/lib/api';
 import {
   Building2, Users, Activity, Check, Loader2, Key, RefreshCw, X,
 } from 'lucide-react';
@@ -113,6 +114,35 @@ function UsersTab({
   const { user } = useAuth();
   const jwtUser = getUser();
   const [showModal, setShowModal] = useState(false);
+  const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' });
+  const [pwError, setPwError] = useState('');
+  const [pwSuccess, setPwSuccess] = useState(false);
+
+  const changePw = useMutation({
+    mutationFn: async () => {
+      await identityApi.patch('/auth/password', {
+        currentPassword: pwForm.current,
+        newPassword:     pwForm.next,
+      });
+    },
+    onSuccess: () => {
+      setPwSuccess(true);
+      setPwError('');
+      setTimeout(() => { setShowModal(false); setPwSuccess(false); setPwForm({ current: '', next: '', confirm: '' }); }, 1500);
+    },
+    onError: (err: unknown) => {
+      const msg = (err as { response?: { data?: { message?: string } } }).response?.data?.message ?? 'Failed to change password';
+      setPwError(msg);
+    },
+  });
+
+  function handleChangePw() {
+    setPwError('');
+    if (!pwForm.current || !pwForm.next) { setPwError(t('أدخل كلمة المرور الحالية والجديدة', 'Enter current and new passwords')); return; }
+    if (pwForm.next.length < 8) { setPwError(t('كلمة المرور الجديدة 8 أحرف على الأقل', 'New password must be at least 8 characters')); return; }
+    if (pwForm.next !== pwForm.confirm) { setPwError(t('كلمتا المرور غير متطابقتين', 'Passwords do not match')); return; }
+    changePw.mutate();
+  }
 
   const roleLabel: Record<string, { ar: string; en: string }> = {
     admin:        { ar: 'مسؤول',     en: 'Admin' },
@@ -159,33 +189,42 @@ function UsersTab({
         </CardContent>
       </Card>
 
-      {/* Password Modal (placeholder) */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <Card className="w-full max-w-sm mx-4">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>{t('تغيير كلمة المرور', 'Change Password')}</CardTitle>
-                <button
-                  onClick={() => setShowModal(false)}
-                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
-                >
+                <button onClick={() => { setShowModal(false); setPwError(''); setPwSuccess(false); setPwForm({ current: '', next: '', confirm: '' }); }}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
                   <X className="w-5 h-5" />
                 </button>
               </div>
             </CardHeader>
             <CardContent className="space-y-4 pt-2">
-              <Input label="Current Password" labelAr="كلمة المرور الحالية" type="password" lang={lang} />
-              <Input label="New Password" labelAr="كلمة المرور الجديدة" type="password" lang={lang} />
-              <Input label="Confirm Password" labelAr="تأكيد كلمة المرور" type="password" lang={lang} />
-              <div className="flex gap-2 pt-2">
-                <Button className="flex-1" disabled>
-                  {t('حفظ — قريباً', 'Save — Coming Soon')}
-                </Button>
-                <Button variant="ghost" onClick={() => setShowModal(false)}>
-                  {t('إلغاء', 'Cancel')}
-                </Button>
-              </div>
+              {pwSuccess ? (
+                <p className="text-sm text-emerald-600 font-medium text-center py-4">
+                  {t('✅ تم تغيير كلمة المرور بنجاح', '✅ Password changed successfully')}
+                </p>
+              ) : (
+                <>
+                  <Input label="Current Password" labelAr="كلمة المرور الحالية" type="password" lang={lang}
+                    value={pwForm.current} onChange={(e) => setPwForm((f) => ({ ...f, current: e.target.value }))} />
+                  <Input label="New Password" labelAr="كلمة المرور الجديدة" type="password" lang={lang}
+                    value={pwForm.next} onChange={(e) => setPwForm((f) => ({ ...f, next: e.target.value }))} />
+                  <Input label="Confirm Password" labelAr="تأكيد كلمة المرور" type="password" lang={lang}
+                    value={pwForm.confirm} onChange={(e) => setPwForm((f) => ({ ...f, confirm: e.target.value }))} />
+                  {pwError && <p className="text-xs text-red-500">{pwError}</p>}
+                  <div className="flex gap-2 pt-2">
+                    <Button className="flex-1" onClick={handleChangePw} disabled={changePw.isPending}>
+                      {changePw.isPending ? t('جاري الحفظ...', 'Saving...') : t('حفظ', 'Save')}
+                    </Button>
+                    <Button variant="ghost" onClick={() => { setShowModal(false); setPwError(''); setPwForm({ current: '', next: '', confirm: '' }); }}>
+                      {t('إلغاء', 'Cancel')}
+                    </Button>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         </div>

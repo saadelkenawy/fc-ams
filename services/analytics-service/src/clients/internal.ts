@@ -41,3 +41,4 @@ function makeClient(baseURL: string): AxiosInstance {
 export const billingClient     = makeClient(config.BILLING_SERVICE_URL);
 export const appointmentClient = makeClient(config.APPOINTMENT_SERVICE_URL);
 export const patientClient     = makeClient(config.PATIENT_SERVICE_URL);
+export const doctorClient      = makeClient(config.DOCTOR_SERVICE_URL);

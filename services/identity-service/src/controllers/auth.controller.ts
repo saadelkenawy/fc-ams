@@ -249,6 +249,32 @@ export async function createUser(request: FastifyRequest, reply: FastifyReply): 
   });
 }
 
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1).max(200),
+  newPassword:     z.string().min(8).max(200),
+});
+
+export async function changePassword(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const payload = request.user as JwtPayload;
+  const input   = changePasswordSchema.parse(request.body);
+
+  const user = await repo.findUserById(payload.sub);
+  if (!user) {
+    throw Object.assign(new Error('User not found'), { statusCode: 404, code: 'USER_NOT_FOUND' });
+  }
+
+  const valid = await verifyPassword(input.currentPassword, user.passwordHash);
+  if (!valid) {
+    throw Object.assign(new Error('Current password is incorrect'), { statusCode: 400, code: 'WRONG_PASSWORD' });
+  }
+
+  const hash = await hashPassword(input.newPassword);
+  await repo.updatePasswordHash(user.id, hash);
+  await repo.auditLog({ userId: user.id, email: user.email, event: 'password_changed', ipAddress: request.ip });
+
+  void reply.send({ success: true });
+}
+
 export async function listUsers(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const payload = request.user as JwtPayload;
   const users   = await repo.listUsers(payload.branchId);

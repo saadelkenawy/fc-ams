@@ -50,6 +50,22 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     schema: { tags: ['auth'] },
   }, ctrl.me);
 
+  // PATCH /auth/password
+  app.patch('/auth/password', {
+    preHandler: [requireAuth],
+    schema: {
+      tags: ['auth'],
+      body: {
+        type: 'object',
+        required: ['currentPassword', 'newPassword'],
+        properties: {
+          currentPassword: { type: 'string', minLength: 1 },
+          newPassword:     { type: 'string', minLength: 8 },
+        },
+      },
+    },
+  }, ctrl.changePassword);
+
   // ── User management (admin only) ──────────────────────────────────────────
 
   // GET /users

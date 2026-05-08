@@ -8,8 +8,8 @@ import { StatCard } from '@/components/ui/StatCard';
 import { Badge } from '@/components/ui/Badge';
 import { useLang } from '@/contexts/LanguageContext';
 import { formatCurrency, formatNumber } from '@/lib/utils';
-import { useAnalyticsOverview, useMonthlyRevenue, useSourceBreakdown, useSpecialtyBreakdown, useNoShowByDay } from '@/hooks/useAnalytics';
-import type { MonthlyRevenue, SourceStat, SpecialtyStat, NoShowDay } from '@/hooks/useAnalytics';
+import { useAnalyticsOverview, useMonthlyRevenue, useSourceBreakdown, useSpecialtyBreakdown, useNoShowByDay, useTopDoctors } from '@/hooks/useAnalytics';
+import type { MonthlyRevenue, SourceStat, SpecialtyStat, NoShowDay, DoctorStat } from '@/hooks/useAnalytics';
 
 const SOURCE_COLORS = ['#2563EB', '#7C3AED', '#0891B2', '#059669', '#D97706', '#6366F1'];
 
@@ -118,6 +118,7 @@ export default function AnalyticsPage() {
   const { data: sourceBreakdown = [], isLoading: sourcesLoading } = useSourceBreakdown();
   const { data: specialtyData = [], isLoading: specialtiesLoading } = useSpecialtyBreakdown();
   const { data: noShowByDay = [], isLoading: noShowLoading } = useNoShowByDay();
+  const { data: topDoctors = [], isLoading: topDoctorsLoading } = useTopDoctors(5);
 
   const chartData: ChartBar[] = monthlyRevenue.map((d: MonthlyRevenue) => ({
     month:        shortMonth(d.month, 'en-US'),
@@ -397,34 +398,37 @@ export default function AnalyticsPage() {
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>{t('توزيع الإيرادات بالتخصص', 'Revenue by Specialty')}</CardTitle></CardHeader>
+          <CardHeader><CardTitle>{t('أعلى الأطباء إيراداً', 'Top Doctors by Revenue')}</CardTitle></CardHeader>
           <CardContent>
-            {specialtiesLoading ? (
+            {topDoctorsLoading ? (
               <div className="space-y-3">
                 {[...Array(5)].map((_, i) => <div key={i} className="h-8 animate-pulse bg-gray-100 dark:bg-neutral-700 rounded" />)}
               </div>
             ) : (
               <div className="space-y-3">
-                {specialtyData.slice(0, 6).map((s: SpecialtyStat, idx: number) => {
-                  const maxRev = specialtyData[0]?.revenue ?? 1;
+                {topDoctors.map((dr: DoctorStat, idx: number) => {
+                  const maxRev = topDoctors[0]?.revenue ?? 1;
                   return (
-                    <div key={s.specialtyId} className="flex items-center gap-3">
+                    <div key={dr.doctorId} className="flex items-center gap-3">
                       <span className="text-xs font-bold text-gray-300 dark:text-gray-600 w-4">
                         {formatNumber(idx + 1, locale)}
                       </span>
                       <div className="flex-1">
                         <div className="flex justify-between text-xs mb-1">
                           <span className="font-medium text-gray-800 dark:text-gray-200">
-                            {lang === 'ar' ? s.specialtyAr : s.specialtyEn}
+                            {lang === 'ar' ? dr.nameAr : dr.nameEn}
                           </span>
-                          <span className="font-mono tabular-nums text-gray-700 dark:text-gray-300">
-                            {formatCurrency(s.revenue, 'EGP', locale)}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-gray-400">{formatNumber(dr.appointments, locale)} appts</span>
+                            <span className="font-mono tabular-nums text-gray-700 dark:text-gray-300">
+                              {formatCurrency(dr.revenue, 'EGP', locale)}
+                            </span>
+                          </div>
                         </div>
                         <div className="h-2 bg-gray-100 dark:bg-neutral-700 rounded-full overflow-hidden">
                           <div
                             className="h-full bg-primary-600 rounded-full transition-all duration-500"
-                            style={{ width: `${(s.revenue / maxRev) * 100}%` }}
+                            style={{ width: `${(dr.revenue / maxRev) * 100}%` }}
                           />
                         </div>
                       </div>
