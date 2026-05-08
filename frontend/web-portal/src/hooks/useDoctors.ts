@@ -117,3 +117,41 @@ export function useCreateOverride(doctorId: string) {
     },
   });
 }
+
+export function useUpdateDoctor() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...body }: Partial<Doctor> & { id: string }) => {
+      const { data } = await doctorApi.patch<ApiResponse<Doctor>>(`/doctors/${id}`, body);
+      return data.data!;
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['doctors'] });
+    },
+  });
+}
+
+export function useToggleDoctorActive() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+      const { data } = await doctorApi.patch<ApiResponse<Doctor>>(`/doctors/${id}/active`, { isActive });
+      return data.data!;
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['doctors'] });
+    },
+  });
+}
+
+export function useDeleteDoctor() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await doctorApi.delete(`/doctors/${id}`);
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['doctors'] });
+    },
+  });
+}

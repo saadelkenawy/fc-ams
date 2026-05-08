@@ -1,15 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Search, Calendar, TrendingUp, MoreHorizontal, Loader2, Stethoscope } from 'lucide-react';
+import { Search, Calendar, TrendingUp, MoreHorizontal, Loader2, Stethoscope, Pencil, Trash2, PowerOff, Power } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useLang } from '@/contexts/LanguageContext';
-import { useDoctors, useSpecialtyMap } from '@/hooks/useDoctors';
+import { useDoctors, useSpecialtyMap, useToggleDoctorActive, useDeleteDoctor } from '@/hooks/useDoctors';
 import { AddDoctorModal } from '@/components/doctors/AddDoctorModal';
+import { EditDoctorModal } from '@/components/doctors/EditDoctorModal';
+import { useToast } from '@/components/ui/Toast';
 import type { Doctor } from '@fadl/types';
 
 const PAYMENT_LABELS: Record<string, { ar: string; en: string }> = {
@@ -20,14 +23,81 @@ const PAYMENT_LABELS: Record<string, { ar: string; en: string }> = {
   mobile_wallet: { ar: 'محفظة موبايل', en: 'Mobile Wallet' },
 };
 
+function useOutsideClick(ref: React.RefObject<HTMLDivElement>, handler: () => void) {
+  useEffect(() => {
+    function onDown(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) handler();
+    }
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [ref, handler]);
+}
+
+function RowMenu({ doctor, onEdit, onToggle, onDelete, t }: {
+  doctor: Doctor;
+  onEdit: () => void;
+  onToggle: () => void;
+  onDelete: () => void;
+  lang?: 'ar' | 'en';
+  t: (ar: string, en: string) => string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null!);
+  useOutsideClick(ref, () => setOpen(false));
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
+        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1 rounded transition-colors"
+      >
+        <MoreHorizontal className="w-4 h-4" />
+      </button>
+      {open && (
+        <div className="absolute end-0 top-8 z-50 w-44 bg-white dark:bg-neutral-800 rounded-xl shadow-lg border border-gray-100 dark:border-neutral-700 py-1 animate-fade-in">
+          <button
+            className="flex items-center gap-2.5 w-full px-3.5 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors"
+            onClick={(e) => { e.stopPropagation(); setOpen(false); onEdit(); }}
+          >
+            <Pencil className="w-3.5 h-3.5 text-gray-400" />
+            {t('تعديل البيانات', 'Edit')}
+          </button>
+          <button
+            className="flex items-center gap-2.5 w-full px-3.5 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors"
+            onClick={(e) => { e.stopPropagation(); setOpen(false); onToggle(); }}
+          >
+            {doctor.isActive
+              ? <PowerOff className="w-3.5 h-3.5 text-amber-500" />
+              : <Power      className="w-3.5 h-3.5 text-green-500" />}
+            {doctor.isActive ? t('تعطيل', 'Deactivate') : t('تفعيل', 'Activate')}
+          </button>
+          <div className="my-1 border-t border-gray-100 dark:border-neutral-700" />
+          <button
+            className="flex items-center gap-2.5 w-full px-3.5 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+            onClick={(e) => { e.stopPropagation(); setOpen(false); onDelete(); }}
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            {t('حذف', 'Delete')}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function DoctorsPage() {
   const { lang, t } = useLang();
-  const [query, setQuery]       = useState('');
-  const [selected, setSelected] = useState<string | null>(null);
-  const [addOpen, setAddOpen]   = useState(false);
+  const { toast } = useToast();
+  const [query, setQuery]             = useState('');
+  const [selected, setSelected]       = useState<string | null>(null);
+  const [addOpen, setAddOpen]         = useState(false);
+  const [editDoctor, setEditDoctor]   = useState<Doctor | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Doctor | null>(null);
 
   const { data, isLoading, isError } = useDoctors({ limit: 100 });
-  const specialtyMap = useSpecialtyMap();
+  const specialtyMap   = useSpecialtyMap();
+  const toggleActive   = useToggleDoctorActive();
+  const deleteDoctor   = useDeleteDoctor();
 
   const allDoctors = data?.data ?? [];
   const filtered   = allDoctors.filter((d) =>
@@ -35,6 +105,28 @@ export default function DoctorsPage() {
   );
   const activeCount = allDoctors.filter((d) => d.isActive).length;
   const doctor      = allDoctors.find((d) => d.id === selected) ?? null;
+
+  function handleToggle(d: Doctor) {
+    toggleActive.mutate({ id: d.id, isActive: !d.isActive }, {
+      onSuccess: () => toast(
+        d.isActive ? t('تم تعطيل الطبيب', 'Doctor deactivated') : t('تم تفعيل الطبيب', 'Doctor activated'),
+        'success',
+      ),
+      onError: () => toast(t('حدث خطأ', 'An error occurred'), 'error'),
+    });
+  }
+
+  function handleDelete() {
+    if (!deleteTarget) return;
+    deleteDoctor.mutate(deleteTarget.id, {
+      onSuccess: () => {
+        toast(t('تم حذف الطبيب', 'Doctor deleted'), 'success');
+        if (selected === deleteTarget.id) setSelected(null);
+        setDeleteTarget(null);
+      },
+      onError: () => toast(t('حدث خطأ', 'An error occurred'), 'error'),
+    });
+  }
 
   return (
     <div className="space-y-5 max-w-7xl mx-auto animate-fade-in">
@@ -52,7 +144,6 @@ export default function DoctorsPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Doctor list */}
         <div className={selected ? 'lg:col-span-2' : 'lg:col-span-3'}>
           <Card>
             <div className="p-5 border-b border-gray-50 dark:border-neutral-700">
@@ -124,10 +215,15 @@ export default function DoctorsPage() {
                               {d.isActive ? t('نشط', 'Active') : t('غير نشط', 'Inactive')}
                             </Badge>
                           </td>
-                          <td className="px-5 py-3.5">
-                            <button className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
-                              <MoreHorizontal className="w-4 h-4" />
-                            </button>
+                          <td className="px-5 py-3.5" onClick={(e) => e.stopPropagation()}>
+                            <RowMenu
+                              doctor={d}
+                              lang={lang}
+                              t={t}
+                              onEdit={() => setEditDoctor(d)}
+                              onToggle={() => handleToggle(d)}
+                              onDelete={() => setDeleteTarget(d)}
+                            />
                           </td>
                         </tr>
                       );
@@ -146,27 +242,51 @@ export default function DoctorsPage() {
           </Card>
         </div>
 
-        {/* ── Doctor detail panel ── */}
-        {doctor && <DoctorDetailPanel doctor={doctor} lang={lang} t={t} />}
+        {doctor && (
+          <DoctorDetailPanel
+            doctor={doctor}
+            lang={lang}
+            t={t}
+            onEdit={() => setEditDoctor(doctor)}
+            onToggle={() => handleToggle(doctor)}
+            onDelete={() => setDeleteTarget(doctor)}
+          />
+        )}
       </div>
 
-      <AddDoctorModal
-        open={addOpen}
-        onClose={() => setAddOpen(false)}
-        onCreated={() => setAddOpen(false)}
+      <AddDoctorModal open={addOpen} onClose={() => setAddOpen(false)} onCreated={() => setAddOpen(false)} />
+
+      {editDoctor && (
+        <EditDoctorModal open={!!editDoctor} onClose={() => setEditDoctor(null)} doctor={editDoctor} />
+      )}
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        loading={deleteDoctor.isPending}
+        title={t('حذف الطبيب', 'Delete Doctor')}
+        message={
+          deleteTarget
+            ? t(
+                `هل أنت متأكد من حذف د. ${deleteTarget.nameAr ?? deleteTarget.nameEn}؟ لا يمكن التراجع عن هذا الإجراء.`,
+                `Are you sure you want to delete ${deleteTarget.nameEn}? This action cannot be undone.`,
+              )
+            : ''
+        }
+        confirmLabel={t('حذف', 'Delete')}
       />
     </div>
   );
 }
 
-function DoctorDetailPanel({
-  doctor,
-  lang,
-  t,
-}: {
+function DoctorDetailPanel({ doctor, lang, t, onEdit, onToggle, onDelete }: {
   doctor: Doctor;
   lang: 'ar' | 'en';
   t: (ar: string, en: string) => string;
+  onEdit: () => void;
+  onToggle: () => void;
+  onDelete: () => void;
 }) {
   const router = useRouter();
   const specialtyMap = useSpecialtyMap();
@@ -181,14 +301,14 @@ function DoctorDetailPanel({
     <div className="space-y-4 animate-fade-in">
       <Card>
         <CardContent className="pt-5">
-          <div className="flex items-center gap-3 mb-4">
+          <div className="flex items-start gap-3 mb-4">
             <div
               className="w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-bold text-white flex-shrink-0"
               style={{ background: 'var(--gradient-sidebar)' }}
             >
               {(lang === 'ar' ? (doctor.nameAr ?? doctor.nameEn) : doctor.nameEn).charAt(0)}
             </div>
-            <div>
+            <div className="flex-1 min-w-0">
               <h3 className="font-semibold text-gray-900 dark:text-gray-100">
                 {lang === 'ar' ? (doctor.nameAr ?? doctor.nameEn) : doctor.nameEn}
               </h3>
@@ -196,6 +316,32 @@ function DoctorDetailPanel({
                 {spec ? (lang === 'ar' ? spec.nameAr : spec.nameEn) : `#${doctor.specialtyId}`}
               </p>
             </div>
+            <Badge variant={doctor.isActive ? 'success' : 'default'} dot className="text-[10px] flex-shrink-0">
+              {doctor.isActive ? t('نشط', 'Active') : t('غير نشط', 'Inactive')}
+            </Badge>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" className="flex-1 gap-1.5" onClick={onEdit}>
+              <Pencil className="w-3.5 h-3.5" />
+              {t('تعديل', 'Edit')}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className={`flex-1 gap-1.5 ${doctor.isActive ? 'text-amber-600 border-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/30' : 'text-green-600 border-green-300 hover:bg-green-50 dark:hover:bg-green-950/30'}`}
+              onClick={onToggle}
+            >
+              {doctor.isActive ? <PowerOff className="w-3.5 h-3.5" /> : <Power className="w-3.5 h-3.5" />}
+              {doctor.isActive ? t('تعطيل', 'Deactivate') : t('تفعيل', 'Activate')}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-red-600 border-red-300 hover:bg-red-50 dark:hover:bg-red-950/30"
+              onClick={onDelete}
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </Button>
           </div>
         </CardContent>
       </Card>
