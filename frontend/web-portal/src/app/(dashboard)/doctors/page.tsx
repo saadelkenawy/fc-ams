@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Calendar, TrendingUp, MoreHorizontal, Loader2, Stethoscope, Pencil, Trash2, PowerOff, Power } from 'lucide-react';
+import { Search, Calendar, TrendingUp, Stethoscope, PowerOff, Power } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
+import { DataTable, type Column } from '@/components/ui/DataTable';
+import { ActionButtons } from '@/components/ui/ActionButtons';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useLang } from '@/contexts/LanguageContext';
 import { useDoctors, useSpecialtyMap, useToggleDoctorActive, useDeleteDoctor } from '@/hooks/useDoctors';
@@ -23,70 +25,9 @@ const PAYMENT_LABELS: Record<string, { ar: string; en: string }> = {
   mobile_wallet: { ar: 'محفظة موبايل', en: 'Mobile Wallet' },
 };
 
-function useOutsideClick(ref: React.RefObject<HTMLDivElement>, handler: () => void) {
-  useEffect(() => {
-    function onDown(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) handler();
-    }
-    document.addEventListener('mousedown', onDown);
-    return () => document.removeEventListener('mousedown', onDown);
-  }, [ref, handler]);
-}
-
-function RowMenu({ doctor, onEdit, onToggle, onDelete, t }: {
-  doctor: Doctor;
-  onEdit: () => void;
-  onToggle: () => void;
-  onDelete: () => void;
-  lang?: 'ar' | 'en';
-  t: (ar: string, en: string) => string;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null!);
-  useOutsideClick(ref, () => setOpen(false));
-
-  return (
-    <div ref={ref} className="relative">
-      <button
-        onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
-        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1 rounded transition-colors"
-      >
-        <MoreHorizontal className="w-4 h-4" />
-      </button>
-      {open && (
-        <div className="absolute end-0 top-8 z-50 w-44 bg-white dark:bg-neutral-800 rounded-xl shadow-lg border border-gray-100 dark:border-neutral-700 py-1 animate-fade-in">
-          <button
-            className="flex items-center gap-2.5 w-full px-3.5 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors"
-            onClick={(e) => { e.stopPropagation(); setOpen(false); onEdit(); }}
-          >
-            <Pencil className="w-3.5 h-3.5 text-gray-400" />
-            {t('تعديل البيانات', 'Edit')}
-          </button>
-          <button
-            className="flex items-center gap-2.5 w-full px-3.5 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors"
-            onClick={(e) => { e.stopPropagation(); setOpen(false); onToggle(); }}
-          >
-            {doctor.isActive
-              ? <PowerOff className="w-3.5 h-3.5 text-amber-500" />
-              : <Power      className="w-3.5 h-3.5 text-green-500" />}
-            {doctor.isActive ? t('تعطيل', 'Deactivate') : t('تفعيل', 'Activate')}
-          </button>
-          <div className="my-1 border-t border-gray-100 dark:border-neutral-700" />
-          <button
-            className="flex items-center gap-2.5 w-full px-3.5 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
-            onClick={(e) => { e.stopPropagation(); setOpen(false); onDelete(); }}
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-            {t('حذف', 'Delete')}
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
 export default function DoctorsPage() {
   const { lang, t } = useLang();
+  const router = useRouter();
   const { toast } = useToast();
   const [query, setQuery]             = useState('');
   const [selected, setSelected]       = useState<string | null>(null);
@@ -128,12 +69,66 @@ export default function DoctorsPage() {
     });
   }
 
+  const columns: Column<Doctor>[] = [
+    {
+      key: 'doctor',
+      header: t('الطبيب', 'Doctor'),
+      render: (d) => (
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-full bg-primary-600 flex items-center justify-center text-sm font-bold flex-shrink-0 text-white">
+            {(lang === 'ar' ? (d.nameAr ?? d.nameEn) : d.nameEn).charAt(0)}
+          </div>
+          <div>
+            <p className="font-medium text-gray-900 dark:text-gray-100">{lang === 'ar' ? (d.nameAr ?? d.nameEn) : d.nameEn}</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 font-mono">{d.mobile}</p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'specialty',
+      header: t('التخصص', 'Specialty'),
+      render: (d) => {
+        const spec = specialtyMap.get(d.specialtyId);
+        return (
+          <span className="text-gray-600 dark:text-gray-300">
+            {spec ? (lang === 'ar' ? spec.nameAr : spec.nameEn) : `#${d.specialtyId}`}
+            {d.isOnlineDoctor && (
+              <Badge variant="info" className="ms-2 text-[10px]">{t('أونلاين', 'Online')}</Badge>
+            )}
+          </span>
+        );
+      },
+    },
+    {
+      key: 'status',
+      header: t('الحالة', 'Status'),
+      render: (d) => (
+        <Badge variant={d.isActive ? 'success' : 'default'} dot>
+          {d.isActive ? t('نشط', 'Active') : t('غير نشط', 'Inactive')}
+        </Badge>
+      ),
+    },
+    {
+      key: 'actions',
+      header: '',
+      render: (d) => (
+        <ActionButtons
+          onEdit={() => setEditDoctor(d)}
+          onDelete={() => setDeleteTarget(d)}
+          editTitle={t('تعديل', 'Edit doctor')}
+          deleteTitle={t('حذف', 'Delete doctor')}
+        />
+      ),
+    },
+  ];
+
   return (
     <div className="space-y-5 max-w-7xl mx-auto animate-fade-in">
       <div className="flex items-center justify-between gap-4">
         <div className="animate-slide-down">
           <h2 className="text-xl font-bold font-display text-gray-900 dark:text-gray-100">{t('الأطباء', 'Doctors')}</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-300 mt-0.5">
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
             {t(`${activeCount} طبيب نشط`, `${activeCount} active doctors`)}
           </p>
         </div>
@@ -146,7 +141,7 @@ export default function DoctorsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className={selected ? 'lg:col-span-2' : 'lg:col-span-3'}>
           <Card>
-            <div className="p-5 border-b border-gray-50 dark:border-neutral-700">
+            <div className="p-5 border-b border-gray-100 dark:border-neutral-700">
               <Input
                 placeholder={t('بحث بالاسم...', 'Search by name...')}
                 icon={<Search className="w-4 h-4" />}
@@ -156,88 +151,19 @@ export default function DoctorsPage() {
               />
             </div>
             <CardContent className="p-0">
-              {isLoading && (
-                <div className="flex items-center justify-center py-16 text-gray-400">
-                  <Loader2 className="w-5 h-5 animate-spin me-2" />
-                  {t('جاري التحميل...', 'Loading...')}
-                </div>
-              )}
-              {isError && (
-                <div className="py-12 text-center text-red-500 dark:text-red-400 text-sm">
-                  {t('تعذّر تحميل البيانات', 'Failed to load doctors')}
-                </div>
-              )}
-              {!isLoading && !isError && (
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
-                      <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الطبيب', 'Doctor')}</th>
-                      <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('التخصص', 'Specialty')}</th>
-                      <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الحالة', 'Status')}</th>
-                      <th className="px-5 py-3" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtered.map((d) => {
-                      const spec = specialtyMap.get(d.specialtyId);
-                      return (
-                        <tr
-                          key={d.id}
-                          onClick={() => setSelected(selected === d.id ? null : d.id)}
-                          className={`border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors cursor-pointer ${
-                            selected === d.id ? 'bg-primary-50/50 dark:bg-primary-900/20' : ''
-                          }`}
-                        >
-                          <td className="px-5 py-3.5">
-                            <div className="flex items-center gap-3">
-                              <div
-                                className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 text-white"
-                                style={{ background: 'var(--gradient-sidebar)' }}
-                              >
-                                {(lang === 'ar' ? (d.nameAr ?? d.nameEn) : d.nameEn).charAt(0)}
-                              </div>
-                              <div>
-                                <p className="font-medium text-gray-900 dark:text-gray-100">{lang === 'ar' ? (d.nameAr ?? d.nameEn) : d.nameEn}</p>
-                                <p className="text-xs text-gray-400 dark:text-gray-300 font-mono">{d.mobile}</p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-5 py-3.5 text-gray-600 dark:text-gray-300 text-sm">
-                            {spec ? (lang === 'ar' ? spec.nameAr : spec.nameEn) : `#${d.specialtyId}`}
-                            {d.isOnlineDoctor && (
-                              <Badge variant="info" className="ms-2 text-[10px]">
-                                {t('أونلاين', 'Online')}
-                              </Badge>
-                            )}
-                          </td>
-                          <td className="px-5 py-3.5">
-                            <Badge variant={d.isActive ? 'success' : 'default'} dot>
-                              {d.isActive ? t('نشط', 'Active') : t('غير نشط', 'Inactive')}
-                            </Badge>
-                          </td>
-                          <td className="px-5 py-3.5" onClick={(e) => e.stopPropagation()}>
-                            <RowMenu
-                              doctor={d}
-                              lang={lang}
-                              t={t}
-                              onEdit={() => setEditDoctor(d)}
-                              onToggle={() => handleToggle(d)}
-                              onDelete={() => setDeleteTarget(d)}
-                            />
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    {filtered.length === 0 && (
-                      <tr>
-                        <td colSpan={4} className="px-5 py-12 text-center text-gray-400 dark:text-gray-300">
-                          {t('لا توجد نتائج', 'No results found')}
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              )}
+              <DataTable
+                columns={columns}
+                data={filtered}
+                getRowKey={(d) => d.id}
+                onRowClick={(d) => setSelected(selected === d.id ? null : d.id)}
+                selectedKey={selected}
+                loading={isLoading}
+                error={isError}
+                emptyMessage={t('لا توجد نتائج', 'No results found')}
+                onAddNew={() => setAddOpen(true)}
+                addNewLabel={t('إضافة طبيب', 'Add Doctor')}
+                errorMessage={t('تعذّر تحميل البيانات', 'Failed to load doctors')}
+              />
             </CardContent>
           </Card>
         </div>
@@ -302,17 +228,14 @@ function DoctorDetailPanel({ doctor, lang, t, onEdit, onToggle, onDelete }: {
       <Card>
         <CardContent className="pt-5">
           <div className="flex items-start gap-3 mb-4">
-            <div
-              className="w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-bold text-white flex-shrink-0"
-              style={{ background: 'var(--gradient-sidebar)' }}
-            >
+            <div className="w-14 h-14 rounded-2xl bg-primary-600 flex items-center justify-center text-xl font-bold text-white flex-shrink-0">
               {(lang === 'ar' ? (doctor.nameAr ?? doctor.nameEn) : doctor.nameEn).charAt(0)}
             </div>
             <div className="flex-1 min-w-0">
               <h3 className="font-semibold text-gray-900 dark:text-gray-100">
                 {lang === 'ar' ? (doctor.nameAr ?? doctor.nameEn) : doctor.nameEn}
               </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-300">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
                 {spec ? (lang === 'ar' ? spec.nameAr : spec.nameEn) : `#${doctor.specialtyId}`}
               </p>
             </div>
@@ -322,7 +245,6 @@ function DoctorDetailPanel({ doctor, lang, t, onEdit, onToggle, onDelete }: {
           </div>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" className="flex-1 gap-1.5" onClick={onEdit}>
-              <Pencil className="w-3.5 h-3.5" />
               {t('تعديل', 'Edit')}
             </Button>
             <Button
@@ -337,10 +259,10 @@ function DoctorDetailPanel({ doctor, lang, t, onEdit, onToggle, onDelete }: {
             <Button
               variant="outline"
               size="sm"
-              className="gap-1.5 text-red-600 border-red-300 hover:bg-red-50 dark:hover:bg-red-950/30"
+              className="text-danger border-danger-100 hover:bg-danger-50 dark:hover:bg-red-950/30"
               onClick={onDelete}
             >
-              <Trash2 className="w-3.5 h-3.5" />
+              {t('حذف', 'Del')}
             </Button>
           </div>
         </CardContent>
@@ -357,7 +279,7 @@ function DoctorDetailPanel({ doctor, lang, t, onEdit, onToggle, onDelete }: {
                   <span className="font-semibold text-primary-700 dark:text-primary-400">
                     {t('طبيب', 'Dr')} {s.split.doctorPercentage}%
                   </span>
-                  <span className="text-gray-400 dark:text-gray-300">
+                  <span className="text-gray-400 dark:text-gray-500">
                     {t('عيادة', 'Clinic')} {s.split.clinicPercentage}%
                   </span>
                 </div>
@@ -377,7 +299,7 @@ function DoctorDetailPanel({ doctor, lang, t, onEdit, onToggle, onDelete }: {
         <Card>
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-500 dark:text-gray-300">{t('طريقة الدفع', 'Payment Method')}</span>
+              <span className="text-sm text-gray-500 dark:text-gray-400">{t('طريقة الدفع', 'Payment Method')}</span>
               <Badge variant="outline">
                 {lang === 'ar'
                   ? (PAYMENT_LABELS[doctor.paymentMethod]?.ar ?? doctor.paymentMethod)

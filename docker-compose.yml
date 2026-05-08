@@ -279,6 +279,8 @@ services:
       SERVICE_NAME: ai-chatbot-service
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       ANTHROPIC_MODEL: claude-haiku-4-5-20251001
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-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}
+      OPENROUTER_MODEL: openai/gpt-4o-mini
     ports:
       - "3008:3008"
     depends_on:
