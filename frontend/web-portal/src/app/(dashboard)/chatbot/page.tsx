@@ -361,7 +361,7 @@ export default function ChatbotPage() {
     try {
       // Resolve patient by name
       const patRes = await patientApi.get<{ data?: Patient[] }>('/patients', {
-        params: { q: currentBooking.patientName, limit: 1 },
+        params: { query: currentBooking.patientName, limit: 1 },
       });
       const patient = patRes.data.data?.[0];
       if (!patient) {

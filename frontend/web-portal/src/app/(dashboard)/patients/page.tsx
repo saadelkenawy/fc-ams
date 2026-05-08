@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Search, Filter, UserPlus, Users, UserCheck, TrendingUp } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/Card';
 import { StatCard } from '@/components/ui/StatCard';
@@ -24,14 +24,20 @@ import type { Patient } from '@fadl/types';
 export default function PatientsPage() {
   const { lang, t } = useLang();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
 
-  const [query, setQuery]               = useState('');
+  const [query, setQuery]               = useState(() => searchParams.get('query') ?? '');
   const [page, setPage]                 = useState(1);
   const [limit, setLimit]               = useState(10);
   const [addOpen, setAddOpen]           = useState(false);
   const [editPatient, setEditPatient]   = useState<Patient | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Patient | null>(null);
+
+  useEffect(() => {
+    const urlQuery = searchParams.get('query');
+    if (urlQuery) setQuery(urlQuery);
+  }, [searchParams]);
 
   const debouncedQuery = useDebounce(query, 300);
   const deletePatient  = useDeletePatient();
