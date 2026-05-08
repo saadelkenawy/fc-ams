@@ -57,3 +57,44 @@ export function useSourceBreakdown() {
     staleTime: 60_000,
   });
 }
+
+export interface SpecialtyStat {
+  specialtyId:  number;
+  specialtyEn:  string;
+  specialtyAr:  string;
+  revenue:      number;
+  appointments: number;
+  noShowRate:   number;
+  sharePct:     number;
+}
+
+export interface NoShowDay {
+  dayOfWeek:  number;
+  dayEn:      string;
+  dayAr:      string;
+  total:      number;
+  cancelled:  number;
+  noShowRate: number;
+}
+
+export function useSpecialtyBreakdown() {
+  return useQuery({
+    queryKey: ['analytics', 'specialties'],
+    queryFn: async () => {
+      const { data } = await analyticsApi.get<{ success: boolean; data: SpecialtyStat[] }>('/analytics/specialties');
+      return data.data;
+    },
+    staleTime: 60_000,
+  });
+}
+
+export function useNoShowByDay() {
+  return useQuery({
+    queryKey: ['analytics', 'noshow-by-day'],
+    queryFn: async () => {
+      const { data } = await analyticsApi.get<{ success: boolean; data: NoShowDay[] }>('/analytics/noshow-by-day');
+      return data.data;
+    },
+    staleTime: 60_000,
+  });
+}

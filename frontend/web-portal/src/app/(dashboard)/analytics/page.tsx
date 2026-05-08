@@ -8,17 +8,8 @@ import { StatCard } from '@/components/ui/StatCard';
 import { Badge } from '@/components/ui/Badge';
 import { useLang } from '@/contexts/LanguageContext';
 import { formatCurrency, formatNumber } from '@/lib/utils';
-import { useAnalyticsOverview, useMonthlyRevenue, useSourceBreakdown } from '@/hooks/useAnalytics';
-import type { MonthlyRevenue, SourceStat } from '@/hooks/useAnalytics';
-
-// TODO: Replace with specialty endpoint when available
-const SPECIALTY_STATS = [
-  { specialtyAr: 'النساء والعقم',     specialtyEn: 'Gynecology & Infertility', revenue: 110_000, appointments: 240, noShowRate: 8,  growthPct: 12 },
-  { specialtyAr: 'القلب',             specialtyEn: 'Cardiology',               revenue: 85_000,  appointments: 180, noShowRate: 5,  growthPct: 18 },
-  { specialtyAr: 'الجلدية',           specialtyEn: 'Dermatology',              revenue: 63_000,  appointments: 200, noShowRate: 12, growthPct: -3 },
-  { specialtyAr: 'الأطفال والمواليد', specialtyEn: 'Pediatrics & Newborn',     revenue: 52_000,  appointments: 195, noShowRate: 7,  growthPct: 5 },
-  { specialtyAr: 'الباطنة',           specialtyEn: 'Internal Medicine',        revenue: 38_000,  appointments: 140, noShowRate: 15, growthPct: -8 },
-];
+import { useAnalyticsOverview, useMonthlyRevenue, useSourceBreakdown, useSpecialtyBreakdown, useNoShowByDay } from '@/hooks/useAnalytics';
+import type { MonthlyRevenue, SourceStat, SpecialtyStat, NoShowDay } from '@/hooks/useAnalytics';
 
 const SOURCE_COLORS = ['#2563EB', '#7C3AED', '#0891B2', '#059669', '#D97706', '#6366F1'];
 
@@ -125,6 +116,8 @@ export default function AnalyticsPage() {
   const { data: overview, isLoading: overviewLoading } = useAnalyticsOverview();
   const { data: monthlyRevenue = [], isLoading: revenueLoading } = useMonthlyRevenue(7);
   const { data: sourceBreakdown = [], isLoading: sourcesLoading } = useSourceBreakdown();
+  const { data: specialtyData = [], isLoading: specialtiesLoading } = useSpecialtyBreakdown();
+  const { data: noShowByDay = [], isLoading: noShowLoading } = useNoShowByDay();
 
   const chartData: ChartBar[] = monthlyRevenue.map((d: MonthlyRevenue) => ({
     month:        shortMonth(d.month, 'en-US'),
@@ -304,30 +297,35 @@ export default function AnalyticsPage() {
         </Card>
       </div>
 
-      {/* Specialty breakdown — TODO: wire to specialty endpoint when available */}
+      {/* Specialty breakdown */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>{t('أداء التخصصات', 'Specialty Performance')}</CardTitle>
-          <span className="text-xs text-gray-400 dark:text-gray-500">{t('إبريل 2026', 'April 2026')}</span>
+          <span className="text-xs text-gray-400 dark:text-gray-500">
+            {new Date().toLocaleString(locale, { month: 'long', year: 'numeric' })}
+          </span>
         </CardHeader>
         <CardContent className="p-0">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-800/50">
-                <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('التخصص', 'Specialty')}</th>
-                <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('الإيرادات', 'Revenue')}</th>
-                <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs hidden md:table-cell">{t('المواعيد', 'Appointments')}</th>
-                <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('معدل الغياب', 'No-Show %')}</th>
-                <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('النمو', 'Growth')}</th>
-                <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs hidden lg:table-cell">{t('الحصة', 'Share')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {SPECIALTY_STATS.map((s) => {
-                const totalRevenue = SPECIALTY_STATS.reduce((acc, x) => acc + x.revenue, 0);
-                const sharePct = Math.round((s.revenue / totalRevenue) * 100);
-                return (
-                  <tr key={s.specialtyEn} className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors">
+          {specialtiesLoading ? (
+            <div className="space-y-2 p-5">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="h-8 animate-pulse bg-gray-100 dark:bg-neutral-700 rounded" />
+              ))}
+            </div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-800/50">
+                  <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('التخصص', 'Specialty')}</th>
+                  <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('الإيرادات', 'Revenue')}</th>
+                  <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs hidden md:table-cell">{t('المواعيد', 'Appointments')}</th>
+                  <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('معدل الغياب', 'No-Show %')}</th>
+                  <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs hidden lg:table-cell">{t('الحصة', 'Share')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {specialtyData.map((s: SpecialtyStat) => (
+                  <tr key={s.specialtyId} className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors">
                     <td className="px-5 py-3.5 font-medium text-gray-900 dark:text-gray-100">
                       {lang === 'ar' ? s.specialtyAr : s.specialtyEn}
                     </td>
@@ -342,101 +340,99 @@ export default function AnalyticsPage() {
                         {formatNumber(s.noShowRate, locale)}%
                       </Badge>
                     </td>
-                    <td className="px-5 py-3.5">
-                      <span className={`flex items-center gap-1 text-xs font-medium ${s.growthPct >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-                        {s.growthPct >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
-                        {pct(s.growthPct, locale, true)}
-                      </span>
-                    </td>
                     <td className="px-5 py-3.5 hidden lg:table-cell">
                       <div className="flex items-center gap-2">
                         <div className="flex-1 h-1.5 bg-gray-100 dark:bg-neutral-700 rounded-full overflow-hidden w-20">
-                          <div className="h-full bg-primary-500 rounded-full" style={{ width: `${sharePct}%` }} />
+                          <div className="h-full bg-primary-500 rounded-full" style={{ width: `${s.sharePct}%` }} />
                         </div>
-                        <span className="text-xs text-gray-500 dark:text-gray-400 w-8">{formatNumber(sharePct, locale)}%</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400 w-8">{formatNumber(s.sharePct, locale)}%</span>
                       </div>
                     </td>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                ))}
+              </tbody>
+            </table>
+          )}
         </CardContent>
       </Card>
 
-      {/* No-show trend + top doctors — TODO: wire to analytics endpoint when available */}
+      {/* No-show by day + specialty share mini bars */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <Card>
           <CardHeader><CardTitle>{t('معدل الغياب حسب اليوم', 'No-Show Rate by Day')}</CardTitle></CardHeader>
           <CardContent>
-            <div className="space-y-2.5">
-              {[
-                { dayAr: 'الأحد',    dayEn: 'Sunday',    rate: 6 },
-                { dayAr: 'الاثنين',  dayEn: 'Monday',    rate: 9 },
-                { dayAr: 'الثلاثاء', dayEn: 'Tuesday',   rate: 7 },
-                { dayAr: 'الأربعاء', dayEn: 'Wednesday', rate: 14 },
-                { dayAr: 'الخميس',   dayEn: 'Thursday',  rate: 11 },
-                { dayAr: 'الجمعة',   dayEn: 'Friday',    rate: 18 },
-              ].map((d) => (
-                <div key={d.dayEn}>
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="text-gray-600 dark:text-gray-400 w-20">{lang === 'ar' ? d.dayAr : d.dayEn}</span>
-                    <span className={`font-semibold ${d.rate >= 15 ? 'text-red-500' : d.rate >= 10 ? 'text-amber-600' : 'text-emerald-600'}`}>
-                      {formatNumber(d.rate, locale)}%
-                    </span>
+            {noShowLoading ? (
+              <div className="space-y-2.5">
+                {[...Array(7)].map((_, i) => <div key={i} className="h-6 animate-pulse bg-gray-100 dark:bg-neutral-700 rounded" />)}
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+                {noShowByDay.filter((d: NoShowDay) => d.total > 0).map((d: NoShowDay) => (
+                  <div key={d.dayOfWeek}>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-gray-600 dark:text-gray-400 w-24">
+                        {lang === 'ar' ? d.dayAr : d.dayEn}
+                        <span className="ml-1 text-gray-400 dark:text-gray-500">({formatNumber(d.total, locale)})</span>
+                      </span>
+                      <span className={`font-semibold ${d.noShowRate >= 15 ? 'text-red-500' : d.noShowRate >= 10 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                        {formatNumber(d.noShowRate, locale)}%
+                      </span>
+                    </div>
+                    <div className="h-2 bg-gray-100 dark:bg-neutral-700 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${d.noShowRate >= 15 ? 'bg-red-400' : d.noShowRate >= 10 ? 'bg-amber-400' : 'bg-emerald-400'}`}
+                        style={{ width: `${Math.min((d.noShowRate / 25) * 100, 100)}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="h-2 bg-gray-100 dark:bg-neutral-700 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all duration-500 ${d.rate >= 15 ? 'bg-red-400' : d.rate >= 10 ? 'bg-amber-400' : 'bg-emerald-400'}`}
-                      style={{ width: `${(d.rate / 20) * 100}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+                {!noShowLoading && noShowByDay.every((d: NoShowDay) => d.total === 0) && (
+                  <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">
+                    {t('لا توجد بيانات', 'No data available')}
+                  </p>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>{t('أعلى الأطباء إيراداً', 'Top Doctors by Revenue')}</CardTitle></CardHeader>
+          <CardHeader><CardTitle>{t('توزيع الإيرادات بالتخصص', 'Revenue by Specialty')}</CardTitle></CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {[
-                { rankNum: 1, nameAr: 'د. سامر نور',    nameEn: 'Dr. Samer Nour',    revenue: 55_000, growthPct: 18 },
-                { rankNum: 2, nameAr: 'د. هدى إبراهيم',  nameEn: 'Dr. Hoda Ibrahim',  revenue: 48_000, growthPct: 12 },
-                { rankNum: 3, nameAr: 'د. رانيا سعيد',   nameEn: 'Dr. Rania Said',    revenue: 38_000, growthPct: -3 },
-                { rankNum: 4, nameAr: 'د. خالد رشاد',    nameEn: 'Dr. Khaled Rashad', revenue: 32_000, growthPct: 5 },
-              ].map((dr) => {
-                const maxRev = 55_000;
-                return (
-                  <div key={dr.rankNum} className="flex items-center gap-3">
-                    <span className="text-xs font-bold text-gray-300 dark:text-gray-600 w-4">
-                      {formatNumber(dr.rankNum, locale)}
-                    </span>
-                    <div className="flex-1">
-                      <div className="flex justify-between text-xs mb-1">
-                        <span className="font-medium text-gray-800 dark:text-gray-200">{lang === 'ar' ? dr.nameAr : dr.nameEn}</span>
-                        <div className="flex items-center gap-2">
-                          <span className={`flex items-center gap-0.5 ${dr.growthPct >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-                            {dr.growthPct >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                            {pct(dr.growthPct, locale, true)}
+            {specialtiesLoading ? (
+              <div className="space-y-3">
+                {[...Array(5)].map((_, i) => <div key={i} className="h-8 animate-pulse bg-gray-100 dark:bg-neutral-700 rounded" />)}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {specialtyData.slice(0, 6).map((s: SpecialtyStat, idx: number) => {
+                  const maxRev = specialtyData[0]?.revenue ?? 1;
+                  return (
+                    <div key={s.specialtyId} className="flex items-center gap-3">
+                      <span className="text-xs font-bold text-gray-300 dark:text-gray-600 w-4">
+                        {formatNumber(idx + 1, locale)}
+                      </span>
+                      <div className="flex-1">
+                        <div className="flex justify-between text-xs mb-1">
+                          <span className="font-medium text-gray-800 dark:text-gray-200">
+                            {lang === 'ar' ? s.specialtyAr : s.specialtyEn}
                           </span>
                           <span className="font-mono tabular-nums text-gray-700 dark:text-gray-300">
-                            {formatCurrency(dr.revenue, 'EGP', locale)}
+                            {formatCurrency(s.revenue, 'EGP', locale)}
                           </span>
                         </div>
-                      </div>
-                      <div className="h-2 bg-gray-100 dark:bg-neutral-700 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-primary-600 rounded-full transition-all duration-500"
-                          style={{ width: `${(dr.revenue / maxRev) * 100}%` }}
-                        />
+                        <div className="h-2 bg-gray-100 dark:bg-neutral-700 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-primary-600 rounded-full transition-all duration-500"
+                            style={{ width: `${(s.revenue / maxRev) * 100}%` }}
+                          />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

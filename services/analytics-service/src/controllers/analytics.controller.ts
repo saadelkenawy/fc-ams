@@ -1,6 +1,6 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
-import { billingClient, patientClient } from '../clients/internal';
+import { billingClient, patientClient, appointmentClient } from '../clients/internal';
 import { buildPdf } from '../utils/pdf';
 import type { PdfColumn } from '../utils/pdf';
 
@@ -32,6 +32,7 @@ interface ApptRow {
   status?: string;
   appointmentDate?: string;
   doctorId?: string;
+  specialtyId?: number;
 }
 
 interface SourceLabel {
@@ -62,6 +63,37 @@ interface DoctorStat {
   appointments: number;
   share: number;
 }
+
+const SPECIALTY_LABELS: Record<number, SourceLabel> = {
+  1:  { en: 'Gynecology & Infertility', ar: 'النساء والعقم' },
+  2:  { en: 'Pediatrics & Newborn',     ar: 'الأطفال والمواليد' },
+  4:  { en: 'Dentistry',                ar: 'الأسنان' },
+  5:  { en: 'Psychiatry',               ar: 'الطب النفسي' },
+  6:  { en: 'Physiotherapy',            ar: 'العلاج الطبيعي' },
+  7:  { en: 'Dermatology',              ar: 'الجلدية' },
+  11: { en: 'Dietitian & Nutrition',    ar: 'التغذية' },
+  13: { en: 'Ophthalmology',            ar: 'العيون' },
+  17: { en: 'Diabetes & Endocrinology', ar: 'السكر والغدد الصماء' },
+  18: { en: 'Gastroenterology',         ar: 'الجهاز الهضمي' },
+  24: { en: 'Internal Medicine',        ar: 'الباطنة' },
+  25: { en: 'Neurology',                ar: 'الأعصاب' },
+  27: { en: 'General Surgery',          ar: 'الجراحة العامة' },
+  28: { en: 'Urology',                  ar: 'المسالك البولية' },
+  30: { en: 'Cardiology',               ar: 'القلب' },
+  32: { en: 'Oncology',                 ar: 'الأورام' },
+  36: { en: 'ENT',                      ar: 'الأنف والأذن والحنجرة' },
+  38: { en: 'Orthopedics',              ar: 'العظام' },
+};
+
+const DOW_LABELS: SourceLabel[] = [
+  { en: 'Sunday',    ar: 'الأحد' },
+  { en: 'Monday',    ar: 'الاثنين' },
+  { en: 'Tuesday',   ar: 'الثلاثاء' },
+  { en: 'Wednesday', ar: 'الأربعاء' },
+  { en: 'Thursday',  ar: 'الخميس' },
+  { en: 'Friday',    ar: 'الجمعة' },
+  { en: 'Saturday',  ar: 'السبت' },
+];
 
 const SOURCE_LABELS: Record<string, SourceLabel> = {
   "Cl.'s": { en: 'Clinic Direct',    ar: 'مباشر'       },
@@ -110,6 +142,29 @@ async function fetchTransactions(maxRows: number): Promise<TxRow[]> {
       page++;
     }
   } catch { /* billing unreachable — return what we have */ }
+  return all.slice(0, maxRows);
+}
+
+async function fetchAppointments(maxRows: number): Promise<ApptRow[]> {
+  const PAGE = 100;
+  const all: ApptRow[] = [];
+  try {
+    let page = 1;
+    while (all.length < maxRows) {
+      const res = await appointmentClient.get<{ data: ApptRow[]; totalPages?: number } | ApptRow[]>(
+        '/appointments',
+        { params: { limit: PAGE, page } },
+      );
+      const body = res.data;
+      const rows: ApptRow[] = Array.isArray(body)
+        ? body
+        : ((body as { data: ApptRow[] }).data ?? []);
+      all.push(...rows);
+      const totalPages = Array.isArray(body) ? 1 : ((body as { totalPages?: number }).totalPages ?? 1);
+      if (rows.length < PAGE || page >= totalPages) break;
+      page++;
+    }
+  } catch { /* appointment service unreachable */ }
   return all.slice(0, maxRows);
 }
 
@@ -377,4 +432,105 @@ export async function getFinancialSummaryReport(req: FastifyRequest, reply: Fast
   void reply.type('application/pdf')
     .header('Content-Disposition', `attachment; filename="financial-summary-${Date.now()}.pdf"`)
     .send(stream);
+}
+
+// ── Specialty Breakdown ────────────────────────────────────────────────────
+
+interface SpecialtyStat {
+  specialtyId:  number;
+  specialtyEn:  string;
+  specialtyAr:  string;
+  revenue:      number;
+  appointments: number;
+  noShowRate:   number;
+  sharePct:     number;
+}
+
+export async function getSpecialtyBreakdown(_req: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const [appts, txns] = await Promise.all([
+    fetchAppointments(2000),
+    fetchTransactions(1000),
+  ]);
+
+  // Build doctorId → specialtyId from appointments (appointments carry specialtyId)
+  const doctorSpecialty = new Map<string, number>();
+  for (const a of appts) {
+    if (a.doctorId && a.specialtyId) doctorSpecialty.set(a.doctorId, a.specialtyId);
+  }
+
+  // Revenue per doctorId from billing
+  const doctorRevenue = new Map<string, number>();
+  for (const tx of txns) {
+    const id = tx.doctorId ?? 'unknown';
+    doctorRevenue.set(id, (doctorRevenue.get(id) ?? 0) + toNum(tx.approvedCharge));
+  }
+
+  // Aggregate counts and no-shows per specialtyId from appointments
+  const specMap = new Map<number, { revenue: number; count: number; noShow: number }>();
+  for (const a of appts) {
+    const sid = a.specialtyId;
+    if (!sid) continue;
+    if (!specMap.has(sid)) specMap.set(sid, { revenue: 0, count: 0, noShow: 0 });
+    const e = specMap.get(sid)!;
+    e.count += 1;
+    if (a.status === 'Canc.') e.noShow += 1;
+  }
+
+  // Add billing revenue into each specialty bucket via doctorId mapping
+  for (const [docId, rev] of doctorRevenue) {
+    const sid = doctorSpecialty.get(docId);
+    if (!sid) continue;
+    if (!specMap.has(sid)) specMap.set(sid, { revenue: 0, count: 0, noShow: 0 });
+    specMap.get(sid)!.revenue += rev;
+  }
+
+  const totalRevenue = Array.from(specMap.values()).reduce((s, e) => s + e.revenue, 0);
+
+  const data: SpecialtyStat[] = Array.from(specMap.entries())
+    .map(([specialtyId, e]) => {
+      const label = SPECIALTY_LABELS[specialtyId] ?? { en: `Specialty ${specialtyId}`, ar: `تخصص ${specialtyId}` };
+      return {
+        specialtyId,
+        specialtyEn:  label.en,
+        specialtyAr:  label.ar,
+        revenue:      e.revenue,
+        appointments: e.count,
+        noShowRate:   e.count === 0 ? 0 : Math.round((e.noShow / e.count) * 1000) / 10,
+        sharePct:     totalRevenue === 0 ? 0 : Math.round((e.revenue / totalRevenue) * 1000) / 10,
+      };
+    })
+    .sort((a, b) => b.revenue - a.revenue);
+
+  void reply.send({ success: true, data });
+}
+
+// ── No-Show Rate by Day of Week ─────────────────────────────────────────────
+
+export async function getNoShowByDay(_req: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const appts = await fetchAppointments(2000);
+
+  const dayMap = new Map<number, { total: number; cancelled: number }>();
+  for (const a of appts) {
+    if (!a.appointmentDate) continue;
+    const dow = new Date(`${a.appointmentDate}T00:00:00`).getDay();
+    if (!dayMap.has(dow)) dayMap.set(dow, { total: 0, cancelled: 0 });
+    const e = dayMap.get(dow)!;
+    e.total += 1;
+    if (a.status === 'Canc.') e.cancelled += 1;
+  }
+
+  const data = [0, 1, 2, 3, 4, 5, 6].map((dow) => {
+    const e     = dayMap.get(dow) ?? { total: 0, cancelled: 0 };
+    const label = DOW_LABELS[dow];
+    return {
+      dayOfWeek:  dow,
+      dayEn:      label.en,
+      dayAr:      label.ar,
+      total:      e.total,
+      cancelled:  e.cancelled,
+      noShowRate: e.total === 0 ? 0 : Math.round((e.cancelled / e.total) * 1000) / 10,
+    };
+  });
+
+  void reply.send({ success: true, data });
 }
