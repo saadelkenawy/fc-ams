@@ -90,21 +90,27 @@ function txMonth(tx: TxRow): string {
   return (tx.transactionDate ?? '').slice(0, 7);
 }
 
-async function fetchTransactions(limit: number): Promise<TxRow[]> {
+async function fetchTransactions(maxRows: number): Promise<TxRow[]> {
+  const PAGE = 100;
+  const all: TxRow[] = [];
   try {
-    const res = await billingClient.get<{ data: TxRow[] } | TxRow[]>(
-      '/transactions',
-      { params: { limit } },
-    );
-    const body = res.data;
-    if (Array.isArray(body)) return body;
-    if (body && Array.isArray((body as { data: TxRow[] }).data)) {
-      return (body as { data: TxRow[] }).data;
+    let page = 1;
+    while (all.length < maxRows) {
+      const res = await billingClient.get<{ data: TxRow[]; totalPages?: number } | TxRow[]>(
+        '/transactions',
+        { params: { limit: PAGE, page } },
+      );
+      const body = res.data;
+      const rows: TxRow[] = Array.isArray(body)
+        ? body
+        : ((body as { data: TxRow[] }).data ?? []);
+      all.push(...rows);
+      const totalPages = Array.isArray(body) ? 1 : ((body as { totalPages?: number }).totalPages ?? 1);
+      if (rows.length < PAGE || page >= totalPages) break;
+      page++;
     }
-    return [];
-  } catch {
-    return [];
-  }
+  } catch { /* billing unreachable — return what we have */ }
+  return all.slice(0, maxRows);
 }
 
 export async function getOverview(_req: FastifyRequest, reply: FastifyReply): Promise<void> {
