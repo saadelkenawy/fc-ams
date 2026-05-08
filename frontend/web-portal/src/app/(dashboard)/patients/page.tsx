@@ -2,8 +2,9 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Filter, UserPlus } from 'lucide-react';
+import { Search, Filter, UserPlus, Users, UserCheck, TrendingUp } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/Card';
+import { StatCard } from '@/components/ui/StatCard';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
@@ -43,6 +44,14 @@ export default function PatientsPage() {
 
   const patients = data?.data ?? [];
   const total    = data?.total ?? 0;
+
+  const vezCount = patients.filter((p) => p.sourceFirstVisit === 'VEZ').length;
+  const newCount = patients.filter((p) => {
+    if (!p.createdAt) return false;
+    const created = new Date(p.createdAt);
+    const now = new Date();
+    return created.getMonth() === now.getMonth() && created.getFullYear() === now.getFullYear();
+  }).length;
 
   function handleSearch(q: string) { setQuery(q); setPage(1); }
   function handlePageChange(p: number) { setPage(p); }
@@ -130,6 +139,30 @@ export default function PatientsPage() {
             {t('مريض جديد', 'New Patient')}
           </Button>
         </div>
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+        <StatCard
+          title={t('إجمالي المرضى', 'Total Patients')}
+          value={total || '—'}
+          icon={<Users className="w-5 h-5" />}
+          color="blue"
+          description={t('مريض مسجل', 'registered patients')}
+        />
+        <StatCard
+          title={t('هذا الشهر', 'This Month')}
+          value={isLoading ? '…' : newCount}
+          icon={<UserCheck className="w-5 h-5" />}
+          color="green"
+          description={t('مريض جديد', 'new patients')}
+        />
+        <StatCard
+          title={t('مرضى VEZ', 'VEZ Source')}
+          value={isLoading ? '…' : vezCount}
+          icon={<TrendingUp className="w-5 h-5" />}
+          color="violet"
+          description={t('من مصدر VEZ', 'from VEZ source')}
+        />
       </div>
 
       <Card className="animate-slide-up">

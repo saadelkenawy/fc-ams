@@ -2,11 +2,12 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Calendar, TrendingUp, Stethoscope, PowerOff, Power } from 'lucide-react';
+import { Search, Calendar, TrendingUp, Stethoscope, PowerOff, Power, Users, Wifi } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
+import { StatCard } from '@/components/ui/StatCard';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { ActionButtons } from '@/components/ui/ActionButtons';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -43,11 +44,13 @@ export default function DoctorsPage() {
   const toggleActive   = useToggleDoctorActive();
   const deleteDoctor   = useDeleteDoctor();
 
-  const allDoctors  = data?.data ?? [];
-  const filtered    = allDoctors.filter((d) =>
+  const allDoctors   = data?.data ?? [];
+  const filtered     = allDoctors.filter((d) =>
     (lang === 'ar' ? (d.nameAr ?? d.nameEn) : d.nameEn).toLowerCase().includes(query.toLowerCase()),
   );
-  const activeCount = allDoctors.filter((d) => d.isActive).length;
+  const activeCount  = allDoctors.filter((d) => d.isActive).length;
+  const inactiveCount = allDoctors.filter((d) => !d.isActive).length;
+  const onlineCount  = allDoctors.filter((d) => d.isOnlineDoctor).length;
   const pagedDoctors = filtered.slice((page - 1) * limit, page * limit);
   const doctor      = allDoctors.find((d) => d.id === selected) ?? null;
 
@@ -143,6 +146,37 @@ export default function DoctorsPage() {
           <Stethoscope className="w-4 h-4" />
           {t('إضافة طبيب', 'Add Doctor')}
         </Button>
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          title={t('إجمالي الأطباء', 'Total Doctors')}
+          value={isLoading ? '…' : allDoctors.length}
+          icon={<Stethoscope className="w-5 h-5" />}
+          color="blue"
+          description={t('طبيب مسجل', 'registered')}
+        />
+        <StatCard
+          title={t('نشط', 'Active')}
+          value={isLoading ? '…' : activeCount}
+          icon={<Users className="w-5 h-5" />}
+          color="green"
+          description={t('طبيب نشط', 'active doctors')}
+        />
+        <StatCard
+          title={t('غير نشط', 'Inactive')}
+          value={isLoading ? '…' : inactiveCount}
+          icon={<PowerOff className="w-5 h-5" />}
+          color="amber"
+          description={t('في الاحتياط', 'on hold')}
+        />
+        <StatCard
+          title={t('أونلاين', 'Online')}
+          value={isLoading ? '…' : onlineCount}
+          icon={<Wifi className="w-5 h-5" />}
+          color="violet"
+          description={t('طبيب أونلاين', 'online doctors')}
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
