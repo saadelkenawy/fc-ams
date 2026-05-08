@@ -20,18 +20,18 @@ const settlementQuerySchema = z.object({
 });
 
 interface TxRow {
-  approved_charge?: string | number;
-  doctor_share?: string | number;
-  clinic_share?: string | number;
-  patient_source?: string;
-  transaction_date?: string;
-  doctor_id?: string;
+  approvedCharge?: string | number;
+  doctorShare?: string | number;
+  clinicShare?: string | number;
+  patientSource?: string;
+  transactionDate?: string;
+  doctorId?: string;
 }
 
 interface ApptRow {
   status?: string;
-  appointment_date?: string;
-  doctor_id?: string;
+  appointmentDate?: string;
+  doctorId?: string;
 }
 
 interface SourceLabel {
@@ -87,7 +87,7 @@ function prevYearMonth(): string {
 }
 
 function txMonth(tx: TxRow): string {
-  return (tx.transaction_date ?? '').slice(0, 7);
+  return (tx.transactionDate ?? '').slice(0, 7);
 }
 
 async function fetchTransactions(limit: number): Promise<TxRow[]> {
@@ -124,7 +124,7 @@ export async function getOverview(_req: FastifyRequest, reply: FastifyReply): Pr
 
   for (const tx of transactions) {
     const m = txMonth(tx);
-    const charge = toNum(tx.approved_charge);
+    const charge = toNum(tx.approvedCharge);
     if (m === thisMonth) { currentRevenue += charge; currentAppts++; }
     if (m === lastMonth) previousRevenue += charge;
   }
@@ -163,9 +163,9 @@ export async function getMonthlyRevenue(req: FastifyRequest, reply: FastifyReply
       map.set(m, { month: m, revenue: 0, doctorShare: 0, clinicShare: 0, appointments: 0 });
     }
     const entry = map.get(m)!;
-    entry.revenue      += toNum(tx.approved_charge);
-    entry.doctorShare  += toNum(tx.doctor_share);
-    entry.clinicShare  += toNum(tx.clinic_share);
+    entry.revenue      += toNum(tx.approvedCharge);
+    entry.doctorShare  += toNum(tx.doctorShare);
+    entry.clinicShare  += toNum(tx.clinicShare);
     entry.appointments += 1;
   }
 
@@ -182,11 +182,11 @@ export async function getSourceBreakdown(_req: FastifyRequest, reply: FastifyRep
   const map = new Map<string, { count: number; revenue: number }>();
 
   for (const tx of transactions) {
-    const src = tx.patient_source ?? 'Unknown';
+    const src = tx.patientSource ?? 'Unknown';
     if (!map.has(src)) map.set(src, { count: 0, revenue: 0 });
     const entry = map.get(src)!;
     entry.count   += 1;
-    entry.revenue += toNum(tx.approved_charge);
+    entry.revenue += toNum(tx.approvedCharge);
   }
 
   const total = transactions.length;
@@ -213,10 +213,10 @@ export async function getTopDoctors(req: FastifyRequest, reply: FastifyReply): P
   const map = new Map<string, { revenue: number; appointments: number }>();
 
   for (const tx of transactions) {
-    const id = tx.doctor_id ?? 'unknown';
+    const id = tx.doctorId ?? 'unknown';
     if (!map.has(id)) map.set(id, { revenue: 0, appointments: 0 });
     const entry = map.get(id)!;
-    entry.revenue      += toNum(tx.approved_charge);
+    entry.revenue      += toNum(tx.approvedCharge);
     entry.appointments += 1;
   }
 
@@ -238,11 +238,11 @@ export async function getTopDoctors(req: FastifyRequest, reply: FastifyReply): P
 // ── Settlement Report ──────────────────────────────────────────────────────
 
 interface TxDetail {
-  transaction_date?: string;
-  approved_charge?: string | number;
-  doctor_share?: string | number;
-  source_fee_amount?: string | number;
-  patient_source?: string;
+  transactionDate?: string;
+  approvedCharge?: string | number;
+  doctorShare?: string | number;
+  sourceFeeAmount?: string | number;
+  patientSource?: string;
   status?: string;
 }
 
@@ -261,9 +261,9 @@ export async function getSettlementReport(req: FastifyRequest, reply: FastifyRep
     txns = Array.isArray(body) ? body : ((body as { data?: TxDetail[] }).data ?? []);
   } catch { txns = []; }
 
-  const totalGross  = txns.reduce((s, t) => s + toNum(t.approved_charge), 0);
-  const totalDoctor = txns.reduce((s, t) => s + toNum(t.doctor_share), 0);
-  const totalSource = txns.reduce((s, t) => s + toNum(t.source_fee_amount), 0);
+  const totalGross  = txns.reduce((s, t) => s + toNum(t.approvedCharge), 0);
+  const totalDoctor = txns.reduce((s, t) => s + toNum(t.doctorShare), 0);
+  const totalSource = txns.reduce((s, t) => s + toNum(t.sourceFeeAmount), 0);
   const net         = totalDoctor - totalSource;
 
   const fmt = (n: unknown) => `EGP ${Number(n ?? 0).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -281,12 +281,12 @@ export async function getSettlementReport(req: FastifyRequest, reply: FastifyRep
   ];
 
   const rows: TxRow[] = txns.map((t) => ({
-    date:        (t.transaction_date ?? '').slice(0, 10),
-    charge:      fmt(t.approved_charge),
-    doctorShare: fmt(t.doctor_share),
-    sourceFee:   fmt(t.source_fee_amount),
-    net:         fmt(toNum(t.doctor_share) - toNum(t.source_fee_amount)),
-    source:      String(t.patient_source ?? ''),
+    date:        (t.transactionDate ?? '').slice(0, 10),
+    charge:      fmt(t.approvedCharge),
+    doctorShare: fmt(t.doctorShare),
+    sourceFee:   fmt(t.sourceFeeAmount),
+    net:         fmt(toNum(t.doctorShare) - toNum(t.sourceFeeAmount)),
+    source:      String(t.patientSource ?? ''),
     status:      String(t.status ?? ''),
   }));
 
@@ -321,9 +321,9 @@ export async function getFinancialSummaryReport(req: FastifyRequest, reply: Fast
     if (!m) continue;
     if (!map.has(m)) map.set(m, { revenue: 0, doctorShare: 0, clinicShare: 0, count: 0 });
     const e = map.get(m)!;
-    e.revenue     += toNum(tx.approved_charge);
-    e.doctorShare += toNum(tx.doctor_share);
-    e.clinicShare += toNum(tx.clinic_share);
+    e.revenue     += toNum(tx.approvedCharge);
+    e.doctorShare += toNum(tx.doctorShare);
+    e.clinicShare += toNum(tx.clinicShare);
     e.count       += 1;
   }
 
