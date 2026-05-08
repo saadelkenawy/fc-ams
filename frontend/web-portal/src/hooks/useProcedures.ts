@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { procedureApi } from '@/lib/api';
 
 export interface Procedure {
@@ -13,6 +13,18 @@ export interface Procedure {
   requiresPreAuth: boolean;
   isActive: boolean;
   version: number;
+}
+
+export interface ProcedurePayload {
+  code: string;
+  nameEn: string;
+  nameAr?: string;
+  procedureType: Procedure['procedureType'];
+  specialtyId: number;
+  basePrice: number;
+  durationMinutes: number;
+  requiresPreAuth: boolean;
+  isActive: boolean;
 }
 
 export function useProcedures(params: {
@@ -37,5 +49,37 @@ export function useProcedures(params: {
     },
     staleTime: 60_000,
     keepPreviousData: true,
+  });
+}
+
+export function useCreateProcedure() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: ProcedurePayload) => {
+      const { data } = await procedureApi.post<{ success: boolean; data: Procedure }>('/procedures', payload);
+      return data.data;
+    },
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: ['procedures'] }); },
+  });
+}
+
+export function useUpdateProcedure() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...payload }: Partial<ProcedurePayload> & { id: string }) => {
+      const { data } = await procedureApi.patch<{ success: boolean; data: Procedure }>(`/procedures/${id}`, payload);
+      return data.data;
+    },
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: ['procedures'] }); },
+  });
+}
+
+export function useDeleteProcedure() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await procedureApi.delete(`/procedures/${id}`);
+    },
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: ['procedures'] }); },
   });
 }

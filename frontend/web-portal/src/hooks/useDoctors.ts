@@ -9,8 +9,8 @@ export function useDoctors(params: { isActive?: boolean; limit?: number } = {}) 
     queryFn: async () => {
       const qs: Record<string, string> = { limit: String(params.limit ?? 100) };
       if (params.isActive !== undefined) qs.isActive = String(params.isActive);
-      const { data } = await doctorApi.get<ApiResponse<PaginatedResponse<Doctor>>>('/doctors', { params: qs });
-      return data.data!;
+      const res = await doctorApi.get('/doctors', { params: qs });
+      return res.data as PaginatedResponse<Doctor>;
     },
     staleTime: 60_000,
   });
@@ -114,6 +114,44 @@ export function useCreateOverride(doctorId: string) {
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['doctor-overrides', doctorId] });
+    },
+  });
+}
+
+export function useUpdateDoctor() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...body }: Partial<Doctor> & { id: string }) => {
+      const { data } = await doctorApi.patch<ApiResponse<Doctor>>(`/doctors/${id}`, body);
+      return data.data!;
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['doctors'] });
+    },
+  });
+}
+
+export function useToggleDoctorActive() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+      const { data } = await doctorApi.patch<ApiResponse<Doctor>>(`/doctors/${id}/active`, { isActive });
+      return data.data!;
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['doctors'] });
+    },
+  });
+}
+
+export function useDeleteDoctor() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await doctorApi.delete(`/doctors/${id}`);
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['doctors'] });
     },
   });
 }

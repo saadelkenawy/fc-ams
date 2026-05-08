@@ -1,55 +1,125 @@
 'use client';
 
 import { useState } from 'react';
-import { Search, Plus, Filter, MoreHorizontal } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Search, Filter, UserPlus } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
+import { DataTable, type Column } from '@/components/ui/DataTable';
+import { ActionButtons } from '@/components/ui/ActionButtons';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useLang } from '@/contexts/LanguageContext';
 import { formatDate } from '@/lib/utils';
-
-const MOCK_PATIENTS = [
-  { id: 'p001', nameAr: 'سارة محمود أحمد',   nameEn: 'Sara Mahmoud Ahmed',   mobile: '+201012345678', nationalId: '29901011234567', dob: '1999-01-01', gender: 'F', source: "Cl.'s", lastVisit: '2026-05-02', visits: 8 },
-  { id: 'p002', nameAr: 'أحمد حسن علي',       nameEn: 'Ahmed Hassan Ali',     mobile: '+201123456789', nationalId: '28505051234568', dob: '1985-05-05', gender: 'M', source: 'VEZ',    lastVisit: '2026-05-01', visits: 3 },
-  { id: 'p003', nameAr: 'منى سامي عبد الله',  nameEn: 'Mona Sami Abdullah',   mobile: '+201234567890', nationalId: '29203031234569', dob: '1992-03-03', gender: 'F', source: 'EKF',    lastVisit: '2026-04-28', visits: 1 },
-  { id: 'p004', nameAr: 'خالد عمر إبراهيم',   nameEn: 'Khaled Omar Ibrahim',  mobile: '+201098765432', nationalId: '27807071234570', dob: '1978-07-07', gender: 'M', source: "Dr.'s", lastVisit: '2026-04-25', visits: 15 },
-  { id: 'p005', nameAr: 'نادية رمضان سعيد',   nameEn: 'Nadia Ramadan Said',   mobile: '+201187654321', nationalId: '29610101234571', dob: '1996-10-10', gender: 'F', source: 'SHL',   lastVisit: '2026-04-20', visits: 2 },
-];
+import { usePatients, useDeletePatient } from '@/hooks/usePatients';
+import { useDebounce } from '@/hooks/useDebounce';
+import { AddPatientModal } from '@/components/patients/AddPatientModal';
+import { EditPatientModal } from '@/components/patients/EditPatientModal';
+import { useToast } from '@/components/ui/Toast';
+import type { Patient } from '@fadl/types';
 
 export default function PatientsPage() {
   const { lang, t } = useLang();
-  const [query, setQuery] = useState('');
+  const router = useRouter();
+  const { toast } = useToast();
+  const [query, setQuery]               = useState('');
+  const [addOpen, setAddOpen]           = useState(false);
+  const [editPatient, setEditPatient]   = useState<Patient | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Patient | null>(null);
+  const debouncedQuery                  = useDebounce(query, 300);
 
-  const filtered = MOCK_PATIENTS.filter((p) =>
-    (lang === 'ar' ? p.nameAr : p.nameEn).toLowerCase().includes(query.toLowerCase()) ||
-    p.mobile.includes(query) ||
-    p.nationalId.includes(query),
-  );
+  const { data, isLoading, isError } = usePatients({ q: debouncedQuery || undefined, limit: 50 });
+  const deletePatient = useDeletePatient();
+
+  const patients = data?.data ?? [];
+  const total    = data?.total ?? 0;
+
+  function handleDelete() {
+    if (!deleteTarget) return;
+    deletePatient.mutate(deleteTarget.patientId, {
+      onSuccess: () => {
+        toast(t('تم حذف المريض', 'Patient deleted'), 'success');
+        setDeleteTarget(null);
+      },
+      onError: () => toast(t('حدث خطأ', 'An error occurred'), 'error'),
+    });
+  }
+
+  const columns: Column<Patient>[] = [
+    {
+      key: 'patient',
+      header: t('المريض', 'Patient'),
+      render: (p) => (
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-900/40 flex items-center justify-center text-primary-700 dark:text-primary-400 text-xs font-bold flex-shrink-0">
+            {(lang === 'ar' ? (p.nameAr ?? p.nameEn) : p.nameEn).charAt(0)}
+          </div>
+          <div>
+            <p className="font-medium text-gray-900 dark:text-gray-100">{lang === 'ar' ? (p.nameAr ?? p.nameEn) : p.nameEn}</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 font-mono">{p.nationalId ?? '—'}</p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'mobile',
+      header: t('الموبايل', 'Mobile'),
+      render: (p) => <span className="text-gray-600 dark:text-gray-300 font-mono text-xs">{p.mobile}</span>,
+    },
+    {
+      key: 'dob',
+      header: t('تاريخ الميلاد', 'Date of Birth'),
+      render: (p) => (
+        <span className="text-gray-600 dark:text-gray-300">
+          {p.dateOfBirth ? formatDate(p.dateOfBirth, lang === 'ar' ? 'ar-EG' : 'en-US') : '—'}
+        </span>
+      ),
+    },
+    {
+      key: 'source',
+      header: t('المصدر', 'Source'),
+      render: (p) => p.sourceFirstVisit
+        ? <Badge variant={['VEZ', 'EKF', 'DO'].includes(p.sourceFirstVisit) ? 'info' : 'default'}>{p.sourceFirstVisit}</Badge>
+        : <span className="text-gray-400">—</span>,
+    },
+    {
+      key: 'actions',
+      header: '',
+      render: (p) => (
+        <ActionButtons
+          onEdit={() => setEditPatient(p)}
+          onDelete={() => setDeleteTarget(p)}
+          editTitle={t('تعديل', 'Edit patient')}
+          deleteTitle={t('حذف', 'Delete patient')}
+        />
+      ),
+    },
+  ];
 
   return (
-    <div className="space-y-5 max-w-7xl mx-auto">
+    <div className="space-y-5 max-w-7xl mx-auto animate-fade-in">
       <div className="flex items-center justify-between gap-4">
-        <div>
+        <div className="animate-slide-down">
           <h2 className="text-xl font-bold font-display text-gray-900 dark:text-gray-100">{t('المرضى', 'Patients')}</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-300 mt-0.5">
-            {t(`${MOCK_PATIENTS.length} مريض مسجل`, `${MOCK_PATIENTS.length} registered patients`)}
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+            {t(`${total} مريض مسجل`, `${total} registered patients`)}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 animate-slide-down" style={{ animationDelay: '40ms' }}>
           <Button variant="outline" size="sm">
             <Filter className="w-4 h-4" />
             {t('فلتر', 'Filter')}
           </Button>
-          <Button size="sm">
-            <Plus className="w-4 h-4" />
+          <Button size="sm" onClick={() => setAddOpen(true)} className="gap-1.5">
+            <UserPlus className="w-4 h-4" />
             {t('مريض جديد', 'New Patient')}
           </Button>
         </div>
       </div>
 
-      <Card>
-        <div className="p-5 border-b border-gray-50 dark:border-neutral-700">
+      <Card className="animate-slide-up">
+        <div className="p-5 border-b border-gray-100 dark:border-neutral-700">
           <Input
             placeholder={t('بحث بالاسم، الموبايل، أو الرقم القومي...', 'Search by name, mobile, or national ID...')}
             icon={<Search className="w-4 h-4" />}
@@ -59,61 +129,47 @@ export default function PatientsPage() {
           />
         </div>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
-                  <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('المريض', 'Patient')}</th>
-                  <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الموبايل', 'Mobile')}</th>
-                  <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('تاريخ الميلاد', 'Date of Birth')}</th>
-                  <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('المصدر', 'Source')}</th>
-                  <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('آخر زيارة', 'Last Visit')}</th>
-                  <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الزيارات', 'Visits')}</th>
-                  <th className="px-5 py-3" />
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((p) => (
-                  <tr key={p.id} className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors cursor-pointer">
-                    <td className="px-5 py-3.5">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-900/40 flex items-center justify-center text-primary-700 dark:text-primary-400 text-xs font-bold flex-shrink-0">
-                          {(lang === 'ar' ? p.nameAr : p.nameEn).charAt(0)}
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-900 dark:text-gray-100">{lang === 'ar' ? p.nameAr : p.nameEn}</p>
-                          <p className="text-xs text-gray-400 dark:text-gray-300 font-mono">{p.nationalId}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-5 py-3.5 text-gray-600 dark:text-gray-300 font-mono text-xs">{p.mobile}</td>
-                    <td className="px-5 py-3.5 text-gray-600 dark:text-gray-300">{formatDate(p.dob, lang === 'ar' ? 'ar-EG' : 'en-US')}</td>
-                    <td className="px-5 py-3.5">
-                      <Badge variant={['VEZ','EKF','DO'].includes(p.source) ? 'info' : 'default'}>
-                        {p.source}
-                      </Badge>
-                    </td>
-                    <td className="px-5 py-3.5 text-gray-600 dark:text-gray-300">{formatDate(p.lastVisit, lang === 'ar' ? 'ar-EG' : 'en-US')}</td>
-                    <td className="px-5 py-3.5 text-gray-600 dark:text-gray-300 tabular-nums">{p.visits}</td>
-                    <td className="px-5 py-3.5">
-                      <button className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
-                        <MoreHorizontal className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                {filtered.length === 0 && (
-                  <tr>
-                    <td colSpan={7} className="px-5 py-12 text-center text-gray-400 dark:text-gray-300">
-                      {t('لا توجد نتائج', 'No results found')}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            columns={columns}
+            data={patients}
+            getRowKey={(p) => p.patientId}
+            onRowClick={(p) => router.push(`/patients/${p.patientId}`)}
+            loading={isLoading}
+            error={isError}
+            emptyMessage={t('لا توجد نتائج', 'No results found')}
+            onAddNew={() => setAddOpen(true)}
+            addNewLabel={t('إضافة مريض', 'Add Patient')}
+            errorMessage={t('تعذّر تحميل البيانات', 'Failed to load patients')}
+          />
         </CardContent>
       </Card>
+
+      <AddPatientModal
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        onCreated={(id) => router.push(`/patients/${id}`)}
+      />
+
+      {editPatient && (
+        <EditPatientModal open={!!editPatient} onClose={() => setEditPatient(null)} patient={editPatient} />
+      )}
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        loading={deletePatient.isPending}
+        title={t('حذف المريض', 'Delete Patient')}
+        message={
+          deleteTarget
+            ? t(
+                `هل أنت متأكد من حذف ${deleteTarget.nameAr ?? deleteTarget.nameEn}؟ لا يمكن التراجع عن هذا الإجراء.`,
+                `Are you sure you want to delete ${deleteTarget.nameEn}? This action cannot be undone.`,
+              )
+            : ''
+        }
+        confirmLabel={t('حذف', 'Delete')}
+      />
     </div>
   );
 }

@@ -4,6 +4,15 @@ import helmet from '@fastify/helmet';
 import jwt from '@fastify/jwt';
 import rateLimit from '@fastify/rate-limit';
 import { config } from './config';
+import { webhookRoutes } from './routes/webhook.routes';
+
+declare module 'fastify' {
+  interface FastifyInstance {
+    authenticate: (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
+  }
+}
+
+import type { FastifyRequest, FastifyReply } from 'fastify';
 
 export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
   const app = Fastify({
@@ -27,7 +36,17 @@ export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
     sign: { expiresIn: config.JWT_EXPIRY },
   });
 
+  app.decorate('authenticate', async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      await request.jwtVerify();
+    } catch (err) {
+      void reply.status(401).send({ success: false, error: { code: 'UNAUTHORIZED', message: 'Invalid or missing token' } });
+    }
+  });
+
   app.get('/health', { logLevel: 'silent' }, async () => ({ status: 'ok', service: 'integration-service' }));
+
+  await app.register(webhookRoutes, { prefix: '/api/v1' });
 
   app.setErrorHandler(async (error, request, reply) => {
     const statusCode = (error as { statusCode?: number }).statusCode ?? 500;

@@ -8,7 +8,10 @@ const nextConfig = {
     serverActions: true,
   },
   images: {
-    domains: ['fadl-clinic.com'],
+    remotePatterns: [
+      { protocol: 'https', hostname: 'fadl-clinic.com' },
+      { protocol: 'https', hostname: 'images.unsplash.com' },
+    ],
   },
   async rewrites() {
     // Server-side vars (no NEXT_PUBLIC) — resolved inside the container on the Docker network

@@ -2,14 +2,19 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Search, Calendar, TrendingUp, MoreHorizontal, Loader2, Stethoscope } from 'lucide-react';
+import { Search, Calendar, TrendingUp, Stethoscope, PowerOff, Power } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
+import { DataTable, type Column } from '@/components/ui/DataTable';
+import { ActionButtons } from '@/components/ui/ActionButtons';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useLang } from '@/contexts/LanguageContext';
-import { useDoctors, useSpecialtyMap } from '@/hooks/useDoctors';
+import { useDoctors, useSpecialtyMap, useToggleDoctorActive, useDeleteDoctor } from '@/hooks/useDoctors';
 import { AddDoctorModal } from '@/components/doctors/AddDoctorModal';
+import { EditDoctorModal } from '@/components/doctors/EditDoctorModal';
+import { useToast } from '@/components/ui/Toast';
 import type { Doctor } from '@fadl/types';
 
 const PAYMENT_LABELS: Record<string, { ar: string; en: string }> = {
@@ -22,12 +27,18 @@ const PAYMENT_LABELS: Record<string, { ar: string; en: string }> = {
 
 export default function DoctorsPage() {
   const { lang, t } = useLang();
-  const [query, setQuery]       = useState('');
-  const [selected, setSelected] = useState<string | null>(null);
-  const [addOpen, setAddOpen]   = useState(false);
+  const router = useRouter();
+  const { toast } = useToast();
+  const [query, setQuery]             = useState('');
+  const [selected, setSelected]       = useState<string | null>(null);
+  const [addOpen, setAddOpen]         = useState(false);
+  const [editDoctor, setEditDoctor]   = useState<Doctor | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Doctor | null>(null);
 
   const { data, isLoading, isError } = useDoctors({ limit: 100 });
-  const specialtyMap = useSpecialtyMap();
+  const specialtyMap   = useSpecialtyMap();
+  const toggleActive   = useToggleDoctorActive();
+  const deleteDoctor   = useDeleteDoctor();
 
   const allDoctors = data?.data ?? [];
   const filtered   = allDoctors.filter((d) =>
@@ -36,12 +47,88 @@ export default function DoctorsPage() {
   const activeCount = allDoctors.filter((d) => d.isActive).length;
   const doctor      = allDoctors.find((d) => d.id === selected) ?? null;
 
+  function handleToggle(d: Doctor) {
+    toggleActive.mutate({ id: d.id, isActive: !d.isActive }, {
+      onSuccess: () => toast(
+        d.isActive ? t('تم تعطيل الطبيب', 'Doctor deactivated') : t('تم تفعيل الطبيب', 'Doctor activated'),
+        'success',
+      ),
+      onError: () => toast(t('حدث خطأ', 'An error occurred'), 'error'),
+    });
+  }
+
+  function handleDelete() {
+    if (!deleteTarget) return;
+    deleteDoctor.mutate(deleteTarget.id, {
+      onSuccess: () => {
+        toast(t('تم حذف الطبيب', 'Doctor deleted'), 'success');
+        if (selected === deleteTarget.id) setSelected(null);
+        setDeleteTarget(null);
+      },
+      onError: () => toast(t('حدث خطأ', 'An error occurred'), 'error'),
+    });
+  }
+
+  const columns: Column<Doctor>[] = [
+    {
+      key: 'doctor',
+      header: t('الطبيب', 'Doctor'),
+      render: (d) => (
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-full bg-primary-600 flex items-center justify-center text-sm font-bold flex-shrink-0 text-white">
+            {(lang === 'ar' ? (d.nameAr ?? d.nameEn) : d.nameEn).charAt(0)}
+          </div>
+          <div>
+            <p className="font-medium text-gray-900 dark:text-gray-100">{lang === 'ar' ? (d.nameAr ?? d.nameEn) : d.nameEn}</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 font-mono">{d.mobile}</p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'specialty',
+      header: t('التخصص', 'Specialty'),
+      render: (d) => {
+        const spec = specialtyMap.get(d.specialtyId);
+        return (
+          <span className="text-gray-600 dark:text-gray-300">
+            {spec ? (lang === 'ar' ? spec.nameAr : spec.nameEn) : `#${d.specialtyId}`}
+            {d.isOnlineDoctor && (
+              <Badge variant="info" className="ms-2 text-[10px]">{t('أونلاين', 'Online')}</Badge>
+            )}
+          </span>
+        );
+      },
+    },
+    {
+      key: 'status',
+      header: t('الحالة', 'Status'),
+      render: (d) => (
+        <Badge variant={d.isActive ? 'success' : 'default'} dot>
+          {d.isActive ? t('نشط', 'Active') : t('غير نشط', 'Inactive')}
+        </Badge>
+      ),
+    },
+    {
+      key: 'actions',
+      header: '',
+      render: (d) => (
+        <ActionButtons
+          onEdit={() => setEditDoctor(d)}
+          onDelete={() => setDeleteTarget(d)}
+          editTitle={t('تعديل', 'Edit doctor')}
+          deleteTitle={t('حذف', 'Delete doctor')}
+        />
+      ),
+    },
+  ];
+
   return (
     <div className="space-y-5 max-w-7xl mx-auto animate-fade-in">
       <div className="flex items-center justify-between gap-4">
         <div className="animate-slide-down">
           <h2 className="text-xl font-bold font-display text-gray-900 dark:text-gray-100">{t('الأطباء', 'Doctors')}</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-300 mt-0.5">
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
             {t(`${activeCount} طبيب نشط`, `${activeCount} active doctors`)}
           </p>
         </div>
@@ -52,10 +139,9 @@ export default function DoctorsPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Doctor list */}
         <div className={selected ? 'lg:col-span-2' : 'lg:col-span-3'}>
           <Card>
-            <div className="p-5 border-b border-gray-50 dark:border-neutral-700">
+            <div className="p-5 border-b border-gray-100 dark:border-neutral-700">
               <Input
                 placeholder={t('بحث بالاسم...', 'Search by name...')}
                 icon={<Search className="w-4 h-4" />}
@@ -65,108 +151,68 @@ export default function DoctorsPage() {
               />
             </div>
             <CardContent className="p-0">
-              {isLoading && (
-                <div className="flex items-center justify-center py-16 text-gray-400">
-                  <Loader2 className="w-5 h-5 animate-spin me-2" />
-                  {t('جاري التحميل...', 'Loading...')}
-                </div>
-              )}
-              {isError && (
-                <div className="py-12 text-center text-red-500 dark:text-red-400 text-sm">
-                  {t('تعذّر تحميل البيانات', 'Failed to load doctors')}
-                </div>
-              )}
-              {!isLoading && !isError && (
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
-                      <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الطبيب', 'Doctor')}</th>
-                      <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('التخصص', 'Specialty')}</th>
-                      <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الحالة', 'Status')}</th>
-                      <th className="px-5 py-3" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtered.map((d) => {
-                      const spec = specialtyMap.get(d.specialtyId);
-                      return (
-                        <tr
-                          key={d.id}
-                          onClick={() => setSelected(selected === d.id ? null : d.id)}
-                          className={`border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors cursor-pointer ${
-                            selected === d.id ? 'bg-primary-50/50 dark:bg-primary-900/20' : ''
-                          }`}
-                        >
-                          <td className="px-5 py-3.5">
-                            <div className="flex items-center gap-3">
-                              <div
-                                className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 text-white"
-                                style={{ background: 'var(--gradient-sidebar)' }}
-                              >
-                                {(lang === 'ar' ? (d.nameAr ?? d.nameEn) : d.nameEn).charAt(0)}
-                              </div>
-                              <div>
-                                <p className="font-medium text-gray-900 dark:text-gray-100">{lang === 'ar' ? (d.nameAr ?? d.nameEn) : d.nameEn}</p>
-                                <p className="text-xs text-gray-400 dark:text-gray-300 font-mono">{d.mobile}</p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-5 py-3.5 text-gray-600 dark:text-gray-300 text-sm">
-                            {spec ? (lang === 'ar' ? spec.nameAr : spec.nameEn) : `#${d.specialtyId}`}
-                            {d.isOnlineDoctor && (
-                              <Badge variant="info" className="ms-2 text-[10px]">
-                                {t('أونلاين', 'Online')}
-                              </Badge>
-                            )}
-                          </td>
-                          <td className="px-5 py-3.5">
-                            <Badge variant={d.isActive ? 'success' : 'default'} dot>
-                              {d.isActive ? t('نشط', 'Active') : t('غير نشط', 'Inactive')}
-                            </Badge>
-                          </td>
-                          <td className="px-5 py-3.5">
-                            <button className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
-                              <MoreHorizontal className="w-4 h-4" />
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    {filtered.length === 0 && (
-                      <tr>
-                        <td colSpan={4} className="px-5 py-12 text-center text-gray-400 dark:text-gray-300">
-                          {t('لا توجد نتائج', 'No results found')}
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              )}
+              <DataTable
+                columns={columns}
+                data={filtered}
+                getRowKey={(d) => d.id}
+                onRowClick={(d) => setSelected(selected === d.id ? null : d.id)}
+                selectedKey={selected}
+                loading={isLoading}
+                error={isError}
+                emptyMessage={t('لا توجد نتائج', 'No results found')}
+                onAddNew={() => setAddOpen(true)}
+                addNewLabel={t('إضافة طبيب', 'Add Doctor')}
+                errorMessage={t('تعذّر تحميل البيانات', 'Failed to load doctors')}
+              />
             </CardContent>
           </Card>
         </div>
 
-        {/* ── Doctor detail panel ── */}
-        {doctor && <DoctorDetailPanel doctor={doctor} lang={lang} t={t} />}
+        {doctor && (
+          <DoctorDetailPanel
+            doctor={doctor}
+            lang={lang}
+            t={t}
+            onEdit={() => setEditDoctor(doctor)}
+            onToggle={() => handleToggle(doctor)}
+            onDelete={() => setDeleteTarget(doctor)}
+          />
+        )}
       </div>
 
-      <AddDoctorModal
-        open={addOpen}
-        onClose={() => setAddOpen(false)}
-        onCreated={() => setAddOpen(false)}
+      <AddDoctorModal open={addOpen} onClose={() => setAddOpen(false)} onCreated={() => setAddOpen(false)} />
+
+      {editDoctor && (
+        <EditDoctorModal open={!!editDoctor} onClose={() => setEditDoctor(null)} doctor={editDoctor} />
+      )}
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        loading={deleteDoctor.isPending}
+        title={t('حذف الطبيب', 'Delete Doctor')}
+        message={
+          deleteTarget
+            ? t(
+                `هل أنت متأكد من حذف د. ${deleteTarget.nameAr ?? deleteTarget.nameEn}؟ لا يمكن التراجع عن هذا الإجراء.`,
+                `Are you sure you want to delete ${deleteTarget.nameEn}? This action cannot be undone.`,
+              )
+            : ''
+        }
+        confirmLabel={t('حذف', 'Delete')}
       />
     </div>
   );
 }
 
-function DoctorDetailPanel({
-  doctor,
-  lang,
-  t,
-}: {
+function DoctorDetailPanel({ doctor, lang, t, onEdit, onToggle, onDelete }: {
   doctor: Doctor;
   lang: 'ar' | 'en';
   t: (ar: string, en: string) => string;
+  onEdit: () => void;
+  onToggle: () => void;
+  onDelete: () => void;
 }) {
   const router = useRouter();
   const specialtyMap = useSpecialtyMap();
@@ -181,21 +227,43 @@ function DoctorDetailPanel({
     <div className="space-y-4 animate-fade-in">
       <Card>
         <CardContent className="pt-5">
-          <div className="flex items-center gap-3 mb-4">
-            <div
-              className="w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-bold text-white flex-shrink-0"
-              style={{ background: 'var(--gradient-sidebar)' }}
-            >
+          <div className="flex items-start gap-3 mb-4">
+            <div className="w-14 h-14 rounded-2xl bg-primary-600 flex items-center justify-center text-xl font-bold text-white flex-shrink-0">
               {(lang === 'ar' ? (doctor.nameAr ?? doctor.nameEn) : doctor.nameEn).charAt(0)}
             </div>
-            <div>
+            <div className="flex-1 min-w-0">
               <h3 className="font-semibold text-gray-900 dark:text-gray-100">
                 {lang === 'ar' ? (doctor.nameAr ?? doctor.nameEn) : doctor.nameEn}
               </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-300">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
                 {spec ? (lang === 'ar' ? spec.nameAr : spec.nameEn) : `#${doctor.specialtyId}`}
               </p>
             </div>
+            <Badge variant={doctor.isActive ? 'success' : 'default'} dot className="text-[10px] flex-shrink-0">
+              {doctor.isActive ? t('نشط', 'Active') : t('غير نشط', 'Inactive')}
+            </Badge>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" className="flex-1 gap-1.5" onClick={onEdit}>
+              {t('تعديل', 'Edit')}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className={`flex-1 gap-1.5 ${doctor.isActive ? 'text-amber-600 border-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/30' : 'text-green-600 border-green-300 hover:bg-green-50 dark:hover:bg-green-950/30'}`}
+              onClick={onToggle}
+            >
+              {doctor.isActive ? <PowerOff className="w-3.5 h-3.5" /> : <Power className="w-3.5 h-3.5" />}
+              {doctor.isActive ? t('تعطيل', 'Deactivate') : t('تفعيل', 'Activate')}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-danger border-danger-100 hover:bg-danger-50 dark:hover:bg-red-950/30"
+              onClick={onDelete}
+            >
+              {t('حذف', 'Del')}
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -211,7 +279,7 @@ function DoctorDetailPanel({
                   <span className="font-semibold text-primary-700 dark:text-primary-400">
                     {t('طبيب', 'Dr')} {s.split.doctorPercentage}%
                   </span>
-                  <span className="text-gray-400 dark:text-gray-300">
+                  <span className="text-gray-400 dark:text-gray-500">
                     {t('عيادة', 'Clinic')} {s.split.clinicPercentage}%
                   </span>
                 </div>
@@ -231,7 +299,7 @@ function DoctorDetailPanel({
         <Card>
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-500 dark:text-gray-300">{t('طريقة الدفع', 'Payment Method')}</span>
+              <span className="text-sm text-gray-500 dark:text-gray-400">{t('طريقة الدفع', 'Payment Method')}</span>
               <Badge variant="outline">
                 {lang === 'ar'
                   ? (PAYMENT_LABELS[doctor.paymentMethod]?.ar ?? doctor.paymentMethod)

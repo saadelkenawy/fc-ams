@@ -279,10 +279,21 @@ services:
       SERVICE_NAME: ai-chatbot-service
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       ANTHROPIC_MODEL: claude-haiku-4-5-20251001
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_MODEL: openai/gpt-4o-mini
+      PATIENT_SERVICE_URL: http://patient-service:3002/api/v1
+      DOCTOR_SERVICE_URL: http://doctor-service:3003/api/v1
+      APPOINTMENT_SERVICE_URL: http://appointment-service:3001/api/v1
     ports:
       - "3008:3008"
     depends_on:
       postgres:
+        condition: service_healthy
+      patient-service:
+        condition: service_healthy
+      doctor-service:
+        condition: service_healthy
+      appointment-service:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3008/health || exit 1"]

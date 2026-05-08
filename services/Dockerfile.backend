@@ -1,0 +1,42 @@
+# Shared Dockerfile for all backend microservices.
+# Build context must be the monorepo root (.).
+# Required build arg: SERVICE_DIR  (e.g. "patient-service")
+ARG SERVICE_DIR
+
+FROM node:20-alpine AS base
+RUN npm install -g pnpm@8
+WORKDIR /app
+
+# ── deps: install workspace deps (resolves workspace:* refs) ─────────────────
+FROM base AS deps
+ARG SERVICE_DIR
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json ./
+COPY shared/types/package.json                          ./shared/types/package.json
+COPY services/${SERVICE_DIR}/package.json               ./services/${SERVICE_DIR}/package.json
+RUN pnpm install --frozen-lockfile
+
+# ── builder: compile shared types then the service ───────────────────────────
+FROM base AS builder
+ARG SERVICE_DIR
+COPY --from=deps /app/node_modules                              ./node_modules
+COPY --from=deps /app/shared/types/node_modules                 ./shared/types/node_modules
+COPY --from=deps /app/services/${SERVICE_DIR}/node_modules      ./services/${SERVICE_DIR}/node_modules
+# Source (.dockerignore excludes **/node_modules so these won't clobber above)
+COPY tsconfig.base.json                  ./tsconfig.base.json
+COPY shared/types                        ./shared/types
+COPY services/${SERVICE_DIR}             ./services/${SERVICE_DIR}
+# Build composite project chain: types → service
+RUN node_modules/.bin/tsc --build --force shared/types/tsconfig.json
+RUN pnpm --filter ${SERVICE_DIR} build
+# Deploy: creates /deploy with flat node_modules (no pnpm symlinks)
+RUN pnpm --filter ${SERVICE_DIR} deploy --prod /deploy
+
+# ── runner: minimal production image ─────────────────────────────────────────
+FROM node:20-alpine AS runner
+WORKDIR /app
+RUN addgroup -S fadl && adduser -S fadl -G fadl
+COPY --from=builder /deploy/node_modules ./node_modules
+COPY --from=builder /deploy/dist         ./dist
+COPY --from=builder /deploy/package.json ./
+USER fadl
+CMD ["node", "dist/server.js"]

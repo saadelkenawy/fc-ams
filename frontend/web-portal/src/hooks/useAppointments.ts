@@ -21,8 +21,8 @@ export function useAppointments(params: AppointmentListParams = {}) {
       if (params.doctorId)  qs.doctorId  = params.doctorId;
       if (params.patientId) qs.patientId = params.patientId;
       if (params.page)      qs.page      = params.page;
-      const { data } = await appointmentApi.get<ApiResponse<PaginatedResponse<Appointment>>>('/appointments', { params: qs });
-      return data.data!;
+      const res = await appointmentApi.get('/appointments', { params: qs });
+      return res.data as PaginatedResponse<Appointment>;
     },
     staleTime: 15_000,
     keepPreviousData: true,

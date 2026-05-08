@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@fadl/types": "workspace:*",
+    "axios": "^1.6.0",
     "fastify": "^4.26.0",
     "@fastify/cors": "^9.0.0",
     "@fastify/helmet": "^11.1.0",
