@@ -23,7 +23,7 @@ export async function patientRoutes(app: FastifyInstance): Promise<void> {
           mobile: { type: 'string' },
           nationalId: { type: 'string' },
           page: { type: 'integer', minimum: 1, default: 1 },
-          limit: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
+          limit: { type: 'integer', minimum: 1, maximum: 500, default: 20 },
         },
       },
     },

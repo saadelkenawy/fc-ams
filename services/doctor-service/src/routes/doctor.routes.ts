@@ -22,7 +22,7 @@ export async function doctorRoutes(app: FastifyInstance): Promise<void> {
           isActive:       { type: 'string', enum: ['true', 'false'] },
           isOnlineDoctor: { type: 'string', enum: ['true', 'false'] },
           page:           { type: 'integer', minimum: 1, default: 1 },
-          limit:          { type: 'integer', minimum: 1, maximum: 100, default: 20 },
+          limit:          { type: 'integer', minimum: 1, maximum: 500, default: 20 },
         },
       },
     },
