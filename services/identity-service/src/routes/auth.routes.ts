@@ -94,4 +94,36 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       },
     },
   }, ctrl.createUser);
+
+  // PATCH /users/:id  (update role / name / isActive)
+  app.patch('/users/:id', {
+    preHandler: [requireAuth, requireRole('admin')],
+    schema: {
+      tags: ['users'],
+      params: { type: 'object', properties: { id: { type: 'string', format: 'uuid' } } },
+      body: {
+        type: 'object',
+        properties: {
+          role:     { type: 'string', enum: ['admin', 'finance', 'doctor', 'receptionist', 'patient'] },
+          isActive: { type: 'boolean' },
+          nameEn:   { type: 'string' },
+          nameAr:   { type: 'string' },
+        },
+      },
+    },
+  }, ctrl.updateUser);
+
+  // PATCH /users/:id/reset-password  (admin sets new password for another user)
+  app.patch('/users/:id/reset-password', {
+    preHandler: [requireAuth, requireRole('admin')],
+    schema: {
+      tags: ['users'],
+      params: { type: 'object', properties: { id: { type: 'string', format: 'uuid' } } },
+      body: {
+        type: 'object',
+        required: ['newPassword'],
+        properties: { newPassword: { type: 'string', minLength: 8 } },
+      },
+    },
+  }, ctrl.adminResetPassword);
 }

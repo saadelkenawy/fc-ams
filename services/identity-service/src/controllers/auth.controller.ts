@@ -282,15 +282,65 @@ export async function listUsers(request: FastifyRequest, reply: FastifyReply): P
   void reply.send({
     success: true,
     data: users.map((u) => ({
-      id:        u.id,
-      nameEn:    u.nameEn,
-      nameAr:    u.nameAr,
-      role:      u.role,
-      branchId:  u.branchId,
-      doctorId:  u.doctorId,
-      email:     u.email,
-      isActive:  u.isActive,
+      id:          u.id,
+      nameEn:      u.nameEn,
+      nameAr:      u.nameAr,
+      role:        u.role,
+      branchId:    u.branchId,
+      doctorId:    u.doctorId,
+      email:       u.email,
+      isActive:    u.isActive,
+      lastLoginAt: u.lastLoginAt,
     })),
     total: users.length,
   });
+}
+
+const updateUserSchema = z.object({
+  role:     z.enum(['admin', 'finance', 'doctor', 'receptionist', 'patient']).optional(),
+  isActive: z.boolean().optional(),
+  nameEn:   z.string().min(1).max(200).optional(),
+  nameAr:   z.string().max(200).optional(),
+});
+
+export async function updateUser(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { id } = request.params as { id: string };
+  const actor  = request.user as JwtPayload;
+  const input  = updateUserSchema.parse(request.body);
+
+  // Prevent self-deactivation or self-role-change
+  if (id === actor.sub && input.isActive === false) {
+    throw Object.assign(new Error('Cannot deactivate your own account'), { statusCode: 400, code: 'SELF_DEACTIVATE' });
+  }
+
+  const updated = await repo.updateUser(id, input);
+  if (input.isActive === false) {
+    await repo.revokeAllUserTokens(id);
+  }
+  await repo.auditLog({ userId: actor.sub, email: actor.sub, event: 'user_updated', meta: { targetUserId: id, patch: input } });
+
+  void reply.send({
+    success: true,
+    data: { id: updated.id, nameEn: updated.nameEn, nameAr: updated.nameAr, role: updated.role, isActive: updated.isActive, email: updated.email },
+  });
+}
+
+const resetPasswordSchema = z.object({
+  newPassword: z.string().min(8).max(200),
+});
+
+export async function adminResetPassword(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { id } = request.params as { id: string };
+  const actor  = request.user as JwtPayload;
+  const input  = resetPasswordSchema.parse(request.body);
+
+  const user = await repo.findUserById(id);
+  if (!user) throw Object.assign(new Error('User not found'), { statusCode: 404 });
+
+  const hash = await hashPassword(input.newPassword);
+  await repo.updatePasswordHash(id, hash);
+  await repo.revokeAllUserTokens(id);
+  await repo.auditLog({ userId: actor.sub, email: actor.sub, event: 'admin_password_reset', meta: { targetUserId: id } });
+
+  void reply.send({ success: true });
 }
