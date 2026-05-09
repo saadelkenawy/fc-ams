@@ -402,7 +402,6 @@ function UsersTab({ t, lang }: { t: (ar: string, en: string) => string; lang: 'a
   const [showCreate, setShowCreate]       = useState(false);
   const [editRoleUser, setEditRoleUser]   = useState<PlatformUser | null>(null);
   const [resetPwUser, setResetPwUser]     = useState<PlatformUser | null>(null);
-  const [showMatrix, setShowMatrix]       = useState(false);
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['platform-users'],
@@ -563,50 +562,51 @@ function UsersTab({ t, lang }: { t: (ar: string, en: string) => string; lang: 'a
         </CardContent>
       </Card>
 
-      {/* Permissions matrix toggle */}
+      {/* Permissions matrix — always visible */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>{t('مصفوفة الصلاحيات', 'Permissions Matrix')}</CardTitle>
-            <Button variant="ghost" size="sm" onClick={() => setShowMatrix((v) => !v)}>
-              {showMatrix ? t('إخفاء', 'Hide') : t('عرض', 'Show')}
-            </Button>
-          </div>
+          <CardTitle>{t('مصفوفة الصلاحيات', 'Permissions Matrix')}</CardTitle>
         </CardHeader>
-        {showMatrix && (
-          <CardContent className="pt-0 overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b border-gray-100 dark:border-neutral-700">
-                  <th className="text-start py-2 px-3 font-medium text-gray-500 w-48">{t('الصلاحية', 'Permission')}</th>
+        <CardContent className="pt-0 overflow-x-auto">
+          <table className="w-full text-xs border-collapse">
+            <thead>
+              <tr className="bg-gray-50 dark:bg-neutral-800/60">
+                <th className="text-start py-3 px-4 font-medium text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-neutral-700 min-w-[180px]">
+                  {t('الصلاحية', 'Permission')}
+                </th>
+                {ROLES.map((r) => (
+                  <th key={r} className="py-3 px-4 text-center font-medium border-b border-gray-200 dark:border-neutral-700 whitespace-nowrap">
+                    <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold ${ROLE_META[r].color}`}>
+                      {lang === 'ar' ? ROLE_META[r].labelAr : ROLE_META[r].labelEn}
+                    </span>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {PERMISSIONS.map((perm, i) => (
+                <tr key={perm.labelEn} className={`border-b border-gray-100 dark:border-neutral-700/50 transition-colors hover:bg-primary-50/30 dark:hover:bg-primary-900/10 ${i % 2 === 0 ? '' : 'bg-gray-50/40 dark:bg-neutral-800/20'}`}>
+                  <td className="py-2.5 px-4 text-gray-700 dark:text-gray-300 font-medium">
+                    {lang === 'ar' ? perm.labelAr : perm.labelEn}
+                  </td>
                   {ROLES.map((r) => (
-                    <th key={r} className="py-2 px-3 text-center font-medium text-gray-500">
-                      <span className={`px-2 py-0.5 rounded-full ${ROLE_META[r].color}`}>
-                        {lang === 'ar' ? ROLE_META[r].labelAr : ROLE_META[r].labelEn}
-                      </span>
-                    </th>
+                    <td key={r} className="py-2.5 px-4 text-center">
+                      {perm[r] ? (
+                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-900/30 mx-auto">
+                          <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 dark:bg-neutral-700/50 mx-auto">
+                          <X className="w-3 h-3 text-gray-300 dark:text-gray-600" />
+                        </span>
+                      )}
+                    </td>
                   ))}
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50 dark:divide-neutral-700/50">
-                {PERMISSIONS.map((perm) => (
-                  <tr key={perm.labelEn} className="hover:bg-gray-50/50 dark:hover:bg-neutral-700/20 transition-colors">
-                    <td className="py-2 px-3 text-gray-700 dark:text-gray-300">{lang === 'ar' ? perm.labelAr : perm.labelEn}</td>
-                    {ROLES.map((r) => (
-                      <td key={r} className="py-2 px-3 text-center">
-                        {perm[r] ? (
-                          <Check className="w-3.5 h-3.5 text-emerald-500 mx-auto" />
-                        ) : (
-                          <X className="w-3.5 h-3.5 text-gray-200 dark:text-gray-700 mx-auto" />
-                        )}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </CardContent>
-        )}
+              ))}
+            </tbody>
+          </table>
+        </CardContent>
       </Card>
 
       {/* Modals */}
