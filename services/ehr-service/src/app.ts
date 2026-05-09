@@ -64,7 +64,7 @@ export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
 
     void reply.status(statusCode).send({
       success: false,
-      error: { code, message: error.message },
+      error: { code, message: (error as Error).message },
     });
   });
 
