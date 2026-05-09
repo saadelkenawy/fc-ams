@@ -1,0 +1,23 @@
+services:
+  ai-chatbot-service:
+    environment:
+      OPENROUTER_API_KEY: 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
+      OPENROUTER_MODEL: openai/gpt-4o-mini
+
+  # ── Email delivery (SMTP) ──────────────────────────────────────────────────
+  # Fill in your SMTP credentials to enable real email notifications.
+  # Supports Gmail (use App Password), SendGrid, Mailgun, AWS SES, etc.
+  notification-service:
+    environment:
+      # SMTP_HOST: smtp.gmail.com
+      # SMTP_PORT: "587"
+      # SMTP_SECURE: "false"
+      # SMTP_USER: your-email@gmail.com
+      # SMTP_PASS: your-app-password
+      # SMTP_FROM: "Fadl Clinic <no-reply@fadlclinic.com>"
+      #
+      # ── SMS/WhatsApp delivery (Twilio) ──────────────────────────────────────
+      # Fill in your Twilio credentials to enable real SMS notifications.
+      # TWILIO_ACCOUNT_SID: ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      # TWILIO_AUTH_TOKEN: your-auth-token
+      # TWILIO_FROM_NUMBER: "+1xxxxxxxxxx"
