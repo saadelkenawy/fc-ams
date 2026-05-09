@@ -308,6 +308,7 @@ function SettlementsTab({ lang, t }: { lang: 'ar' | 'en'; t: (ar: string, en: st
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const { data, isLoading, isError, refetch, isFetching } = useSettlements({ from, to, limit: 50 });
+  const doctorMap = useDoctorMap();
   const settlements = data?.data ?? [];
 
   // Totals across all doctors
@@ -438,7 +439,7 @@ function SettlementsTab({ lang, t }: { lang: 'ar' | 'en'; t: (ar: string, en: st
                           <td className="px-3 py-3 text-gray-400">
                             {isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                           </td>
-                          <td className="px-4 py-3 font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">{s.doctorNameEn}</td>
+                          <td className="px-4 py-3 font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">{doctorMap.get(s.doctorId)?.nameEn ?? s.doctorId.slice(0, 8)}</td>
                           <td className="px-4 py-3 text-end font-mono text-gray-600 dark:text-gray-300">{(s.totalConsultations ?? 0) + (s.totalProcedures ?? 0)}</td>
                           <td className="px-4 py-3 text-end font-mono tabular-nums text-gray-700 dark:text-gray-200">{fmt(s.grossRevenue)}</td>
                           <td className="px-4 py-3 text-end font-mono tabular-nums text-orange-600 dark:text-orange-400">{fmt(s.totalSourceFees)}</td>

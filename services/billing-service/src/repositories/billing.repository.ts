@@ -263,9 +263,8 @@ export async function getDoctorSettlement(
 ): Promise<DoctorSettlement> {
   return withRlsContext(async (client) => {
     const { rows } = await client.query(
-      `SELECT ft.*, d.name_en AS doctor_name_en
+      `SELECT ft.*
        FROM financial_transactions ft
-       JOIN doctors d ON ft.doctor_id = d.id
        WHERE ft.doctor_id = $1
          AND ft.transaction_date BETWEEN $2 AND $3`,
       [doctorId, from, to],
@@ -289,7 +288,7 @@ export async function getDoctorSettlement(
     }
 
     const transactions = rows.map((r) => rowToTransaction(r as Record<string, unknown>));
-    const doctorNameEn = (rows[0] as Record<string, unknown>).doctor_name_en as string;
+    const doctorNameEn = ''; // resolved client-side via doctors API
 
     const totalConsultations = rows.filter((r) => !(r as Record<string, unknown>).procedure_id).length;
     const totalProcedures = rows.filter((r) => (r as Record<string, unknown>).procedure_id).length;
@@ -341,7 +340,6 @@ export async function listDoctorSettlements(params: {
       client.query(
         `SELECT
            ft.doctor_id,
-           d.name_en AS doctor_name_en,
            COUNT(*) FILTER (WHERE ft.procedure_id IS NULL)::int AS total_consultations,
            COUNT(*) FILTER (WHERE ft.procedure_id IS NOT NULL)::int AS total_procedures,
            SUM(ft.gross_revenue) AS gross_revenue,
@@ -350,10 +348,9 @@ export async function listDoctorSettlements(params: {
            SUM((ft.approved_charge - ft.source_fee_amount) * ft.split_clinic_percentage  / 100.0) AS clinic_share,
            SUM((ft.approved_charge - ft.source_fee_amount) * ft.split_doctor_percentage / 100.0) AS net_payable
          FROM financial_transactions ft
-         JOIN doctors d ON ft.doctor_id = d.id
          WHERE ft.transaction_date BETWEEN $1 AND $2
            AND ft.doctor_id IS NOT NULL
-         GROUP BY ft.doctor_id, d.name_en
+         GROUP BY ft.doctor_id
          ORDER BY gross_revenue DESC
          LIMIT $3 OFFSET $4`,
         [params.from, params.to, limit, offset],
@@ -366,7 +363,7 @@ export async function listDoctorSettlements(params: {
       const row = r as Record<string, unknown>;
       return {
         doctorId: row.doctor_id as string,
-        doctorNameEn: row.doctor_name_en as string,
+        doctorNameEn: '', // resolved client-side via doctors API to avoid cross-DB join
         period: { from: params.from, to: params.to },
         totalConsultations: Number(row.total_consultations),
         totalProcedures: Number(row.total_procedures),
