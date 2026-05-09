@@ -154,8 +154,10 @@ export async function createTransaction(
     const sourceFeePercentage = SOURCE_FEES[input.patientSource] ?? 0;
     const sourceFeeAmount = input.approvedCharge * sourceFeePercentage / 100;
     const grossRevenue = input.approvedCharge + (input.procedureCost ?? 0);
-    const doctorShare = grossRevenue * input.splitDoctorPercentage / 100;
-    const clinicShare = grossRevenue * input.splitClinicPercentage / 100;
+    // Net pool = session fee minus mediator cut; split is applied on the net, not the gross
+    const netPool = input.approvedCharge - sourceFeeAmount;
+    const doctorShare = netPool * input.splitDoctorPercentage / 100;
+    const clinicShare = netPool * input.splitClinicPercentage / 100;
     const vatRate = 0.14;
     const transactionDate = new Date().toISOString().split('T')[0];
     const id = uuidv4();
@@ -292,10 +294,11 @@ export async function getDoctorSettlement(
     const totalConsultations = rows.filter((r) => !(r as Record<string, unknown>).procedure_id).length;
     const totalProcedures = rows.filter((r) => (r as Record<string, unknown>).procedure_id).length;
     const grossRevenue = transactions.reduce((s, t) => s + t.grossRevenue, 0);
-    const doctorShare = transactions.reduce((s, t) => s + t.doctorShare, 0);
-    const clinicShare = transactions.reduce((s, t) => s + t.clinicShare, 0);
     const totalSourceFees = transactions.reduce((s, t) => s + t.sourceFeeAmount, 0);
-    const netPayable = doctorShare - totalSourceFees;
+    // Recalculate shares from raw fields: net pool = session fee − mediator cut
+    const doctorShare = transactions.reduce((s, t) => s + (t.approvedCharge - t.sourceFeeAmount) * t.splitDoctorPercentage / 100, 0);
+    const clinicShare = transactions.reduce((s, t) => s + (t.approvedCharge - t.sourceFeeAmount) * t.splitClinicPercentage / 100, 0);
+    const netPayable = doctorShare; // doctor's net share is already after mediator deduction
 
     const allPaid = transactions.every((t) => t.paymentStatus === 'paid');
     const status: PaymentStatus = allPaid ? 'paid' : 'pending';
@@ -341,11 +344,11 @@ export async function listDoctorSettlements(params: {
            d.name_en AS doctor_name_en,
            COUNT(*) FILTER (WHERE ft.procedure_id IS NULL)::int AS total_consultations,
            COUNT(*) FILTER (WHERE ft.procedure_id IS NOT NULL)::int AS total_procedures,
-           SUM(ft.gross_revenue)          AS gross_revenue,
-           SUM(ft.doctor_share)           AS doctor_share,
-           SUM(ft.clinic_share)           AS clinic_share,
-           SUM(ft.source_fee_amount)      AS total_source_fees,
-           SUM(ft.doctor_share) - SUM(ft.source_fee_amount) AS net_payable
+           SUM(ft.gross_revenue) AS gross_revenue,
+           SUM(ft.source_fee_amount) AS total_source_fees,
+           SUM((ft.approved_charge - ft.source_fee_amount) * ft.split_doctor_percentage / 100.0) AS doctor_share,
+           SUM((ft.approved_charge - ft.source_fee_amount) * ft.split_clinic_percentage  / 100.0) AS clinic_share,
+           SUM((ft.approved_charge - ft.source_fee_amount) * ft.split_doctor_percentage / 100.0) AS net_payable
          FROM financial_transactions ft
          JOIN doctors d ON ft.doctor_id = d.id
          WHERE ft.transaction_date BETWEEN $1 AND $2
