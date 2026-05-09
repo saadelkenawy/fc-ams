@@ -117,3 +117,4 @@ export const analyticsApi    = makeServiceClient('/api/proxy/analytics');
 export const chatbotApi      = makeServiceClient('/api/proxy/chatbot');
 export const fileApi         = makeServiceClient('/api/proxy/files');
 export const integrationApi  = makeServiceClient('/api/proxy/integration');
+export const procurementApi  = makeServiceClient('/api/proxy/procurement');

@@ -438,6 +438,35 @@ services:
       retries: 5
       start_period: 15s
 
+  procurement-service:
+    <<: *service-defaults
+    build:
+      context: .
+      dockerfile: services/Dockerfile.backend
+      args:
+        SERVICE_DIR: procurement-service
+    environment:
+      <<: *jwt-env
+      NODE_ENV: development
+      PORT: 3013
+      DATABASE_URL: postgresql://fadl:fadl_dev_secret@postgres:5432/fadl_procurement
+      DATABASE_POOL_MIN: 2
+      DATABASE_POOL_MAX: 10
+      LOG_LEVEL: info
+      BRANCH_ID: 1
+      SERVICE_NAME: procurement-service
+    ports:
+      - "3013:3013"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3013/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
   web-portal:
     <<: *service-defaults
     build:
@@ -459,6 +488,7 @@ services:
       CHATBOT_SERVICE_URL: http://ai-chatbot-service:3008/api/v1
       FILE_SERVICE_URL: http://file-service:3011/api/v1
       INTEGRATION_SERVICE_URL: http://integration-service:3012/api/v1
+      PROCUREMENT_SERVICE_URL: http://procurement-service:3013/api/v1
     ports:
       - "3010:3010"
     depends_on:
@@ -469,6 +499,7 @@ services:
       - billing-service
       - ehr-service
       - procedure-service
+      - procurement-service
 
   integration-service:
     <<: *service-defaults

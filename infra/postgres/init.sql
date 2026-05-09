@@ -9,6 +9,7 @@ CREATE DATABASE fadl_doctors;
 CREATE DATABASE fadl_billing;
 CREATE DATABASE fadl_ehr;
 CREATE DATABASE fadl_procedures;
+CREATE DATABASE fadl_procurement;
 
 -- Grant the fadl user full access to all service databases
 GRANT ALL PRIVILEGES ON DATABASE fadl_identity     TO fadl;
@@ -18,6 +19,7 @@ GRANT ALL PRIVILEGES ON DATABASE fadl_doctors      TO fadl;
 GRANT ALL PRIVILEGES ON DATABASE fadl_billing      TO fadl;
 GRANT ALL PRIVILEGES ON DATABASE fadl_ehr          TO fadl;
 GRANT ALL PRIVILEGES ON DATABASE fadl_procedures   TO fadl;
+GRANT ALL PRIVILEGES ON DATABASE fadl_procurement  TO fadl;
 
 -- Enable required extensions in each database
 \c fadl_identity
@@ -50,3 +52,8 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 \c fadl_procedures
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+\c fadl_procurement
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS pg_trgm;

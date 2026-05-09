@@ -46,6 +46,7 @@ const NAV: Record<UserRole, NavGroup[]> = {
       groupEn: 'System',
       items: [
         { key: 'procedures',   href: '/procedures',   labelAr: 'الإجراءات',       labelEn: 'Procedures',   icon: 'Clipboard' },
+        { key: 'procurement',  href: '/procurement',  labelAr: 'المشتريات الطبية', labelEn: 'Procurement',  icon: 'Package' },
         { key: 'sources',      href: '/sources',      labelAr: 'مصادر المرضى',    labelEn: 'Sources',      icon: 'Share2' },
         { key: 'encounters',   href: '/encounters',   labelAr: 'الحالات السريرية', labelEn: 'Encounters',   icon: 'FileHeart' },
         { key: 'chatbot',       href: '/chatbot',       labelAr: 'المساعد الذكي',    labelEn: 'AI Assistant',  icon: 'Bot' },

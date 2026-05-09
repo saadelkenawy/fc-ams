@@ -28,6 +28,7 @@ const nextConfig = {
     const analytics    = process.env.ANALYTICS_SERVICE_URL    ?? 'http://analytics-service:3009/api/v1';
     const file         = process.env.FILE_SERVICE_URL         ?? 'http://file-service:3011/api/v1';
     const integration  = process.env.INTEGRATION_SERVICE_URL  ?? 'http://integration-service:3012/api/v1';
+    const procurement  = process.env.PROCUREMENT_SERVICE_URL  ?? 'http://procurement-service:3013/api/v1';
 
     // beforeFiles: run BEFORE any filesystem/API-route check so /api/proxy/* is always forwarded
     return {
@@ -44,6 +45,7 @@ const nextConfig = {
         { source: '/api/proxy/analytics/:path*',     destination: `${analytics}/:path*` },
         { source: '/api/proxy/files/:path*',         destination: `${file}/:path*` },
         { source: '/api/proxy/integration/:path*',   destination: `${integration}/:path*` },
+        { source: '/api/proxy/procurement/:path*',   destination: `${procurement}/:path*` },
       ],
     };
   },
