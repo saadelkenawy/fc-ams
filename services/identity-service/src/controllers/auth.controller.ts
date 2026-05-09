@@ -76,7 +76,7 @@ const createUserSchema = z.object({
   password: z.string().min(8).max(200),
   nameEn:   z.string().min(1).max(200),
   nameAr:   z.string().max(200).optional(),
-  role:     z.enum(['admin', 'finance', 'doctor', 'receptionist', 'patient']).default('receptionist'),
+  role:     z.enum(['admin', 'finance', 'doctor', 'receptionist', 'patient', 'procurement']).default('receptionist'),
   branchId: z.number().int().positive().default(1),
   doctorId: z.string().uuid().optional(),
 });
@@ -297,7 +297,7 @@ export async function listUsers(request: FastifyRequest, reply: FastifyReply): P
 }
 
 const updateUserSchema = z.object({
-  role:     z.enum(['admin', 'finance', 'doctor', 'receptionist', 'patient']).optional(),
+  role:     z.enum(['admin', 'finance', 'doctor', 'receptionist', 'patient', 'procurement']).optional(),
   isActive: z.boolean().optional(),
   nameEn:   z.string().min(1).max(200).optional(),
   nameAr:   z.string().max(200).optional(),

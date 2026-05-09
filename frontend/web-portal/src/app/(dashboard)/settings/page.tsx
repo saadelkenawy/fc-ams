@@ -50,7 +50,7 @@ const TABS = [
 
 type TabKey = typeof TABS[number]['key'];
 
-const ROLES = ['admin', 'finance', 'doctor', 'receptionist'] as const;
+const ROLES = ['admin', 'finance', 'doctor', 'receptionist', 'procurement'] as const;
 type Role = typeof ROLES[number];
 
 const ROLE_META: Record<Role, { labelAr: string; labelEn: string; color: string }> = {
@@ -58,27 +58,29 @@ const ROLE_META: Record<Role, { labelAr: string; labelEn: string; color: string 
   finance:      { labelAr: 'مالية',            labelEn: 'Finance',       color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' },
   doctor:       { labelAr: 'طبيب',             labelEn: 'Doctor',        color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
   receptionist: { labelAr: 'موظف استقبال',    labelEn: 'Receptionist',  color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' },
+  procurement:  { labelAr: 'مشتريات',          labelEn: 'Procurement',   color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' },
 };
 
 // What each role can access (for the permissions matrix)
-const PERMISSIONS: Array<{ labelAr: string; labelEn: string; admin: boolean; finance: boolean; doctor: boolean; receptionist: boolean }> = [
-  { labelAr: 'لوحة التحكم',        labelEn: 'Dashboard',        admin: true,  finance: true,  doctor: false, receptionist: false },
-  { labelAr: 'إدارة المرضى',       labelEn: 'Patients (all)',   admin: true,  finance: false, doctor: false, receptionist: true  },
-  { labelAr: 'المواعيد',           labelEn: 'Appointments',     admin: true,  finance: false, doctor: true,  receptionist: true  },
-  { labelAr: 'إدارة الأطباء',      labelEn: 'Doctors',          admin: true,  finance: false, doctor: false, receptionist: false },
-  { labelAr: 'الفواتير والمدفوعات', labelEn: 'Billing',         admin: true,  finance: true,  doctor: false, receptionist: true  },
-  { labelAr: 'التسويات',           labelEn: 'Settlements',      admin: true,  finance: true,  doctor: false, receptionist: false },
-  { labelAr: 'التحليلات',          labelEn: 'Analytics',        admin: true,  finance: true,  doctor: false, receptionist: false },
-  { labelAr: 'التقارير',           labelEn: 'Reports',          admin: true,  finance: true,  doctor: false, receptionist: false },
-  { labelAr: 'الحالات السريرية',   labelEn: 'Encounters',       admin: true,  finance: false, doctor: true,  receptionist: false },
-  { labelAr: 'الإجراءات',         labelEn: 'Procedures',       admin: true,  finance: false, doctor: false, receptionist: false },
-  { labelAr: 'المساعد الذكي',      labelEn: 'AI Assistant',     admin: true,  finance: false, doctor: false, receptionist: true  },
-  { labelAr: 'التكاملات الخارجية', labelEn: 'Integrations',     admin: true,  finance: false, doctor: false, receptionist: false },
-  { labelAr: 'الإعدادات',         labelEn: 'Settings',         admin: true,  finance: false, doctor: false, receptionist: false },
-  { labelAr: 'إدارة المستخدمين',  labelEn: 'User Management',  admin: true,  finance: false, doctor: false, receptionist: false },
-  { labelAr: 'جدولتي الشخصية',    labelEn: 'Own Schedule',     admin: false, finance: false, doctor: true,  receptionist: false },
-  { labelAr: 'مرضاي فقط',         labelEn: 'Own Patients',     admin: false, finance: false, doctor: true,  receptionist: false },
-  { labelAr: 'أرباحي',            labelEn: 'Own Earnings',     admin: false, finance: false, doctor: true,  receptionist: false },
+const PERMISSIONS: Array<{ labelAr: string; labelEn: string; admin: boolean; finance: boolean; doctor: boolean; receptionist: boolean; procurement: boolean }> = [
+  { labelAr: 'لوحة التحكم',        labelEn: 'Dashboard',        admin: true,  finance: true,  doctor: false, receptionist: false, procurement: false },
+  { labelAr: 'إدارة المرضى',       labelEn: 'Patients (all)',   admin: true,  finance: false, doctor: false, receptionist: true,  procurement: false },
+  { labelAr: 'المواعيد',           labelEn: 'Appointments',     admin: true,  finance: false, doctor: true,  receptionist: true,  procurement: false },
+  { labelAr: 'إدارة الأطباء',      labelEn: 'Doctors',          admin: true,  finance: false, doctor: false, receptionist: false, procurement: false },
+  { labelAr: 'الفواتير والمدفوعات', labelEn: 'Billing',         admin: true,  finance: true,  doctor: false, receptionist: true,  procurement: false },
+  { labelAr: 'التسويات',           labelEn: 'Settlements',      admin: true,  finance: true,  doctor: false, receptionist: false, procurement: false },
+  { labelAr: 'التحليلات',          labelEn: 'Analytics',        admin: true,  finance: true,  doctor: false, receptionist: false, procurement: false },
+  { labelAr: 'التقارير',           labelEn: 'Reports',          admin: true,  finance: true,  doctor: false, receptionist: false, procurement: false },
+  { labelAr: 'الحالات السريرية',   labelEn: 'Encounters',       admin: true,  finance: false, doctor: true,  receptionist: false, procurement: false },
+  { labelAr: 'الإجراءات',         labelEn: 'Procedures',       admin: true,  finance: false, doctor: false, receptionist: false, procurement: false },
+  { labelAr: 'المساعد الذكي',      labelEn: 'AI Assistant',     admin: true,  finance: false, doctor: false, receptionist: true,  procurement: false },
+  { labelAr: 'التكاملات الخارجية', labelEn: 'Integrations',     admin: true,  finance: false, doctor: false, receptionist: false, procurement: false },
+  { labelAr: 'الإعدادات',         labelEn: 'Settings',         admin: true,  finance: false, doctor: false, receptionist: false, procurement: false },
+  { labelAr: 'إدارة المستخدمين',  labelEn: 'User Management',  admin: true,  finance: false, doctor: false, receptionist: false, procurement: false },
+  { labelAr: 'كتالوج المشتريات',  labelEn: 'Procurement',      admin: true,  finance: false, doctor: false, receptionist: false, procurement: true  },
+  { labelAr: 'جدولتي الشخصية',    labelEn: 'Own Schedule',     admin: false, finance: false, doctor: true,  receptionist: false, procurement: false },
+  { labelAr: 'مرضاي فقط',         labelEn: 'Own Patients',     admin: false, finance: false, doctor: true,  receptionist: false, procurement: false },
+  { labelAr: 'أرباحي',            labelEn: 'Own Earnings',     admin: false, finance: false, doctor: true,  receptionist: false, procurement: false },
 ];
 
 /* ──────────────── Clinic Info Tab ──────────────── */

@@ -42,7 +42,7 @@ export interface Branch {
   isActive: boolean;
 }
 
-export type UserRole = 'admin' | 'finance' | 'doctor' | 'receptionist' | 'patient';
+export type UserRole = 'admin' | 'finance' | 'doctor' | 'receptionist' | 'patient' | 'procurement';
 
 export interface JwtPayload {
   sub: string; // user ID

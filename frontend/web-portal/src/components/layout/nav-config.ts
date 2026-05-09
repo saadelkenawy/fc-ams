@@ -101,6 +101,18 @@ const NAV: Record<UserRole, NavGroup[]> = {
       ],
     },
   ],
+
+  procurement: [
+    {
+      items: [
+        { key: 'procurement',  href: '/procurement',          labelAr: 'لوحة المشتريات',   labelEn: 'Overview',       icon: 'Package' },
+        { key: 'catalog',      href: '/procurement/catalog',  labelAr: 'كتالوج العناصر',   labelEn: 'Item Catalog',   icon: 'Archive' },
+        { key: 'vendors',      href: '/procurement/vendors',  labelAr: 'الموردون',          labelEn: 'Vendors',        icon: 'Store' },
+        { key: 'receipts',     href: '/procurement/receipts', labelAr: 'الإيصالات',         labelEn: 'Receipts',       icon: 'FileText' },
+        { key: 'alerts',       href: '/procurement/alerts',   labelAr: 'التنبيهات',         labelEn: 'Alerts',         icon: 'Bell' },
+      ],
+    },
+  ],
 };
 
 export function getNavForRole(role: UserRole): NavGroup[] {

@@ -87,7 +87,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
           password: { type: 'string', minLength: 8 },
           nameEn:   { type: 'string' },
           nameAr:   { type: 'string' },
-          role:     { type: 'string', enum: ['admin', 'finance', 'doctor', 'receptionist', 'patient'] },
+          role:     { type: 'string', enum: ['admin', 'finance', 'doctor', 'receptionist', 'patient', 'procurement'] },
           branchId: { type: 'integer', minimum: 1, default: 1 },
           doctorId: { type: 'string', format: 'uuid' },
         },
@@ -104,7 +104,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       body: {
         type: 'object',
         properties: {
-          role:     { type: 'string', enum: ['admin', 'finance', 'doctor', 'receptionist', 'patient'] },
+          role:     { type: 'string', enum: ['admin', 'finance', 'doctor', 'receptionist', 'patient', 'procurement'] },
           isActive: { type: 'boolean' },
           nameEn:   { type: 'string' },
           nameAr:   { type: 'string' },

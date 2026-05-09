@@ -14,6 +14,7 @@ const ROLE_RULES: Array<{ pattern: RegExp; roles: string[] }> = [
   { pattern: /^\/procedures/,   roles: ['admin'] },
   { pattern: /^\/integrations/, roles: ['admin'] },
   { pattern: /^\/settings/,     roles: ['admin'] },
+  { pattern: /^\/procurement/,  roles: ['admin', 'procurement'] },
   { pattern: /^\/encounters/,   roles: ['admin', 'doctor'] },
   { pattern: /^\/chatbot/,      roles: ['admin', 'receptionist'] },
 ];
