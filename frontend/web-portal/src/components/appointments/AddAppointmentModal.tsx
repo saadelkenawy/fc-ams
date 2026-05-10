@@ -41,6 +41,15 @@ function addMinutes(time: string, mins: number): string {
 
 function makeKey() { return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`; }
 
+// Normalize any Egyptian number to +20XXXXXXXXXX
+function normalizeEgyptianMobile(raw: string): string {
+  const digits = raw.replace(/\D/g, '');
+  if (digits.startsWith('20') && digits.length === 12) return `+${digits}`;
+  if (digits.startsWith('0') && digits.length === 11)  return `+20${digits.slice(1)}`;
+  if (digits.length === 10)                             return `+20${digits}`;
+  return raw.trim(); // return as-is; validation will catch it
+}
+
 // ── Quick-create patient mini-form ────────────────────────────────────────────
 function QuickCreatePatient({ lang, t, prefillName, onCreated, onCancel }: {
   lang: 'ar' | 'en'; t: (a: string, b: string) => string;
@@ -54,19 +63,31 @@ function QuickCreatePatient({ lang, t, prefillName, onCreated, onCancel }: {
   const [saving,  setSaving]  = useState(false);
   const [error,   setError]   = useState('');
 
+  const normalizedMobile = normalizeEgyptianMobile(mobile);
+  const mobileValid = /^\+20[0-9]{10}$/.test(normalizedMobile);
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
-    if (!nameEn.trim() || !mobile.trim()) { setError(t('الاسم والهاتف مطلوبان', 'Name and phone are required')); return; }
+    if (!nameEn.trim()) { setError(t('الاسم مطلوب', 'Name is required')); return; }
+    if (!mobileValid)   { setError(t('الهاتف يجب أن يكون مصري (+20XXXXXXXXXX أو 01XXXXXXXXX)', 'Mobile must be Egyptian format (01XXXXXXXXX or +20XXXXXXXXXX)')); return; }
+    setError('');
     setSaving(true);
     try {
-      const res = await patientApi.post('/patients', { nameEn: nameEn.trim(), nameAr: nameAr.trim() || undefined, mobile: mobile.trim() });
+      const res = await patientApi.post('/patients', {
+        nameEn: nameEn.trim(),
+        nameAr: nameAr.trim() || undefined,
+        mobile: normalizedMobile,
+      });
       onCreated(res.data.data as Patient);
-    } catch {
-      setError(t('فشل إنشاء المريض', 'Failed to create patient'));
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message;
+      setError(msg ?? t('فشل إنشاء المريض', 'Failed to create patient'));
     } finally {
       setSaving(false);
     }
   }
+
+  const fieldCls = 'h-9 rounded-lg border bg-white dark:bg-neutral-800 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600 transition-shadow w-full';
 
   return (
     <div className="mt-2 rounded-xl border border-primary-200 dark:border-primary-800 bg-primary-50 dark:bg-primary-900/20 p-3 space-y-2">
@@ -74,16 +95,54 @@ function QuickCreatePatient({ lang, t, prefillName, onCreated, onCancel }: {
         <UserPlus className="w-3.5 h-3.5" />{t('إضافة مريض جديد', 'New Patient')}
       </p>
       <div className="grid grid-cols-2 gap-2">
-        <input className="h-9 rounded-lg border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600" placeholder={t('الاسم بالإنجليزية *', 'Name (EN) *')} value={nameEn} onChange={(e) => setNameEn(e.target.value)} />
-        <input className="h-9 rounded-lg border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600" placeholder={t('الاسم بالعربية', 'Name (AR)')} value={nameAr} onChange={(e) => setNameAr(e.target.value)} dir="rtl" />
-        <input className="h-9 rounded-lg border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary-600 col-span-2" placeholder={t('رقم الهاتف *', 'Mobile *')} value={mobile} onChange={(e) => setMobile(e.target.value)} dir="ltr" type="tel" />
+        <input
+          className={`${fieldCls} border-gray-200 dark:border-neutral-700 text-gray-900 dark:text-gray-100`}
+          placeholder={t('الاسم بالإنجليزية *', 'Name (EN) *')}
+          value={nameEn}
+          onChange={(e) => setNameEn(e.target.value)}
+        />
+        <input
+          className={`${fieldCls} border-gray-200 dark:border-neutral-700 text-gray-900 dark:text-gray-100`}
+          placeholder={t('الاسم بالعربية', 'Name (AR)')}
+          value={nameAr}
+          onChange={(e) => setNameAr(e.target.value)}
+          dir="rtl"
+        />
+        <div className="col-span-2">
+          <div className="relative">
+            <input
+              className={`${fieldCls} font-mono ps-14 ${mobile && !mobileValid ? 'border-red-400 focus:ring-red-400' : 'border-gray-200 dark:border-neutral-700'} text-gray-900 dark:text-gray-100`}
+              placeholder={t('01XXXXXXXXX *', '01XXXXXXXXX *')}
+              value={mobile}
+              onChange={(e) => { setMobile(e.target.value); setError(''); }}
+              dir="ltr"
+              type="tel"
+            />
+            <span className="absolute inset-y-0 start-3 flex items-center text-xs font-mono text-gray-400 pointer-events-none">+20</span>
+          </div>
+          {mobile && !mobileValid && (
+            <p className="text-[11px] text-red-500 mt-0.5">{t('مثال: 01012345678', 'e.g. 01012345678')}</p>
+          )}
+          {mobile && mobileValid && (
+            <p className="text-[11px] text-emerald-600 mt-0.5">✓ {normalizedMobile}</p>
+          )}
+        </div>
       </div>
       {error && <p className="text-xs text-red-500">{error}</p>}
       <div className="flex gap-2">
-        <button type="button" disabled={saving} onClick={handleCreate} className="flex-1 h-8 rounded-lg bg-primary-600 text-white text-xs font-semibold hover:bg-primary-700 disabled:opacity-50 transition-colors">
+        <button
+          type="button"
+          disabled={saving || !nameEn.trim() || !mobileValid}
+          onClick={handleCreate}
+          className="flex-1 h-8 rounded-lg bg-primary-600 text-white text-xs font-semibold hover:bg-primary-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        >
           {saving ? t('جاري الحفظ...', 'Saving...') : t('إنشاء وتحديد', 'Create & Select')}
         </button>
-        <button type="button" onClick={onCancel} className="h-8 px-3 rounded-lg border border-gray-200 dark:border-neutral-700 text-xs text-gray-500 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="h-8 px-3 rounded-lg border border-gray-200 dark:border-neutral-700 text-xs text-gray-500 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors"
+        >
           {t('إلغاء', 'Cancel')}
         </button>
       </div>
