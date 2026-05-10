@@ -41,7 +41,7 @@ export default function SettlementsPage() {
   const hasActiveFilters = selectedDoctor || sourceFilter || minNetPool || maxNetPool;
 
   // ── Data ─────────────────────────────────────────────────────────────────────
-  const { data, isLoading, isError, refetch, isFetching } = useSettlements({ from, to, limit: 200 });
+  const { data, isLoading, isError, refetch, isFetching } = useSettlements({ from, to, limit: 100 });
   const doctorMap  = useDoctorMap();
   const { data: doctorsData } = useDoctors({ isActive: true, limit: 200 });
   const doctorList = doctorsData?.data ?? [];
