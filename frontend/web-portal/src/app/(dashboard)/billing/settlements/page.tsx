@@ -6,6 +6,7 @@ import {
   Building2, Stethoscope, Share2, Loader2, FlaskConical, Check, X,
   Search, SlidersHorizontal, ChevronUp, ArrowUpDown,
   CheckCircle2, Unlock, Eye, EyeOff, AlertTriangle, Lock,
+  Plus, Trash2,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -16,7 +17,7 @@ import { useDoctors, useDoctorMap } from '@/hooks/useDoctors';
 import { notificationApi, identityApi } from '@/lib/api';
 import { useProcedureMap } from '@/hooks/useProcedures';
 import { cn } from '@/lib/utils';
-import type { DoctorSettlement } from '@fadl/types';
+import type { DoctorSettlement, FinancialTransaction } from '@fadl/types';
 
 type SortKey = 'name' | 'sessions' | 'sessionFees' | 'netPool' | 'doctor' | 'clinic';
 type SortDir = 'asc' | 'desc';
@@ -782,34 +783,210 @@ export default function SettlementsPage() {
   );
 }
 
+// ── Extra Services types & popup ─────────────────────────────────────────────
+interface ExtraServiceItem {
+  id: string;
+  name: string;
+  cost: string;
+}
+
+function makeItem(): ExtraServiceItem {
+  return { id: Math.random().toString(36).slice(2), name: '', cost: '' };
+}
+
+function ExtraServicesPopup({ tx, initItems, onSave, onClose, locked, t, fmt }: {
+  tx: FinancialTransaction;
+  initItems: ExtraServiceItem[];
+  onSave: (items: ExtraServiceItem[], total: number) => void;
+  onClose: () => void;
+  locked?: boolean;
+  t: (ar: string, en: string) => string;
+  fmt: (n: number) => string;
+}) {
+  const { mutateAsync: saveCost, isPending } = useUpdateProcedureCost();
+  const [items, setItems] = useState<ExtraServiceItem[]>(
+    initItems.length > 0 ? initItems : [makeItem()],
+  );
+
+  const totalExtra  = items.reduce((s, i) => s + Math.max(0, Number(i.cost) || 0), 0);
+  const mediator    = tx.sourceFeeAmount;
+  const netPool     = (tx.approvedCharge - mediator) + totalExtra;
+  const drProfit    = netPool * tx.splitDoctorPercentage / 100;
+  const clProfit    = netPool * tx.splitClinicPercentage / 100;
+
+  const update = (id: string, field: 'name' | 'cost', val: string) =>
+    setItems((prev) => prev.map((i) => i.id === id ? { ...i, [field]: val } : i));
+
+  const remove = (id: string) => setItems((prev) => prev.filter((i) => i.id !== id));
+
+  const handleSave = async () => {
+    const total = items.reduce((s, i) => s + Math.max(0, Number(i.cost) || 0), 0);
+    await saveCost({ id: tx.id, procedureCost: total > 0 ? total : null });
+    onSave(items.filter((i) => i.name || Number(i.cost) > 0), total);
+  };
+
+  const fieldCls = 'h-8 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-2 text-xs text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-shadow';
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+      <div className="bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col animate-slide-up">
+
+        {/* Header */}
+        <div className="flex items-start justify-between px-5 pt-5 pb-4 border-b border-gray-100 dark:border-neutral-800">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center shrink-0">
+              <FlaskConical className="w-4.5 h-4.5 text-violet-600 dark:text-violet-400" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                {t('الخدمات الإضافية', 'Extra Services')}
+              </h3>
+              <p className="text-xs text-gray-400 font-mono mt-0.5" dir="ltr">
+                {tx.transactionDate?.slice(0, 10)} · {tx.patientSource}
+              </p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-neutral-800 transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Session info banner */}
+        <div className="mx-5 mt-4 rounded-xl bg-gray-50 dark:bg-neutral-800/60 border border-gray-100 dark:border-neutral-700 px-4 py-2.5 flex flex-wrap gap-x-5 gap-y-1 text-xs">
+          <span className="text-gray-500">{t('رسم الجلسة', 'Session fee')}:
+            <span className="font-mono font-semibold text-gray-900 dark:text-gray-100 ms-1">{fmt(tx.approvedCharge)}</span>
+          </span>
+          <span className="text-orange-600 dark:text-orange-400">{t('وسيط', 'Mediator')} {tx.sourceFeePercentage}%:
+            <span className="font-mono font-semibold ms-1">−{fmt(mediator)}</span>
+          </span>
+          <span className="text-blue-500">{t('د', 'Dr')} {tx.splitDoctorPercentage}% / {t('ع', 'Cl')} {tx.splitClinicPercentage}%</span>
+        </div>
+
+        {/* Items list */}
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-2">
+          <div className="grid grid-cols-[1fr_100px_80px_80px_28px] gap-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wide pb-1">
+            <span>{t('الخدمة / الإجراء', 'Service / Procedure')}</span>
+            <span className="text-end">{t('التكلفة (EGP)', 'Cost (EGP)')}</span>
+            <span className="text-end text-blue-500">{t('الطبيب', 'Dr share')}</span>
+            <span className="text-end text-emerald-500">{t('العيادة', 'Cl share')}</span>
+            <span />
+          </div>
+          {items.map((item) => {
+            const cost   = Math.max(0, Number(item.cost) || 0);
+            const drSh   = cost * tx.splitDoctorPercentage / 100;
+            const clSh   = cost * tx.splitClinicPercentage / 100;
+            return (
+              <div key={item.id} className="grid grid-cols-[1fr_100px_80px_80px_28px] gap-2 items-center">
+                <input
+                  disabled={locked}
+                  className={cn(fieldCls, 'w-full')}
+                  placeholder={t('اسم الخدمة', 'Service name')}
+                  value={item.name}
+                  onChange={(e) => update(item.id, 'name', e.target.value)}
+                />
+                <input
+                  disabled={locked}
+                  type="number"
+                  min="0"
+                  step="10"
+                  className={cn(fieldCls, 'w-full text-end font-mono tabular-nums text-violet-700 dark:text-violet-300 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none')}
+                  placeholder="0"
+                  value={item.cost}
+                  onChange={(e) => update(item.id, 'cost', e.target.value)}
+                  dir="ltr"
+                />
+                <span className="text-end font-mono text-xs tabular-nums text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 rounded-lg px-2 py-1.5">{fmt(drSh)}</span>
+                <span className="text-end font-mono text-xs tabular-nums text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg px-2 py-1.5">{fmt(clSh)}</span>
+                {!locked && (
+                  <button
+                    type="button"
+                    onClick={() => remove(item.id)}
+                    className="p-1 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            );
+          })}
+          {!locked && (
+            <button
+              type="button"
+              onClick={() => setItems((prev) => [...prev, makeItem()])}
+              className="flex items-center gap-1.5 text-xs text-violet-600 dark:text-violet-400 hover:text-violet-700 font-medium mt-1 px-1 py-1 rounded-lg hover:bg-violet-50 dark:hover:bg-violet-900/20 transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              {t('إضافة خدمة', 'Add service')}
+            </button>
+          )}
+        </div>
+
+        {/* Live summary */}
+        <div className="mx-5 mb-4 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-100 dark:border-blue-900/40 px-4 py-3">
+          <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest mb-2">{t('الملخص الآني', 'Live Summary')}</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+            <div>
+              <p className="text-gray-400 mb-0.5">{t('إجمالي الإضافية', 'Total extra')}</p>
+              <p className="font-bold font-mono tabular-nums text-violet-700 dark:text-violet-400">{fmt(totalExtra)}</p>
+            </div>
+            <div>
+              <p className="text-orange-400 mb-0.5">{t('الوسيط (رسم الجلسة)', 'Mediator (session only)')}</p>
+              <p className="font-bold font-mono tabular-nums text-orange-600 dark:text-orange-400">−{fmt(mediator)}</p>
+            </div>
+            <div>
+              <p className="text-gray-500 mb-0.5">{t('صافي المجمع', 'Net Pool')}</p>
+              <p className="font-bold font-mono tabular-nums text-gray-900 dark:text-gray-100">{fmt(netPool)}</p>
+            </div>
+            <div className="space-y-0.5">
+              <div className="flex justify-between">
+                <span className="text-blue-500">{t('الطبيب', 'Doctor')}</span>
+                <span className="font-bold font-mono tabular-nums text-blue-700 dark:text-blue-400">{fmt(drProfit)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-emerald-500">{t('العيادة', 'Clinic')}</span>
+                <span className="font-bold font-mono tabular-nums text-emerald-700 dark:text-emerald-400">{fmt(clProfit)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 pb-5 flex justify-end gap-3 border-t border-gray-100 dark:border-neutral-800 pt-4">
+          <Button variant="outline" size="sm" onClick={onClose} disabled={isPending}>
+            {t('إغلاق', 'Close')}
+          </Button>
+          {!locked && (
+            <Button size="sm" onClick={() => void handleSave()} disabled={isPending} className="min-w-24 gap-1.5">
+              {isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+              {t('حفظ التغييرات', 'Save Changes')}
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Settlement detail row ─────────────────────────────────────────────────────
 function SettlementDetail({ doctorId, from, to, locale, t, locked }: {
   doctorId: string; from: string; to: string; locale: string; locked?: boolean;
   t: (ar: string, en: string) => string;
 }) {
   const { data: txData, isLoading } = useTransactions({ doctorId, dateFrom: from, dateTo: to, limit: 100 });
-  const procedureMap  = useProcedureMap();
-  const { mutateAsync: saveCost, isPending: isSaving } = useUpdateProcedureCost();
-  const [overrides, setOverrides] = useState<Map<string, string>>(new Map());
+  const procedureMap = useProcedureMap();
+
+  // Map<txId, ExtraServiceItem[]> — tracks named line items per transaction
+  const [extraMap, setExtraMap] = useState<Map<string, ExtraServiceItem[]>>(new Map());
+  // Map<txId, number> — effective cost after save (overrides tx.procedureCost for totals)
+  const [costMap, setCostMap]   = useState<Map<string, number>>(new Map());
+  const [popupTx, setPopupTx]   = useState<FinancialTransaction | null>(null);
 
   const txs = txData?.data ?? [];
   const fmt = (n: number) => formatCurrency(n, 'EGP', locale);
 
-  const handleCostChange = useCallback((txId: string, value: string) => {
-    setOverrides((prev) => new Map(prev).set(txId, value));
-  }, []);
-
-  const handleSave = useCallback(async (txId: string) => {
-    const raw = overrides.get(txId);
-    if (raw === undefined) return;
-    const parsed = raw === '' ? null : Number(raw);
-    if (parsed !== null && isNaN(parsed)) return;
-    await saveCost({ id: txId, procedureCost: parsed });
-    setOverrides((prev) => { const m = new Map(prev); m.delete(txId); return m; });
-  }, [overrides, saveCost]);
-
-  const handleReset = useCallback((txId: string) => {
-    setOverrides((prev) => { const m = new Map(prev); m.delete(txId); return m; });
-  }, []);
+  const effectiveCost = useCallback((tx: FinancialTransaction) =>
+    costMap.has(tx.id) ? (costMap.get(tx.id) ?? 0) : (tx.procedureCost ?? 0),
+  [costMap]);
 
   if (isLoading) return (
     <div className="flex items-center gap-2 text-xs text-gray-400">
@@ -819,143 +996,138 @@ function SettlementDetail({ doctorId, from, to, locale, t, locked }: {
   if (!txs.length) return <p className="text-xs text-gray-400">{t('لا توجد معاملات', 'No transactions')}</p>;
 
   return (
-    <div className="rounded-lg border border-gray-200 dark:border-neutral-700 overflow-hidden">
-      <table className="w-full text-xs">
-        <thead>
-          <tr className="bg-gray-100 dark:bg-neutral-700/50 border-b border-gray-200 dark:border-neutral-700">
-            <th className="text-start px-3 py-2 font-medium text-gray-500">{t('التاريخ', 'Date')}</th>
-            <th className="text-start px-3 py-2 font-medium text-gray-500">{t('المصدر', 'Source')}</th>
-            <th className="text-end   px-3 py-2 font-medium text-gray-500">{t('رسم الجلسة', 'Session Fee')}</th>
-            <th className="text-end   px-3 py-2 font-medium text-orange-500">{t('وسيط %', 'Src %')}</th>
-            <th className="text-end   px-3 py-2 font-medium text-orange-500">{t('الوسيط', 'Mediator')}</th>
-            <th className="text-start px-3 py-2 font-medium text-violet-500">{t('خدمة إضافية', 'Extra Service')}</th>
-            <th className="text-end   px-3 py-2 font-medium text-violet-500">{t('التكلفة ✎', 'Cost ✎')}</th>
-            <th className="text-end   px-3 py-2 font-medium text-gray-600 dark:text-gray-300">{t('الصافي', 'Net Pool')}</th>
-            <th className="text-end   px-3 py-2 font-medium text-blue-500">{t('د %', 'Dr %')}</th>
-            <th className="text-end   px-3 py-2 font-medium text-blue-500">{t('الطبيب', 'Doctor')}</th>
-            <th className="text-end   px-3 py-2 font-medium text-emerald-500">{t('ع %', 'Cl %')}</th>
-            <th className="text-end   px-3 py-2 font-medium text-emerald-500">{t('العيادة', 'Clinic')}</th>
-            <th className="w-14 px-2 py-2" />
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-100 dark:divide-neutral-700/50">
-          {txs.map((tx) => {
-            const hasOverride  = overrides.has(tx.id);
-            const rawOverride  = overrides.get(tx.id) ?? '';
-            const overrideCost = hasOverride
-              ? (rawOverride === '' ? 0 : Math.max(0, Number(rawOverride) || 0))
-              : (tx.procedureCost ?? 0);
-            const isDirty      = hasOverride && overrideCost !== (tx.procedureCost ?? 0);
-            const netPool      = (tx.approvedCharge - tx.sourceFeeAmount) + overrideCost;
-            const drShare      = netPool * tx.splitDoctorPercentage / 100;
-            const clShare      = netPool * tx.splitClinicPercentage  / 100;
-            const procName     = tx.procedureId ? (procedureMap.get(tx.procedureId)?.nameEn ?? '—') : '—';
+    <>
+      <div className="rounded-lg border border-gray-200 dark:border-neutral-700 overflow-hidden">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="bg-gray-100 dark:bg-neutral-700/50 border-b border-gray-200 dark:border-neutral-700">
+              <th className="text-start px-3 py-2 font-medium text-gray-500">{t('التاريخ', 'Date')}</th>
+              <th className="text-start px-3 py-2 font-medium text-gray-500">{t('المصدر', 'Source')}</th>
+              <th className="text-end   px-3 py-2 font-medium text-gray-500">{t('رسم الجلسة', 'Session Fee')}</th>
+              <th className="text-end   px-3 py-2 font-medium text-orange-500">{t('وسيط %', 'Src %')}</th>
+              <th className="text-end   px-3 py-2 font-medium text-orange-500">{t('الوسيط', 'Mediator')}</th>
+              <th className="text-center px-3 py-2 font-medium text-violet-500">{t('الإضافية', 'Extra Svcs')}</th>
+              <th className="text-end   px-3 py-2 font-medium text-gray-600 dark:text-gray-300">{t('الصافي', 'Net Pool')}</th>
+              <th className="text-end   px-3 py-2 font-medium text-blue-500">{t('د %', 'Dr %')}</th>
+              <th className="text-end   px-3 py-2 font-medium text-blue-500">{t('الطبيب', 'Doctor')}</th>
+              <th className="text-end   px-3 py-2 font-medium text-emerald-500">{t('ع %', 'Cl %')}</th>
+              <th className="text-end   px-3 py-2 font-medium text-emerald-500">{t('العيادة', 'Clinic')}</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100 dark:divide-neutral-700/50">
+            {txs.map((tx) => {
+              const cost    = effectiveCost(tx);
+              const netPool = (tx.approvedCharge - tx.sourceFeeAmount) + cost;
+              const drShare = netPool * tx.splitDoctorPercentage / 100;
+              const clShare = netPool * tx.splitClinicPercentage  / 100;
+              const items   = extraMap.get(tx.id) ?? [];
+              // Badge count: use stored items count, else 1 if cost > 0
+              const itemCount = items.length > 0 ? items.length : (cost > 0 ? 1 : 0);
+              const firstName = items.length > 0
+                ? (items[0].name || (procedureMap.get(tx.procedureId ?? '')?.nameEn ?? ''))
+                : (procedureMap.get(tx.procedureId ?? '')?.nameEn ?? '');
 
-            return (
-              <tr key={tx.id} className={cn(
-                'transition-colors',
-                isDirty ? 'bg-amber-50/60 dark:bg-amber-900/10' : 'hover:bg-white dark:hover:bg-neutral-700/20',
-              )}>
-                <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{tx.transactionDate?.slice(0, 10)}</td>
-                <td className="px-3 py-2">
-                  <span className="bg-gray-100 dark:bg-neutral-700 px-1.5 py-0.5 rounded text-gray-600 dark:text-gray-300">{tx.patientSource}</span>
-                </td>
-                <td className="px-3 py-2 text-end font-mono tabular-nums text-gray-700 dark:text-gray-300">{fmt(tx.approvedCharge)}</td>
-                <td className="px-3 py-2 text-end font-mono text-orange-500">{tx.sourceFeePercentage}%</td>
-                <td className="px-3 py-2 text-end font-mono tabular-nums text-orange-600 dark:text-orange-400">{fmt(tx.sourceFeeAmount)}</td>
-                <td className="px-3 py-2 text-violet-600 dark:text-violet-400 whitespace-nowrap">
-                  {overrideCost > 0 ? procName : <span className="text-gray-300 dark:text-gray-600">—</span>}
-                </td>
-                <td className="px-2 py-1.5 text-end">
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    disabled={locked}
-                    value={hasOverride ? rawOverride : (tx.procedureCost ?? '')}
-                    placeholder="0"
-                    onChange={(e) => handleCostChange(tx.id, e.target.value)}
-                    className={cn(
-                      'w-24 text-end font-mono tabular-nums text-xs rounded border px-2 py-1 focus:outline-none focus:ring-2 transition-colors [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none',
-                      isDirty
-                        ? 'border-amber-400 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300 focus:ring-amber-400'
-                        : 'border-violet-200 dark:border-violet-800 bg-white dark:bg-neutral-800 text-violet-700 dark:text-violet-300 focus:ring-violet-400',
+              return (
+                <tr key={tx.id} className="hover:bg-white dark:hover:bg-neutral-700/20 transition-colors">
+                  <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{tx.transactionDate?.slice(0, 10)}</td>
+                  <td className="px-3 py-2">
+                    <span className="bg-gray-100 dark:bg-neutral-700 px-1.5 py-0.5 rounded text-gray-600 dark:text-gray-300">{tx.patientSource}</span>
+                  </td>
+                  <td className="px-3 py-2 text-end font-mono tabular-nums text-gray-700 dark:text-gray-300">{fmt(tx.approvedCharge)}</td>
+                  <td className="px-3 py-2 text-end font-mono text-orange-500">{tx.sourceFeePercentage}%</td>
+                  <td className="px-3 py-2 text-end font-mono tabular-nums text-orange-600 dark:text-orange-400">{fmt(tx.sourceFeeAmount)}</td>
+
+                  {/* Extra Services cell — badge or + button */}
+                  <td className="px-3 py-2 text-center">
+                    {itemCount > 0 ? (
+                      <button
+                        type="button"
+                        onClick={() => setPopupTx(tx)}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-orange-100 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-800 text-orange-700 dark:text-orange-300 font-semibold text-[11px] hover:bg-orange-200 dark:hover:bg-orange-800/40 transition-colors"
+                        title={t('تعديل الخدمات الإضافية', 'Edit extra services')}
+                      >
+                        <FlaskConical className="w-3 h-3" />
+                        {itemCount}
+                        {firstName && <span className="max-w-[60px] truncate hidden sm:inline">{firstName}</span>}
+                        <span className="font-mono text-[10px] opacity-70">{fmt(cost)}</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setPopupTx(tx)}
+                        disabled={locked}
+                        className="inline-flex items-center justify-center w-6 h-6 rounded-full border border-dashed border-gray-300 dark:border-neutral-600 text-gray-400 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        title={t('إضافة خدمة إضافية', 'Add extra service')}
+                      >
+                        <Plus className="w-3 h-3" />
+                      </button>
                     )}
-                  />
-                </td>
-                <td className={cn('px-3 py-2 text-end font-mono tabular-nums', isDirty ? 'text-amber-700 dark:text-amber-300 font-semibold' : 'text-gray-600 dark:text-gray-300')}>
-                  {fmt(netPool)}
-                </td>
-                <td className="px-3 py-2 text-end font-mono text-blue-500">{tx.splitDoctorPercentage}%</td>
-                <td className={cn('px-3 py-2 text-end font-mono tabular-nums font-semibold', isDirty ? 'text-amber-700 dark:text-amber-300' : 'text-blue-700 dark:text-blue-400')}>
-                  {fmt(drShare)}
-                </td>
-                <td className="px-3 py-2 text-end font-mono text-emerald-500">{tx.splitClinicPercentage}%</td>
-                <td className={cn('px-3 py-2 text-end font-mono tabular-nums font-semibold', isDirty ? 'text-amber-700 dark:text-amber-300' : 'text-emerald-700 dark:text-emerald-400')}>
-                  {fmt(clShare)}
-                </td>
-                <td className="px-2 py-1.5">
-                  {isDirty && (
-                    <div className="flex items-center gap-1">
-                      <button onClick={() => void handleSave(tx.id)} disabled={isSaving} title={t('حفظ', 'Save')}
-                        className="p-1 rounded text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors">
-                        {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
-                      </button>
-                      <button onClick={() => handleReset(tx.id)} title={t('إلغاء', 'Cancel')}
-                        className="p-1 rounded text-gray-400 hover:bg-gray-100 dark:hover:bg-neutral-700 transition-colors">
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
-                  )}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-        <tfoot>
-          <tr className="border-t border-gray-200 dark:border-neutral-600 bg-gray-50 dark:bg-neutral-700/30 font-semibold">
-            <td colSpan={2} className="px-3 py-2 text-gray-500">{t('المجموع', 'Total')} ({txs.length})</td>
-            <td className="px-3 py-2 text-end font-mono tabular-nums text-gray-800 dark:text-gray-200">
-              {fmt(txs.reduce((s, tx) => s + tx.approvedCharge, 0))}
-            </td>
-            <td />
-            <td className="px-3 py-2 text-end font-mono tabular-nums text-orange-600 dark:text-orange-400">
-              {fmt(txs.reduce((s, tx) => s + tx.sourceFeeAmount, 0))}
-            </td>
-            <td />
-            <td className="px-3 py-2 text-end font-mono tabular-nums text-violet-600 dark:text-violet-400">
-              {fmt(txs.reduce((s, tx) => {
-                const ov = overrides.get(tx.id);
-                return s + (ov !== undefined ? Math.max(0, Number(ov) || 0) : (tx.procedureCost ?? 0));
-              }, 0))}
-            </td>
-            <td className="px-3 py-2 text-end font-mono tabular-nums text-gray-700 dark:text-gray-300">
-              {fmt(txs.reduce((s, tx) => {
-                const ov = overrides.get(tx.id);
-                const ec = ov !== undefined ? Math.max(0, Number(ov) || 0) : (tx.procedureCost ?? 0);
-                return s + (tx.approvedCharge - tx.sourceFeeAmount) + ec;
-              }, 0))}
-            </td>
-            <td />
-            <td className="px-3 py-2 text-end font-mono tabular-nums text-blue-700 dark:text-blue-300">
-              {fmt(txs.reduce((s, tx) => {
-                const ov = overrides.get(tx.id);
-                const ec = ov !== undefined ? Math.max(0, Number(ov) || 0) : (tx.procedureCost ?? 0);
-                return s + ((tx.approvedCharge - tx.sourceFeeAmount) + ec) * tx.splitDoctorPercentage / 100;
-              }, 0))}
-            </td>
-            <td />
-            <td className="px-3 py-2 text-end font-mono tabular-nums text-emerald-700 dark:text-emerald-300">
-              {fmt(txs.reduce((s, tx) => {
-                const ov = overrides.get(tx.id);
-                const ec = ov !== undefined ? Math.max(0, Number(ov) || 0) : (tx.procedureCost ?? 0);
-                return s + ((tx.approvedCharge - tx.sourceFeeAmount) + ec) * tx.splitClinicPercentage / 100;
-              }, 0))}
-            </td>
-            <td />
-          </tr>
-        </tfoot>
-      </table>
-    </div>
+                  </td>
+
+                  <td className="px-3 py-2 text-end font-mono tabular-nums text-gray-600 dark:text-gray-300">{fmt(netPool)}</td>
+                  <td className="px-3 py-2 text-end font-mono text-blue-500">{tx.splitDoctorPercentage}%</td>
+                  <td className="px-3 py-2 text-end font-mono tabular-nums font-semibold text-blue-700 dark:text-blue-400">{fmt(drShare)}</td>
+                  <td className="px-3 py-2 text-end font-mono text-emerald-500">{tx.splitClinicPercentage}%</td>
+                  <td className="px-3 py-2 text-end font-mono tabular-nums font-semibold text-emerald-700 dark:text-emerald-400">{fmt(clShare)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+          <tfoot>
+            <tr className="border-t border-gray-200 dark:border-neutral-600 bg-gray-50 dark:bg-neutral-700/30 font-semibold">
+              <td colSpan={2} className="px-3 py-2 text-gray-500">{t('المجموع', 'Total')} ({txs.length})</td>
+              <td className="px-3 py-2 text-end font-mono tabular-nums text-gray-800 dark:text-gray-200">
+                {fmt(txs.reduce((s, tx) => s + tx.approvedCharge, 0))}
+              </td>
+              <td />
+              <td className="px-3 py-2 text-end font-mono tabular-nums text-orange-600 dark:text-orange-400">
+                {fmt(txs.reduce((s, tx) => s + tx.sourceFeeAmount, 0))}
+              </td>
+              <td className="px-3 py-2 text-center font-mono tabular-nums text-violet-600 dark:text-violet-400">
+                {fmt(txs.reduce((s, tx) => s + effectiveCost(tx), 0))}
+              </td>
+              <td className="px-3 py-2 text-end font-mono tabular-nums text-gray-700 dark:text-gray-300">
+                {fmt(txs.reduce((s, tx) => s + (tx.approvedCharge - tx.sourceFeeAmount) + effectiveCost(tx), 0))}
+              </td>
+              <td />
+              <td className="px-3 py-2 text-end font-mono tabular-nums text-blue-700 dark:text-blue-300">
+                {fmt(txs.reduce((s, tx) => {
+                  const np = (tx.approvedCharge - tx.sourceFeeAmount) + effectiveCost(tx);
+                  return s + np * tx.splitDoctorPercentage / 100;
+                }, 0))}
+              </td>
+              <td />
+              <td className="px-3 py-2 text-end font-mono tabular-nums text-emerald-700 dark:text-emerald-300">
+                {fmt(txs.reduce((s, tx) => {
+                  const np = (tx.approvedCharge - tx.sourceFeeAmount) + effectiveCost(tx);
+                  return s + np * tx.splitClinicPercentage / 100;
+                }, 0))}
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      {/* Extra Services popup */}
+      {popupTx && (
+        <ExtraServicesPopup
+          tx={popupTx}
+          initItems={extraMap.get(popupTx.id) ?? (
+            (popupTx.procedureCost ?? 0) > 0
+              ? [{ id: 'init', name: procedureMap.get(popupTx.procedureId ?? '')?.nameEn ?? '', cost: String(popupTx.procedureCost) }]
+              : []
+          )}
+          locked={locked}
+          t={t}
+          fmt={fmt}
+          onClose={() => setPopupTx(null)}
+          onSave={(savedItems, total) => {
+            setExtraMap((m) => new Map(m).set(popupTx.id, savedItems));
+            setCostMap((m) => new Map(m).set(popupTx.id, total));
+            setPopupTx(null);
+          }}
+        />
+      )}
+    </>
   );
 }
