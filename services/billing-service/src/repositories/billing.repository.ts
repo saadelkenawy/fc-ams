@@ -407,6 +407,74 @@ export async function listDoctorSettlements(params: {
   });
 }
 
+// ─── Extra Services ───────────────────────────────────────────────────────────
+
+export interface ExtraServiceRecord {
+  id: string;
+  transactionId: string;
+  serviceName: string;
+  cost: number;
+  createdAt: string;
+  createdBy: string | null;
+}
+
+function rowToExtraService(row: Record<string, unknown>): ExtraServiceRecord {
+  return {
+    id:            row.id as string,
+    transactionId: row.transaction_id as string,
+    serviceName:   row.service_name as string,
+    cost:          Number(row.cost),
+    createdAt:     (row.created_at as Date).toISOString(),
+    createdBy:     (row.created_by as string | null) ?? null,
+  };
+}
+
+export async function listExtraServices(transactionId: string): Promise<ExtraServiceRecord[]> {
+  const { rows } = await pool.query(
+    `SELECT * FROM transaction_extra_services WHERE transaction_id = $1 ORDER BY created_at ASC`,
+    [transactionId],
+  );
+  return rows.map((r) => rowToExtraService(r as Record<string, unknown>));
+}
+
+export async function replaceExtraServices(
+  transactionId: string,
+  items: Array<{ serviceName: string; cost: number }>,
+  createdBy: string,
+): Promise<ExtraServiceRecord[]> {
+  return withTransaction(async (client: PoolClient) => {
+    // verify transaction exists
+    const { rows: txRows } = await client.query(
+      `SELECT id FROM financial_transactions WHERE id = $1`,
+      [transactionId],
+    );
+    if (!txRows.length) {
+      throw Object.assign(new Error('Transaction not found'), { statusCode: 404, code: 'TRANSACTION_NOT_FOUND' });
+    }
+
+    await client.query(
+      `DELETE FROM transaction_extra_services WHERE transaction_id = $1`,
+      [transactionId],
+    );
+
+    if (!items.length) {
+      // trigger will set procedure_cost = NULL
+      return [];
+    }
+
+    const inserted: ExtraServiceRecord[] = [];
+    for (const item of items) {
+      const { rows } = await client.query(
+        `INSERT INTO transaction_extra_services (transaction_id, service_name, cost, created_by)
+         VALUES ($1, $2, $3, $4) RETURNING *`,
+        [transactionId, item.serviceName, item.cost, createdBy],
+      );
+      inserted.push(rowToExtraService(rows[0] as Record<string, unknown>));
+    }
+    return inserted;
+  });
+}
+
 // ─── Source Fee Rules ─────────────────────────────────────────────────────────
 
 export interface SourceFeeRule {

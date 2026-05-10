@@ -51,6 +51,51 @@ export interface SettlementParams {
   limit?: number;
 }
 
+export interface ExtraServiceItem {
+  id: string;
+  transactionId: string;
+  serviceName: string;
+  cost: number;
+  createdAt: string;
+  createdBy: string | null;
+}
+
+export function useExtraServices(transactionId: string | null) {
+  return useQuery({
+    queryKey: ['extra-services', transactionId],
+    queryFn: async () => {
+      const res = await billingApi.get(`/transactions/${transactionId}/extra-services`);
+      return res.data.data as ExtraServiceItem[];
+    },
+    enabled: !!transactionId,
+    staleTime: 30_000,
+  });
+}
+
+export function useReplaceExtraServices() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      transactionId,
+      items,
+    }: {
+      transactionId: string;
+      items: Array<{ serviceName: string; cost: number }>;
+    }) => {
+      const { data } = await billingApi.put<{ data: ExtraServiceItem[] }>(
+        `/transactions/${transactionId}/extra-services`,
+        { items },
+      );
+      return data.data;
+    },
+    onSuccess: (_data, vars) => {
+      void qc.invalidateQueries({ queryKey: ['extra-services', vars.transactionId] });
+      void qc.invalidateQueries({ queryKey: ['transactions'] });
+      void qc.invalidateQueries({ queryKey: ['settlements'] });
+    },
+  });
+}
+
 export function useUpdateProcedureCost() {
   const qc = useQueryClient();
   return useMutation({

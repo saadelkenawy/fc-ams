@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Banknote, RefreshCw, ReceiptText, ChevronDown, ChevronRight,
   Building2, Stethoscope, Share2, Loader2, FlaskConical, Check, X,
@@ -12,7 +12,7 @@ import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { useLang } from '@/contexts/LanguageContext';
 import { formatCurrency } from '@/lib/utils';
-import { useSettlements, useTransactions, useUpdateProcedureCost } from '@/hooks/useBilling';
+import { useSettlements, useTransactions, useExtraServices, useReplaceExtraServices } from '@/hooks/useBilling';
 import { useDoctors, useDoctorMap } from '@/hooks/useDoctors';
 import { notificationApi, identityApi } from '@/lib/api';
 import { useProcedureMap } from '@/hooks/useProcedures';
@@ -784,27 +784,28 @@ export default function SettlementsPage() {
 }
 
 // ── Extra Services types & popup ─────────────────────────────────────────────
-interface ExtraServiceItem {
+// EditableService is the local mutable form; ExtraServiceItem (from hook) is the server shape
+interface EditableService {
   id: string;
   name: string;
-  cost: string;
+  cost: string; // kept as string for <input> binding
 }
 
-function makeItem(): ExtraServiceItem {
+function makeItem(): EditableService {
   return { id: Math.random().toString(36).slice(2), name: '', cost: '' };
 }
 
 function ExtraServicesPopup({ tx, initItems, onSave, onClose, locked, t, fmt }: {
   tx: FinancialTransaction;
-  initItems: ExtraServiceItem[];
-  onSave: (items: ExtraServiceItem[], total: number) => void;
+  initItems: EditableService[];
+  onSave: () => void;
   onClose: () => void;
   locked?: boolean;
   t: (ar: string, en: string) => string;
   fmt: (n: number) => string;
 }) {
-  const { mutateAsync: saveCost, isPending } = useUpdateProcedureCost();
-  const [items, setItems] = useState<ExtraServiceItem[]>(
+  const { mutateAsync: replaceServices, isPending } = useReplaceExtraServices();
+  const [items, setItems] = useState<EditableService[]>(
     initItems.length > 0 ? initItems : [makeItem()],
   );
 
@@ -820,9 +821,11 @@ function ExtraServicesPopup({ tx, initItems, onSave, onClose, locked, t, fmt }: 
   const remove = (id: string) => setItems((prev) => prev.filter((i) => i.id !== id));
 
   const handleSave = async () => {
-    const total = items.reduce((s, i) => s + Math.max(0, Number(i.cost) || 0), 0);
-    await saveCost({ id: tx.id, procedureCost: total > 0 ? total : null });
-    onSave(items.filter((i) => i.name || Number(i.cost) > 0), total);
+    const validItems = items
+      .filter((i) => i.name.trim() || Number(i.cost) > 0)
+      .map((i) => ({ serviceName: i.name.trim() || t('خدمة إضافية', 'Extra service'), cost: Math.max(0, Number(i.cost) || 0) }));
+    await replaceServices({ transactionId: tx.id, items: validItems });
+    onSave();
   };
 
   const fieldCls = 'h-8 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-2 text-xs text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-shadow';
@@ -974,19 +977,8 @@ function SettlementDetail({ doctorId, from, to, locale, t, locked }: {
 }) {
   const { data: txData, isLoading } = useTransactions({ doctorId, dateFrom: from, dateTo: to, limit: 100 });
   const procedureMap = useProcedureMap();
-
-  // Map<txId, ExtraServiceItem[]> — tracks named line items per transaction
-  const [extraMap, setExtraMap] = useState<Map<string, ExtraServiceItem[]>>(new Map());
-  // Map<txId, number> — effective cost after save (overrides tx.procedureCost for totals)
-  const [costMap, setCostMap]   = useState<Map<string, number>>(new Map());
-  const [popupTx, setPopupTx]   = useState<FinancialTransaction | null>(null);
-
   const txs = txData?.data ?? [];
   const fmt = (n: number) => formatCurrency(n, 'EGP', locale);
-
-  const effectiveCost = useCallback((tx: FinancialTransaction) =>
-    costMap.has(tx.id) ? (costMap.get(tx.id) ?? 0) : (tx.procedureCost ?? 0),
-  [costMap]);
 
   if (isLoading) return (
     <div className="flex items-center gap-2 text-xs text-gray-400">
@@ -996,136 +988,148 @@ function SettlementDetail({ doctorId, from, to, locale, t, locked }: {
   if (!txs.length) return <p className="text-xs text-gray-400">{t('لا توجد معاملات', 'No transactions')}</p>;
 
   return (
+    <div className="rounded-lg border border-gray-200 dark:border-neutral-700 overflow-hidden">
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="bg-gray-100 dark:bg-neutral-700/50 border-b border-gray-200 dark:border-neutral-700">
+            <th className="text-start px-3 py-2 font-medium text-gray-500">{t('التاريخ', 'Date')}</th>
+            <th className="text-start px-3 py-2 font-medium text-gray-500">{t('المصدر', 'Source')}</th>
+            <th className="text-end   px-3 py-2 font-medium text-gray-500">{t('رسم الجلسة', 'Session Fee')}</th>
+            <th className="text-end   px-3 py-2 font-medium text-orange-500">{t('وسيط %', 'Src %')}</th>
+            <th className="text-end   px-3 py-2 font-medium text-orange-500">{t('الوسيط', 'Mediator')}</th>
+            <th className="text-center px-3 py-2 font-medium text-violet-500">{t('الإضافية', 'Extra Svcs')}</th>
+            <th className="text-end   px-3 py-2 font-medium text-gray-600 dark:text-gray-300">{t('الصافي', 'Net Pool')}</th>
+            <th className="text-end   px-3 py-2 font-medium text-blue-500">{t('د %', 'Dr %')}</th>
+            <th className="text-end   px-3 py-2 font-medium text-blue-500">{t('الطبيب', 'Doctor')}</th>
+            <th className="text-end   px-3 py-2 font-medium text-emerald-500">{t('ع %', 'Cl %')}</th>
+            <th className="text-end   px-3 py-2 font-medium text-emerald-500">{t('العيادة', 'Clinic')}</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100 dark:divide-neutral-700/50">
+          {txs.map((tx) => (
+            <TransactionRow
+              key={tx.id}
+              tx={tx}
+              procedureMap={procedureMap}
+              locked={locked}
+              fmt={fmt}
+              t={t}
+            />
+          ))}
+        </tbody>
+        <tfoot>
+          <tr className="border-t border-gray-200 dark:border-neutral-600 bg-gray-50 dark:bg-neutral-700/30 font-semibold">
+            <td colSpan={2} className="px-3 py-2 text-gray-500">{t('المجموع', 'Total')} ({txs.length})</td>
+            <td className="px-3 py-2 text-end font-mono tabular-nums text-gray-800 dark:text-gray-200">
+              {fmt(txs.reduce((s, tx) => s + tx.approvedCharge, 0))}
+            </td>
+            <td />
+            <td className="px-3 py-2 text-end font-mono tabular-nums text-orange-600 dark:text-orange-400">
+              {fmt(txs.reduce((s, tx) => s + tx.sourceFeeAmount, 0))}
+            </td>
+            <td className="px-3 py-2 text-center font-mono tabular-nums text-violet-600 dark:text-violet-400">
+              {fmt(txs.reduce((s, tx) => s + (tx.procedureCost ?? 0), 0))}
+            </td>
+            <td className="px-3 py-2 text-end font-mono tabular-nums text-gray-700 dark:text-gray-300">
+              {fmt(txs.reduce((s, tx) => s + (tx.approvedCharge - tx.sourceFeeAmount) + (tx.procedureCost ?? 0), 0))}
+            </td>
+            <td />
+            <td className="px-3 py-2 text-end font-mono tabular-nums text-blue-700 dark:text-blue-300">
+              {fmt(txs.reduce((s, tx) => s + tx.doctorShare, 0))}
+            </td>
+            <td />
+            <td className="px-3 py-2 text-end font-mono tabular-nums text-emerald-700 dark:text-emerald-300">
+              {fmt(txs.reduce((s, tx) => s + tx.clinicShare, 0))}
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  );
+}
+
+// Each transaction row fetches its own extra services from the API
+function TransactionRow({ tx, procedureMap, locked, fmt, t }: {
+  tx: FinancialTransaction;
+  procedureMap: Map<string, { nameEn: string; nameAr?: string }>;
+  locked?: boolean;
+  fmt: (n: number) => string;
+  t: (ar: string, en: string) => string;
+}) {
+  const { data: serverItems = [] } = useExtraServices(tx.id);
+  const [popupOpen, setPopupOpen] = useState(false);
+
+  const cost      = serverItems.reduce((s, i) => s + i.cost, 0);
+  const itemCount = serverItems.length;
+  const firstName = serverItems.length > 0
+    ? serverItems[0].serviceName
+    : (procedureMap.get(tx.procedureId ?? '')?.nameEn ?? '');
+
+  const netPool = (tx.approvedCharge - tx.sourceFeeAmount) + cost;
+  const drShare = netPool * tx.splitDoctorPercentage / 100;
+  const clShare = netPool * tx.splitClinicPercentage  / 100;
+
+  // Convert server items → editable form for popup
+  const editableInit: EditableService[] = serverItems.map((i) => ({
+    id: i.id,
+    name: i.serviceName,
+    cost: String(i.cost),
+  }));
+
+  return (
     <>
-      <div className="rounded-lg border border-gray-200 dark:border-neutral-700 overflow-hidden">
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="bg-gray-100 dark:bg-neutral-700/50 border-b border-gray-200 dark:border-neutral-700">
-              <th className="text-start px-3 py-2 font-medium text-gray-500">{t('التاريخ', 'Date')}</th>
-              <th className="text-start px-3 py-2 font-medium text-gray-500">{t('المصدر', 'Source')}</th>
-              <th className="text-end   px-3 py-2 font-medium text-gray-500">{t('رسم الجلسة', 'Session Fee')}</th>
-              <th className="text-end   px-3 py-2 font-medium text-orange-500">{t('وسيط %', 'Src %')}</th>
-              <th className="text-end   px-3 py-2 font-medium text-orange-500">{t('الوسيط', 'Mediator')}</th>
-              <th className="text-center px-3 py-2 font-medium text-violet-500">{t('الإضافية', 'Extra Svcs')}</th>
-              <th className="text-end   px-3 py-2 font-medium text-gray-600 dark:text-gray-300">{t('الصافي', 'Net Pool')}</th>
-              <th className="text-end   px-3 py-2 font-medium text-blue-500">{t('د %', 'Dr %')}</th>
-              <th className="text-end   px-3 py-2 font-medium text-blue-500">{t('الطبيب', 'Doctor')}</th>
-              <th className="text-end   px-3 py-2 font-medium text-emerald-500">{t('ع %', 'Cl %')}</th>
-              <th className="text-end   px-3 py-2 font-medium text-emerald-500">{t('العيادة', 'Clinic')}</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100 dark:divide-neutral-700/50">
-            {txs.map((tx) => {
-              const cost    = effectiveCost(tx);
-              const netPool = (tx.approvedCharge - tx.sourceFeeAmount) + cost;
-              const drShare = netPool * tx.splitDoctorPercentage / 100;
-              const clShare = netPool * tx.splitClinicPercentage  / 100;
-              const items   = extraMap.get(tx.id) ?? [];
-              // Badge count: use stored items count, else 1 if cost > 0
-              const itemCount = items.length > 0 ? items.length : (cost > 0 ? 1 : 0);
-              const firstName = items.length > 0
-                ? (items[0].name || (procedureMap.get(tx.procedureId ?? '')?.nameEn ?? ''))
-                : (procedureMap.get(tx.procedureId ?? '')?.nameEn ?? '');
+      <tr className="hover:bg-white dark:hover:bg-neutral-700/20 transition-colors">
+        <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{tx.transactionDate?.slice(0, 10)}</td>
+        <td className="px-3 py-2">
+          <span className="bg-gray-100 dark:bg-neutral-700 px-1.5 py-0.5 rounded text-gray-600 dark:text-gray-300">{tx.patientSource}</span>
+        </td>
+        <td className="px-3 py-2 text-end font-mono tabular-nums text-gray-700 dark:text-gray-300">{fmt(tx.approvedCharge)}</td>
+        <td className="px-3 py-2 text-end font-mono text-orange-500">{tx.sourceFeePercentage}%</td>
+        <td className="px-3 py-2 text-end font-mono tabular-nums text-orange-600 dark:text-orange-400">{fmt(tx.sourceFeeAmount)}</td>
 
-              return (
-                <tr key={tx.id} className="hover:bg-white dark:hover:bg-neutral-700/20 transition-colors">
-                  <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{tx.transactionDate?.slice(0, 10)}</td>
-                  <td className="px-3 py-2">
-                    <span className="bg-gray-100 dark:bg-neutral-700 px-1.5 py-0.5 rounded text-gray-600 dark:text-gray-300">{tx.patientSource}</span>
-                  </td>
-                  <td className="px-3 py-2 text-end font-mono tabular-nums text-gray-700 dark:text-gray-300">{fmt(tx.approvedCharge)}</td>
-                  <td className="px-3 py-2 text-end font-mono text-orange-500">{tx.sourceFeePercentage}%</td>
-                  <td className="px-3 py-2 text-end font-mono tabular-nums text-orange-600 dark:text-orange-400">{fmt(tx.sourceFeeAmount)}</td>
-
-                  {/* Extra Services cell — badge or + button */}
-                  <td className="px-3 py-2 text-center">
-                    {itemCount > 0 ? (
-                      <button
-                        type="button"
-                        onClick={() => setPopupTx(tx)}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-orange-100 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-800 text-orange-700 dark:text-orange-300 font-semibold text-[11px] hover:bg-orange-200 dark:hover:bg-orange-800/40 transition-colors"
-                        title={t('تعديل الخدمات الإضافية', 'Edit extra services')}
-                      >
-                        <FlaskConical className="w-3 h-3" />
-                        {itemCount}
-                        {firstName && <span className="max-w-[60px] truncate hidden sm:inline">{firstName}</span>}
-                        <span className="font-mono text-[10px] opacity-70">{fmt(cost)}</span>
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => setPopupTx(tx)}
-                        disabled={locked}
-                        className="inline-flex items-center justify-center w-6 h-6 rounded-full border border-dashed border-gray-300 dark:border-neutral-600 text-gray-400 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                        title={t('إضافة خدمة إضافية', 'Add extra service')}
-                      >
-                        <Plus className="w-3 h-3" />
-                      </button>
-                    )}
-                  </td>
-
-                  <td className="px-3 py-2 text-end font-mono tabular-nums text-gray-600 dark:text-gray-300">{fmt(netPool)}</td>
-                  <td className="px-3 py-2 text-end font-mono text-blue-500">{tx.splitDoctorPercentage}%</td>
-                  <td className="px-3 py-2 text-end font-mono tabular-nums font-semibold text-blue-700 dark:text-blue-400">{fmt(drShare)}</td>
-                  <td className="px-3 py-2 text-end font-mono text-emerald-500">{tx.splitClinicPercentage}%</td>
-                  <td className="px-3 py-2 text-end font-mono tabular-nums font-semibold text-emerald-700 dark:text-emerald-400">{fmt(clShare)}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-          <tfoot>
-            <tr className="border-t border-gray-200 dark:border-neutral-600 bg-gray-50 dark:bg-neutral-700/30 font-semibold">
-              <td colSpan={2} className="px-3 py-2 text-gray-500">{t('المجموع', 'Total')} ({txs.length})</td>
-              <td className="px-3 py-2 text-end font-mono tabular-nums text-gray-800 dark:text-gray-200">
-                {fmt(txs.reduce((s, tx) => s + tx.approvedCharge, 0))}
-              </td>
-              <td />
-              <td className="px-3 py-2 text-end font-mono tabular-nums text-orange-600 dark:text-orange-400">
-                {fmt(txs.reduce((s, tx) => s + tx.sourceFeeAmount, 0))}
-              </td>
-              <td className="px-3 py-2 text-center font-mono tabular-nums text-violet-600 dark:text-violet-400">
-                {fmt(txs.reduce((s, tx) => s + effectiveCost(tx), 0))}
-              </td>
-              <td className="px-3 py-2 text-end font-mono tabular-nums text-gray-700 dark:text-gray-300">
-                {fmt(txs.reduce((s, tx) => s + (tx.approvedCharge - tx.sourceFeeAmount) + effectiveCost(tx), 0))}
-              </td>
-              <td />
-              <td className="px-3 py-2 text-end font-mono tabular-nums text-blue-700 dark:text-blue-300">
-                {fmt(txs.reduce((s, tx) => {
-                  const np = (tx.approvedCharge - tx.sourceFeeAmount) + effectiveCost(tx);
-                  return s + np * tx.splitDoctorPercentage / 100;
-                }, 0))}
-              </td>
-              <td />
-              <td className="px-3 py-2 text-end font-mono tabular-nums text-emerald-700 dark:text-emerald-300">
-                {fmt(txs.reduce((s, tx) => {
-                  const np = (tx.approvedCharge - tx.sourceFeeAmount) + effectiveCost(tx);
-                  return s + np * tx.splitClinicPercentage / 100;
-                }, 0))}
-              </td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-
-      {/* Extra Services popup */}
-      {popupTx && (
-        <ExtraServicesPopup
-          tx={popupTx}
-          initItems={extraMap.get(popupTx.id) ?? (
-            (popupTx.procedureCost ?? 0) > 0
-              ? [{ id: 'init', name: procedureMap.get(popupTx.procedureId ?? '')?.nameEn ?? '', cost: String(popupTx.procedureCost) }]
-              : []
+        {/* Extra Services cell — badge or + button */}
+        <td className="px-3 py-2 text-center">
+          {itemCount > 0 ? (
+            <button
+              type="button"
+              onClick={() => setPopupOpen(true)}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-orange-100 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-800 text-orange-700 dark:text-orange-300 font-semibold text-[11px] hover:bg-orange-200 dark:hover:bg-orange-800/40 transition-colors"
+              title={t('تعديل الخدمات الإضافية', 'Edit extra services')}
+            >
+              <FlaskConical className="w-3 h-3" />
+              {itemCount}
+              {firstName && <span className="max-w-[60px] truncate hidden sm:inline">{firstName}</span>}
+              <span className="font-mono text-[10px] opacity-70">{fmt(cost)}</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setPopupOpen(true)}
+              disabled={locked}
+              className="inline-flex items-center justify-center w-6 h-6 rounded-full border border-dashed border-gray-300 dark:border-neutral-600 text-gray-400 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              title={t('إضافة خدمة إضافية', 'Add extra service')}
+            >
+              <Plus className="w-3 h-3" />
+            </button>
           )}
+        </td>
+
+        <td className="px-3 py-2 text-end font-mono tabular-nums text-gray-600 dark:text-gray-300">{fmt(netPool)}</td>
+        <td className="px-3 py-2 text-end font-mono text-blue-500">{tx.splitDoctorPercentage}%</td>
+        <td className="px-3 py-2 text-end font-mono tabular-nums font-semibold text-blue-700 dark:text-blue-400">{fmt(drShare)}</td>
+        <td className="px-3 py-2 text-end font-mono text-emerald-500">{tx.splitClinicPercentage}%</td>
+        <td className="px-3 py-2 text-end font-mono tabular-nums font-semibold text-emerald-700 dark:text-emerald-400">{fmt(clShare)}</td>
+      </tr>
+
+      {popupOpen && (
+        <ExtraServicesPopup
+          tx={tx}
+          initItems={editableInit}
           locked={locked}
           t={t}
           fmt={fmt}
-          onClose={() => setPopupTx(null)}
-          onSave={(savedItems, total) => {
-            setExtraMap((m) => new Map(m).set(popupTx.id, savedItems));
-            setCostMap((m) => new Map(m).set(popupTx.id, total));
-            setPopupTx(null);
-          }}
+          onClose={() => setPopupOpen(false)}
+          onSave={() => setPopupOpen(false)}
         />
       )}
     </>

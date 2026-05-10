@@ -66,6 +66,38 @@ export async function billingRoutes(app: FastifyInstance): Promise<void> {
     },
   }, ctrl.createTransaction);
 
+  // GET /transactions/:id/extra-services
+  app.get('/transactions/:id/extra-services', {
+    preHandler: [requireRole('admin', 'finance', 'doctor', 'receptionist')],
+    schema: { tags: ['billing'], params: idParam },
+  }, ctrl.getExtraServices);
+
+  // PUT /transactions/:id/extra-services  (replaces all line items atomically)
+  app.put('/transactions/:id/extra-services', {
+    preHandler: [requireRole('admin', 'finance')],
+    schema: {
+      tags: ['billing'],
+      params: idParam,
+      body: {
+        type: 'object',
+        required: ['items'],
+        properties: {
+          items: {
+            type: 'array',
+            items: {
+              type: 'object',
+              required: ['serviceName', 'cost'],
+              properties: {
+                serviceName: { type: 'string', minLength: 1, maxLength: 200 },
+                cost: { type: 'number', minimum: 0 },
+              },
+            },
+          },
+        },
+      },
+    },
+  }, ctrl.replaceExtraServices);
+
   // PATCH /transactions/:id/procedure-cost  (admin/finance only — corrects extra service amount)
   app.patch('/transactions/:id/procedure-cost', {
     preHandler: [requireRole('admin', 'finance')],

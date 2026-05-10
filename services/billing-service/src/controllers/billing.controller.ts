@@ -82,6 +82,27 @@ const updateProcedureCostSchema = z.object({
   procedureCost: z.number().min(0).nullable(),
 });
 
+const replaceExtraServicesSchema = z.object({
+  items: z.array(z.object({
+    serviceName: z.string().min(1).max(200),
+    cost: z.number().min(0),
+  })),
+});
+
+export async function getExtraServices(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { id } = request.params as { id: string };
+  const items = await repo.listExtraServices(id);
+  void reply.send({ success: true, data: items });
+}
+
+export async function replaceExtraServices(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { id } = request.params as { id: string };
+  const { items } = replaceExtraServicesSchema.parse(request.body);
+  const user = request.user as JwtPayload;
+  const result = await repo.replaceExtraServices(id, items, user.sub);
+  void reply.send({ success: true, data: result });
+}
+
 export async function updateProcedureCost(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { id } = request.params as { id: string };
   const { procedureCost } = updateProcedureCostSchema.parse(request.body);
