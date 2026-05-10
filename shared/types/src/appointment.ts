@@ -79,3 +79,36 @@ export interface QueueEntry {
   checkedInAt?: string;
   estimatedWaitMinutes?: number;
 }
+
+export type QueueStatus = 'waiting' | 'called' | 'in_session' | 'completed' | 'cancelled' | 'no_show';
+export type QueueEventType = 'checked_in' | 'called' | 'session_started' | 'session_completed' | 'cancelled' | 'no_show' | 'rejoined' | 'position_shifted';
+
+export interface PatientQueueEntry {
+  id: string;
+  appointmentId: string;
+  doctorId: string;
+  patientId: string;
+  queueDate: string; // ISO date
+  position: number;
+  status: QueueStatus;
+  checkedInAt: string;
+  calledAt?: string;
+  sessionStart?: string;
+  sessionEnd?: string;
+  estimatedWaitMinutes?: number;
+  branchId: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface QueueStats {
+  doctorId: string;
+  queueDate: string;
+  waiting: number;
+  called: number;
+  inSession: number;
+  completed: number;
+  cancelled: number;
+  avgSessionMinutes: number;
+  estimatedWaitForNext: number;
+}

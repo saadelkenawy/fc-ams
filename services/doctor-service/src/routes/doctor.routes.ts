@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { requireAuth, requireRole } from '../middleware/auth';
 import * as ctrl from '../controllers/doctor.controller';
+import * as avail from '../controllers/availability.controller';
 
 const idParam = {
   type: 'object' as const,
@@ -132,4 +133,145 @@ export async function doctorRoutes(app: FastifyInstance): Promise<void> {
       },
     },
   }, ctrl.createOverride);
+
+  // ── Consultation Hours ──────────────────────────────────────────────────────
+
+  // GET /doctors/:id/consultation-hours
+  app.get('/doctors/:id/consultation-hours', {
+    schema: { tags: ['doctors'], params: idParam },
+  }, avail.getConsultHours);
+
+  // PUT /doctors/:id/consultation-hours  (single day)
+  app.put('/doctors/:id/consultation-hours', {
+    preHandler: [requireRole('admin', 'receptionist')],
+    schema: {
+      tags: ['doctors'],
+      params: idParam,
+      body: {
+        type: 'object',
+        required: ['dayOfWeek', 'startTime', 'endTime'],
+        properties: {
+          dayOfWeek:        { type: 'integer', minimum: 0, maximum: 6 },
+          startTime:        { type: 'string', pattern: '^\\d{2}:\\d{2}$' },
+          endTime:          { type: 'string', pattern: '^\\d{2}:\\d{2}$' },
+          slotDurationMins: { type: 'integer', minimum: 5, maximum: 120 },
+          maxPatients:      { type: 'integer', minimum: 1, maximum: 200 },
+        },
+      },
+    },
+  }, avail.putConsultHours);
+
+  // PUT /doctors/:id/consultation-hours/bulk  (all days at once)
+  app.put('/doctors/:id/consultation-hours/bulk', {
+    preHandler: [requireRole('admin', 'receptionist')],
+    schema: {
+      tags: ['doctors'],
+      params: idParam,
+      body: {
+        type: 'object',
+        required: ['hours'],
+        properties: {
+          hours: {
+            type: 'array',
+            items: {
+              type: 'object',
+              required: ['dayOfWeek', 'startTime', 'endTime'],
+              properties: {
+                dayOfWeek:        { type: 'integer', minimum: 0, maximum: 6 },
+                startTime:        { type: 'string', pattern: '^\\d{2}:\\d{2}$' },
+                endTime:          { type: 'string', pattern: '^\\d{2}:\\d{2}$' },
+                slotDurationMins: { type: 'integer', minimum: 5, maximum: 120 },
+                maxPatients:      { type: 'integer', minimum: 1, maximum: 200 },
+              },
+            },
+          },
+        },
+      },
+    },
+  }, avail.putConsultHoursBulk);
+
+  // ── Doctor Status ───────────────────────────────────────────────────────────
+
+  // GET /doctors/:id/status
+  app.get('/doctors/:id/status', {
+    schema: { tags: ['doctors'], params: idParam },
+  }, avail.getDoctorStatus);
+
+  // PATCH /doctors/:id/status
+  app.patch('/doctors/:id/status', {
+    preHandler: [requireRole('admin', 'receptionist', 'doctor')],
+    schema: {
+      tags: ['doctors'],
+      params: idParam,
+      body: {
+        type: 'object',
+        required: ['status'],
+        properties: {
+          status: { type: 'string', enum: ['active', 'absent', 'on_his_way', 'day_off'] },
+          note:   { type: 'string', maxLength: 500 },
+        },
+      },
+    },
+  }, avail.patchDoctorStatus);
+
+  // GET /doctors/:id/status-history
+  app.get('/doctors/:id/status-history', {
+    schema: {
+      tags: ['doctors'],
+      params: idParam,
+      querystring: {
+        type: 'object',
+        properties: { limit: { type: 'integer', minimum: 1, maximum: 200, default: 50 } },
+      },
+    },
+  }, avail.getDoctorStatusHistory);
+
+  // ── Day Overrides ───────────────────────────────────────────────────────────
+
+  // GET /doctors/:id/day-overrides
+  app.get('/doctors/:id/day-overrides', {
+    schema: {
+      tags: ['doctors'],
+      params: idParam,
+      querystring: {
+        type: 'object',
+        properties: { from: { type: 'string', format: 'date' } },
+      },
+    },
+  }, avail.getDayOverrides);
+
+  // PUT /doctors/:id/day-overrides  (upsert by date)
+  app.put('/doctors/:id/day-overrides', {
+    preHandler: [requireRole('admin', 'receptionist')],
+    schema: {
+      tags: ['doctors'],
+      params: idParam,
+      body: {
+        type: 'object',
+        required: ['overrideDate', 'isWorking'],
+        properties: {
+          overrideDate: { type: 'string', format: 'date' },
+          isWorking:    { type: 'boolean' },
+          startTime:    { type: 'string', pattern: '^\\d{2}:\\d{2}$' },
+          endTime:      { type: 'string', pattern: '^\\d{2}:\\d{2}$' },
+          maxPatients:  { type: 'integer', minimum: 1, maximum: 200 },
+          reason:       { type: 'string', maxLength: 500 },
+        },
+      },
+    },
+  }, avail.putDayOverride);
+
+  // ── Availability ────────────────────────────────────────────────────────────
+
+  // GET /doctors/:id/availability?date=YYYY-MM-DD
+  app.get('/doctors/:id/availability', {
+    schema: {
+      tags: ['doctors'],
+      params: idParam,
+      querystring: {
+        type: 'object',
+        properties: { date: { type: 'string', format: 'date' } },
+      },
+    },
+  }, avail.getDoctorAvailability);
 }

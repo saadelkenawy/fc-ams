@@ -66,3 +66,59 @@ export interface Specialty {
   category?: string;
   isActive: boolean;
 }
+
+export type DoctorStatus = 'active' | 'absent' | 'on_his_way' | 'day_off';
+
+export interface DoctorConsultationHours {
+  id: string;
+  doctorId: string;
+  dayOfWeek: 0 | 1 | 2 | 3 | 4 | 5 | 6;
+  startTime: string; // HH:MM
+  endTime: string;
+  slotDurationMins: number;
+  maxPatients: number;
+  isActive: boolean;
+  branchId: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DoctorStatusLog {
+  id: string;
+  doctorId: string;
+  previousStatus?: DoctorStatus;
+  newStatus: DoctorStatus;
+  note?: string;
+  changedBy?: string;
+  changedAt: string;
+  branchId: number;
+}
+
+export interface DoctorDayOverride {
+  id: string;
+  doctorId: string;
+  overrideDate: string; // ISO date
+  isWorking: boolean;
+  startTime?: string;
+  endTime?: string;
+  maxPatients?: number;
+  reason?: string;
+  createdBy?: string;
+  createdAt: string;
+  branchId: number;
+}
+
+export interface DoctorAvailabilitySlot {
+  time: string; // HH:MM
+  available: boolean;
+}
+
+export interface DoctorAvailability {
+  doctorId: string;
+  date: string;
+  isWorking: boolean;
+  slots: DoctorAvailabilitySlot[];
+  totalSlots: number;
+  bookedSlots: number;
+  maxPatients: number;
+}

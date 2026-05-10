@@ -185,6 +185,8 @@ services:
     depends_on:
       pgbouncer:
         condition: service_healthy
+      redis:
+        condition: service_healthy
       notification-service:
         condition: service_healthy
     healthcheck:
@@ -208,6 +210,7 @@ services:
       DATABASE_URL: postgresql://fadl:fadl_dev_secret@pgbouncer:5432/fadl_doctors
       DATABASE_POOL_MIN: 2
       DATABASE_POOL_MAX: 10
+      REDIS_URL: redis://redis:6379
       LOG_LEVEL: info
       BRANCH_ID: 1
       SERVICE_NAME: doctor-service
@@ -215,6 +218,8 @@ services:
       - "3003:3003"
     depends_on:
       pgbouncer:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3003/health || exit 1"]

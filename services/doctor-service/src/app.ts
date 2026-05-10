@@ -6,6 +6,7 @@ import rateLimit from '@fastify/rate-limit';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import { config } from './config';
+import { redis } from './config/redis';
 import { doctorRoutes } from './routes/doctor.routes';
 
 export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
@@ -41,6 +42,8 @@ export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
   });
 
   await app.register(swaggerUi, { routePrefix: '/docs' });
+
+  await redis.connect().catch(() => { /* logged by redis.on('error') */ });
 
   app.get('/health', { logLevel: 'silent' }, async () => ({ status: 'ok', service: 'doctor-service' }));
 

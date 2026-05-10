@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { requireAuth, requireRole } from '../middleware/auth';
 import * as ctrl from '../controllers/appointment.controller';
+import * as queue from '../controllers/queue.controller';
 
 const STATUS_ENUM = ['TBC', 'Ok!', 'Conf.', 'Comp.', 'Canc.', 'Resch.', 'Inf.'];
 
@@ -101,4 +102,95 @@ export async function appointmentRoutes(app: FastifyInstance): Promise<void> {
       params: idParam,
     },
   }, ctrl.deleteAppointment);
+
+  // ── Patient Queue ───────────────────────────────────────────────────────────
+
+  // POST /queue/check-in
+  app.post('/queue/check-in', {
+    preHandler: [requireRole('receptionist', 'admin')],
+    schema: {
+      tags: ['queue'],
+      body: {
+        type: 'object',
+        required: ['appointmentId', 'doctorId', 'patientId', 'queueDate'],
+        properties: {
+          appointmentId: { type: 'string', format: 'uuid' },
+          doctorId:      { type: 'string', format: 'uuid' },
+          patientId:     { type: 'string', format: 'uuid' },
+          queueDate:     { type: 'string', format: 'date' },
+        },
+      },
+    },
+  }, queue.checkIn);
+
+  // GET /queue
+  app.get('/queue', {
+    schema: {
+      tags: ['queue'],
+      querystring: {
+        type: 'object',
+        required: ['doctorId'],
+        properties: {
+          doctorId: { type: 'string', format: 'uuid' },
+          date:     { type: 'string', format: 'date' },
+        },
+      },
+    },
+  }, queue.getFullQueue);
+
+  // GET /queue/stats
+  app.get('/queue/stats', {
+    schema: {
+      tags: ['queue'],
+      querystring: {
+        type: 'object',
+        required: ['doctorId'],
+        properties: {
+          doctorId: { type: 'string', format: 'uuid' },
+          date:     { type: 'string', format: 'date' },
+        },
+      },
+    },
+  }, queue.getQueueStats);
+
+  // GET /queue/:id
+  app.get('/queue/:id', {
+    schema: { tags: ['queue'], params: idParam },
+  }, queue.getPosition);
+
+  // POST /queue/:id/call
+  app.post('/queue/:id/call', {
+    preHandler: [requireRole('receptionist', 'doctor', 'admin')],
+    schema: { tags: ['queue'], params: idParam },
+  }, queue.callPatient);
+
+  // POST /queue/:id/start-session
+  app.post('/queue/:id/start-session', {
+    preHandler: [requireRole('receptionist', 'doctor', 'admin')],
+    schema: { tags: ['queue'], params: idParam },
+  }, queue.startSession);
+
+  // POST /queue/:id/complete
+  app.post('/queue/:id/complete', {
+    preHandler: [requireRole('receptionist', 'doctor', 'admin')],
+    schema: { tags: ['queue'], params: idParam },
+  }, queue.completeSession);
+
+  // POST /queue/:id/no-show
+  app.post('/queue/:id/no-show', {
+    preHandler: [requireRole('receptionist', 'admin')],
+    schema: { tags: ['queue'], params: idParam },
+  }, queue.markNoShow);
+
+  // DELETE /queue/:id
+  app.delete('/queue/:id', {
+    preHandler: [requireRole('receptionist', 'admin')],
+    schema: { tags: ['queue'], params: idParam },
+  }, queue.cancelFromQueue);
+
+  // POST /queue/:id/rejoin
+  app.post('/queue/:id/rejoin', {
+    preHandler: [requireRole('receptionist', 'admin')],
+    schema: { tags: ['queue'], params: idParam },
+  }, queue.rejoinQueue);
 }

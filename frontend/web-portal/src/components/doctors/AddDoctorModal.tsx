@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Stethoscope, Phone, BadgeDollarSign, CreditCard, AlertCircle, TrendingUp } from 'lucide-react';
+import { Stethoscope, Phone, BadgeDollarSign, CreditCard, AlertCircle, TrendingUp, Clock } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { useLang } from '@/contexts/LanguageContext';
@@ -10,6 +10,17 @@ import { useSpecialties } from '@/hooks/useDoctors';
 import { doctorApi } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 import { cn } from '@/lib/utils';
+
+const DAYS_EN = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const DAYS_AR = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+
+interface ConsultHourRow {
+  enabled: boolean;
+  startTime: string;
+  endTime: string;
+  slotDurationMins: number;
+  maxPatients: number;
+}
 
 // Split presets matching Excel patterns from data.md
 const SPLIT_PRESETS = [
@@ -106,6 +117,14 @@ function SplitRow({
   );
 }
 
+const DEFAULT_CONSULT_HOURS: ConsultHourRow[] = Array.from({ length: 7 }, () => ({
+  enabled: false,
+  startTime: '09:00',
+  endTime: '17:00',
+  slotDurationMins: 15,
+  maxPatients: 20,
+}));
+
 interface AddDoctorModalProps {
   open: boolean;
   onClose: () => void;
@@ -127,6 +146,7 @@ export function AddDoctorModal({ open, onClose, onCreated }: AddDoctorModalProps
     paymentMethod: 'instapay', paymentChannel: '',
     allowOverbooking: false,
   });
+  const [consultHours, setConsultHours] = useState<ConsultHourRow[]>(DEFAULT_CONSULT_HOURS);
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
 
   const mutation = useMutation({
@@ -148,7 +168,16 @@ export function AddDoctorModal({ open, onClose, onCreated }: AddDoctorModalProps
         overbookingBufferPercentage: 10,
       };
       const { data } = await doctorApi.post<{ data: { id: string } }>('/doctors', body);
-      return data.data;
+      const created = data.data;
+
+      // Save consultation hours (only enabled days)
+      const hours = consultHours
+        .map((h, i) => ({ ...h, dayOfWeek: i }))
+        .filter((h) => h.enabled);
+      if (hours.length > 0) {
+        await doctorApi.put(`/doctors/${created.id}/consultation-hours/bulk`, { hours });
+      }
+      return created;
     },
     onSuccess: (created) => {
       void qc.invalidateQueries({ queryKey: ['doctors'] });
@@ -156,6 +185,7 @@ export function AddDoctorModal({ open, onClose, onCreated }: AddDoctorModalProps
       onCreated?.(created.id);
       onClose();
       setForm({ nameAr: '', nameEn: '', mobile: '', specialtyId: '', subSpecialty: '', isOnlineDoctor: false, consultationSplit: { doctor: 50, clinic: 50 }, operativeSplit: { doctor: 80, clinic: 20 }, onlineSplit: { doctor: 70, clinic: 30 }, paymentMethod: 'instapay', paymentChannel: '', allowOverbooking: false });
+      setConsultHours(DEFAULT_CONSULT_HOURS);
       setErrors({});
     },
     onError: (err: unknown) => {
@@ -317,6 +347,79 @@ export function AddDoctorModal({ open, onClose, onCreated }: AddDoctorModalProps
           <SplitRow label={t('كشف (consultation)', 'Consultation')} value={form.consultationSplit} onChange={(v) => set('consultationSplit', v)} lang={lang} />
           <SplitRow label={t('إجراء عملي (operative)', 'Operative')} value={form.operativeSplit}    onChange={(v) => set('operativeSplit', v)}    lang={lang} />
           <SplitRow label={t('أونلاين (online)', 'Online')}         value={form.onlineSplit}        onChange={(v) => set('onlineSplit', v)}        lang={lang} />
+        </div>
+
+        {/* ── Consultation Hours ── */}
+        <p className="form-section-title">
+          <Clock className="w-3.5 h-3.5" />
+          {t('ساعات العمل', 'Consultation Hours')}
+        </p>
+        <div className="rounded-xl border border-gray-100 dark:border-neutral-700 overflow-hidden">
+          {consultHours.map((row, i) => (
+            <div
+              key={i}
+              className={cn(
+                'flex items-center gap-2 px-3 py-2 text-sm',
+                i % 2 === 0 ? 'bg-gray-50 dark:bg-neutral-800/40' : 'bg-white dark:bg-neutral-900/10',
+              )}
+            >
+              <label className="flex items-center gap-2 w-28 shrink-0 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="w-3.5 h-3.5 accent-primary-600"
+                  checked={row.enabled}
+                  onChange={(e) => {
+                    const next = [...consultHours];
+                    next[i] = { ...next[i], enabled: e.target.checked };
+                    setConsultHours(next);
+                  }}
+                />
+                <span className={cn('font-medium', !row.enabled && 'text-gray-400 dark:text-gray-500')}>
+                  {lang === 'ar' ? DAYS_AR[i] : DAYS_EN[i]}
+                </span>
+              </label>
+              {row.enabled ? (
+                <div className="flex items-center gap-2 flex-1 flex-wrap">
+                  <input
+                    type="time"
+                    className="h-8 rounded border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-2 text-xs w-24"
+                    value={row.startTime}
+                    onChange={(e) => { const n = [...consultHours]; n[i] = { ...n[i], startTime: e.target.value }; setConsultHours(n); }}
+                  />
+                  <span className="text-gray-400 text-xs">–</span>
+                  <input
+                    type="time"
+                    className="h-8 rounded border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-2 text-xs w-24"
+                    value={row.endTime}
+                    onChange={(e) => { const n = [...consultHours]; n[i] = { ...n[i], endTime: e.target.value }; setConsultHours(n); }}
+                  />
+                  <div className="flex items-center gap-1">
+                    <label className="text-[10px] text-gray-500 shrink-0">{t('كل', 'Every')}</label>
+                    <select
+                      className="h-8 rounded border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-1 text-xs w-16"
+                      value={row.slotDurationMins}
+                      onChange={(e) => { const n = [...consultHours]; n[i] = { ...n[i], slotDurationMins: Number(e.target.value) }; setConsultHours(n); }}
+                    >
+                      {[10,15,20,30,45,60].map((m) => <option key={m} value={m}>{m}{t('د', 'm')}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <label className="text-[10px] text-gray-500 shrink-0">{t('أقصى', 'Max')}</label>
+                    <input
+                      type="number"
+                      className="h-8 rounded border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-2 text-xs w-14"
+                      min={1} max={200}
+                      value={row.maxPatients}
+                      onChange={(e) => { const n = [...consultHours]; n[i] = { ...n[i], maxPatients: Number(e.target.value) }; setConsultHours(n); }}
+                    />
+                    <span className="text-[10px] text-gray-400">{t('مريض', 'pts')}</span>
+                  </div>
+                </div>
+              ) : (
+                <span className="text-xs text-gray-400 dark:text-gray-500 italic">{t('غير متاح', 'Day off')}</span>
+              )}
+            </div>
+          ))}
         </div>
 
         {/* ── Payment ── */}

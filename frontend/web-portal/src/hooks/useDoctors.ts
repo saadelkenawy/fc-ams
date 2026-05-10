@@ -1,7 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { doctorApi } from '@/lib/api';
-import type { Doctor, DoctorSchedule, DoctorScheduleOverride, Specialty, PaginatedResponse, ApiResponse } from '@fadl/types';
+import type {
+  Doctor, DoctorSchedule, DoctorScheduleOverride, Specialty,
+  PaginatedResponse, ApiResponse,
+  DoctorConsultationHours, DoctorStatus, DoctorStatusLog, DoctorDayOverride,
+  DoctorAvailability,
+} from '@fadl/types';
 
 export function useDoctors(params: { isActive?: boolean; limit?: number } = {}) {
   return useQuery({
@@ -153,5 +158,76 @@ export function useDeleteDoctor() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['doctors'] });
     },
+  });
+}
+
+// ── Consultation Hours ────────────────────────────────────────────────────────
+
+export function useConsultHours(doctorId: string) {
+  return useQuery({
+    queryKey: ['consult-hours', doctorId],
+    queryFn: async () => {
+      const { data } = await doctorApi.get<ApiResponse<DoctorConsultationHours[]>>(`/doctors/${doctorId}/consultation-hours`);
+      return data.data ?? [];
+    },
+    enabled: !!doctorId,
+    staleTime: 30_000,
+  });
+}
+
+export function useUpsertConsultHours(doctorId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (hours: Array<{ dayOfWeek: number; startTime: string; endTime: string; slotDurationMins: number; maxPatients: number }>) => {
+      const { data } = await doctorApi.put<ApiResponse<DoctorConsultationHours[]>>(
+        `/doctors/${doctorId}/consultation-hours/bulk`,
+        { hours },
+      );
+      return data.data!;
+    },
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: ['consult-hours', doctorId] }); },
+  });
+}
+
+// ── Doctor Status ─────────────────────────────────────────────────────────────
+
+export function useDoctorStatus(doctorId: string) {
+  return useQuery({
+    queryKey: ['doctor-status', doctorId],
+    queryFn: async () => {
+      const { data } = await doctorApi.get<ApiResponse<{ status: DoctorStatus; statusNote?: string; statusUpdatedAt: string }>>(`/doctors/${doctorId}/status`);
+      return data.data!;
+    },
+    enabled: !!doctorId,
+    staleTime: 10_000,
+    refetchInterval: 30_000,
+  });
+}
+
+export function useChangeDoctorStatus(doctorId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: { status: DoctorStatus; note?: string }) => {
+      const { data } = await doctorApi.patch<ApiResponse<DoctorStatusLog>>(`/doctors/${doctorId}/status`, body);
+      return data.data!;
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['doctor-status', doctorId] });
+      void qc.invalidateQueries({ queryKey: ['doctors'] });
+    },
+  });
+}
+
+// ── Availability ──────────────────────────────────────────────────────────────
+
+export function useDoctorAvailability(doctorId: string, date: string) {
+  return useQuery({
+    queryKey: ['doctor-availability', doctorId, date],
+    queryFn: async () => {
+      const { data } = await doctorApi.get<ApiResponse<DoctorAvailability>>(`/doctors/${doctorId}/availability`, { params: { date } });
+      return data.data!;
+    },
+    enabled: !!doctorId && !!date,
+    staleTime: 60_000,
   });
 }
