@@ -490,7 +490,7 @@ export function AddAppointmentModal({ open, onClose, defaultDate, onCreated }: A
       onClose={onClose}
       title={t('موعد جديد', 'New Appointment')}
       subtitle={t('احجز موعدًا لمريض مع الطبيب', 'Schedule a patient visit')}
-      maxWidth="3xl"
+      maxWidth="xl"
       stretch
       footer={
         <>
@@ -514,11 +514,6 @@ export function AddAppointmentModal({ open, onClose, defaultDate, onCreated }: A
           </div>
         )}
 
-        {/* Two-column layout */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-          {/* ── Left column: Patient + Doctor ── */}
-          <div className="space-y-5">
 
             {/* Step 1 — Patient */}
             <StepSection step={1} title={t('المريض', 'Patient')} badge="bg-emerald-600">
@@ -531,11 +526,6 @@ export function AddAppointmentModal({ open, onClose, defaultDate, onCreated }: A
               <DoctorPicker lang={lang} t={t} value={doctor} onChange={setDoctor} specialties={specialties} />
               {errors.doctor && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{errors.doctor}</p>}
             </StepSection>
-
-          </div>
-
-          {/* ── Right column: Schedule + Details ── */}
-          <div className="space-y-5">
 
             {/* Step 3 — Schedule */}
             <StepSection step={3} title={t('الجدول', 'Schedule')} badge="bg-indigo-600">
@@ -693,9 +683,6 @@ export function AddAppointmentModal({ open, onClose, defaultDate, onCreated }: A
                 </div>
               </div>
             </div>
-
-          </div>
-        </div>
 
         {/* ── Booking summary bar ── */}
         {patient && doctor && (

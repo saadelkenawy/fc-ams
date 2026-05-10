@@ -33,12 +33,14 @@ services:
   postgres:
     <<: *service-defaults
     image: postgres:16-alpine
+    command: postgres -c hba_file=/etc/postgresql/pg_hba.conf -c password_encryption=md5
     environment:
       <<: *pg-env
       POSTGRES_DB: postgres
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/00_init.sql:ro
+      - ./infra/postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
     ports:
       - "5432:5432"
     healthcheck:
@@ -80,6 +82,25 @@ services:
       retries: 5
       start_period: 15s
 
+  pgbouncer:
+    <<: *service-defaults
+    image: pgbouncer/pgbouncer:latest
+    entrypoint: ["/opt/pgbouncer/pgbouncer", "/etc/pgbouncer/pgbouncer.ini"]
+    volumes:
+      - ./infra/pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
+      - ./infra/pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt:ro
+    ports:
+      - "5433:5432"   # host:5433 → pgbouncer (postgres stays on 5432)
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z -w 3 127.0.0.1 5432 || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
   # ── Microservices ───────────────────────────────────────────────────────────
 
   identity-service:
@@ -93,7 +114,7 @@ services:
       <<: *jwt-env
       NODE_ENV: development
       PORT: 3000
-      DATABASE_URL: postgresql://fadl:fadl_dev_secret@postgres:5432/fadl_identity
+      DATABASE_URL: postgresql://fadl:fadl_dev_secret@pgbouncer:5432/fadl_identity
       DATABASE_POOL_MIN: 2
       DATABASE_POOL_MAX: 10
       LOG_LEVEL: info
@@ -102,7 +123,7 @@ services:
     ports:
       - "3000:3000"
     depends_on:
-      postgres:
+      pgbouncer:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/health || exit 1"]
@@ -122,7 +143,7 @@ services:
       <<: *jwt-env
       NODE_ENV: development
       PORT: 3002
-      DATABASE_URL: postgresql://fadl:fadl_dev_secret@postgres:5432/fadl_patients
+      DATABASE_URL: postgresql://fadl:fadl_dev_secret@pgbouncer:5432/fadl_patients
       DATABASE_POOL_MIN: 2
       DATABASE_POOL_MAX: 10
       LOG_LEVEL: info
@@ -131,7 +152,7 @@ services:
     ports:
       - "3002:3002"
     depends_on:
-      postgres:
+      pgbouncer:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3002/health || exit 1"]
@@ -151,7 +172,7 @@ services:
       <<: *jwt-env
       NODE_ENV: development
       PORT: 3001
-      DATABASE_URL: postgresql://fadl:fadl_dev_secret@postgres:5432/fadl_appointments
+      DATABASE_URL: postgresql://fadl:fadl_dev_secret@pgbouncer:5432/fadl_appointments
       REDIS_URL: redis://redis:6379
       DATABASE_POOL_MIN: 2
       DATABASE_POOL_MAX: 10
@@ -162,7 +183,7 @@ services:
     ports:
       - "3001:3001"
     depends_on:
-      postgres:
+      pgbouncer:
         condition: service_healthy
       notification-service:
         condition: service_healthy
@@ -184,7 +205,7 @@ services:
       <<: *jwt-env
       NODE_ENV: development
       PORT: 3003
-      DATABASE_URL: postgresql://fadl:fadl_dev_secret@postgres:5432/fadl_doctors
+      DATABASE_URL: postgresql://fadl:fadl_dev_secret@pgbouncer:5432/fadl_doctors
       DATABASE_POOL_MIN: 2
       DATABASE_POOL_MAX: 10
       LOG_LEVEL: info
@@ -193,7 +214,7 @@ services:
     ports:
       - "3003:3003"
     depends_on:
-      postgres:
+      pgbouncer:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3003/health || exit 1"]
@@ -213,7 +234,7 @@ services:
       <<: *jwt-env
       NODE_ENV: development
       PORT: 3004
-      DATABASE_URL: postgresql://fadl:fadl_dev_secret@postgres:5432/fadl_billing
+      DATABASE_URL: postgresql://fadl:fadl_dev_secret@pgbouncer:5432/fadl_billing
       DATABASE_POOL_MIN: 2
       DATABASE_POOL_MAX: 10
       LOG_LEVEL: info
@@ -222,7 +243,7 @@ services:
     ports:
       - "3004:3004"
     depends_on:
-      postgres:
+      pgbouncer:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3004/health || exit 1"]
@@ -242,7 +263,7 @@ services:
       <<: *jwt-env
       NODE_ENV: development
       PORT: 3007
-      DATABASE_URL: postgresql://fadl:fadl_dev_secret@postgres:5432/fadl_notifications
+      DATABASE_URL: postgresql://fadl:fadl_dev_secret@pgbouncer:5432/fadl_notifications
       DATABASE_POOL_MIN: 2
       DATABASE_POOL_MAX: 10
       LOG_LEVEL: info
@@ -259,7 +280,7 @@ services:
     ports:
       - "3007:3007"
     depends_on:
-      postgres:
+      pgbouncer:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3007/health || exit 1"]
@@ -279,7 +300,7 @@ services:
       <<: *jwt-env
       NODE_ENV: development
       PORT: 3008
-      DATABASE_URL: postgresql://fadl:fadl_dev_secret@postgres:5432/fadl_chatbot
+      DATABASE_URL: postgresql://fadl:fadl_dev_secret@pgbouncer:5432/fadl_chatbot
       DATABASE_POOL_MIN: 2
       DATABASE_POOL_MAX: 10
       LOG_LEVEL: info
@@ -295,7 +316,7 @@ services:
     ports:
       - "3008:3008"
     depends_on:
-      postgres:
+      pgbouncer:
         condition: service_healthy
       patient-service:
         condition: service_healthy
@@ -321,7 +342,7 @@ services:
       <<: *jwt-env
       NODE_ENV: development
       PORT: 3011
-      DATABASE_URL: postgresql://fadl:fadl_dev_secret@postgres:5432/fadl_files
+      DATABASE_URL: postgresql://fadl:fadl_dev_secret@pgbouncer:5432/fadl_files
       DATABASE_POOL_MIN: 2
       DATABASE_POOL_MAX: 10
       LOG_LEVEL: info
@@ -337,7 +358,7 @@ services:
     ports:
       - "3011:3011"
     depends_on:
-      postgres:
+      pgbouncer:
         condition: service_healthy
       minio:
         condition: service_healthy
@@ -391,7 +412,7 @@ services:
       <<: *jwt-env
       NODE_ENV: development
       PORT: 3005
-      DATABASE_URL: postgresql://fadl:fadl_dev_secret@postgres:5432/fadl_ehr
+      DATABASE_URL: postgresql://fadl:fadl_dev_secret@pgbouncer:5432/fadl_ehr
       DATABASE_POOL_MIN: 2
       DATABASE_POOL_MAX: 10
       LOG_LEVEL: info
@@ -400,7 +421,7 @@ services:
     ports:
       - "3005:3005"
     depends_on:
-      postgres:
+      pgbouncer:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3005/health || exit 1"]
@@ -420,7 +441,7 @@ services:
       <<: *jwt-env
       NODE_ENV: development
       PORT: 3006
-      DATABASE_URL: postgresql://fadl:fadl_dev_secret@postgres:5432/fadl_procedures
+      DATABASE_URL: postgresql://fadl:fadl_dev_secret@pgbouncer:5432/fadl_procedures
       DATABASE_POOL_MIN: 2
       DATABASE_POOL_MAX: 10
       LOG_LEVEL: info
@@ -429,7 +450,7 @@ services:
     ports:
       - "3006:3006"
     depends_on:
-      postgres:
+      pgbouncer:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3006/health || exit 1"]
@@ -449,7 +470,7 @@ services:
       <<: *jwt-env
       NODE_ENV: development
       PORT: 3013
-      DATABASE_URL: postgresql://fadl:fadl_dev_secret@postgres:5432/fadl_procurement
+      DATABASE_URL: postgresql://fadl:fadl_dev_secret@pgbouncer:5432/fadl_procurement
       DATABASE_POOL_MIN: 2
       DATABASE_POOL_MAX: 10
       LOG_LEVEL: info
@@ -458,7 +479,7 @@ services:
     ports:
       - "3013:3013"
     depends_on:
-      postgres:
+      pgbouncer:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3013/health || exit 1"]
@@ -512,7 +533,7 @@ services:
       <<: *jwt-env
       NODE_ENV: development
       PORT: 3012
-      DATABASE_URL: postgresql://fadl:fadl_dev_secret@postgres:5432/fadl_integrations
+      DATABASE_URL: postgresql://fadl:fadl_dev_secret@pgbouncer:5432/fadl_integrations
       DATABASE_POOL_MIN: 2
       DATABASE_POOL_MAX: 10
       LOG_LEVEL: info
@@ -528,7 +549,7 @@ services:
     ports:
       - "3012:3012"
     depends_on:
-      postgres:
+      pgbouncer:
         condition: service_healthy
       appointment-service:
         condition: service_healthy
