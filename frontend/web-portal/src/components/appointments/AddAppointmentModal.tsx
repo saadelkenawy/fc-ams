@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback, type FormEvent } from 'react';
+import { useState, useEffect, useCallback, useRef, type FormEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Calendar, Clock, Search, User, Stethoscope, AlertCircle, CalendarPlus, FlaskConical, X } from 'lucide-react';
+import { Calendar, Clock, Search, User, Stethoscope, AlertCircle, CalendarPlus, FlaskConical, X, UserPlus } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { useLang } from '@/contexts/LanguageContext';
@@ -10,7 +11,7 @@ import { useDoctors, useSpecialties } from '@/hooks/useDoctors';
 import { usePatients } from '@/hooks/usePatients';
 import { useProcedures } from '@/hooks/useProcedures';
 import { useDebounce } from '@/hooks/useDebounce';
-import { appointmentApi } from '@/lib/api';
+import { appointmentApi, patientApi } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import type { Doctor, Patient, Specialty } from '@fadl/types';
 
@@ -40,25 +41,104 @@ function addMinutes(time: string, mins: number): string {
 
 function makeKey() { return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`; }
 
+// ── Quick-create patient mini-form ────────────────────────────────────────────
+function QuickCreatePatient({ lang, t, prefillName, onCreated, onCancel }: {
+  lang: 'ar' | 'en'; t: (a: string, b: string) => string;
+  prefillName: string;
+  onCreated: (p: Patient) => void;
+  onCancel: () => void;
+}) {
+  const [nameEn, setNameEn] = useState(prefillName);
+  const [nameAr, setNameAr] = useState('');
+  const [mobile, setMobile] = useState('');
+  const [saving,  setSaving]  = useState(false);
+  const [error,   setError]   = useState('');
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    if (!nameEn.trim() || !mobile.trim()) { setError(t('الاسم والهاتف مطلوبان', 'Name and phone are required')); return; }
+    setSaving(true);
+    try {
+      const res = await patientApi.post('/patients', { nameEn: nameEn.trim(), nameAr: nameAr.trim() || undefined, mobile: mobile.trim() });
+      onCreated(res.data.data as Patient);
+    } catch {
+      setError(t('فشل إنشاء المريض', 'Failed to create patient'));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="mt-2 rounded-xl border border-primary-200 dark:border-primary-800 bg-primary-50 dark:bg-primary-900/20 p-3 space-y-2">
+      <p className="text-xs font-semibold text-primary-700 dark:text-primary-300 flex items-center gap-1.5">
+        <UserPlus className="w-3.5 h-3.5" />{t('إضافة مريض جديد', 'New Patient')}
+      </p>
+      <div className="grid grid-cols-2 gap-2">
+        <input className="h-9 rounded-lg border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600" placeholder={t('الاسم بالإنجليزية *', 'Name (EN) *')} value={nameEn} onChange={(e) => setNameEn(e.target.value)} />
+        <input className="h-9 rounded-lg border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600" placeholder={t('الاسم بالعربية', 'Name (AR)')} value={nameAr} onChange={(e) => setNameAr(e.target.value)} dir="rtl" />
+        <input className="h-9 rounded-lg border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary-600 col-span-2" placeholder={t('رقم الهاتف *', 'Mobile *')} value={mobile} onChange={(e) => setMobile(e.target.value)} dir="ltr" type="tel" />
+      </div>
+      {error && <p className="text-xs text-red-500">{error}</p>}
+      <div className="flex gap-2">
+        <button type="button" disabled={saving} onClick={handleCreate} className="flex-1 h-8 rounded-lg bg-primary-600 text-white text-xs font-semibold hover:bg-primary-700 disabled:opacity-50 transition-colors">
+          {saving ? t('جاري الحفظ...', 'Saving...') : t('إنشاء وتحديد', 'Create & Select')}
+        </button>
+        <button type="button" onClick={onCancel} className="h-8 px-3 rounded-lg border border-gray-200 dark:border-neutral-700 text-xs text-gray-500 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors">
+          {t('إلغاء', 'Cancel')}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Patient picker ────────────────────────────────────────────────────────────
 function PatientPicker({ lang, t, value, onChange }: {
   lang: 'ar' | 'en'; t: (a: string, b: string) => string;
   value: Patient | null; onChange: (p: Patient | null) => void;
 }) {
-  const [q, setQ]   = useState('');
-  const [open, setOpen] = useState(false);
-  const dq      = useDebounce(q, 280);
-  const canSearch = dq.trim().length >= 2;
+  const [q, setQ]             = useState('');
+  const [open, setOpen]       = useState(false);
+  const [creating, setCreating] = useState(false);
+  const inputRef              = useRef<HTMLInputElement>(null);
+  const dropRef               = useRef<HTMLDivElement>(null);
+  const [dropStyle, setDropStyle] = useState<React.CSSProperties>({});
+  const dq                    = useDebounce(q, 280);
+  const canSearch             = dq.trim().length >= 2;
 
   const { data, isFetching } = usePatients(
     canSearch ? { query: dq, limit: 10, enabled: true } : { enabled: false },
   );
   const results: Patient[] = canSearch ? (data?.data ?? []) : [];
 
+  // Position the portal dropdown relative to the input
+  const updatePosition = useCallback(() => {
+    if (!inputRef.current) return;
+    const r = inputRef.current.getBoundingClientRect();
+    setDropStyle({ position: 'fixed', top: r.bottom + 4, left: r.left, width: r.width, zIndex: 9999 });
+  }, []);
+
+  useEffect(() => {
+    if (open) updatePosition();
+  }, [open, updatePosition]);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    function handler(e: MouseEvent) {
+      if (
+        inputRef.current && !inputRef.current.contains(e.target as Node) &&
+        dropRef.current  && !dropRef.current.contains(e.target as Node)
+      ) setOpen(false);
+    }
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
   const handleSelect = useCallback((p: Patient) => {
     onChange(p);
     setQ('');
     setOpen(false);
+    setCreating(false);
   }, [onChange]);
 
   if (value) {
@@ -82,32 +162,31 @@ function PatientPicker({ lang, t, value, onChange }: {
     );
   }
 
+  const showDrop = open && (results.length > 0 || (canSearch && !isFetching));
+
   return (
-    <div className="relative">
+    <div>
       <div className="relative">
         <Search className="absolute inset-y-0 start-3 my-auto w-4 h-4 text-gray-400 pointer-events-none" />
         <input
-          className="w-full h-10 rounded-lg border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 ps-9 pe-3 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-600 transition-shadow"
-          placeholder={t('اكتب اسم المريض أو رقم الهاتف (٢ أحرف على الأقل)...', 'Type name or phone (min 2 chars)...')}
+          ref={inputRef}
+          className="w-full h-10 rounded-lg border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 ps-9 pe-9 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-600 transition-shadow"
+          placeholder={t('اكتب اسم المريض أو رقم الهاتف (٢ أحرف)...', 'Type name or phone (min 2 chars)...')}
           value={q}
-          onChange={(e) => { setQ(e.target.value); setOpen(true); }}
-          onFocus={() => setOpen(true)}
+          onChange={(e) => { setQ(e.target.value); setOpen(true); setCreating(false); updatePosition(); }}
+          onFocus={() => { setOpen(true); updatePosition(); }}
         />
-        {isFetching && (
-          <div className="absolute inset-y-0 end-3 my-auto w-3.5 h-3.5 border-2 border-primary-600 border-t-transparent rounded-full animate-spin" />
-        )}
-        {q && (
-          <button
-            type="button"
-            onClick={() => { setQ(''); setOpen(false); }}
-            className="absolute inset-y-0 end-8 my-auto text-gray-300 hover:text-gray-500"
-          >
+        {isFetching && <div className="absolute inset-y-0 end-3 my-auto w-3.5 h-3.5 border-2 border-primary-600 border-t-transparent rounded-full animate-spin" />}
+        {q && !isFetching && (
+          <button type="button" onClick={() => { setQ(''); setOpen(false); }} className="absolute inset-y-0 end-3 my-auto text-gray-300 hover:text-gray-500">
             <X className="w-3.5 h-3.5" />
           </button>
         )}
       </div>
-      {open && results.length > 0 && (
-        <div className="absolute top-full start-0 end-0 z-20 mt-1 bg-white dark:bg-neutral-800 border border-gray-100 dark:border-neutral-700 rounded-xl shadow-xl overflow-hidden">
+
+      {/* Portal dropdown — escapes modal overflow:hidden */}
+      {showDrop && typeof document !== 'undefined' && createPortal(
+        <div ref={dropRef} style={dropStyle} className="bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-xl shadow-2xl overflow-hidden">
           {results.map((p) => (
             <button
               key={p.patientId}
@@ -126,12 +205,36 @@ function PatientPicker({ lang, t, value, onChange }: {
               </div>
             </button>
           ))}
-        </div>
+          {/* "Create new patient" option */}
+          {canSearch && !isFetching && (
+            <button
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); setOpen(false); setCreating(true); }}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors text-start border-t border-gray-100 dark:border-neutral-700"
+            >
+              <div className="w-7 h-7 rounded-full bg-primary-600 flex items-center justify-center shrink-0">
+                <UserPlus className="w-3.5 h-3.5 text-white" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-primary-700 dark:text-primary-300">
+                  {t('إنشاء مريض جديد', 'Create new patient')}
+                </p>
+                <p className="text-xs text-primary-500 dark:text-primary-400 truncate">"{q}"</p>
+              </div>
+            </button>
+          )}
+        </div>,
+        document.body,
       )}
-      {open && canSearch && !isFetching && results.length === 0 && (
-        <div className="absolute top-full start-0 end-0 z-20 mt-1 bg-white dark:bg-neutral-800 border border-gray-100 dark:border-neutral-700 rounded-xl shadow-xl px-4 py-3 text-sm text-gray-400">
-          {t('لم يُعثر على مريض', 'No patient found')}
-        </div>
+
+      {creating && (
+        <QuickCreatePatient
+          lang={lang}
+          t={t}
+          prefillName={q}
+          onCreated={handleSelect}
+          onCancel={() => setCreating(false)}
+        />
       )}
     </div>
   );

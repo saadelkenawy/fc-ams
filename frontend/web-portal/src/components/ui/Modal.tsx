@@ -55,8 +55,8 @@ export function Modal({ open, onClose, title, subtitle, children, maxWidth = 'xl
           </button>
         </div>
 
-        {/* Body */}
-        <div className={cn('px-6 py-5 overflow-y-auto', stretch ? 'flex-1' : 'max-h-[80vh]')}>
+        {/* Body — overflow-visible so dropdowns inside can escape the panel */}
+        <div className={cn('px-6 py-5 overflow-y-auto overflow-x-visible', stretch ? 'flex-1' : 'max-h-[80vh]')}>
           {children}
         </div>
 
