@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import { Download, FileDown, Filter, Search, CheckCircle, Clock, TrendingUp, Loader2, RefreshCw, ReceiptText, ChevronDown, ChevronRight, Building2, Stethoscope, Share2, FlaskConical } from 'lucide-react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { Download, FileDown, Filter, Search, CheckCircle, Clock, TrendingUp, Loader2, RefreshCw, ReceiptText, ChevronDown, ChevronRight, Building2, Stethoscope, Share2, FlaskConical, Check, X } from 'lucide-react';
 import { analyticsApi } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -12,7 +12,7 @@ import { Pagination } from '@/components/ui/Pagination';
 import { useLang } from '@/contexts/LanguageContext';
 import { useToast } from '@/components/ui/Toast';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { useTransactions, useSettlements, useUpdateTransactionStatus } from '@/hooks/useBilling';
+import { useTransactions, useSettlements, useUpdateTransactionStatus, useUpdateProcedureCost } from '@/hooks/useBilling';
 import { useDoctorMap } from '@/hooks/useDoctors';
 import { usePatientMap } from '@/hooks/usePatients';
 import { useProcedureMap } from '@/hooks/useProcedures';
@@ -516,11 +516,31 @@ function SettlementDetail({ doctorId, from, to, locale, t }: {
 }) {
   const { data: txData, isLoading: txLoading } = useTransactions({ doctorId, dateFrom: from, dateTo: to, limit: 100 });
   const procedureMap = useProcedureMap();
+  const updateCost = useUpdateProcedureCost();
   const txs = txData?.data ?? [];
   const fmt = (n: number) => formatCurrency(n, 'EGP', locale);
 
+  const [overrides, setOverrides] = useState<Map<string, string>>(new Map());
+
+  const handleCostChange = useCallback((id: string, val: string) => {
+    setOverrides((prev) => new Map(prev).set(id, val));
+  }, []);
+
+  const handleSave = useCallback(async (id: string) => {
+    const raw = overrides.get(id) ?? '';
+    const parsed = raw === '' ? null : parseFloat(raw);
+    await updateCost.mutateAsync({ id, procedureCost: parsed });
+    setOverrides((prev) => { const m = new Map(prev); m.delete(id); return m; });
+  }, [overrides, updateCost]);
+
+  const handleReset = useCallback((id: string) => {
+    setOverrides((prev) => { const m = new Map(prev); m.delete(id); return m; });
+  }, []);
+
   if (txLoading) return <div className="flex items-center gap-2 text-xs text-gray-400"><Loader2 className="w-3 h-3 animate-spin" />{t('جاري التحميل...', 'Loading...')}</div>;
   if (!txs.length) return <p className="text-xs text-gray-400">{t('لا توجد معاملات', 'No transactions')}</p>;
+
+  let footerSession = 0, footerMediator = 0, footerExtra = 0, footerNet = 0, footerDoctor = 0, footerClinic = 0;
 
   return (
     <div className="rounded-lg border border-gray-200 dark:border-neutral-700 overflow-hidden">
@@ -539,14 +559,28 @@ function SettlementDetail({ doctorId, from, to, locale, t }: {
             <th className="text-end   px-3 py-2 font-medium text-blue-500">{t('حصة الطبيب', 'Doctor')}</th>
             <th className="text-end   px-3 py-2 font-medium text-emerald-500">{t('ع %', 'Cl %')}</th>
             <th className="text-end   px-3 py-2 font-medium text-emerald-500">{t('العيادة', 'Clinic')}</th>
+            <th className="px-3 py-2" />
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100 dark:divide-neutral-700/50">
           {txs.map((tx) => {
-            const extraCost = tx.procedureCost ?? 0;
-            const procName  = tx.procedureId ? (procedureMap.get(tx.procedureId)?.nameEn ?? '—') : '—';
+            const isDirty     = overrides.has(tx.id);
+            const rawOverride = overrides.get(tx.id) ?? '';
+            const overrideCost = isDirty ? (rawOverride === '' ? 0 : parseFloat(rawOverride) || 0) : (tx.procedureCost ?? 0);
+            const netPool     = (tx.approvedCharge - tx.sourceFeeAmount) + overrideCost;
+            const doctorShare = Math.round(netPool * tx.splitDoctorPercentage) / 100;
+            const clinicShare = Math.round(netPool * tx.splitClinicPercentage) / 100;
+            const procName    = tx.procedureId ? (procedureMap.get(tx.procedureId)?.nameEn ?? '—') : '—';
+
+            footerSession  += tx.approvedCharge;
+            footerMediator += tx.sourceFeeAmount;
+            footerExtra    += overrideCost;
+            footerNet      += netPool;
+            footerDoctor   += doctorShare;
+            footerClinic   += clinicShare;
+
             return (
-              <tr key={tx.id} className="hover:bg-white dark:hover:bg-neutral-700/20 transition-colors">
+              <tr key={tx.id} className={cn('transition-colors', isDirty ? 'bg-amber-50 dark:bg-amber-900/10' : 'hover:bg-white dark:hover:bg-neutral-700/20')}>
                 <td className="px-3 py-2 text-gray-600 dark:text-gray-400 whitespace-nowrap">{tx.transactionDate?.slice(0, 10)}</td>
                 <td className="px-3 py-2">
                   <span className="bg-gray-100 dark:bg-neutral-700 px-1.5 py-0.5 rounded text-gray-600 dark:text-gray-300">{tx.patientSource}</span>
@@ -555,16 +589,36 @@ function SettlementDetail({ doctorId, from, to, locale, t }: {
                 <td className="px-3 py-2 text-end font-mono text-orange-500">{tx.sourceFeePercentage}%</td>
                 <td className="px-3 py-2 text-end font-mono tabular-nums text-orange-600 dark:text-orange-400">{fmt(tx.sourceFeeAmount)}</td>
                 <td className="px-3 py-2 text-violet-600 dark:text-violet-400 whitespace-nowrap">
-                  {extraCost > 0 ? procName : <span className="text-gray-300 dark:text-gray-600">—</span>}
+                  {overrideCost > 0 ? procName : <span className="text-gray-300 dark:text-gray-600">—</span>}
                 </td>
-                <td className="px-3 py-2 text-end font-mono tabular-nums text-violet-600 dark:text-violet-400">
-                  {extraCost > 0 ? fmt(extraCost) : <span className="text-gray-300 dark:text-gray-600">—</span>}
+                <td className="px-3 py-2 text-end">
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={isDirty ? rawOverride : (tx.procedureCost ?? '')}
+                    onChange={(e) => handleCostChange(tx.id, e.target.value)}
+                    placeholder="0"
+                    className="w-20 text-end font-mono tabular-nums bg-transparent border border-transparent hover:border-gray-300 dark:hover:border-neutral-500 focus:border-violet-400 focus:outline-none rounded px-1 py-0.5 text-violet-600 dark:text-violet-400 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  />
                 </td>
-                <td className="px-3 py-2 text-end font-mono tabular-nums text-gray-700 dark:text-gray-300">{fmt(tx.grossRevenue)}</td>
+                <td className="px-3 py-2 text-end font-mono tabular-nums text-gray-700 dark:text-gray-300">{fmt(netPool)}</td>
                 <td className="px-3 py-2 text-end font-mono text-blue-500">{tx.splitDoctorPercentage}%</td>
-                <td className="px-3 py-2 text-end font-mono tabular-nums text-blue-700 dark:text-blue-400 font-semibold">{fmt(tx.doctorShare)}</td>
+                <td className="px-3 py-2 text-end font-mono tabular-nums text-blue-700 dark:text-blue-400 font-semibold">{fmt(doctorShare)}</td>
                 <td className="px-3 py-2 text-end font-mono text-emerald-500">{tx.splitClinicPercentage}%</td>
-                <td className="px-3 py-2 text-end font-mono tabular-nums text-emerald-700 dark:text-emerald-400 font-semibold">{fmt(tx.clinicShare)}</td>
+                <td className="px-3 py-2 text-end font-mono tabular-nums text-emerald-700 dark:text-emerald-400 font-semibold">{fmt(clinicShare)}</td>
+                <td className="px-3 py-2 whitespace-nowrap">
+                  {isDirty && (
+                    <div className="flex gap-1">
+                      <button onClick={() => handleSave(tx.id)} disabled={updateCost.isPending} className="p-1 rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400" title="Save">
+                        <Check className="w-3 h-3" />
+                      </button>
+                      <button onClick={() => handleReset(tx.id)} className="p-1 rounded bg-gray-100 hover:bg-gray-200 text-gray-500 dark:bg-neutral-700 dark:text-gray-400" title="Cancel">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
+                </td>
               </tr>
             );
           })}
@@ -572,28 +626,17 @@ function SettlementDetail({ doctorId, from, to, locale, t }: {
         <tfoot>
           <tr className="border-t border-gray-200 dark:border-neutral-600 bg-gray-50 dark:bg-neutral-700/30 font-semibold">
             <td colSpan={2} className="px-3 py-2 text-gray-500 text-xs">{t('المجموع', 'Total')} ({txs.length})</td>
-            <td className="px-3 py-2 text-end font-mono tabular-nums text-gray-800 dark:text-gray-200">
-              {fmt(txs.reduce((s, tx) => s + tx.approvedCharge, 0))}
-            </td>
+            <td className="px-3 py-2 text-end font-mono tabular-nums text-gray-800 dark:text-gray-200">{fmt(footerSession)}</td>
             <td />
-            <td className="px-3 py-2 text-end font-mono tabular-nums text-orange-600 dark:text-orange-400">
-              {fmt(txs.reduce((s, tx) => s + tx.sourceFeeAmount, 0))}
-            </td>
+            <td className="px-3 py-2 text-end font-mono tabular-nums text-orange-600 dark:text-orange-400">{fmt(footerMediator)}</td>
             <td />
-            <td className="px-3 py-2 text-end font-mono tabular-nums text-violet-600 dark:text-violet-400">
-              {fmt(txs.reduce((s, tx) => s + (tx.procedureCost ?? 0), 0))}
-            </td>
-            <td className="px-3 py-2 text-end font-mono tabular-nums text-gray-700 dark:text-gray-300">
-              {fmt(txs.reduce((s, tx) => s + tx.grossRevenue, 0))}
-            </td>
+            <td className="px-3 py-2 text-end font-mono tabular-nums text-violet-600 dark:text-violet-400">{fmt(footerExtra)}</td>
+            <td className="px-3 py-2 text-end font-mono tabular-nums text-gray-700 dark:text-gray-300">{fmt(footerNet)}</td>
             <td />
-            <td className="px-3 py-2 text-end font-mono tabular-nums text-blue-700 dark:text-blue-300">
-              {fmt(txs.reduce((s, tx) => s + tx.doctorShare, 0))}
-            </td>
+            <td className="px-3 py-2 text-end font-mono tabular-nums text-blue-700 dark:text-blue-300">{fmt(footerDoctor)}</td>
             <td />
-            <td className="px-3 py-2 text-end font-mono tabular-nums text-emerald-700 dark:text-emerald-300">
-              {fmt(txs.reduce((s, tx) => s + tx.clinicShare, 0))}
-            </td>
+            <td className="px-3 py-2 text-end font-mono tabular-nums text-emerald-700 dark:text-emerald-300">{fmt(footerClinic)}</td>
+            <td />
           </tr>
         </tfoot>
       </table>

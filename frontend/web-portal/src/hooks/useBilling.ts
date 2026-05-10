@@ -51,6 +51,23 @@ export interface SettlementParams {
   limit?: number;
 }
 
+export function useUpdateProcedureCost() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, procedureCost }: { id: string; procedureCost: number | null }) => {
+      const { data } = await billingApi.patch<{ data: FinancialTransaction }>(
+        `/transactions/${id}/procedure-cost`,
+        { procedureCost },
+      );
+      return data.data;
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['transactions'] });
+      void qc.invalidateQueries({ queryKey: ['settlements'] });
+    },
+  });
+}
+
 export function useSettlements(params: SettlementParams) {
   return useQuery({
     queryKey: ['settlements', params],

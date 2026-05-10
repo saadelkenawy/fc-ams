@@ -211,6 +211,22 @@ export async function createTransaction(
   });
 }
 
+export async function updateProcedureCost(
+  id: string,
+  procedureCost: number | null,
+): Promise<FinancialTransaction> {
+  return withTransaction(async (client: PoolClient) => {
+    const { rows } = await client.query(
+      `UPDATE financial_transactions SET procedure_cost = $2 WHERE id = $1 RETURNING *`,
+      [id, procedureCost],
+    );
+    if (!rows.length) {
+      throw Object.assign(new Error('Transaction not found'), { statusCode: 404, code: 'TRANSACTION_NOT_FOUND' });
+    }
+    return rowToTransaction(rows[0] as Record<string, unknown>);
+  });
+}
+
 export async function updatePaymentStatus(
   id: string,
   status: PaymentStatus,

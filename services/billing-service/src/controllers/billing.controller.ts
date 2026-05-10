@@ -78,6 +78,17 @@ export async function createTransaction(request: FastifyRequest, reply: FastifyR
   void reply.status(201).send({ success: true, data: tx });
 }
 
+const updateProcedureCostSchema = z.object({
+  procedureCost: z.number().min(0).nullable(),
+});
+
+export async function updateProcedureCost(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { id } = request.params as { id: string };
+  const { procedureCost } = updateProcedureCostSchema.parse(request.body);
+  const tx = await repo.updateProcedureCost(id, procedureCost);
+  void reply.send({ success: true, data: tx });
+}
+
 export async function updateStatus(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { id } = request.params as { id: string };
   const { status, settlementReference, checkInAmount, checkOutAmount } = updateStatusSchema.parse(request.body);

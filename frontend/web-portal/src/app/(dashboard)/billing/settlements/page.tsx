@@ -1,12 +1,12 @@
 'use client';
 
-import { useState } from 'react';
-import { Banknote, RefreshCw, ReceiptText, ChevronDown, ChevronRight, Building2, Stethoscope, Share2, Loader2, FlaskConical } from 'lucide-react';
+import { useState, useCallback } from 'react';
+import { Banknote, RefreshCw, ReceiptText, ChevronDown, ChevronRight, Building2, Stethoscope, Share2, Loader2, FlaskConical, Check, X } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { useLang } from '@/contexts/LanguageContext';
 import { formatCurrency } from '@/lib/utils';
-import { useSettlements, useTransactions } from '@/hooks/useBilling';
+import { useSettlements, useTransactions, useUpdateProcedureCost } from '@/hooks/useBilling';
 import { useDoctorMap } from '@/hooks/useDoctors';
 import { useProcedureMap } from '@/hooks/useProcedures';
 import { cn } from '@/lib/utils';
@@ -254,9 +254,30 @@ function SettlementDetail({ doctorId, from, to, locale, t }: {
   t: (ar: string, en: string) => string;
 }) {
   const { data: txData, isLoading } = useTransactions({ doctorId, dateFrom: from, dateTo: to, limit: 100 });
-  const procedureMap = useProcedureMap();
+  const procedureMap  = useProcedureMap();
+  const { mutateAsync: saveCost, isLoading: isSaving } = useUpdateProcedureCost();
+  // Local overrides: txId → overridden extra cost (string for input binding)
+  const [overrides, setOverrides] = useState<Map<string, string>>(new Map());
+
   const txs = txData?.data ?? [];
   const fmt = (n: number) => formatCurrency(n, 'EGP', locale);
+
+  const handleCostChange = useCallback((txId: string, value: string) => {
+    setOverrides((prev) => new Map(prev).set(txId, value));
+  }, []);
+
+  const handleSave = useCallback(async (txId: string, originalCost: number | undefined) => {
+    const raw = overrides.get(txId);
+    if (raw === undefined) return;
+    const parsed = raw === '' ? null : Number(raw);
+    if (parsed !== null && isNaN(parsed)) return;
+    await saveCost({ id: txId, procedureCost: parsed });
+    setOverrides((prev) => { const m = new Map(prev); m.delete(txId); return m; });
+  }, [overrides, saveCost]);
+
+  const handleReset = useCallback((txId: string) => {
+    setOverrides((prev) => { const m = new Map(prev); m.delete(txId); return m; });
+  }, []);
 
   if (isLoading) return (
     <div className="flex items-center gap-2 text-xs text-gray-400">
@@ -274,26 +295,38 @@ function SettlementDetail({ doctorId, from, to, locale, t }: {
             <th className="text-start px-3 py-2 font-medium text-gray-500">{t('المصدر', 'Source')}</th>
             <th className="text-end   px-3 py-2 font-medium text-gray-500">{t('رسم الجلسة', 'Session Fee')}</th>
             <th className="text-end   px-3 py-2 font-medium text-orange-500">{t('وسيط %', 'Src %')}</th>
-            <th className="text-end   px-3 py-2 font-medium text-orange-500">{t('حصة الوسيط', 'Mediator Cut')}</th>
+            <th className="text-end   px-3 py-2 font-medium text-orange-500">{t('الوسيط', 'Mediator')}</th>
             <th className="text-start px-3 py-2 font-medium text-violet-500">{t('خدمة إضافية', 'Extra Service')}</th>
-            <th className="text-end   px-3 py-2 font-medium text-violet-500">{t('تكلفة', 'Cost')}</th>
-            <th className="text-end   px-3 py-2 font-medium text-gray-500">{t('الصافي', 'Net Pool')}</th>
+            <th className="text-end   px-3 py-2 font-medium text-violet-500">{t('التكلفة ✎', 'Cost ✎')}</th>
+            <th className="text-end   px-3 py-2 font-medium text-gray-600 dark:text-gray-300">{t('الصافي', 'Net Pool')}</th>
             <th className="text-end   px-3 py-2 font-medium text-blue-500">{t('د %', 'Dr %')}</th>
-            <th className="text-end   px-3 py-2 font-medium text-blue-500">{t('حصة الطبيب', 'Doctor')}</th>
+            <th className="text-end   px-3 py-2 font-medium text-blue-500">{t('الطبيب', 'Doctor')}</th>
             <th className="text-end   px-3 py-2 font-medium text-emerald-500">{t('ع %', 'Cl %')}</th>
             <th className="text-end   px-3 py-2 font-medium text-emerald-500">{t('العيادة', 'Clinic')}</th>
+            <th className="w-14 px-2 py-2" />
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100 dark:divide-neutral-700/50">
           {txs.map((tx) => {
-            const extraCost  = tx.procedureCost ?? 0;
-            const procName   = tx.procedureId ? (procedureMap.get(tx.procedureId)?.nameEn ?? '—') : '—';
-            // netPool = stored grossRevenue (= remaining session fee + extra services)
-            const netPool    = tx.grossRevenue;
-            const drShare    = tx.doctorShare;
-            const clShare    = tx.clinicShare;
+            const hasOverride   = overrides.has(tx.id);
+            const rawOverride   = overrides.get(tx.id) ?? '';
+            const overrideCost  = hasOverride
+              ? (rawOverride === '' ? 0 : Math.max(0, Number(rawOverride) || 0))
+              : (tx.procedureCost ?? 0);
+            const isDirty       = hasOverride && overrideCost !== (tx.procedureCost ?? 0);
+            // Live recalculation using the (possibly overridden) extra cost
+            const netPool       = (tx.approvedCharge - tx.sourceFeeAmount) + overrideCost;
+            const drShare       = netPool * tx.splitDoctorPercentage / 100;
+            const clShare       = netPool * tx.splitClinicPercentage  / 100;
+            const procName      = tx.procedureId ? (procedureMap.get(tx.procedureId)?.nameEn ?? '—') : '—';
+
             return (
-              <tr key={tx.id} className="hover:bg-white dark:hover:bg-neutral-700/20 transition-colors">
+              <tr key={tx.id} className={cn(
+                'transition-colors',
+                isDirty
+                  ? 'bg-amber-50/60 dark:bg-amber-900/10'
+                  : 'hover:bg-white dark:hover:bg-neutral-700/20',
+              )}>
                 <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{tx.transactionDate?.slice(0, 10)}</td>
                 <td className="px-3 py-2">
                   <span className="bg-gray-100 dark:bg-neutral-700 px-1.5 py-0.5 rounded text-gray-600 dark:text-gray-300">{tx.patientSource}</span>
@@ -302,16 +335,62 @@ function SettlementDetail({ doctorId, from, to, locale, t }: {
                 <td className="px-3 py-2 text-end font-mono text-orange-500">{tx.sourceFeePercentage}%</td>
                 <td className="px-3 py-2 text-end font-mono tabular-nums text-orange-600 dark:text-orange-400">{fmt(tx.sourceFeeAmount)}</td>
                 <td className="px-3 py-2 text-violet-600 dark:text-violet-400 whitespace-nowrap">
-                  {extraCost > 0 ? procName : <span className="text-gray-300 dark:text-gray-600">—</span>}
+                  {overrideCost > 0 ? procName : <span className="text-gray-300 dark:text-gray-600">—</span>}
                 </td>
-                <td className="px-3 py-2 text-end font-mono tabular-nums text-violet-600 dark:text-violet-400">
-                  {extraCost > 0 ? fmt(extraCost) : <span className="text-gray-300 dark:text-gray-600">—</span>}
+                {/* Editable extra service cost */}
+                <td className="px-2 py-1.5 text-end">
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={hasOverride ? rawOverride : (tx.procedureCost ?? '')}
+                    placeholder="0"
+                    onChange={(e) => handleCostChange(tx.id, e.target.value)}
+                    className={cn(
+                      'w-24 text-end font-mono tabular-nums text-xs rounded border px-2 py-1 focus:outline-none focus:ring-2 transition-colors',
+                      isDirty
+                        ? 'border-amber-400 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300 focus:ring-amber-400'
+                        : 'border-violet-200 dark:border-violet-800 bg-white dark:bg-neutral-800 text-violet-700 dark:text-violet-300 focus:ring-violet-400',
+                    )}
+                  />
                 </td>
-                <td className="px-3 py-2 text-end font-mono tabular-nums text-gray-600 dark:text-gray-300">{fmt(netPool)}</td>
+                {/* Live-calculated net pool */}
+                <td className={cn(
+                  'px-3 py-2 text-end font-mono tabular-nums',
+                  isDirty ? 'text-amber-700 dark:text-amber-300 font-semibold' : 'text-gray-600 dark:text-gray-300',
+                )}>{fmt(netPool)}</td>
                 <td className="px-3 py-2 text-end font-mono text-blue-500">{tx.splitDoctorPercentage}%</td>
-                <td className="px-3 py-2 text-end font-mono tabular-nums text-blue-700 dark:text-blue-400 font-semibold">{fmt(drShare)}</td>
+                <td className={cn(
+                  'px-3 py-2 text-end font-mono tabular-nums font-semibold',
+                  isDirty ? 'text-amber-700 dark:text-amber-300' : 'text-blue-700 dark:text-blue-400',
+                )}>{fmt(drShare)}</td>
                 <td className="px-3 py-2 text-end font-mono text-emerald-500">{tx.splitClinicPercentage}%</td>
-                <td className="px-3 py-2 text-end font-mono tabular-nums text-emerald-700 dark:text-emerald-400 font-semibold">{fmt(clShare)}</td>
+                <td className={cn(
+                  'px-3 py-2 text-end font-mono tabular-nums font-semibold',
+                  isDirty ? 'text-amber-700 dark:text-amber-300' : 'text-emerald-700 dark:text-emerald-400',
+                )}>{fmt(clShare)}</td>
+                {/* Save / Reset controls */}
+                <td className="px-2 py-1.5">
+                  {isDirty ? (
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => void handleSave(tx.id, tx.procedureCost)}
+                        disabled={isSaving}
+                        title={t('حفظ', 'Save')}
+                        className="p-1 rounded text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors"
+                      >
+                        {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                      </button>
+                      <button
+                        onClick={() => handleReset(tx.id)}
+                        title={t('إلغاء', 'Cancel')}
+                        className="p-1 rounded text-gray-400 hover:bg-gray-100 dark:hover:bg-neutral-700 transition-colors"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ) : null}
+                </td>
               </tr>
             );
           })}
@@ -328,19 +407,36 @@ function SettlementDetail({ doctorId, from, to, locale, t }: {
             </td>
             <td />
             <td className="px-3 py-2 text-end font-mono tabular-nums text-violet-600 dark:text-violet-400">
-              {fmt(txs.reduce((s, tx) => s + (tx.procedureCost ?? 0), 0))}
+              {fmt(txs.reduce((s, tx) => {
+                const ov = overrides.get(tx.id);
+                return s + (ov !== undefined ? Math.max(0, Number(ov) || 0) : (tx.procedureCost ?? 0));
+              }, 0))}
             </td>
+            {/* Net pool total uses live overrides */}
             <td className="px-3 py-2 text-end font-mono tabular-nums text-gray-700 dark:text-gray-300">
-              {fmt(txs.reduce((s, tx) => s + tx.grossRevenue, 0))}
+              {fmt(txs.reduce((s, tx) => {
+                const ov = overrides.get(tx.id);
+                const ec = ov !== undefined ? Math.max(0, Number(ov) || 0) : (tx.procedureCost ?? 0);
+                return s + (tx.approvedCharge - tx.sourceFeeAmount) + ec;
+              }, 0))}
             </td>
             <td />
             <td className="px-3 py-2 text-end font-mono tabular-nums text-blue-700 dark:text-blue-300">
-              {fmt(txs.reduce((s, tx) => s + tx.doctorShare, 0))}
+              {fmt(txs.reduce((s, tx) => {
+                const ov = overrides.get(tx.id);
+                const ec = ov !== undefined ? Math.max(0, Number(ov) || 0) : (tx.procedureCost ?? 0);
+                return s + ((tx.approvedCharge - tx.sourceFeeAmount) + ec) * tx.splitDoctorPercentage / 100;
+              }, 0))}
             </td>
             <td />
             <td className="px-3 py-2 text-end font-mono tabular-nums text-emerald-700 dark:text-emerald-300">
-              {fmt(txs.reduce((s, tx) => s + tx.clinicShare, 0))}
+              {fmt(txs.reduce((s, tx) => {
+                const ov = overrides.get(tx.id);
+                const ec = ov !== undefined ? Math.max(0, Number(ov) || 0) : (tx.procedureCost ?? 0);
+                return s + ((tx.approvedCharge - tx.sourceFeeAmount) + ec) * tx.splitClinicPercentage / 100;
+              }, 0))}
             </td>
+            <td />
           </tr>
         </tfoot>
       </table>
