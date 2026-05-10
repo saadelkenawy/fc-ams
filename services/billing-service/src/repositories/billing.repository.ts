@@ -9,13 +9,6 @@ import type {
 } from '@fadl/types';
 import { withRlsContext, withTransaction, pool } from '../config/database';
 
-// Source fee percentages by patient source code
-const SOURCE_FEES: Record<string, number> = {
-  VEZ: 10,
-  EKF: 8,
-  SHL: 5,
-  DO: 0,
-};
 
 function rowToTransaction(row: Record<string, unknown>): FinancialTransaction {
   return {
@@ -151,11 +144,22 @@ export async function createTransaction(
       return rowToTransaction(existing[0] as Record<string, unknown>);
     }
 
-    const sourceFeePercentage = SOURCE_FEES[input.patientSource] ?? 0;
+    // Fetch source fee percentage from DB (supports Sources UI configuration)
+    const { rows: feeRows } = await client.query(
+      `SELECT fee_value FROM source_fee_rules
+       WHERE source_code = $1 AND is_active = TRUE
+         AND valid_from <= CURRENT_DATE
+         AND (valid_until IS NULL OR valid_until >= CURRENT_DATE)
+       LIMIT 1`,
+      [input.patientSource],
+    );
+    const sourceFeePercentage = feeRows.length > 0 ? Number((feeRows[0] as { fee_value: string }).fee_value) : 0;
+    // Mediator cut applies ONLY to the base session fee
     const sourceFeeAmount = input.approvedCharge * sourceFeePercentage / 100;
-    const grossRevenue = input.approvedCharge + (input.procedureCost ?? 0);
-    // Net pool = session fee minus mediator cut; split is applied on the net, not the gross
-    const netPool = input.approvedCharge - sourceFeeAmount;
+    // Net pool = remaining session fee + full cost of extra services (procedures)
+    // gross_revenue stores this net pool — the total amount split between doctor and clinic
+    const netPool = (input.approvedCharge - sourceFeeAmount) + (input.procedureCost ?? 0);
+    const grossRevenue = netPool;
     const doctorShare = netPool * input.splitDoctorPercentage / 100;
     const clinicShare = netPool * input.splitClinicPercentage / 100;
     const vatRate = 0.14;
@@ -292,12 +296,14 @@ export async function getDoctorSettlement(
 
     const totalConsultations = rows.filter((r) => !(r as Record<string, unknown>).procedure_id).length;
     const totalProcedures = rows.filter((r) => (r as Record<string, unknown>).procedure_id).length;
+    // gross_revenue stores the net pool (= remaining session fee + extra services)
     const grossRevenue = transactions.reduce((s, t) => s + t.grossRevenue, 0);
     const totalSourceFees = transactions.reduce((s, t) => s + t.sourceFeeAmount, 0);
-    // Recalculate shares from raw fields: net pool = session fee − mediator cut
-    const doctorShare = transactions.reduce((s, t) => s + (t.approvedCharge - t.sourceFeeAmount) * t.splitDoctorPercentage / 100, 0);
-    const clinicShare = transactions.reduce((s, t) => s + (t.approvedCharge - t.sourceFeeAmount) * t.splitClinicPercentage / 100, 0);
-    const netPayable = doctorShare; // doctor's net share is already after mediator deduction
+    const totalExtraServices = transactions.reduce((s, t) => s + (t.procedureCost ?? 0), 0);
+    // Use stored share values computed at transaction creation
+    const doctorShare = transactions.reduce((s, t) => s + t.doctorShare, 0);
+    const clinicShare = transactions.reduce((s, t) => s + t.clinicShare, 0);
+    const netPayable = doctorShare;
 
     const allPaid = transactions.every((t) => t.paymentStatus === 'paid');
     const status: PaymentStatus = allPaid ? 'paid' : 'pending';
@@ -312,6 +318,7 @@ export async function getDoctorSettlement(
       doctorShare,
       clinicShare,
       totalSourceFees,
+      totalExtraServices,
       netPayable,
       status,
       transactions,
@@ -342,11 +349,13 @@ export async function listDoctorSettlements(params: {
            ft.doctor_id,
            COUNT(*) FILTER (WHERE ft.procedure_id IS NULL)::int AS total_consultations,
            COUNT(*) FILTER (WHERE ft.procedure_id IS NOT NULL)::int AS total_procedures,
-           SUM(ft.gross_revenue) AS gross_revenue,
-           SUM(ft.source_fee_amount) AS total_source_fees,
-           SUM((ft.approved_charge - ft.source_fee_amount) * ft.split_doctor_percentage / 100.0) AS doctor_share,
-           SUM((ft.approved_charge - ft.source_fee_amount) * ft.split_clinic_percentage  / 100.0) AS clinic_share,
-           SUM((ft.approved_charge - ft.source_fee_amount) * ft.split_doctor_percentage / 100.0) AS net_payable
+           SUM(ft.approved_charge)                         AS total_session_fees,
+           SUM(COALESCE(ft.procedure_cost, 0))             AS total_extra_services,
+           SUM(ft.source_fee_amount)                       AS total_source_fees,
+           SUM(ft.gross_revenue)                           AS gross_revenue,
+           SUM(ft.doctor_share)                            AS doctor_share,
+           SUM(ft.clinic_share)                            AS clinic_share,
+           SUM(ft.doctor_share)                            AS net_payable
          FROM financial_transactions ft
          WHERE ft.transaction_date BETWEEN $1 AND $2
            AND ft.doctor_id IS NOT NULL
@@ -367,7 +376,9 @@ export async function listDoctorSettlements(params: {
         period: { from: params.from, to: params.to },
         totalConsultations: Number(row.total_consultations),
         totalProcedures: Number(row.total_procedures),
-        grossRevenue: Number(row.gross_revenue),
+        totalSessionFees: Number(row.total_session_fees),
+        totalExtraServices: Number(row.total_extra_services),
+        grossRevenue: Number(row.gross_revenue), // net pool = what doctor+clinic split
         doctorShare: Number(row.doctor_share),
         clinicShare: Number(row.clinic_share),
         totalSourceFees: Number(row.total_source_fees),

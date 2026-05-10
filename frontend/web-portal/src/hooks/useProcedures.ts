@@ -74,6 +74,13 @@ export function useUpdateProcedure() {
   });
 }
 
+/** Returns a Map<id, Procedure> for fast lookup by UUID — fetches all active procedures. */
+export function useProcedureMap(): Map<string, Procedure> {
+  const { data } = useProcedures({ isActive: true, limit: 200 });
+  const procedures = data?.data ?? [];
+  return new Map(procedures.map((p) => [p.id, p]));
+}
+
 export function useDeleteProcedure() {
   const qc = useQueryClient();
   return useMutation({

@@ -59,6 +59,11 @@ export interface DoctorSettlement {
   period: { from: string; to: string };
   totalConsultations: number;
   totalProcedures: number;
+  /** Sum of approvedCharge (base session fees billed to patient) */
+  totalSessionFees?: number;
+  /** Sum of procedureCost (extra services — added at full cost to net pool) */
+  totalExtraServices?: number;
+  /** Net pool = (session fees − mediator cuts) + extra services — what doctor+clinic split */
   grossRevenue: number;
   doctorShare: number;
   clinicShare: number;
