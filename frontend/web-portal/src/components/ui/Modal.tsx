@@ -10,19 +10,23 @@ interface ModalProps {
   title: string;
   subtitle?: string;
   children: ReactNode;
-  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | 'full';
+  stretch?: boolean;
   footer?: ReactNode;
 }
 
 const MAX_WIDTH = {
-  sm:  'max-w-sm',
-  md:  'max-w-md',
-  lg:  'max-w-lg',
-  xl:  'max-w-xl',
+  sm:   'max-w-sm',
+  md:   'max-w-md',
+  lg:   'max-w-lg',
+  xl:   'max-w-xl',
   '2xl': 'max-w-2xl',
+  '3xl': 'max-w-3xl',
+  '4xl': 'max-w-4xl',
+  full:  'max-w-full mx-4',
 } as const;
 
-export function Modal({ open, onClose, title, subtitle, children, maxWidth = 'xl', footer }: ModalProps) {
+export function Modal({ open, onClose, title, subtitle, children, maxWidth = 'xl', stretch = false, footer }: ModalProps) {
   useEffect(() => {
     if (!open) return;
     const prev = document.body.style.overflow;
@@ -36,7 +40,7 @@ export function Modal({ open, onClose, title, subtitle, children, maxWidth = 'xl
 
   return (
     <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className={cn('modal-panel', MAX_WIDTH[maxWidth])}>
+      <div className={cn('modal-panel', MAX_WIDTH[maxWidth], stretch && 'flex flex-col h-[90vh]')}>
         {/* Header */}
         <div className="flex items-start justify-between px-6 pt-6 pb-4 border-b border-gray-100 dark:border-neutral-800">
           <div>
@@ -52,7 +56,7 @@ export function Modal({ open, onClose, title, subtitle, children, maxWidth = 'xl
         </div>
 
         {/* Body */}
-        <div className="px-6 py-5 overflow-y-auto max-h-[70vh]">
+        <div className={cn('px-6 py-5 overflow-y-auto', stretch ? 'flex-1' : 'max-h-[80vh]')}>
           {children}
         </div>
 

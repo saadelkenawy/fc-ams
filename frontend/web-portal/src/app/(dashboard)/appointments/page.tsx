@@ -1,16 +1,17 @@
 'use client';
 
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { CalendarPlus, ChevronLeft, ChevronRight, CalendarDays, MoreVertical, Pencil, Trash2, Check, X } from 'lucide-react';
+import { CalendarPlus, ChevronLeft, ChevronRight, CalendarDays, MoreVertical, Pencil, Trash2, Check, X, Search, SlidersHorizontal } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge, AppointmentStatusBadge } from '@/components/ui/Badge';
 import { useLang } from '@/contexts/LanguageContext';
-import { formatTime } from '@/lib/utils';
+import { formatTime, cn } from '@/lib/utils';
 import { useAppointments } from '@/hooks/useAppointments';
 import { useDoctors, useDoctorMap, useSpecialtyMap } from '@/hooks/useDoctors';
 import { usePatientMap } from '@/hooks/usePatients';
+import { useDebounce } from '@/hooks/useDebounce';
 import { AddAppointmentModal } from '@/components/appointments/AddAppointmentModal';
 import { appointmentApi } from '@/lib/api';
 import type { Appointment, AppointmentStatus } from '@fadl/types';
@@ -258,12 +259,19 @@ function DeleteModal({ appointment, patientName, lang, t, onClose, onDone }: Del
 export default function AppointmentsPage() {
   const { lang, t } = useLang();
   const qc = useQueryClient();
-  const [activeTab, setActiveTab] = useState<AppointmentStatus | 'all'>('all');
-  const [date, setDate]           = useState(todayStr);
-  const [doctorId, setDoctorId]   = useState<string>('');
-  const [addOpen, setAddOpen]     = useState(false);
+  const [activeTab,  setActiveTab]  = useState<AppointmentStatus | 'all'>('all');
+  const [date,       setDate]       = useState(todayStr);
+  const [doctorId,   setDoctorId]   = useState<string>('');
+  const [addOpen,    setAddOpen]    = useState(false);
   const [statusAppt, setStatusAppt] = useState<Appointment | null>(null);
   const [deleteAppt, setDeleteAppt] = useState<Appointment | null>(null);
+
+  // Advanced filters (client-side)
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [patientSearch, setPatientSearch] = useState('');
+  const [typeFilter,    setTypeFilter]    = useState('');
+  const [sourceFilter,  setSourceFilter]  = useState('');
+  const debouncedPatient = useDebounce(patientSearch, 250);
 
   const { data, isLoading, isError, refetch } = useAppointments({
     date,
@@ -276,15 +284,33 @@ export default function AppointmentsPage() {
   const patientMap   = usePatientMap();
   const { data: doctorList } = useDoctors({ isActive: true, limit: 200 });
 
+  const hasActiveFilters = !!(patientSearch || typeFilter || sourceFilter);
+
+  const filtered = useMemo(() => {
+    let list = activeTab === 'all' ? appointments : appointments.filter((a) => a.status === activeTab);
+    if (debouncedPatient.trim()) {
+      const q = debouncedPatient.toLowerCase();
+      list = list.filter((a) => {
+        const p = patientMap.get(a.patientId);
+        const name = p ? (p.nameAr ?? p.nameEn ?? '').toLowerCase() + ' ' + p.nameEn.toLowerCase() : '';
+        return name.includes(q);
+      });
+    }
+    if (typeFilter)   list = list.filter((a) => a.appointmentType === typeFilter);
+    if (sourceFilter) list = list.filter((a) => a.patientSource === sourceFilter);
+    return list;
+  }, [appointments, activeTab, debouncedPatient, patientMap, typeFilter, sourceFilter]);
+
   const statusCounts = useMemo(() => {
     const m: Record<string, number> = {};
     appointments.forEach((a) => { m[a.status] = (m[a.status] ?? 0) + 1; });
     return m;
   }, [appointments]);
 
-  const visible = activeTab === 'all'
-    ? appointments
-    : appointments.filter((a) => a.status === activeTab);
+  // Unique sources in current day's data
+  const availableSources = useMemo(() => [...new Set(appointments.map((a) => a.patientSource).filter(Boolean))].sort(), [appointments]);
+
+  const visible = filtered;
 
   function shiftDate(days: number) {
     const d = new Date(date);
@@ -311,73 +337,147 @@ export default function AppointmentsPage() {
       </div>
 
       {/* Date nav + doctor filter + status tabs */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3 flex-wrap">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => shiftDate(-1)}
-            className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-700 text-gray-500 dark:text-gray-300 transition-colors"
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 flex-wrap">
+          {/* Date navigation */}
+          <div className="flex items-center gap-2">
+            <button onClick={() => shiftDate(-1)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-700 text-gray-500 dark:text-gray-300 transition-colors">
+              {lang === 'ar' ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+            </button>
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="h-9 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-gray-900 dark:text-gray-100 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600"
+            />
+            <button onClick={() => shiftDate(1)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-700 text-gray-500 dark:text-gray-300 transition-colors">
+              {lang === 'ar' ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+            </button>
+            {!isToday && (
+              <button onClick={() => setDate(todayStr())} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400 hover:bg-primary-100 dark:hover:bg-primary-900/30 transition-colors border border-primary-100 dark:border-primary-800">
+                <CalendarDays className="w-3.5 h-3.5" />{t('اليوم', 'Today')}
+              </button>
+            )}
+          </div>
+
+          {/* Doctor filter */}
+          <select
+            value={doctorId}
+            onChange={(e) => { setDoctorId(e.target.value); setActiveTab('all'); }}
+            className="h-9 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-gray-700 dark:text-gray-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600 min-w-[160px]"
           >
-            {lang === 'ar' ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-          </button>
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="h-9 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-gray-900 dark:text-gray-100 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600"
-          />
+            <option value="">{t('كل الأطباء', 'All Doctors')}</option>
+            {(doctorList?.data ?? []).map((d) => (
+              <option key={d.id} value={d.id}>{lang === 'ar' ? (d.nameAr ?? d.nameEn) : d.nameEn}</option>
+            ))}
+          </select>
+
+          {/* Patient search */}
+          <div className="relative flex-1 min-w-40">
+            <Search className="absolute inset-y-0 start-3 my-auto w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+            <input
+              type="text"
+              value={patientSearch}
+              onChange={(e) => setPatientSearch(e.target.value)}
+              placeholder={t('بحث باسم المريض...', 'Search patient...')}
+              className="w-full h-9 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 ps-8 pe-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600"
+            />
+            {patientSearch && (
+              <button onClick={() => setPatientSearch('')} className="absolute inset-y-0 end-2 my-auto text-gray-300 hover:text-gray-500">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Advanced toggle */}
           <button
-            onClick={() => shiftDate(1)}
-            className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-700 text-gray-500 dark:text-gray-300 transition-colors"
+            onClick={() => setShowAdvanced((v) => !v)}
+            className={cn(
+              'flex items-center gap-1.5 h-9 px-3 rounded-lg border text-sm transition-colors',
+              showAdvanced
+                ? 'border-primary-400 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
+                : 'border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50',
+            )}
           >
-            {lang === 'ar' ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            {t('متقدم', 'Advanced')}
+            {hasActiveFilters && <span className="w-2 h-2 rounded-full bg-primary-500" />}
           </button>
-          {!isToday && (
+
+          {hasActiveFilters && (
             <button
-              onClick={() => setDate(todayStr())}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400 hover:bg-primary-100 dark:hover:bg-primary-900/30 transition-colors border border-primary-100 dark:border-primary-800"
+              onClick={() => { setPatientSearch(''); setTypeFilter(''); setSourceFilter(''); }}
+              className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1"
             >
-              <CalendarDays className="w-3.5 h-3.5" />
-              {t('اليوم', 'Today')}
+              <X className="w-3 h-3" />{t('مسح', 'Clear')}
             </button>
           )}
         </div>
 
-        {/* Doctor filter */}
-        <select
-          value={doctorId}
-          onChange={(e) => { setDoctorId(e.target.value); setActiveTab('all'); }}
-          className="h-9 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-gray-700 dark:text-gray-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600 min-w-[160px]"
-        >
-          <option value="">{t('كل الأطباء', 'All Doctors')}</option>
-          {(doctorList?.data ?? []).map((d) => (
-            <option key={d.id} value={d.id}>
-              {lang === 'ar' ? (d.nameAr ?? d.nameEn) : d.nameEn}
-            </option>
-          ))}
-        </select>
-
-        <div className="pill-tab-bar overflow-x-auto">
-          {STATUS_TABS.map((tab) => {
-            const count = tab.status === 'all' ? appointments.length : (statusCounts[tab.status] ?? 0);
-            return (
-              <button
-                key={tab.status}
-                onClick={() => setActiveTab(tab.status)}
-                className={`pill-tab whitespace-nowrap flex items-center gap-1.5 ${activeTab === tab.status ? 'active' : ''}`}
+        {/* Advanced filter panel */}
+        {showAdvanced && (
+          <div className="rounded-xl border border-gray-200 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-800/60 px-4 py-3 flex flex-wrap gap-4 items-end">
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-gray-500">{t('نوع الموعد', 'Appointment Type')}</p>
+              <select
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value)}
+                className="h-9 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-gray-700 dark:text-gray-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600"
               >
-                {lang === 'ar' ? tab.labelAr : tab.labelEn}
-                {count > 0 && (
-                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none ${
-                    activeTab === tab.status
-                      ? 'bg-white/25 text-white'
-                      : 'bg-gray-100 dark:bg-neutral-700 text-gray-600 dark:text-gray-300'
-                  }`}>
-                    {count}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+                <option value="">{t('الكل', 'All types')}</option>
+                <option value="in_person">{t('حضوري', 'In Person')}</option>
+                <option value="online">{t('أونلاين', 'Online')}</option>
+                <option value="walk_in">{t('بدون موعد', 'Walk-in')}</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-gray-500">{t('مصدر المريض', 'Patient Source')}</p>
+              <select
+                value={sourceFilter}
+                onChange={(e) => setSourceFilter(e.target.value)}
+                className="h-9 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-gray-700 dark:text-gray-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600"
+              >
+                <option value="">{t('الكل', 'All sources')}</option>
+                {availableSources.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <button
+              onClick={() => { setPatientSearch(''); setTypeFilter(''); setSourceFilter(''); }}
+              className="h-9 px-3 text-xs text-gray-400 hover:text-gray-600 border border-gray-200 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 hover:bg-gray-50 flex items-center gap-1"
+            >
+              <X className="w-3 h-3" />{t('مسح الفلاتر', 'Clear filters')}
+            </button>
+          </div>
+        )}
+
+        {/* Status tabs */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="pill-tab-bar overflow-x-auto">
+            {STATUS_TABS.map((tab) => {
+              const count = tab.status === 'all' ? appointments.length : (statusCounts[tab.status] ?? 0);
+              return (
+                <button
+                  key={tab.status}
+                  onClick={() => setActiveTab(tab.status)}
+                  className={`pill-tab whitespace-nowrap flex items-center gap-1.5 ${activeTab === tab.status ? 'active' : ''}`}
+                >
+                  {lang === 'ar' ? tab.labelAr : tab.labelEn}
+                  {count > 0 && (
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none ${
+                      activeTab === tab.status ? 'bg-white/25 text-white' : 'bg-gray-100 dark:bg-neutral-700 text-gray-600 dark:text-gray-300'
+                    }`}>
+                      {count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          {hasActiveFilters && (
+            <span className="text-xs text-gray-400">
+              {visible.length} / {appointments.length} {t('موعد', 'appts')}
+            </span>
+          )}
         </div>
       </div>
 
@@ -387,7 +487,7 @@ export default function AppointmentsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
-                  {[t('الوقت','Time'), t('المريض','Patient'), t('الطبيب','Doctor'), t('التخصص','Specialty'), t('الحالة','Status'), t('الرسوم','Charge'), ''].map((h, i) => (
+                  {[t('الوقت','Time'), t('المريض','Patient'), t('الطبيب','Doctor'), t('التخصص','Specialty'), t('المصدر','Source'), t('الحالة','Status'), t('الرسوم','Charge'), ''].map((h, i) => (
                     <th key={i} className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{h}</th>
                   ))}
                 </tr>
@@ -414,6 +514,7 @@ export default function AppointmentsPage() {
                     <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('المريض', 'Patient')}</th>
                     <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الطبيب', 'Doctor')}</th>
                     <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('التخصص', 'Specialty')}</th>
+                    <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('المصدر', 'Source')}</th>
                     <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الحالة', 'Status')}</th>
                     <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الرسوم', 'Charge')}</th>
                     <th className="px-3 py-3" />
@@ -440,6 +541,11 @@ export default function AppointmentsPage() {
                           {specialty ? (lang === 'ar' ? specialty.nameAr : specialty.nameEn) : '—'}
                         </td>
                         <td className="px-5 py-3.5">
+                          {a.patientSource
+                            ? <span className="text-xs bg-gray-100 dark:bg-neutral-700 text-gray-600 dark:text-gray-300 px-1.5 py-0.5 rounded font-mono">{a.patientSource}</span>
+                            : <span className="text-gray-300">—</span>}
+                        </td>
+                        <td className="px-5 py-3.5">
                           <AppointmentStatusBadge status={a.status} lang={lang} />
                         </td>
                         <td className="px-5 py-3.5 font-mono text-gray-700 dark:text-gray-200 tabular-nums">
@@ -459,8 +565,10 @@ export default function AppointmentsPage() {
                   })}
                   {visible.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="px-5 py-12 text-center text-gray-400 dark:text-gray-300">
-                        {t('لا توجد مواعيد', 'No appointments found')}
+                      <td colSpan={8} className="px-5 py-12 text-center text-gray-400 dark:text-gray-300">
+                        {hasActiveFilters
+                          ? t('لا توجد نتائج تطابق الفلتر', 'No appointments match the filter')
+                          : t('لا توجد مواعيد', 'No appointments found')}
                       </td>
                     </tr>
                   )}

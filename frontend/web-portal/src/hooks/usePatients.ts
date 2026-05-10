@@ -7,15 +7,18 @@ export interface PatientListParams {
   query?: string;
   page?: number;
   limit?: number;
+  enabled?: boolean;
 }
 
 export function usePatients(params: PatientListParams = {}) {
+  const { enabled = true, ...queryParams } = params;
   return useQuery({
-    queryKey: ['patients', params],
+    queryKey: ['patients', queryParams],
     queryFn: async () => {
-      const res = await patientApi.get('/patients', { params });
+      const res = await patientApi.get('/patients', { params: queryParams });
       return res.data as PaginatedResponse<Patient>;
     },
+    enabled,
     staleTime: 30_000,
     keepPreviousData: true,
   });
