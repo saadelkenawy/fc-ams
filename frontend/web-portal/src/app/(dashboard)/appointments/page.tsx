@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useMemo, useRef, useEffect } from 'react';
-import { CalendarPlus, ChevronLeft, ChevronRight, CalendarDays, MoreVertical, Pencil, Trash2, Check, X, Search, SlidersHorizontal } from 'lucide-react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { CalendarPlus, ChevronLeft, ChevronRight, CalendarDays, MoreVertical, Pencil, Trash2, Check, X, Search, SlidersHorizontal, CalendarOff } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -48,6 +48,10 @@ const STATUS_TABS: { status: AppointmentStatus | 'all'; labelAr: string; labelEn
 
 function todayStr() {
   return new Date().toISOString().split('T')[0];
+}
+
+function formatName(str: string): string {
+  return str.split(' ').map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
 }
 
 function SkeletonRow() {
@@ -97,7 +101,7 @@ function ActionMenu({ appointment, lang, t, onStatusChange, onDelete }: ActionMe
         <MoreVertical className="w-4 h-4" />
       </button>
       {open && (
-        <div className="absolute end-0 top-8 z-30 w-44 rounded-xl border border-gray-100 dark:border-neutral-700 bg-white dark:bg-neutral-800 shadow-lg py-1 text-sm">
+        <div className="absolute end-0 top-8 z-50 w-44 rounded-xl border border-gray-100 dark:border-neutral-700 bg-white dark:bg-neutral-800 shadow-lg py-1 text-sm">
           {canChange && (
             <button
               onClick={(e) => { e.stopPropagation(); setOpen(false); onStatusChange(appointment); }}
@@ -462,13 +466,11 @@ export default function AppointmentsPage() {
                   className={`pill-tab whitespace-nowrap flex items-center gap-1.5 ${activeTab === tab.status ? 'active' : ''}`}
                 >
                   {lang === 'ar' ? tab.labelAr : tab.labelEn}
-                  {count > 0 && (
                     <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none ${
                       activeTab === tab.status ? 'bg-white/25 text-white' : 'bg-gray-100 dark:bg-neutral-700 text-gray-600 dark:text-gray-300'
                     }`}>
                       {count}
                     </span>
-                  )}
                 </button>
               );
             })}
@@ -506,9 +508,9 @@ export default function AppointmentsPage() {
             </div>
           )}
           {!isLoading && !isError && (
-            <div className="overflow-x-auto">
+            <div className="min-h-[400px]">
               <table className="w-full text-sm">
-                <thead>
+                <thead className="sticky top-0 z-10 bg-white dark:bg-neutral-800 shadow-sm">
                   <tr className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
                     <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الوقت', 'Time')}</th>
                     <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('المريض', 'Patient')}</th>
@@ -526,7 +528,7 @@ export default function AppointmentsPage() {
                     const specialty = a.specialtyId ? specialtyMap.get(a.specialtyId) : null;
                     const patient   = patientMap.get(a.patientId);
                     const patName   = patient
-                      ? (lang === 'ar' ? (patient.nameAr ?? patient.nameEn) : patient.nameEn)
+                      ? formatName(lang === 'ar' ? (patient.nameAr ?? patient.nameEn) : patient.nameEn)
                       : a.patientId.slice(-8).toUpperCase();
                     return (
                       <tr key={a.id} className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors">
@@ -602,7 +604,7 @@ export default function AppointmentsPage() {
           patientName={
             (() => {
               const p = patientMap.get(deleteAppt.patientId);
-              return p ? (lang === 'ar' ? (p.nameAr ?? p.nameEn) : p.nameEn) : deleteAppt.patientId.slice(-8).toUpperCase();
+              return p ? formatName(lang === 'ar' ? (p.nameAr ?? p.nameEn) : p.nameEn) : deleteAppt.patientId.slice(-8).toUpperCase();
             })()
           }
           lang={lang}
