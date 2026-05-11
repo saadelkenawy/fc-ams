@@ -182,15 +182,25 @@ export async function appointmentRoutes(app: FastifyInstance): Promise<void> {
     schema: { tags: ['queue'], params: idParam },
   }, queue.markNoShow);
 
-  // DELETE /queue/:id
+  // DELETE /queue/:id  (cancel + auto-rejoin at end)
   app.delete('/queue/:id', {
     preHandler: [requireRole('receptionist', 'admin')],
     schema: { tags: ['queue'], params: idParam },
   }, queue.cancelFromQueue);
 
-  // POST /queue/:id/rejoin
+  // GET /queue/:id/cancel-preview  (read-only shift preview for confirmation dialog)
+  app.get('/queue/:id/cancel-preview', {
+    schema: { tags: ['queue'], params: idParam },
+  }, queue.previewCancel);
+
+  // POST /queue/:id/rejoin  (manual rejoin for no_show only)
   app.post('/queue/:id/rejoin', {
     preHandler: [requireRole('receptionist', 'admin')],
     schema: { tags: ['queue'], params: idParam },
   }, queue.rejoinQueue);
+
+  // GET /queue/stream  (SSE — real-time queue updates)
+  app.get('/queue/stream', {
+    schema: { tags: ['queue'] },
+  }, queue.queueStream);
 }

@@ -90,15 +90,26 @@ export interface PatientQueueEntry {
   patientId: string;
   queueDate: string; // ISO date
   position: number;
+  originalPosition?: number;
   status: QueueStatus;
   checkedInAt: string;
   calledAt?: string;
+  cancelledAt?: string;
+  cancelReason?: string;
+  rejoinedAt?: string;
+  rejoinPosition?: number;
   sessionStart?: string;
   sessionEnd?: string;
   estimatedWaitMinutes?: number;
   branchId: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface QueueCancelPreview {
+  cancelledPosition: number;
+  newEndPosition: number;
+  patientsToShift: number;
 }
 
 export interface QueueStats {

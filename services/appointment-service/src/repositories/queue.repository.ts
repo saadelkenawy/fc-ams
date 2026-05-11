@@ -13,9 +13,14 @@ function rowToEntry(r: Record<string, unknown>): PatientQueueEntry {
     patientId: r.patient_id as string,
     queueDate: (r.queue_date as Date).toISOString().split('T')[0],
     position: r.position as number,
+    originalPosition: r.original_position as number | undefined,
     status: r.status as QueueStatus,
     checkedInAt: (r.checked_in_at as Date).toISOString(),
     calledAt: r.called_at ? (r.called_at as Date).toISOString() : undefined,
+    cancelledAt: r.cancelled_at ? (r.cancelled_at as Date).toISOString() : undefined,
+    cancelReason: r.cancel_reason as string | undefined,
+    rejoinedAt: r.rejoined_at ? (r.rejoined_at as Date).toISOString() : undefined,
+    rejoinPosition: r.rejoin_position as number | undefined,
     sessionStart: r.session_start ? (r.session_start as Date).toISOString() : undefined,
     sessionEnd: r.session_end ? (r.session_end as Date).toISOString() : undefined,
     estimatedWaitMinutes: r.estimated_wait_minutes as number | undefined,
@@ -51,16 +56,14 @@ export async function checkIn(
   performedBy: string,
 ): Promise<PatientQueueEntry> {
   return withTransaction(async (client: PoolClient) => {
-    // Verify appointment exists and is confirmed
     const { rows: apptRows } = await client.query(
-      `SELECT id, status FROM appointments WHERE appointment_date = $1 AND id = $2 AND deleted_at IS NULL`,
+      `SELECT id FROM appointments WHERE appointment_date = $1 AND id = $2 AND deleted_at IS NULL`,
       [queueDate, appointmentId],
     );
     if (!apptRows.length) {
       throw Object.assign(new Error('Appointment not found'), { code: 'APPOINTMENT_NOT_FOUND', statusCode: 404 });
     }
 
-    // Check not already in queue
     const { rows: existing } = await client.query(
       `SELECT id FROM patient_queue WHERE appointment_id = $1`,
       [appointmentId],
@@ -69,7 +72,7 @@ export async function checkIn(
       throw Object.assign(new Error('Patient already checked in'), { code: 'ALREADY_CHECKED_IN', statusCode: 409 });
     }
 
-    // Get next position (SELECT FOR UPDATE to prevent race conditions)
+    // Atomic position claim (SELECT FOR UPDATE)
     const { rows: maxRows } = await client.query(
       `SELECT COALESCE(MAX(position), 0) + 1 AS next_pos
        FROM patient_queue
@@ -80,7 +83,6 @@ export async function checkIn(
     );
     const position = (maxRows[0] as { next_pos: number }).next_pos;
 
-    // Estimate wait time
     const { rows: avgRows } = await client.query(
       `SELECT COALESCE(AVG(EXTRACT(EPOCH FROM (session_end - session_start))/60), 15)::int AS avg_mins
        FROM patient_queue
@@ -89,14 +91,13 @@ export async function checkIn(
       [doctorId, queueDate],
     );
     const avgMins = (avgRows[0] as { avg_mins: number }).avg_mins;
-    const waitingAhead = position - 1;
-    const estimatedWait = waitingAhead * avgMins;
+    const estimatedWait = (position - 1) * avgMins;
 
     const id = uuidv4();
     const { rows } = await client.query(
       `INSERT INTO patient_queue
-         (id, appointment_id, doctor_id, patient_id, queue_date, position, status, estimated_wait_minutes, branch_id)
-       VALUES ($1,$2,$3,$4,$5,$6,'waiting',$7,$8) RETURNING *`,
+         (id, appointment_id, doctor_id, patient_id, queue_date, position, original_position, status, estimated_wait_minutes, branch_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$6,'waiting',$7,$8) RETURNING *`,
       [id, appointmentId, doctorId, patientId, queueDate, position, estimatedWait, branchId],
     );
 
@@ -164,102 +165,146 @@ export async function completeSession(queueId: string, performedBy: string, bran
 }
 
 // ── No-Show ───────────────────────────────────────────────────────────────────
+// Shift others up; patient does NOT rejoin end of queue.
 
 export async function markNoShow(queueId: string, performedBy: string, branchId: number): Promise<PatientQueueEntry> {
   return withTransaction(async (client: PoolClient) => {
     const { rows: existing } = await client.query(
-      `SELECT position, status FROM patient_queue WHERE id = $1 FOR UPDATE`,
-      [queueId],
-    );
-    if (!existing.length) {
-      throw Object.assign(new Error('Queue entry not found'), { code: 'NOT_FOUND', statusCode: 404 });
-    }
-    const { position, status } = existing[0] as { position: number; status: QueueStatus };
-    if (!['waiting', 'called'].includes(status)) {
-      throw Object.assign(new Error('Cannot mark no-show from current status'), { code: 'INVALID_TRANSITION', statusCode: 409 });
-    }
-
-    const { rows } = await client.query(
-      `UPDATE patient_queue SET status = 'no_show', updated_at = NOW()
-       WHERE id = $1 RETURNING *`,
-      [queueId],
-    );
-
-    // Shift positions of those behind
-    await shiftPositions(client, (existing[0] as Record<string, unknown>).doctor_id as string,
-      (existing[0] as Record<string, unknown>).queue_date as string, position, branchId);
-
-    const entry = rowToEntry(rows[0] as Record<string, unknown>);
-    await logEvent(client, queueId, 'no_show', branchId, { oldPosition: position, performedBy });
-    return entry;
-  });
-}
-
-// ── Cancel & Shift ────────────────────────────────────────────────────────────
-
-export async function cancelAndShift(
-  queueId: string,
-  performedBy: string,
-  branchId: number,
-): Promise<PatientQueueEntry> {
-  return withTransaction(async (client: PoolClient) => {
-    const { rows: existing } = await client.query(
-      `SELECT position, doctor_id, queue_date, status FROM patient_queue WHERE id = $1 FOR UPDATE`,
+      `SELECT id, position, doctor_id, queue_date, status FROM patient_queue WHERE id = $1 FOR UPDATE`,
       [queueId],
     );
     if (!existing.length) {
       throw Object.assign(new Error('Queue entry not found'), { code: 'NOT_FOUND', statusCode: 404 });
     }
     const row = existing[0] as Record<string, unknown>;
-    const position = row.position as number;
-    const doctorId = row.doctor_id as string;
-    const queueDate = row.queue_date as string;
-
     if (!['waiting', 'called'].includes(row.status as string)) {
-      throw Object.assign(new Error('Cannot cancel from current status'), { code: 'INVALID_TRANSITION', statusCode: 409 });
+      throw Object.assign(new Error('Cannot mark no-show from current status'), { code: 'INVALID_TRANSITION', statusCode: 409 });
     }
 
     const { rows } = await client.query(
-      `UPDATE patient_queue SET status = 'cancelled', updated_at = NOW()
-       WHERE id = $1 RETURNING *`,
+      `UPDATE patient_queue SET status = 'no_show', updated_at = NOW() WHERE id = $1 RETURNING *`,
       [queueId],
     );
-
-    await shiftPositions(client, doctorId, queueDate, position, branchId);
+    await shiftPositions(client, row.doctor_id as string, row.queue_date as string, row.position as number, branchId);
 
     const entry = rowToEntry(rows[0] as Record<string, unknown>);
-    await logEvent(client, queueId, 'cancelled', branchId, { oldPosition: position, performedBy });
+    await logEvent(client, queueId, 'no_show', branchId, { oldPosition: row.position as number, performedBy });
     return entry;
   });
 }
 
-// Decrement positions of all entries with position > cancelledPosition
+// ── Cancel & Auto-Rejoin (atomic) ─────────────────────────────────────────────
+// RULE 2: cancel → shift others up → rejoin at end — all in one transaction.
+
+export interface CancelResult {
+  entry: PatientQueueEntry;
+  cancelledPosition: number;
+  newPosition: number;
+  patientsShifted: Array<{ patientId: string; oldPosition: number; newPosition: number }>;
+}
+
+export async function cancelAndShift(
+  queueId: string,
+  performedBy: string,
+  branchId: number,
+  reason?: string,
+): Promise<CancelResult> {
+  return withTransaction(async (client: PoolClient) => {
+    // Lock the row
+    const { rows: existing } = await client.query(
+      `SELECT id, position, doctor_id, queue_date, patient_id, status
+       FROM patient_queue WHERE id = $1 FOR UPDATE`,
+      [queueId],
+    );
+    if (!existing.length) {
+      throw Object.assign(new Error('Queue entry not found'), { code: 'NOT_FOUND', statusCode: 404 });
+    }
+    const row = existing[0] as Record<string, unknown>;
+    if (!['waiting', 'called'].includes(row.status as string)) {
+      throw Object.assign(new Error('Cannot cancel from current status'), { code: 'INVALID_TRANSITION', statusCode: 409 });
+    }
+
+    const cancelledPosition = row.position as number;
+    const doctorId = row.doctor_id as string;
+    const queueDate = row.queue_date as string;
+
+    // Step 1 — Mark cancelled, clear session fields
+    await client.query(
+      `UPDATE patient_queue
+       SET status = 'cancelled', cancelled_at = NOW(), cancel_reason = $2,
+           called_at = NULL, session_start = NULL, session_end = NULL, updated_at = NOW()
+       WHERE id = $1`,
+      [queueId, reason ?? null],
+    );
+    await logEvent(client, queueId, 'cancelled', branchId, { oldPosition: cancelledPosition, performedBy,
+      metadata: reason ? { reason } : undefined });
+
+    // Step 2 — Shift everyone behind up by 1, collect shift records
+    const shifted = await shiftPositions(client, doctorId, queueDate, cancelledPosition, branchId);
+
+    // Step 3 — Claim end position (FOR UPDATE to guard concurrent cancels)
+    const { rows: maxRows } = await client.query(
+      `SELECT COALESCE(MAX(position), 0) + 1 AS next_pos
+       FROM patient_queue
+       WHERE doctor_id = $1 AND queue_date = $2 AND status IN ('waiting', 'called', 'in_session')
+       FOR UPDATE`,
+      [doctorId, queueDate],
+    );
+    const newPosition = (maxRows[0] as { next_pos: number }).next_pos;
+
+    // Step 4 — Rejoin at end
+    const { rows } = await client.query(
+      `UPDATE patient_queue
+       SET status = 'waiting', position = $1, rejoined_at = NOW(), rejoin_position = $1, updated_at = NOW()
+       WHERE id = $2 RETURNING *`,
+      [newPosition, queueId],
+    );
+    await logEvent(client, queueId, 'rejoined', branchId, {
+      oldPosition: cancelledPosition, newPosition, performedBy,
+    });
+
+    const entry = rowToEntry(rows[0] as Record<string, unknown>);
+    return {
+      entry,
+      cancelledPosition,
+      newPosition,
+      patientsShifted: shifted,
+    };
+  });
+}
+
+// Decrement positions of entries with position > cancelledPosition, returns shift records
 async function shiftPositions(
   client: PoolClient,
   doctorId: string,
   queueDate: string,
   cancelledPosition: number,
   branchId: number,
-): Promise<void> {
+): Promise<Array<{ patientId: string; oldPosition: number; newPosition: number }>> {
   const { rows } = await client.query(
     `UPDATE patient_queue SET position = position - 1, updated_at = NOW()
      WHERE doctor_id = $1 AND queue_date = $2
        AND position > $3
        AND status IN ('waiting', 'called')
-     RETURNING id, position`,
+     RETURNING id, patient_id, position`,
     [doctorId, queueDate, cancelledPosition],
   );
 
+  const shifted: Array<{ patientId: string; oldPosition: number; newPosition: number }> = [];
   for (const r of rows) {
     const row = r as Record<string, unknown>;
+    const newPos = row.position as number;
+    const oldPos = newPos + 1;
+    shifted.push({ patientId: row.patient_id as string, oldPosition: oldPos, newPosition: newPos });
     await logEvent(client, row.id as string, 'position_shifted', branchId, {
-      oldPosition: (row.position as number) + 1,
-      newPosition: row.position as number,
+      oldPosition: oldPos,
+      newPosition: newPos,
     });
   }
+  return shifted;
 }
 
-// ── Rejoin Queue ──────────────────────────────────────────────────────────────
+// ── Rejoin Queue (manual, for no_show) ───────────────────────────────────────
 
 export async function rejoinQueue(
   queueId: string,
@@ -275,8 +320,8 @@ export async function rejoinQueue(
       throw Object.assign(new Error('Queue entry not found'), { code: 'NOT_FOUND', statusCode: 404 });
     }
     const row = existing[0] as Record<string, unknown>;
-    if (!['cancelled', 'no_show'].includes(row.status as string)) {
-      throw Object.assign(new Error('Can only rejoin from cancelled or no_show status'), { code: 'INVALID_TRANSITION', statusCode: 409 });
+    if (row.status !== 'no_show') {
+      throw Object.assign(new Error('Manual rejoin only available for no_show entries'), { code: 'INVALID_TRANSITION', statusCode: 409 });
     }
 
     const { rows: maxRows } = await client.query(
@@ -290,7 +335,8 @@ export async function rejoinQueue(
 
     const { rows } = await client.query(
       `UPDATE patient_queue
-       SET status = 'waiting', position = $1, called_at = NULL, session_start = NULL, session_end = NULL, updated_at = NOW()
+       SET status = 'waiting', position = $1, rejoined_at = NOW(), rejoin_position = $1,
+           called_at = NULL, session_start = NULL, session_end = NULL, updated_at = NOW()
        WHERE id = $2 RETURNING *`,
       [newPosition, queueId],
     );
@@ -356,7 +402,7 @@ export async function getQueueStats(doctorId: string, queueDate: string): Promis
   });
 }
 
-// Cascade cancel all waiting/called appointments for a doctor on a date
+// Cascade cancel all waiting/called entries for a doctor (doctor absent/day_off event)
 export async function cascadeCancelForDoctor(
   doctorId: string,
   queueDate: string,
@@ -364,7 +410,7 @@ export async function cascadeCancelForDoctor(
 ): Promise<string[]> {
   return withTransaction(async (client: PoolClient) => {
     const { rows } = await client.query(
-      `UPDATE patient_queue SET status = 'cancelled', updated_at = NOW()
+      `UPDATE patient_queue SET status = 'cancelled', cancelled_at = NOW(), updated_at = NOW()
        WHERE doctor_id = $1 AND queue_date = $2 AND status IN ('waiting', 'called')
        RETURNING id, appointment_id`,
       [doctorId, queueDate],
@@ -379,5 +425,38 @@ export async function cascadeCancelForDoctor(
       });
     }
     return appointmentIds;
+  });
+}
+
+// Preview what a cancel would do — used by confirmation dialog (read-only)
+export async function previewCancel(
+  queueId: string,
+): Promise<{ cancelledPosition: number; newEndPosition: number; patientsToShift: number } | null> {
+  return withRlsContext(async (client) => {
+    const { rows } = await client.query(
+      `SELECT position, doctor_id, queue_date, status FROM patient_queue WHERE id = $1`,
+      [queueId],
+    );
+    if (!rows.length) return null;
+    const row = rows[0] as Record<string, unknown>;
+    if (!['waiting', 'called'].includes(row.status as string)) return null;
+
+    const cancelledPosition = row.position as number;
+    const { rows: behindRows } = await client.query(
+      `SELECT COUNT(*) AS cnt FROM patient_queue
+       WHERE doctor_id = $1 AND queue_date = $2 AND position > $3 AND status IN ('waiting', 'called')`,
+      [row.doctor_id, row.queue_date, cancelledPosition],
+    );
+    const patientsToShift = Number((behindRows[0] as { cnt: string }).cnt);
+    // After cancel: others shift up, patient goes to end
+    // Total active = patientsToShift (those behind) + however many in front
+    const { rows: totalRows } = await client.query(
+      `SELECT COUNT(*) AS cnt FROM patient_queue
+       WHERE doctor_id = $1 AND queue_date = $2 AND status IN ('waiting', 'called', 'in_session')`,
+      [row.doctor_id, row.queue_date],
+    );
+    // end position = total active count (patient moves from their spot to end, others shift up)
+    const totalActive = Number((totalRows[0] as { cnt: string }).cnt);
+    return { cancelledPosition, newEndPosition: totalActive, patientsToShift };
   });
 }
