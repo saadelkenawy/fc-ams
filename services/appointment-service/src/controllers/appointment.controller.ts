@@ -62,6 +62,33 @@ export async function createAppointment(request: FastifyRequest, reply: FastifyR
   const input = createSchema.parse(request.body);
   const user = request.user as JwtPayload;
   const appointment = await repo.createAppointment(input, user.sub, user.branchId);
+
+  // Auto-assign room via Redis cache if doctor has an active room today
+  if (input.appointmentDate === new Date().toISOString().split('T')[0]) {
+    void (async () => {
+      try {
+        const { redis } = await import('../config/redis');
+        const cached = await redis.get(`room:doctor:${input.doctorId}:${input.appointmentDate}`);
+        if (cached) {
+          const { roomId, roomCode } = JSON.parse(cached) as { roomId: number; roomCode: string };
+          const { pool } = await import('../config/database');
+          const client = await pool.connect();
+          try {
+            await client.query(`SET app.current_branch_id = $1`, [user.branchId]);
+            await client.query(
+              `UPDATE appointments SET room_id = $1, room_code = $2, room_assigned_at = NOW(), updated_at = NOW() WHERE id = $3`,
+              [roomId, roomCode, appointment.id],
+            );
+          } finally {
+            client.release();
+          }
+        }
+      } catch (err) {
+        console.error('[appt] auto-room assignment failed', (err as Error).message);
+      }
+    })();
+  }
+
   // Fire APPT_BOOKED notification (fire-and-forget)
   void fireNotification({
     channel:       'sms',

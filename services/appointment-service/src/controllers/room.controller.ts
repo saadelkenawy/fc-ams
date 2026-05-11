@@ -1,0 +1,191 @@
+import { FastifyRequest, FastifyReply } from 'fastify';
+import { z } from 'zod';
+import type { JwtPayload } from '@fadl/types';
+import * as repo from '../repositories/room.repository';
+import { registerRoomClient, broadcastRoom } from '../lib/room-sse';
+import { redis } from '../config/redis';
+
+const assignSchema = z.object({
+  doctorId:  z.string().uuid(),
+  date:      z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  fromTime:  z.string().regex(/^\d{2}:\d{2}$/),
+  untilTime: z.string().regex(/^\d{2}:\d{2}$/),
+});
+
+const settingsSchema = z.object({
+  roomName:    z.string().min(1).max(100).optional(),
+  floor:       z.number().int().nullable().optional(),
+  description: z.string().max(500).nullable().optional(),
+  isActive:    z.boolean().optional(),
+}).refine((d) => Object.keys(d).length > 0, { message: 'At least one field required' });
+
+// ── SSE stream ───────────────────────────────────────────────────────────────
+
+export async function roomStream(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const user = request.user as JwtPayload;
+  void reply.raw.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    Connection: 'keep-alive',
+    'X-Accel-Buffering': 'no',
+  });
+  reply.raw.write('event: connected\ndata: {}\n\n');
+
+  const unregister = registerRoomClient(user.branchId, reply);
+  const heartbeat = setInterval(() => {
+    try { reply.raw.write(':heartbeat\n\n'); } catch { clearInterval(heartbeat); unregister(); }
+  }, 30_000);
+
+  request.raw.on('close', () => { clearInterval(heartbeat); unregister(); });
+}
+
+// ── Queries ──────────────────────────────────────────────────────────────────
+
+export async function listRooms(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const user = request.user as JwtPayload;
+  const { date } = request.query as { date?: string };
+  const targetDate = date ?? new Date().toISOString().split('T')[0];
+  const rooms = await repo.listRooms(targetDate, user.branchId);
+  void reply.send({ success: true, data: rooms });
+}
+
+export async function getRoomAvailability(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const user = request.user as JwtPayload;
+  const { date } = request.query as { date?: string };
+  const targetDate = date ?? new Date().toISOString().split('T')[0];
+  const availability = await repo.getAvailabilityByDate(targetDate, user.branchId);
+  void reply.send({ success: true, data: availability });
+}
+
+export async function getRoomStats(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const user = request.user as JwtPayload;
+  const stats = await repo.getRoomStats(user.branchId);
+  void reply.send({ success: true, data: stats });
+}
+
+// ── Mutations ────────────────────────────────────────────────────────────────
+
+export async function assignRoom(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { roomCode } = request.params as { roomCode: string };
+  const user = request.user as JwtPayload;
+  const input = assignSchema.parse(request.body);
+
+  const result = await repo.assignRoom(
+    roomCode.toUpperCase(),
+    input.doctorId,
+    input.date,
+    input.fromTime,
+    input.untilTime,
+    user.sub,
+    user.branchId,
+  );
+
+  // Cache for cross-service lookup (appointment creation)
+  await redis.setex(
+    `room:doctor:${input.doctorId}:${input.date}`,
+    86400,
+    JSON.stringify({ roomId: result.roomId, roomCode: result.roomCode }),
+  );
+
+  broadcastRoom(user.branchId, 'room_assigned', {
+    roomCode: result.roomCode,
+    roomName: result.roomName,
+    doctorId: input.doctorId,
+    date: input.date,
+    appointmentsUpdated: result.appointmentsUpdated,
+  });
+
+  void reply.status(201).send({ success: true, data: result });
+}
+
+export async function autoAssignRoom(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const user = request.user as JwtPayload;
+  const input = assignSchema.parse(request.body);
+
+  const result = await repo.autoAssignRoom(
+    input.doctorId,
+    input.date,
+    input.fromTime,
+    input.untilTime,
+    user.sub,
+    user.branchId,
+  );
+
+  if (!result) {
+    void reply.status(409).send({
+      success: false,
+      error: { code: 'NO_ROOM_AVAILABLE', message: 'No rooms available for the requested date' },
+    });
+    return;
+  }
+
+  await redis.setex(
+    `room:doctor:${input.doctorId}:${input.date}`,
+    86400,
+    JSON.stringify({ roomId: result.roomId, roomCode: result.roomCode }),
+  );
+
+  broadcastRoom(user.branchId, 'room_assigned', {
+    roomCode: result.roomCode,
+    roomName: result.roomName,
+    doctorId: input.doctorId,
+    date: input.date,
+    appointmentsUpdated: result.appointmentsUpdated,
+  });
+
+  void reply.status(201).send({ success: true, data: result });
+}
+
+export async function releaseRoom(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { roomCode } = request.params as { roomCode: string };
+  const user = request.user as JwtPayload;
+  const { date } = request.query as { date?: string };
+  const targetDate = date ?? new Date().toISOString().split('T')[0];
+
+  const result = await repo.releaseRoomByCode(roomCode.toUpperCase(), user.branchId);
+  if (!result) {
+    void reply.status(404).send({
+      success: false,
+      error: { code: 'ROOM_NOT_ASSIGNED', message: `Room ${roomCode} has no active assignment on ${targetDate}` },
+    });
+    return;
+  }
+
+  await redis.del(`room:doctor:${result.doctorId}:${result.assignedDate}`);
+
+  // Clear room from pending appointments
+  const { pool } = await import('../config/database');
+  const client = await pool.connect();
+  try {
+    await client.query(`SET app.current_branch_id = $1`, [user.branchId]);
+    await client.query(
+      `UPDATE appointments
+       SET room_id = NULL, room_code = NULL, room_assigned_at = NULL, updated_at = NOW()
+       WHERE doctor_id = $1 AND appointment_date = $2
+         AND status NOT IN ('Comp.','Canc.','Resch.') AND deleted_at IS NULL`,
+      [result.doctorId, result.assignedDate],
+    );
+  } finally {
+    client.release();
+  }
+
+  broadcastRoom(user.branchId, 'room_released', {
+    roomCode: roomCode.toUpperCase(),
+    doctorId: result.doctorId,
+    date: result.assignedDate,
+  });
+
+  void reply.send({ success: true, data: result.assignment });
+}
+
+export async function updateRoom(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { roomCode } = request.params as { roomCode: string };
+  const user = request.user as JwtPayload;
+  const updates = settingsSchema.parse(request.body);
+
+  const room = await repo.updateRoomSettings(roomCode.toUpperCase(), updates, user.branchId);
+
+  broadcastRoom(user.branchId, 'room_updated', { roomCode: roomCode.toUpperCase() });
+
+  void reply.send({ success: true, data: room });
+}

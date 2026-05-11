@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Users, Phone, PlayCircle, CheckCircle2, Clock, UserX, RotateCcw, Trash2, AlertTriangle, X } from 'lucide-react';
+import { Users, Phone, PlayCircle, CheckCircle2, Clock, UserX, RotateCcw, Trash2, AlertTriangle, X, DoorOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useLang } from '@/contexts/LanguageContext';
 import {
@@ -10,6 +10,7 @@ import {
   useMarkNoShow, useCancelFromQueue, useRejoinQueue,
   useCancelPreview,
 } from '@/hooks/useQueue';
+import { useRooms } from '@/hooks/useRooms';
 import type { PatientQueueEntry, QueueStatus } from '@fadl/types';
 
 const STATUS_CONFIG: Record<QueueStatus, { labelAr: string; labelEn: string; bg: string; text: string; dot: string }> = {
@@ -111,7 +112,7 @@ function CancelConfirmDialog({ entry, patientLabel, onConfirm, onClose, isPendin
 
 // ── Queue entry card ──────────────────────────────────────────────────────────
 
-function QueueEntryCard({ entry, onCancelClick }: { entry: PatientQueueEntry; onCancelClick: () => void }) {
+function QueueEntryCard({ entry, onCancelClick, roomCode }: { entry: PatientQueueEntry; onCancelClick: () => void; roomCode?: string | null }) {
   const { lang, t } = useLang();
   const cfg = STATUS_CONFIG[entry.status];
   const call     = useCallPatient(entry.id);
@@ -155,6 +156,12 @@ function QueueEntryCard({ entry, onCancelClick }: { entry: PatientQueueEntry; on
             <span className="text-[10px] text-gray-400 flex items-center gap-0.5">
               <Clock className="w-2.5 h-2.5" />
               ~{entry.estimatedWaitMinutes}{t('د', 'm')}
+            </span>
+          )}
+          {entry.status === 'called' && roomCode && (
+            <span className="text-[10px] text-emerald-500 flex items-center gap-0.5">
+              <DoorOpen className="w-2.5 h-2.5" />
+              → {roomCode}
             </span>
           )}
         </div>
@@ -240,6 +247,12 @@ interface QueueBoardProps {
   date?: string;
 }
 
+function useDoctorRoom(doctorId: string, date?: string) {
+  const { data: rooms = [] } = useRooms(date);
+  const room = rooms.find((r) => r.assignedDoctor?.id === doctorId && (r.status === 'occupied' || r.status === 'reserved'));
+  return room?.roomCode ?? null;
+}
+
 export function QueueBoard({ doctorId, date }: QueueBoardProps) {
   const { t } = useLang();
   const [showCompleted, setShowCompleted] = useState(false);
@@ -247,6 +260,7 @@ export function QueueBoard({ doctorId, date }: QueueBoardProps) {
 
   const { data: entries = [], isLoading } = useQueue(doctorId, date);
   const { data: stats } = useQueueStats(doctorId, date);
+  const roomCode = useDoctorRoom(doctorId, date);
 
   // SSE real-time subscription
   useQueueSSE(doctorId, date);
@@ -264,6 +278,16 @@ export function QueueBoard({ doctorId, date }: QueueBoardProps) {
   return (
     <>
       <div className="space-y-3">
+        {/* Room indicator */}
+        {roomCode && (
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+            <DoorOpen className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span className="text-sm text-emerald-300">
+              {t('الغرفة', 'Room')} <strong>{roomCode}</strong>
+            </span>
+          </div>
+        )}
+
         {/* Stats bar */}
         {stats && (
           <div className="grid grid-cols-4 gap-2">
@@ -299,6 +323,7 @@ export function QueueBoard({ doctorId, date }: QueueBoardProps) {
                 key={e.id}
                 entry={e}
                 onCancelClick={() => setCancelTarget(e)}
+                roomCode={roomCode}
               />
             ))
           )}

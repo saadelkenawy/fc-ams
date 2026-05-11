@@ -23,6 +23,7 @@ const NAV: Record<UserRole, NavGroup[]> = {
         { key: 'patients',     href: '/patients',     labelAr: 'المرضى',          labelEn: 'Patients',     icon: 'Users' },
         { key: 'appointments', href: '/appointments', labelAr: 'المواعيد',        labelEn: 'Appointments', icon: 'CalendarDays' },
         { key: 'doctors',      href: '/doctors',      labelAr: 'الأطباء',         labelEn: 'Doctors',      icon: 'Stethoscope' },
+        { key: 'rooms',        href: '/rooms',        labelAr: 'الغرف',           labelEn: 'Rooms',        icon: 'DoorOpen' },
       ],
     },
     {
@@ -51,6 +52,7 @@ const NAV: Record<UserRole, NavGroup[]> = {
         { key: 'encounters',   href: '/encounters',   labelAr: 'الحالات السريرية', labelEn: 'Encounters',   icon: 'FileHeart' },
         { key: 'chatbot',       href: '/chatbot',       labelAr: 'المساعد الذكي',    labelEn: 'AI Assistant',  icon: 'Bot' },
         { key: 'integrations', href: '/integrations', labelAr: 'التكاملات الخارجية', labelEn: 'Integrations', icon: 'Plug' },
+        { key: 'room-settings', href: '/settings/rooms', labelAr: 'إعدادات الغرف',   labelEn: 'Room Settings', icon: 'DoorOpen' },
         { key: 'settings',     href: '/settings',     labelAr: 'الإعدادات',        labelEn: 'Settings',      icon: 'Settings' },
       ],
     },
@@ -61,6 +63,7 @@ const NAV: Record<UserRole, NavGroup[]> = {
       items: [
         { key: 'quick-entry',  href: '/receptionist', labelAr: 'الإدخال السريع',  labelEn: 'Quick Entry',  icon: 'Zap' },
         { key: 'queue',        href: '/receptionist/queue', labelAr: 'قائمة الانتظار', labelEn: 'Queue Board', icon: 'List' },
+        { key: 'rooms',        href: '/rooms',        labelAr: 'الغرف',           labelEn: 'Rooms',        icon: 'DoorOpen' },
         { key: 'appointments', href: '/appointments', labelAr: 'المواعيد',        labelEn: 'Appointments', icon: 'CalendarDays' },
         { key: 'patients',     href: '/patients',     labelAr: 'المرضى',          labelEn: 'Patients',     icon: 'Users' },
         { key: 'payments',     href: '/billing/payments', labelAr: 'المدفوعات',   labelEn: 'Payments',     icon: 'CreditCard' },

@@ -32,6 +32,9 @@ export interface Appointment {
   queueNumber?: number;
   checkedInAt?: string;
   checkedOutAt?: string;
+  roomId?: string;
+  roomCode?: string;
+  roomAssignedAt?: string;
   waitingTimeMinutes?: number;
   originalAppointmentId?: string; // Reschedule chain
   rescheduleCount: number;

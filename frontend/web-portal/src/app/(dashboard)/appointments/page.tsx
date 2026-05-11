@@ -489,7 +489,7 @@ export default function AppointmentsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
-                  {[t('الوقت','Time'), t('المريض','Patient'), t('الطبيب','Doctor'), t('التخصص','Specialty'), t('المصدر','Source'), t('الحالة','Status'), t('الرسوم','Charge'), ''].map((h, i) => (
+                  {[t('الوقت','Time'), t('المريض','Patient'), t('الطبيب','Doctor'), t('التخصص','Specialty'), t('المصدر','Source'), t('الحالة','Status'), t('الغرفة','Room'), t('الرسوم','Charge'), ''].map((h, i) => (
                     <th key={i} className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{h}</th>
                   ))}
                 </tr>
@@ -518,6 +518,7 @@ export default function AppointmentsPage() {
                     <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('التخصص', 'Specialty')}</th>
                     <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('المصدر', 'Source')}</th>
                     <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الحالة', 'Status')}</th>
+                    <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الغرفة', 'Room')}</th>
                     <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الرسوم', 'Charge')}</th>
                     <th className="px-3 py-3" />
                   </tr>
@@ -550,6 +551,11 @@ export default function AppointmentsPage() {
                         <td className="px-5 py-3.5">
                           <AppointmentStatusBadge status={a.status} lang={lang} />
                         </td>
+                        <td className="px-5 py-3.5">
+                          {a.roomCode
+                            ? <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">{a.roomCode}</span>
+                            : <span className="text-gray-300 dark:text-gray-600">—</span>}
+                        </td>
                         <td className="px-5 py-3.5 font-mono text-gray-700 dark:text-gray-200 tabular-nums">
                           {a.approvedCharge != null ? `${a.approvedCharge} ${t('ج', 'EGP')}` : '—'}
                         </td>
@@ -567,7 +573,7 @@ export default function AppointmentsPage() {
                   })}
                   {visible.length === 0 && (
                     <tr>
-                      <td colSpan={8} className="px-5 py-12 text-center text-gray-400 dark:text-gray-300">
+                      <td colSpan={9} className="px-5 py-12 text-center text-gray-400 dark:text-gray-300">
                         {hasActiveFilters
                           ? t('لا توجد نتائج تطابق الفلتر', 'No appointments match the filter')
                           : t('لا توجد مواعيد', 'No appointments found')}

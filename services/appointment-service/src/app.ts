@@ -9,6 +9,7 @@ import { config } from './config';
 import { redis } from './config/redis';
 import { startDoctorStatusSubscriber } from './subscribers/doctor-status.subscriber';
 import { appointmentRoutes } from './routes/appointment.routes';
+import { roomRoutes } from './routes/room.routes';
 
 export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
   const app = Fastify({
@@ -56,6 +57,7 @@ export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
   app.get('/health', { logLevel: 'silent' }, async () => ({ status: 'ok', service: 'appointment-service' }));
 
   await app.register(appointmentRoutes, { prefix: '/api/v1' });
+  await app.register(roomRoutes, { prefix: '/api/v1' });
 
   app.setErrorHandler(async (error, request, reply) => {
     const statusCode = (error as { statusCode?: number }).statusCode ?? 500;

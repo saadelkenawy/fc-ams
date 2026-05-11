@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Users, CalendarDays, Stethoscope, Receipt,
   Banknote, BarChart3, FileText, Clipboard, Settings, Zap,
   List, CreditCard, TrendingUp, Home, LogOut, HeartPulse, FileHeart, Bot,
-  ChevronLeft, ChevronRight, Share2, Plug, Package, Archive, Store, Bell,
+  ChevronLeft, ChevronRight, Share2, Plug, Package, Archive, Store, Bell, DoorOpen,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -18,7 +18,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   LayoutDashboard, Users, CalendarDays, Stethoscope, Receipt,
   Banknote, BarChart3, FileText, Clipboard, Settings, Zap,
   List, CreditCard, TrendingUp, Home, FileHeart, Bot, Share2, Plug, Package,
-  Archive, Store, Bell,
+  Archive, Store, Bell, DoorOpen,
 };
 
 const MIN_WIDTH  = 60;
