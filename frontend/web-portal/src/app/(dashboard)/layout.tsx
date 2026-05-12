@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
   const router = useRouter();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !user) router.replace('/login');
@@ -33,10 +34,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex min-h-screen bg-atmospheric">
-      <Sidebar />
+      {/* Mobile backdrop — tap to close drawer */}
+      {mobileOpen && (
+        <div
+          className="lg:hidden fixed inset-0 z-30 bg-black/50 backdrop-blur-[2px]"
+          onClick={() => setMobileOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      <Sidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
+
       <div className="flex flex-col flex-1 min-w-0">
-        <Header />
-        <main className="flex-1 p-6 overflow-auto animate-fade-in">
+        <Header onMobileMenuToggle={() => setMobileOpen((o) => !o)} />
+        <main className="flex-1 p-4 lg:p-6 overflow-auto animate-fade-in">
           {children}
         </main>
       </div>

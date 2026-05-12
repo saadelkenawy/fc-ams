@@ -1,6 +1,6 @@
 'use client';
 
-import { Bell, Search, Sun, Moon, Globe, LayoutGrid, Minus, Plus, X, User, CheckCircle2, AlertCircle, Clock, MessageSquare } from 'lucide-react';
+import { Bell, Search, Sun, Moon, Globe, LayoutGrid, Minus, Plus, X, User, CheckCircle2, AlertCircle, Clock, MessageSquare, Menu } from 'lucide-react';
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
@@ -120,7 +120,7 @@ function NotificationBell() {
       </Button>
 
       {open && (
-        <div className="absolute top-10 end-0 z-50 w-80 bg-white dark:bg-neutral-800 rounded-xl shadow-xl border border-gray-100 dark:border-neutral-700 overflow-hidden animate-slide-down">
+        <div className="absolute top-10 end-0 z-50 w-80 max-w-[calc(100vw-2rem)] bg-white dark:bg-neutral-800 rounded-xl shadow-xl border border-gray-100 dark:border-neutral-700 overflow-hidden animate-slide-down">
           <div className="px-4 py-3 border-b border-gray-100 dark:border-neutral-700 flex items-center justify-between">
             <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
               {t('الإشعارات', 'Notifications')}
@@ -304,7 +304,11 @@ function QuickSearch() {
   );
 }
 
-export function Header() {
+interface HeaderProps {
+  onMobileMenuToggle: () => void;
+}
+
+export function Header({ onMobileMenuToggle }: HeaderProps) {
   const { lang, toggle, t }     = useLang();
   const { user }                = useAuth();
   const [dark, setDark]         = useState(false);
@@ -346,12 +350,21 @@ export function Header() {
   const userName = lang === 'ar' ? user?.nameAr : user?.nameEn;
 
   return (
-    <header className="h-14 bg-white dark:bg-neutral-900 border-b border-gray-100 dark:border-neutral-800 flex items-center px-5 gap-4 flex-shrink-0 transition-colors duration-200">
+    <header className="h-14 bg-white dark:bg-neutral-900 border-b border-gray-100 dark:border-neutral-800 flex items-center px-4 gap-3 flex-shrink-0 transition-colors duration-200">
+      {/* Hamburger — mobile only */}
+      <button
+        onClick={onMobileMenuToggle}
+        className="lg:hidden h-9 w-9 flex items-center justify-center rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-neutral-800 transition-colors flex-shrink-0"
+        aria-label={t('فتح القائمة', 'Open menu')}
+      >
+        <Menu className="w-5 h-5" />
+      </button>
+
       <QuickSearch />
 
       <div className="flex items-center gap-1 ms-auto">
-        {/* Zoom controls */}
-        <div className="flex items-center gap-0 bg-gray-100 dark:bg-neutral-800 rounded-lg overflow-hidden me-1">
+        {/* Zoom controls — hidden below sm to preserve header space */}
+        <div className="hidden sm:flex items-center gap-0 bg-gray-100 dark:bg-neutral-800 rounded-lg overflow-hidden me-1">
           <button
             onClick={zoomOut}
             disabled={textSize === 'sm'}

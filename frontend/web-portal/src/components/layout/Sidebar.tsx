@@ -34,13 +34,21 @@ function savedWidth(): number {
   return isNaN(n) ? SNAP_FULL : Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, n));
 }
 
-function NavLink({ item, active, collapsed }: { item: NavItem; active: boolean; collapsed: boolean }) {
+function NavLink({
+  item, active, collapsed, onMobileClose,
+}: {
+  item: NavItem;
+  active: boolean;
+  collapsed: boolean;
+  onMobileClose?: () => void;
+}) {
   const { lang } = useLang();
   const Icon = ICON_MAP[item.icon] ?? LayoutDashboard;
   const label = lang === 'ar' ? item.labelAr : item.labelEn;
   return (
     <Link
       href={item.href}
+      onClick={onMobileClose}
       title={collapsed ? label : undefined}
       aria-current={active ? 'page' : undefined}
       className={cn(
@@ -66,22 +74,37 @@ function NavLink({ item, active, collapsed }: { item: NavItem; active: boolean; 
   );
 }
 
-export function Sidebar() {
-  const pathname   = usePathname();
+interface SidebarProps {
+  mobileOpen: boolean;
+  onMobileClose: () => void;
+}
+
+export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
+  const pathname       = usePathname();
   const { user, logout } = useAuth();
-  const { lang, t } = useLang();
-  const navGroups  = getNavForRole(user?.role ?? 'receptionist');
+  const { lang, t }    = useLang();
+  const navGroups      = getNavForRole(user?.role ?? 'receptionist');
 
-  const [width, setWidth]         = useState(SNAP_FULL);
-  const [snapping, setSnapping]   = useState(false);
-  const dragging                  = useRef(false);
-  const startX                    = useRef(0);
-  const startW                    = useRef(SNAP_FULL);
+  const [width, setWidth]       = useState(SNAP_FULL);
+  const [snapping, setSnapping] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const dragging  = useRef(false);
+  const startX    = useRef(0);
+  const startW    = useRef(SNAP_FULL);
 
-  const collapsed = width <= COLLAPSED;
+  // On mobile the sidebar is always fully expanded
+  const collapsed = !isMobile && width <= COLLAPSED;
 
   useEffect(() => { setWidth(savedWidth()); }, []);
   useEffect(() => { localStorage.setItem(STORAGE_KEY, String(width)); }, [width]);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 1023px)');
+    setIsMobile(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
 
   const onHandleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -113,13 +136,22 @@ export function Sidebar() {
     setTimeout(() => setSnapping(false), 250);
   }
 
+  // Mobile: translate off-screen toward the start edge; desktop: no transform
+  const mobileHiddenClass = lang === 'ar' ? 'translate-x-full' : '-translate-x-full';
+
   return (
     <aside
       className={cn(
-        'relative flex flex-col min-h-screen flex-shrink-0 bg-sidebar select-none',
-        snapping && 'transition-[width] duration-200 ease-out',
+        'flex flex-col min-h-screen bg-sidebar select-none',
+        // Mobile: fixed overlay
+        'fixed inset-y-0 start-0 z-40',
+        'transition-transform duration-200 ease-out',
+        isMobile && !mobileOpen && mobileHiddenClass,
+        // Desktop: static in normal flow, no translate, variable width
+        'lg:static lg:translate-x-0 lg:z-auto lg:transition-none',
+        !isMobile && snapping && 'lg:transition-[width] lg:duration-200 lg:ease-out',
       )}
-      style={{ width }}
+      style={isMobile ? undefined : { width }}
     >
       {/* Logo */}
       <div className={cn(
@@ -157,6 +189,7 @@ export function Sidebar() {
                   item={item}
                   active={item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)}
                   collapsed={collapsed}
+                  onMobileClose={isMobile ? onMobileClose : undefined}
                 />
               ))}
             </div>
@@ -189,10 +222,10 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* Toggle collapse button */}
+      {/* Toggle collapse button — desktop only */}
       <button
         onClick={toggleCollapse}
-        className="absolute top-20 -end-3 z-20 w-6 h-6 rounded-full bg-white dark:bg-neutral-700 border border-gray-200 dark:border-neutral-600 flex items-center justify-center shadow-md hover:bg-gray-50 dark:hover:bg-neutral-600 transition-colors"
+        className="hidden lg:flex absolute top-20 -end-3 z-20 w-6 h-6 rounded-full bg-white dark:bg-neutral-700 border border-gray-200 dark:border-neutral-600 items-center justify-center shadow-md hover:bg-gray-50 dark:hover:bg-neutral-600 transition-colors"
         title={collapsed ? t('توسيع', 'Expand') : t('طي', 'Collapse')}
         aria-label={collapsed ? t('توسيع القائمة الجانبية', 'Expand sidebar') : t('طي القائمة الجانبية', 'Collapse sidebar')}
         aria-expanded={!collapsed}
@@ -204,10 +237,10 @@ export function Sidebar() {
         }
       </button>
 
-      {/* Drag handle */}
+      {/* Drag handle — desktop only */}
       <div
         onMouseDown={onHandleMouseDown}
-        className="absolute inset-y-0 end-0 w-1.5 cursor-col-resize group z-10"
+        className="hidden lg:block absolute inset-y-0 end-0 w-1.5 cursor-col-resize group z-10"
       >
         <div className="absolute inset-y-0 end-0 w-0.5 bg-transparent group-hover:bg-primary-500/50 transition-colors duration-150" />
       </div>
