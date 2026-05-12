@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
   Plus, Trash2, Edit3, Save, X, Share2, CheckCircle,
-  AlertCircle, Loader2, Info,
+  AlertCircle, Loader2, Info, PlusCircle,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -18,21 +18,29 @@ import { useToast } from '@/components/ui/Toast';
 import { cn } from '@/lib/utils';
 import {
   useSources, useCreateSource, useUpdateSource, useDeleteSource,
-  type SourceFeeRule, type CreateSourceInput,
+  type SourceFeeRule, type CreateSourceInput, type SpecialtyRate,
 } from '@/hooks/useSources';
+import { useSpecialties } from '@/hooks/useDoctors';
 
 // ─── Schema ──────────────────────────────────────────────────────────────────
 
+const specialtyRateSchema = z.object({
+  specialtyId: z.number().int().positive(),
+  feeValue: z.coerce.number().min(0, 'Must be ≥ 0'),
+});
+
 const sourceSchema = z.object({
-  sourceCode:   z.string().min(1, 'Required').max(50).regex(/^[\w.'/-]+$/, 'No spaces — use letters, numbers, dots or hyphens'),
-  sourceNameEn: z.string().min(1, 'Required').max(100),
-  sourceNameAr: z.string().min(1, 'Required').max(100),
-  feeType:      z.enum(['percentage', 'fixed']),
-  feeValue:     z.coerce.number().min(0, 'Must be ≥ 0'),
-  deductFrom:   z.enum(['clinic', 'doctor', 'both']),
-  isActive:     z.boolean(),
-  validFrom:    z.string().min(1, 'Required'),
-  validUntil:   z.string().optional(),
+  sourceCode:     z.string().min(1, 'Required').max(50).regex(/^[\w.'/-]+$/, 'No spaces — use letters, numbers, dots or hyphens'),
+  sourceNameEn:   z.string().min(1, 'Required').max(100),
+  sourceNameAr:   z.string().min(1, 'Required').max(100),
+  feeType:        z.enum(['percentage', 'fixed']),
+  feeValue:       z.coerce.number().min(0, 'Must be ≥ 0'),
+  deductFrom:     z.enum(['clinic', 'doctor', 'both']),
+  isGeneral:      z.boolean(),
+  isActive:       z.boolean(),
+  validFrom:      z.string().min(1, 'Required'),
+  validUntil:     z.string().optional(),
+  specialtyRates: z.array(specialtyRateSchema).optional(),
 });
 type SourceFormValues = z.infer<typeof sourceSchema>;
 
@@ -65,28 +73,51 @@ function SourceModal({
   const update = useUpdateSource();
   const isEdit = !!initial;
 
-  const { register, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm<SourceFormValues>({
+  const { data: specialties = [] } = useSpecialties();
+
+  const { register, handleSubmit, watch, setValue, formState: { errors, isSubmitting } } = useForm<SourceFormValues>({
     resolver: zodResolver(sourceSchema),
     defaultValues: {
-      sourceCode:   initial?.sourceCode   ?? '',
-      sourceNameEn: initial?.sourceNameEn ?? '',
-      sourceNameAr: initial?.sourceNameAr ?? '',
-      feeType:      initial?.feeType      ?? 'percentage',
-      feeValue:     initial?.feeValue     ?? 0,
-      deductFrom:   initial?.deductFrom   ?? 'clinic',
-      isActive:     initial?.isActive     ?? true,
-      validFrom:    initial?.validFrom    ?? new Date().toISOString().split('T')[0],
-      validUntil:   initial?.validUntil   ?? '',
+      sourceCode:     initial?.sourceCode     ?? '',
+      sourceNameEn:   initial?.sourceNameEn   ?? '',
+      sourceNameAr:   initial?.sourceNameAr   ?? '',
+      feeType:        initial?.feeType        ?? 'percentage',
+      feeValue:       initial?.feeValue       ?? 0,
+      deductFrom:     initial?.deductFrom     ?? 'clinic',
+      isGeneral:      initial?.isGeneral      ?? true,
+      isActive:       initial?.isActive       ?? true,
+      validFrom:      initial?.validFrom      ?? new Date().toISOString().split('T')[0],
+      validUntil:     initial?.validUntil     ?? '',
+      specialtyRates: initial?.specialtyRates ?? [],
     },
   });
 
-  const feeType = watch('feeType');
+  const feeType        = watch('feeType');
+  const isGeneral      = watch('isGeneral');
+  const specialtyRates = watch('specialtyRates') ?? [];
+
+  function addSpecialtyRow() {
+    const usedIds = new Set(specialtyRates.map((r) => r.specialtyId));
+    const nextSpecialty = specialties.find((s) => !usedIds.has(s.id));
+    if (!nextSpecialty) return;
+    setValue('specialtyRates', [...specialtyRates, { specialtyId: nextSpecialty.id, feeValue: 0 }]);
+  }
+
+  function removeSpecialtyRow(idx: number) {
+    setValue('specialtyRates', specialtyRates.filter((_, i) => i !== idx));
+  }
+
+  function updateSpecialtyRow(idx: number, field: keyof SpecialtyRate, value: number) {
+    const next = specialtyRates.map((r, i) => i === idx ? { ...r, [field]: value } : r);
+    setValue('specialtyRates', next);
+  }
 
   async function onSubmit(values: SourceFormValues) {
     const payload: CreateSourceInput = {
       ...values,
-      feeValue: Number(values.feeValue),
-      validUntil: values.validUntil || undefined,
+      feeValue:       Number(values.feeValue),
+      validUntil:     values.validUntil || undefined,
+      specialtyRates: values.isGeneral ? [] : (values.specialtyRates ?? []),
     };
     try {
       if (isEdit) {
@@ -129,6 +160,9 @@ function SourceModal({
     );
   }
 
+  const usedSpecialtyIds = new Set(specialtyRates.map((r) => r.specialtyId));
+  const canAddMore = specialties.some((s) => !usedSpecialtyIds.has(s.id));
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-panel max-w-lg" onClick={(e) => e.stopPropagation()}>
@@ -141,7 +175,7 @@ function SourceModal({
           </button>
         </div>
 
-        <form onSubmit={(e) => void handleSubmit(onSubmit)(e)} className="p-6 space-y-4">
+        <form onSubmit={(e) => void handleSubmit(onSubmit)(e)} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
           {/* Code */}
           <Field id="sourceCode" labelAr="كود المصدر" labelEn="Source Code" readOnly={isEdit} />
 
@@ -167,7 +201,7 @@ function SourceModal({
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                {feeType === 'percentage' ? t('النسبة %', 'Rate %') : t('المبلغ EGP', 'Amount EGP')}
+                {feeType === 'percentage' ? t('النسبة الافتراضية %', 'Default Rate %') : t('المبلغ EGP', 'Amount EGP')}
               </label>
               <input
                 type="number"
@@ -183,6 +217,98 @@ function SourceModal({
               {errors.feeValue && <p className="text-xs text-red-500">{errors.feeValue.message}</p>}
             </div>
           </div>
+
+          {/* General rate toggle */}
+          {feeType === 'percentage' && (
+            <label className="flex items-center gap-3 cursor-pointer px-3 py-2.5 rounded-lg border border-gray-200 dark:border-neutral-600 hover:border-primary-400/50 transition-colors">
+              <input
+                type="checkbox"
+                {...register('isGeneral')}
+                className="w-4 h-4 accent-primary-600 rounded flex-shrink-0"
+              />
+              <div>
+                <p className="text-sm text-gray-700 dark:text-gray-200">
+                  {t('نسبة موحدة لجميع التخصصات', 'General rate (all specialties)')}
+                </p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                  {t('إلغاء التحديد يتيح تحديد نسب مختلفة لكل تخصص', 'Uncheck to set per-specialty rates')}
+                </p>
+              </div>
+            </label>
+          )}
+
+          {/* Per-specialty rates section */}
+          {feeType === 'percentage' && !isGeneral && (
+            <div className="space-y-2 animate-slide-down">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {t('نسب التخصصات', 'Specialty Rates')}
+                </p>
+                <p className="text-xs text-gray-400 dark:text-gray-500">
+                  {t('التخصصات غير المُدرجة تستخدم النسبة الافتراضية', 'Unlisted specialties use the default rate')}
+                </p>
+              </div>
+
+              {specialtyRates.length > 0 && (
+                <div className="space-y-2">
+                  {specialtyRates.map((row, idx) => {
+                    const otherUsed = new Set(specialtyRates.filter((_, i) => i !== idx).map((r) => r.specialtyId));
+                    return (
+                      <div key={idx} className="flex items-center gap-2">
+                        <select
+                          value={row.specialtyId}
+                          onChange={(e) => updateSpecialtyRow(idx, 'specialtyId', Number(e.target.value))}
+                          className="flex-1 h-9 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-2.5 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-600"
+                        >
+                          {specialties
+                            .filter((s) => !otherUsed.has(s.id))
+                            .map((s) => (
+                              <option key={s.id} value={s.id}>{s.nameEn}</option>
+                            ))
+                          }
+                        </select>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="100"
+                          value={row.feeValue}
+                          onChange={(e) => updateSpecialtyRow(idx, 'feeValue', Number(e.target.value))}
+                          placeholder="0"
+                          className="w-24 h-9 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-2.5 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-600 tabular-nums"
+                        />
+                        <span className="text-sm text-gray-400">%</span>
+                        <button
+                          type="button"
+                          onClick={() => removeSpecialtyRow(idx)}
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex-shrink-0"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {canAddMore && (
+                <button
+                  type="button"
+                  onClick={addSpecialtyRow}
+                  className="flex items-center gap-1.5 text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 transition-colors"
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  {t('إضافة تخصص', 'Add Specialty')}
+                </button>
+              )}
+
+              {specialtyRates.length === 0 && (
+                <p className="text-xs text-gray-400 dark:text-gray-500 italic">
+                  {t('لم تُضف تخصصات بعد — ستُطبّق النسبة الافتراضية على الجميع', 'No specialties added — default rate applies to all')}
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Deduct from */}
           <div className="space-y-1.5">
@@ -243,9 +369,7 @@ function SourceRow({
   onEdit: () => void;
   onDelete: () => void;
 }) {
-  const feeLabel = source.feeType === 'percentage'
-    ? `${source.feeValue}%`
-    : `${source.feeValue} EGP`;
+  const hasSpecialtyRates = !source.isGeneral && source.specialtyRates.length > 0;
 
   const deduct = DEDUCT_LABELS[source.deductFrom];
   const deductVariant = DEDUCT_VARIANT[source.deductFrom];
@@ -262,15 +386,25 @@ function SourceRow({
         <p className="text-xs text-gray-400 dark:text-gray-500">{source.sourceNameAr}</p>
       </td>
       <td className="px-5 py-3.5">
-        <span className={cn(
-          'text-sm font-semibold tabular-nums',
-          source.feeValue === 0 ? 'text-gray-400 dark:text-gray-500' : 'text-gray-800 dark:text-gray-100',
-        )}>
-          {feeLabel}
-        </span>
-        <span className="text-xs text-gray-400 dark:text-gray-500 ms-1">
-          {source.feeType === 'percentage' ? t('نسبة', 'rate') : t('ثابت', 'flat')}
-        </span>
+        <div className="flex items-center gap-1.5">
+          <span className={cn(
+            'text-sm font-semibold tabular-nums',
+            source.feeValue === 0 ? 'text-gray-400 dark:text-gray-500' : 'text-gray-800 dark:text-gray-100',
+          )}>
+            {source.feeType === 'percentage' ? `${source.feeValue}%` : `${source.feeValue} EGP`}
+          </span>
+          <span className="text-xs text-gray-400 dark:text-gray-500">
+            {source.feeType === 'percentage' ? t('افتراضي', 'default') : t('ثابت', 'flat')}
+          </span>
+          {hasSpecialtyRates && (
+            <span
+              title={source.specialtyRates.map((r) => `#${r.specialtyId}: ${r.feeValue}%`).join('\n')}
+              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 border border-violet-200/50 dark:border-violet-700/50 cursor-default"
+            >
+              {source.specialtyRates.length} {t('تخصص', 'spec')}
+            </span>
+          )}
+        </div>
       </td>
       <td className="px-5 py-3.5">
         <Badge variant={deductVariant} className="text-[11px]">
@@ -321,12 +455,12 @@ export default function SourcesPage() {
   const { data: sources = [], isLoading, isError } = useSources();
   const deleteSource = useDeleteSource();
 
-  const [modalSource, setModalSource] = useState<SourceFeeRule | null | undefined>(undefined); // undefined = closed
+  const [modalSource, setModalSource] = useState<SourceFeeRule | null | undefined>(undefined);
   const [deleteTarget, setDeleteTarget] = useState<SourceFeeRule | null>(null);
 
-  const activeCount   = sources.filter((s) => s.isActive).length;
-  const feeCount      = sources.filter((s) => s.feeValue > 0).length;
-  const pctCount      = sources.filter((s) => s.feeType === 'percentage').length;
+  const activeCount      = sources.filter((s) => s.isActive).length;
+  const feeCount         = sources.filter((s) => s.feeValue > 0).length;
+  const specialtyCount   = sources.filter((s) => !s.isGeneral && s.specialtyRates.length > 0).length;
 
   async function handleDelete() {
     if (!deleteTarget) return;
@@ -379,10 +513,11 @@ export default function SourcesPage() {
           color="amber"
         />
         <StatCard
-          title={t('نسبة مئوية', 'Percentage-based')}
-          value={String(pctCount)}
+          title={t('نسب متخصصة', 'Specialty Rates')}
+          value={String(specialtyCount)}
           icon={<Info className="w-5 h-5" />}
           color="violet"
+          description={t('مصادر لها نسب حسب التخصص', 'sources with per-specialty rates')}
         />
       </div>
 
@@ -391,8 +526,8 @@ export default function SourcesPage() {
         <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
         <span>
           {t(
-            'كود المصدر يُستخدم في المواعيد والفواتير لحساب رسوم المنصة تلقائياً. لا تغيّر الكود بعد الإنشاء.',
-            'Source code is used in appointments and billing to auto-calculate platform fees. Do not change the code after creation.',
+            'كود المصدر يُستخدم في المواعيد والفواتير لحساب رسوم المنصة تلقائياً. يمكن تحديد نسب مختلفة لكل تخصص — التخصصات غير المُدرجة تستخدم النسبة الافتراضية.',
+            'Source code is used in appointments and billing to auto-calculate platform fees. Per-specialty rates override the default; unlisted specialties use the default rate.',
           )}
         </span>
       </div>

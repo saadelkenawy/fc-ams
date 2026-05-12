@@ -55,6 +55,7 @@ export async function billingRoutes(app: FastifyInstance): Promise<void> {
           doctorId:              { type: 'string', format: 'uuid' },
           procedureId:           { type: 'string', format: 'uuid' },
           patientSource:         { type: 'string' },
+          doctorSpecialtyId:     { type: 'integer' },
           approvedCharge:        { type: 'number', exclusiveMinimum: 0 },
           procedureCost:         { type: 'number', exclusiveMinimum: 0 },
           splitDoctorPercentage: { type: 'number', minimum: 0, maximum: 100 },
@@ -194,6 +195,16 @@ export async function billingRoutes(app: FastifyInstance): Promise<void> {
       params: { type: 'object', properties: { code: { type: 'string' } }, required: ['code'] },
     },
   }, ctrl.deleteSourceHandler);
+
+  // GET /sources/:code/rate?specialtyId=
+  app.get('/sources/:code/rate', {
+    preHandler: [requireRole('admin', 'finance', 'receptionist')],
+    schema: {
+      tags: ['billing'],
+      params: { type: 'object', properties: { code: { type: 'string' } }, required: ['code'] },
+      querystring: { type: 'object', properties: { specialtyId: { type: 'integer' } } },
+    },
+  }, ctrl.getSourceRateHandler);
 
   // GET /settlements/doctor (single doctor settlement detail)
   app.get('/settlements/doctor', {

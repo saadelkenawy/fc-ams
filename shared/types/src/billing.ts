@@ -45,6 +45,7 @@ export interface CreateTransactionInput {
   doctorId?: string;
   procedureId?: string;
   patientSource: string;
+  doctorSpecialtyId?: number;
   approvedCharge: number;
   procedureCost?: number;
   splitDoctorPercentage: number;

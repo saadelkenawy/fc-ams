@@ -13,6 +13,7 @@ const createTxSchema = z.object({
   doctorId: z.string().uuid().optional(),
   procedureId: z.string().uuid().optional(),
   patientSource: z.string().min(1),
+  doctorSpecialtyId: z.number().int().positive().optional(),
   approvedCharge: z.number().positive(),
   procedureCost: z.number().positive().optional(),
   splitDoctorPercentage: z.number().min(0).max(100),
@@ -137,20 +138,32 @@ export async function listSettlements(request: FastifyRequest, reply: FastifyRep
 
 // ─── Source Fee Rules ─────────────────────────────────────────────────────────
 
+const specialtyRateSchema = z.object({
+  specialtyId: z.number().int().positive(),
+  feeValue:    z.number().min(0),
+});
+
 const createSourceSchema = z.object({
-  sourceCode:   z.string().min(1).max(50),
-  sourceNameEn: z.string().min(1).max(100),
-  sourceNameAr: z.string().min(1).max(100),
-  feeType:      z.enum(['percentage', 'fixed']),
-  feeValue:     z.number().min(0),
-  deductFrom:   z.enum(['clinic', 'doctor', 'both']).default('clinic'),
-  isActive:     z.boolean().default(true),
-  validFrom:    z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  validUntil:   z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  sourceCode:     z.string().min(1).max(50),
+  sourceNameEn:   z.string().min(1).max(100),
+  sourceNameAr:   z.string().min(1).max(100),
+  feeType:        z.enum(['percentage', 'fixed']),
+  feeValue:       z.number().min(0),
+  deductFrom:     z.enum(['clinic', 'doctor', 'both']).default('clinic'),
+  isGeneral:      z.boolean().default(true),
+  isActive:       z.boolean().default(true),
+  validFrom:      z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  validUntil:     z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  specialtyRates: z.array(specialtyRateSchema).optional(),
 });
 
 const updateSourceSchema = createSourceSchema.omit({ sourceCode: true }).partial().extend({
-  validUntil: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  validUntil:     z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  specialtyRates: z.array(specialtyRateSchema).optional(),
+});
+
+const sourceRateQuerySchema = z.object({
+  specialtyId: z.coerce.number().int().positive().optional(),
 });
 
 export async function listSourcesHandler(_req: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -177,4 +190,11 @@ export async function deleteSourceHandler(req: FastifyRequest, reply: FastifyRep
   const { code } = req.params as { code: string };
   await repo.deleteSource(code);
   void reply.status(204).send();
+}
+
+export async function getSourceRateHandler(req: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { code } = req.params as { code: string };
+  const { specialtyId } = sourceRateQuerySchema.parse(req.query);
+  const rate = await repo.getSourceRate(code, specialtyId);
+  void reply.send({ success: true, data: { sourceCode: code, specialtyId, rate } });
 }

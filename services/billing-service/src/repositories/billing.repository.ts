@@ -144,16 +144,8 @@ export async function createTransaction(
       return rowToTransaction(existing[0] as Record<string, unknown>);
     }
 
-    // Fetch source fee percentage from DB (supports Sources UI configuration)
-    const { rows: feeRows } = await client.query(
-      `SELECT fee_value FROM source_fee_rules
-       WHERE source_code = $1 AND is_active = TRUE
-         AND valid_from <= CURRENT_DATE
-         AND (valid_until IS NULL OR valid_until >= CURRENT_DATE)
-       LIMIT 1`,
-      [input.patientSource],
-    );
-    const sourceFeePercentage = feeRows.length > 0 ? Number((feeRows[0] as { fee_value: string }).fee_value) : 0;
+    // Resolve source fee: specialty-specific rate → fallback to general rate
+    const sourceFeePercentage = await getSourceRate(input.patientSource, input.doctorSpecialtyId);
     // Mediator cut applies ONLY to the base session fee
     const sourceFeeAmount = input.approvedCharge * sourceFeePercentage / 100;
     // Net pool = remaining session fee + full cost of extra services (procedures)
@@ -477,6 +469,11 @@ export async function replaceExtraServices(
 
 // ─── Source Fee Rules ─────────────────────────────────────────────────────────
 
+export interface SpecialtyRate {
+  specialtyId: number;
+  feeValue: number;
+}
+
 export interface SourceFeeRule {
   id: number;
   sourceCode: string;
@@ -485,10 +482,11 @@ export interface SourceFeeRule {
   feeType: 'percentage' | 'fixed';
   feeValue: number;
   deductFrom: 'clinic' | 'doctor' | 'both';
+  isGeneral: boolean;
   isActive: boolean;
   validFrom: string;
   validUntil: string | null;
-  specialtyId: number | null;
+  specialtyRates: SpecialtyRate[];
   lastModifiedAt: string;
 }
 
@@ -499,9 +497,11 @@ export interface CreateSourceInput {
   feeType: 'percentage' | 'fixed';
   feeValue: number;
   deductFrom: 'clinic' | 'doctor' | 'both';
+  isGeneral?: boolean;
   isActive?: boolean;
   validFrom: string;
   validUntil?: string;
+  specialtyRates?: SpecialtyRate[];
 }
 
 export interface UpdateSourceInput {
@@ -510,78 +510,172 @@ export interface UpdateSourceInput {
   feeType?: 'percentage' | 'fixed';
   feeValue?: number;
   deductFrom?: 'clinic' | 'doctor' | 'both';
+  isGeneral?: boolean;
   isActive?: boolean;
   validFrom?: string;
   validUntil?: string | null;
+  specialtyRates?: SpecialtyRate[];
 }
 
-function rowToSource(row: Record<string, unknown>): SourceFeeRule {
+function rowToSource(row: Record<string, unknown>, specialtyRates: SpecialtyRate[] = []): SourceFeeRule {
   return {
-    id:            row.id as number,
-    sourceCode:    row.source_code as string,
-    sourceNameEn:  (row.source_name_en as string) ?? '',
-    sourceNameAr:  (row.source_name_ar as string) ?? '',
-    feeType:       row.fee_type as 'percentage' | 'fixed',
-    feeValue:      Number(row.fee_value),
-    deductFrom:    row.deduct_from as 'clinic' | 'doctor' | 'both',
-    isActive:      row.is_active as boolean,
-    validFrom:     row.valid_from as string,
-    validUntil:    (row.valid_until as string | null) ?? null,
-    specialtyId:   (row.specialty_id as number | null) ?? null,
+    id:             row.id as number,
+    sourceCode:     row.source_code as string,
+    sourceNameEn:   (row.source_name_en as string) ?? '',
+    sourceNameAr:   (row.source_name_ar as string) ?? '',
+    feeType:        row.fee_type as 'percentage' | 'fixed',
+    feeValue:       Number(row.fee_value),
+    deductFrom:     row.deduct_from as 'clinic' | 'doctor' | 'both',
+    isGeneral:      (row.is_general as boolean) ?? true,
+    isActive:       row.is_active as boolean,
+    validFrom:      row.valid_from as string,
+    validUntil:     (row.valid_until as string | null) ?? null,
+    specialtyRates,
     lastModifiedAt: (row.last_modified_at as Date).toISOString(),
   };
+}
+
+async function fetchSpecialtyRates(client: { query: typeof pool.query }, sourceCode: string): Promise<SpecialtyRate[]> {
+  const { rows } = await client.query(
+    `SELECT specialty_id, fee_value FROM source_specialty_rates WHERE source_code = $1 ORDER BY specialty_id`,
+    [sourceCode],
+  );
+  return rows.map((r) => ({
+    specialtyId: (r as Record<string, unknown>).specialty_id as number,
+    feeValue:    Number((r as Record<string, unknown>).fee_value),
+  }));
+}
+
+async function replaceSpecialtyRates(
+  client: PoolClient,
+  sourceCode: string,
+  rates: SpecialtyRate[],
+): Promise<void> {
+  await client.query(`DELETE FROM source_specialty_rates WHERE source_code = $1`, [sourceCode]);
+  for (const r of rates) {
+    await client.query(
+      `INSERT INTO source_specialty_rates (source_code, specialty_id, fee_value) VALUES ($1,$2,$3)`,
+      [sourceCode, r.specialtyId, r.feeValue],
+    );
+  }
 }
 
 export async function listSources(): Promise<SourceFeeRule[]> {
   const { rows } = await pool.query(
     `SELECT * FROM source_fee_rules ORDER BY is_active DESC, source_code ASC`,
   );
-  return rows.map((r) => rowToSource(r as Record<string, unknown>));
+  if (!rows.length) return [];
+
+  const { rows: rateRows } = await pool.query(
+    `SELECT source_code, specialty_id, fee_value FROM source_specialty_rates ORDER BY source_code, specialty_id`,
+  );
+
+  const rateMap = new Map<string, SpecialtyRate[]>();
+  for (const r of rateRows) {
+    const row = r as Record<string, unknown>;
+    const code = row.source_code as string;
+    if (!rateMap.has(code)) rateMap.set(code, []);
+    rateMap.get(code)!.push({ specialtyId: row.specialty_id as number, feeValue: Number(row.fee_value) });
+  }
+
+  return rows.map((r) => {
+    const row = r as Record<string, unknown>;
+    return rowToSource(row, rateMap.get(row.source_code as string) ?? []);
+  });
+}
+
+export async function getSourceRate(sourceCode: string, specialtyId?: number): Promise<number> {
+  const { rows } = await pool.query(
+    `SELECT fee_value, is_general FROM source_fee_rules
+     WHERE source_code = $1 AND is_active = TRUE
+       AND valid_from <= CURRENT_DATE
+       AND (valid_until IS NULL OR valid_until >= CURRENT_DATE)
+     LIMIT 1`,
+    [sourceCode],
+  );
+  if (!rows.length) return 0;
+
+  const row = rows[0] as Record<string, unknown>;
+  const isGeneral = row.is_general as boolean;
+  const defaultRate = Number(row.fee_value);
+
+  if (isGeneral || !specialtyId) return defaultRate;
+
+  const { rows: srRows } = await pool.query(
+    `SELECT fee_value FROM source_specialty_rates WHERE source_code = $1 AND specialty_id = $2`,
+    [sourceCode, specialtyId],
+  );
+  return srRows.length ? Number((srRows[0] as Record<string, unknown>).fee_value) : defaultRate;
 }
 
 export async function createSource(input: CreateSourceInput, userId: string): Promise<SourceFeeRule> {
-  const { rows } = await pool.query(
-    `INSERT INTO source_fee_rules
-       (source_code, source_name_en, source_name_ar, fee_type, fee_value, deduct_from, is_active, valid_from, valid_until, last_modified_by)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-     RETURNING *`,
-    [
-      input.sourceCode,
-      input.sourceNameEn,
-      input.sourceNameAr,
-      input.feeType,
-      input.feeValue,
-      input.deductFrom ?? 'clinic',
-      input.isActive ?? true,
-      input.validFrom,
-      input.validUntil ?? null,
-      userId,
-    ],
-  );
-  return rowToSource(rows[0] as Record<string, unknown>);
+  return withTransaction(async (client: PoolClient) => {
+    const { rows } = await client.query(
+      `INSERT INTO source_fee_rules
+         (source_code, source_name_en, source_name_ar, fee_type, fee_value, deduct_from, is_general, is_active, valid_from, valid_until, last_modified_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+       RETURNING *`,
+      [
+        input.sourceCode,
+        input.sourceNameEn,
+        input.sourceNameAr,
+        input.feeType,
+        input.feeValue,
+        input.deductFrom ?? 'clinic',
+        input.isGeneral ?? true,
+        input.isActive ?? true,
+        input.validFrom,
+        input.validUntil ?? null,
+        userId,
+      ],
+    );
+
+    const rates = (!input.isGeneral && input.specialtyRates?.length)
+      ? input.specialtyRates
+      : [];
+    if (rates.length) await replaceSpecialtyRates(client, input.sourceCode, rates);
+
+    return rowToSource(rows[0] as Record<string, unknown>, rates);
+  });
 }
 
 export async function updateSource(sourceCode: string, input: UpdateSourceInput, userId: string): Promise<SourceFeeRule> {
-  const fields: string[] = ['last_modified_by = $1', 'last_modified_at = NOW()'];
-  const values: unknown[] = [userId];
-  let idx = 2;
+  return withTransaction(async (client: PoolClient) => {
+    const fields: string[] = ['last_modified_by = $1', 'last_modified_at = NOW()'];
+    const values: unknown[] = [userId];
+    let idx = 2;
 
-  if (input.sourceNameEn !== undefined) { fields.push(`source_name_en = $${idx++}`); values.push(input.sourceNameEn); }
-  if (input.sourceNameAr !== undefined) { fields.push(`source_name_ar = $${idx++}`); values.push(input.sourceNameAr); }
-  if (input.feeType       !== undefined) { fields.push(`fee_type = $${idx++}`);       values.push(input.feeType); }
-  if (input.feeValue      !== undefined) { fields.push(`fee_value = $${idx++}`);      values.push(input.feeValue); }
-  if (input.deductFrom    !== undefined) { fields.push(`deduct_from = $${idx++}`);    values.push(input.deductFrom); }
-  if (input.isActive      !== undefined) { fields.push(`is_active = $${idx++}`);      values.push(input.isActive); }
-  if (input.validFrom     !== undefined) { fields.push(`valid_from = $${idx++}`);     values.push(input.validFrom); }
-  if ('validUntil' in input)             { fields.push(`valid_until = $${idx++}`);    values.push(input.validUntil ?? null); }
+    if (input.sourceNameEn !== undefined) { fields.push(`source_name_en = $${idx++}`); values.push(input.sourceNameEn); }
+    if (input.sourceNameAr !== undefined) { fields.push(`source_name_ar = $${idx++}`); values.push(input.sourceNameAr); }
+    if (input.feeType       !== undefined) { fields.push(`fee_type = $${idx++}`);       values.push(input.feeType); }
+    if (input.feeValue      !== undefined) { fields.push(`fee_value = $${idx++}`);      values.push(input.feeValue); }
+    if (input.deductFrom    !== undefined) { fields.push(`deduct_from = $${idx++}`);    values.push(input.deductFrom); }
+    if (input.isGeneral     !== undefined) { fields.push(`is_general = $${idx++}`);     values.push(input.isGeneral); }
+    if (input.isActive      !== undefined) { fields.push(`is_active = $${idx++}`);      values.push(input.isActive); }
+    if (input.validFrom     !== undefined) { fields.push(`valid_from = $${idx++}`);     values.push(input.validFrom); }
+    if ('validUntil' in input)             { fields.push(`valid_until = $${idx++}`);    values.push(input.validUntil ?? null); }
 
-  values.push(sourceCode);
-  const { rows } = await pool.query(
-    `UPDATE source_fee_rules SET ${fields.join(', ')} WHERE source_code = $${idx} RETURNING *`,
-    values,
-  );
-  if (!rows.length) throw Object.assign(new Error('Source not found'), { statusCode: 404, code: 'NOT_FOUND' });
-  return rowToSource(rows[0] as Record<string, unknown>);
+    values.push(sourceCode);
+    const { rows } = await client.query(
+      `UPDATE source_fee_rules SET ${fields.join(', ')} WHERE source_code = $${idx} RETURNING *`,
+      values,
+    );
+    if (!rows.length) throw Object.assign(new Error('Source not found'), { statusCode: 404, code: 'NOT_FOUND' });
+
+    const isGeneralNow = (rows[0] as Record<string, unknown>).is_general as boolean;
+    const rates = (!isGeneralNow && input.specialtyRates !== undefined)
+      ? input.specialtyRates
+      : undefined;
+
+    if (rates !== undefined) {
+      await replaceSpecialtyRates(client, sourceCode, rates);
+    } else if (isGeneralNow) {
+      await client.query(`DELETE FROM source_specialty_rates WHERE source_code = $1`, [sourceCode]);
+    }
+
+    const finalRates = rates ?? await fetchSpecialtyRates(pool as unknown as { query: typeof pool.query }, sourceCode);
+    return rowToSource(rows[0] as Record<string, unknown>, finalRates);
+  });
 }
 
 export async function deleteSource(sourceCode: string): Promise<void> {

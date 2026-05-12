@@ -1,6 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { billingApi } from '@/lib/api';
 
+export interface SpecialtyRate {
+  specialtyId: number;
+  feeValue: number;
+}
+
 export interface SourceFeeRule {
   id: number;
   sourceCode: string;
@@ -9,10 +14,11 @@ export interface SourceFeeRule {
   feeType: 'percentage' | 'fixed';
   feeValue: number;
   deductFrom: 'clinic' | 'doctor' | 'both';
+  isGeneral: boolean;
   isActive: boolean;
   validFrom: string;
   validUntil: string | null;
-  specialtyId: number | null;
+  specialtyRates: SpecialtyRate[];
   lastModifiedAt: string;
 }
 
@@ -23,9 +29,11 @@ export interface CreateSourceInput {
   feeType: 'percentage' | 'fixed';
   feeValue: number;
   deductFrom: 'clinic' | 'doctor' | 'both';
+  isGeneral: boolean;
   isActive: boolean;
   validFrom: string;
   validUntil?: string;
+  specialtyRates?: SpecialtyRate[];
 }
 
 export function useSources() {
