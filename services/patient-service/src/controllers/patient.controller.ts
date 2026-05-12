@@ -17,6 +17,7 @@ const createSchema = z.object({
   emergencyContactName: z.string().optional(),
   preferredLanguage: z.enum(['ar', 'en']).default('ar'),
   sourceFirstVisit: z.string().optional(),
+  isFutureSource: z.boolean().optional(),
 });
 
 const updateSchema = createSchema.partial().extend({ version: z.number().int().positive() });
@@ -25,6 +26,7 @@ const searchSchema = z.object({
   query: z.string().optional(),
   mobile: z.string().optional(),
   nationalId: z.string().optional(),
+  isFutureSource: z.coerce.boolean().optional(),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(500).default(20),
 });

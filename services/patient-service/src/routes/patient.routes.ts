@@ -22,6 +22,7 @@ export async function patientRoutes(app: FastifyInstance): Promise<void> {
           query: { type: 'string' },
           mobile: { type: 'string' },
           nationalId: { type: 'string' },
+          isFutureSource: { type: 'boolean' },
           page: { type: 'integer', minimum: 1, default: 1 },
           limit: { type: 'integer', minimum: 1, maximum: 500, default: 20 },
         },

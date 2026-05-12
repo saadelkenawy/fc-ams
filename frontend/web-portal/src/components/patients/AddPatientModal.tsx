@@ -29,6 +29,8 @@ const PATIENT_SOURCES = [
 
 const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
+const CLS_SOURCE = "Cl.'s";
+
 interface FormData {
   nameAr: string;
   nameEn: string;
@@ -43,6 +45,7 @@ interface FormData {
   emergencyContactMobile: string;
   sourceFirstVisit: string;
   preferredLanguage: 'ar' | 'en';
+  isFutureSource: boolean;
 }
 
 function mobileToE164(raw: string): string {
@@ -68,8 +71,11 @@ export function AddPatientModal({ open, onClose, onCreated }: AddPatientModalPro
     nameAr: '', nameEn: '', mobile: '', nationalId: '', dateOfBirth: '',
     gender: '', bloodType: '', address: '', email: '',
     emergencyContactName: '', emergencyContactMobile: '',
-    sourceFirstVisit: "Cl.'s", preferredLanguage: 'ar',
+    sourceFirstVisit: CLS_SOURCE, preferredLanguage: 'ar',
+    isFutureSource: false,
   });
+
+  const showFutureSource = form.sourceFirstVisit !== CLS_SOURCE;
   const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({});
 
   const mutation = useMutation({
@@ -89,6 +95,7 @@ export function AddPatientModal({ open, onClose, onCreated }: AddPatientModalPro
       if (payload.email)                 body.email = payload.email;
       if (payload.emergencyContactName)  body.emergencyContactName = payload.emergencyContactName;
       if (payload.emergencyContactMobile) body.emergencyContactMobile = mobileToE164(payload.emergencyContactMobile);
+      body.isFutureSource = payload.isFutureSource === true && payload.sourceFirstVisit !== CLS_SOURCE;
       const { data } = await patientApi.post<{ data: { patientId: string } }>('/patients', body);
       return data.data;
     },
@@ -97,7 +104,7 @@ export function AddPatientModal({ open, onClose, onCreated }: AddPatientModalPro
       toast(t('تم إضافة المريض بنجاح', 'Patient added successfully'), 'success');
       onCreated?.(created.patientId);
       onClose();
-      setForm({ nameAr: '', nameEn: '', mobile: '', nationalId: '', dateOfBirth: '', gender: '', bloodType: '', address: '', email: '', emergencyContactName: '', emergencyContactMobile: '', sourceFirstVisit: "Cl.'s", preferredLanguage: 'ar' });
+      setForm({ nameAr: '', nameEn: '', mobile: '', nationalId: '', dateOfBirth: '', gender: '', bloodType: '', address: '', email: '', emergencyContactName: '', emergencyContactMobile: '', sourceFirstVisit: CLS_SOURCE, preferredLanguage: 'ar', isFutureSource: false });
       setErrors({});
     },
     onError: (err: unknown) => {
@@ -109,7 +116,11 @@ export function AddPatientModal({ open, onClose, onCreated }: AddPatientModalPro
   });
 
   function set<K extends keyof FormData>(key: K, val: FormData[K]) {
-    setForm((p) => ({ ...p, [key]: val }));
+    setForm((p) => {
+      const next = { ...p, [key]: val };
+      if (key === 'sourceFirstVisit' && val === CLS_SOURCE) next.isFutureSource = false;
+      return next;
+    });
     if (errors[key]) setErrors((p) => ({ ...p, [key]: undefined }));
   }
 
@@ -267,6 +278,37 @@ export function AddPatientModal({ open, onClose, onCreated }: AddPatientModalPro
               ))}
             </select>
           </div>
+        </div>
+
+        {/* ── Future Source (conditional) ── */}
+        <div
+          style={{
+            maxHeight: showFutureSource ? '80px' : '0',
+            opacity: showFutureSource ? 1 : 0,
+            overflow: 'hidden',
+            transition: 'max-height 0.25s ease, opacity 0.25s ease',
+          }}
+        >
+          <p className="form-section-title mt-1">
+            <span className="text-primary-500">◈</span>
+            {t('مصدر مستقبلي', 'Future Source')}
+          </p>
+          <label className={cn(
+            'flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all',
+            form.isFutureSource
+              ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
+              : 'border-gray-200 dark:border-neutral-700 hover:border-primary-300 dark:hover:border-primary-600',
+          )}>
+            <input
+              type="checkbox"
+              className="mt-0.5 w-4 h-4 rounded border-gray-300 dark:border-neutral-600 text-primary-600 focus:ring-primary-500 cursor-pointer"
+              checked={form.isFutureSource}
+              onChange={(e) => set('isFutureSource', e.target.checked)}
+            />
+            <span className="text-sm text-gray-700 dark:text-gray-200">
+              {t("تسجيل هذا المريض كمصدر إحالة مستقبلي للعيادة (Cl.'s)", "Register this patient as a future Cl.'s referral source")}
+            </span>
+          </label>
         </div>
 
         {/* ── Address ── */}

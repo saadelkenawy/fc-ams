@@ -7,6 +7,7 @@ export interface PatientListParams {
   query?: string;
   page?: number;
   limit?: number;
+  isFutureSource?: boolean;
   enabled?: boolean;
 }
 

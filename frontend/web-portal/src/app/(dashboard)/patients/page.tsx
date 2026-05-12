@@ -30,6 +30,7 @@ export default function PatientsPage() {
   const [query, setQuery]               = useState(() => searchParams.get('query') ?? '');
   const [page, setPage]                 = useState(1);
   const [limit, setLimit]               = useState(10);
+  const [futureOnly, setFutureOnly]     = useState(false);
   const [addOpen, setAddOpen]           = useState(false);
   const [editPatient, setEditPatient]   = useState<Patient | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Patient | null>(null);
@@ -46,6 +47,7 @@ export default function PatientsPage() {
     query: debouncedQuery || undefined,
     page,
     limit,
+    isFutureSource: futureOnly || undefined,
   });
 
   const patients = data?.data ?? [];
@@ -62,6 +64,7 @@ export default function PatientsPage() {
   function handleSearch(q: string) { setQuery(q); setPage(1); }
   function handlePageChange(p: number) { setPage(p); }
   function handleLimitChange(l: number) { setLimit(l); setPage(1); }
+  function handleFutureToggle() { setFutureOnly((v) => !v); setPage(1); }
 
   function handleDelete() {
     if (!deleteTarget) return;
@@ -84,7 +87,12 @@ export default function PatientsPage() {
             {(lang === 'ar' ? (p.nameAr ?? p.nameEn) : p.nameEn).charAt(0)}
           </div>
           <div>
-            <p className="font-medium text-gray-900 dark:text-gray-100">{lang === 'ar' ? (p.nameAr ?? p.nameEn) : p.nameEn}</p>
+            <div className="flex items-center gap-1.5">
+              <p className="font-medium text-gray-900 dark:text-gray-100">{lang === 'ar' ? (p.nameAr ?? p.nameEn) : p.nameEn}</p>
+              {p.isFutureSource && (
+                <span title={t('مصدر Cl.&apos;s مستقبلي', "Future Cl.'s Source")} className="text-primary-500 text-xs leading-none select-none">◈</span>
+              )}
+            </div>
             <p className="text-xs text-gray-400 dark:text-gray-500 font-mono" dir="ltr">{p.nationalId ?? '—'}</p>
           </div>
         </div>
@@ -136,9 +144,14 @@ export default function PatientsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2 animate-slide-down" style={{ animationDelay: '40ms' }}>
-          <Button variant="outline" size="sm">
-            <Filter className="w-4 h-4" />
-            {t('فلتر', 'Filter')}
+          <Button
+            variant={futureOnly ? 'primary' : 'outline'}
+            size="sm"
+            onClick={handleFutureToggle}
+            className={futureOnly ? 'gap-1.5' : 'gap-1.5'}
+          >
+            <span className="text-xs">◈</span>
+            {t('المصادر المستقبلية', 'Future Sources')}
           </Button>
           <Button size="sm" onClick={() => setAddOpen(true)} className="gap-1.5">
             <UserPlus className="w-4 h-4" />

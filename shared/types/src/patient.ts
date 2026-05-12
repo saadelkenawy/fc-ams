@@ -18,6 +18,10 @@ export interface Patient {
   emergencyContactName?: string;
   preferredLanguage: PreferredLanguage;
   sourceFirstVisit?: string;
+  isFutureSource: boolean;
+  futureSourceType?: string;
+  futureSourceSetAt?: string;
+  futureSourceSetBy?: string;
   deletedAt?: string;
   version: number;
   createdAt: string;
@@ -40,6 +44,7 @@ export interface CreatePatientInput {
   emergencyContactName?: string;
   preferredLanguage?: PreferredLanguage;
   sourceFirstVisit?: string;
+  isFutureSource?: boolean;
 }
 
 export interface UpdatePatientInput extends Partial<CreatePatientInput> {
@@ -51,6 +56,7 @@ export interface PatientSearchParams {
   mobile?: string;
   nationalId?: string;
   branchId?: number;
+  isFutureSource?: boolean;
   page?: number;
   limit?: number;
 }

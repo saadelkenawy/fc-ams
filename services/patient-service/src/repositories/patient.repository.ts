@@ -26,6 +26,10 @@ function rowToPatient(row: Record<string, unknown>): Patient {
     emergencyContactName: row.emergency_contact_name as string | undefined,
     preferredLanguage: (row.preferred_language as Patient['preferredLanguage']) ?? 'ar',
     sourceFirstVisit: row.source_first_visit as string | undefined,
+    isFutureSource: (row.is_future_source as boolean) ?? false,
+    futureSourceType: row.future_source_type as string | undefined,
+    futureSourceSetAt: row.future_source_set_at ? (row.future_source_set_at as Date).toISOString() : undefined,
+    futureSourceSetBy: row.future_source_set_by as string | undefined,
     deletedAt: row.deleted_at ? (row.deleted_at as Date).toISOString() : undefined,
     version: row.version as number,
     createdAt: (row.created_at as Date).toISOString(),
@@ -82,6 +86,10 @@ export async function searchPatients(
       values.push(params.query);
     }
 
+    if (params.isFutureSource === true) {
+      conditions.push(`is_future_source = TRUE`);
+    }
+
     const where = conditions.join(' AND ');
 
     const [{ rows: countRows }, { rows: dataRows }] = await Promise.all([
@@ -111,15 +119,18 @@ export async function createPatient(
 ): Promise<Patient> {
   return withTransaction(async (client: PoolClient) => {
     const patientId = uuidv4();
+    const isFutureSource = input.isFutureSource === true && input.sourceFirstVisit !== "Cl.'s";
     const { rows } = await client.query(
       `INSERT INTO patients (
         patient_id, mobile, name_en, name_ar, national_id,
         date_of_birth, gender, blood_type, address, email,
         emergency_contact_mobile, emergency_contact_name,
         preferred_language, source_first_visit,
+        is_future_source, future_source_type, future_source_set_at, future_source_set_by,
         created_by, branch_id
       ) VALUES (
-        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16
+        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,
+        $15,$16,$17,$18,$19,$20
       ) RETURNING *`,
       [
         patientId,
@@ -136,6 +147,10 @@ export async function createPatient(
         input.emergencyContactName ?? null,
         input.preferredLanguage ?? 'ar',
         input.sourceFirstVisit ?? null,
+        isFutureSource,
+        isFutureSource ? 'CLS' : null,
+        isFutureSource ? new Date() : null,
+        isFutureSource ? createdBy : null,
         createdBy,
         branchId,
       ],
@@ -192,6 +207,29 @@ export async function updatePatient(
         fields.push(`${col} = $${idx++}`);
         values.push((input as unknown as Record<string, unknown>)[key] ?? null);
       }
+    }
+
+    // Resolve future source flag: only honoured when source is not Cl.'s
+    if ('isFutureSource' in input) {
+      const newSource = 'sourceFirstVisit' in input ? input.sourceFirstVisit : undefined;
+      // Read current source from existing row if not being updated
+      const { rows: cur } = await client.query(
+        `SELECT source_first_visit FROM patients WHERE patient_id = $1`,
+        [patientId],
+      );
+      const effectiveSource = newSource !== undefined ? newSource : (cur[0] as { source_first_visit: string }).source_first_visit;
+      const isFutureSource = input.isFutureSource === true && effectiveSource !== "Cl.'s";
+      fields.push(`is_future_source = $${idx++}`);
+      values.push(isFutureSource);
+      fields.push(`future_source_type = $${idx++}`);
+      values.push(isFutureSource ? 'CLS' : null);
+      fields.push(`future_source_set_at = $${idx++}`);
+      values.push(isFutureSource ? new Date() : null);
+      fields.push(`future_source_set_by = $${idx++}`);
+      values.push(isFutureSource ? updatedBy : null);
+    } else if ('sourceFirstVisit' in input && input.sourceFirstVisit === "Cl.'s") {
+      // Source changed to Cl.'s — always clear the flag
+      fields.push(`is_future_source = FALSE`, `future_source_type = NULL`, `future_source_set_at = NULL`, `future_source_set_by = NULL`);
     }
 
     fields.push(`version = $${idx++}`, `updated_at = NOW()`, `updated_by = $${idx++}`);

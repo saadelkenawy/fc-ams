@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, type FormEvent } from 'react';
-import { UserCog, Phone, CreditCard, Calendar, Heart, MapPin, Users, Globe2, AlertCircle } from 'lucide-react';
+import { useState, useEffect, useRef, type FormEvent } from 'react';
+import { UserCog, Phone, CreditCard, Calendar, Heart, MapPin, Users, Globe2, AlertCircle, AlertTriangle } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { useLang } from '@/contexts/LanguageContext';
@@ -27,6 +27,7 @@ const PATIENT_SOURCES = [
 ];
 
 const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+const CLS_SOURCE = "Cl.'s";
 
 interface FormData {
   nameAr: string;
@@ -42,6 +43,7 @@ interface FormData {
   emergencyContactMobile: string;
   sourceFirstVisit: string;
   preferredLanguage: 'ar' | 'en';
+  isFutureSource: boolean;
 }
 
 function mobileToE164(raw: string): string {
@@ -65,6 +67,9 @@ export function EditPatientModal({ open, onClose, patient }: EditPatientModalPro
 
   const [form, setForm] = useState<FormData>(toFormData(patient));
   const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({});
+  const [pendingSource, setPendingSource] = useState<string | null>(null);
+
+  const showFutureSource = form.sourceFirstVisit !== CLS_SOURCE;
 
   useEffect(() => {
     if (open) { setForm(toFormData(patient)); setErrors({}); }
@@ -83,14 +88,29 @@ export function EditPatientModal({ open, onClose, patient }: EditPatientModalPro
       email:    p.email ?? '',
       emergencyContactName:   p.emergencyContactName ?? '',
       emergencyContactMobile: p.emergencyContactMobile?.replace(/^\+20/, '0') ?? '',
-      sourceFirstVisit: p.sourceFirstVisit ?? "Cl.'s",
+      sourceFirstVisit: p.sourceFirstVisit ?? CLS_SOURCE,
       preferredLanguage: (p.preferredLanguage as 'ar' | 'en') ?? 'ar',
+      isFutureSource: p.isFutureSource && p.sourceFirstVisit !== CLS_SOURCE,
     };
   }
 
   function set<K extends keyof FormData>(key: K, val: FormData[K]) {
-    setForm((p) => ({ ...p, [key]: val }));
+    if (key === 'sourceFirstVisit' && val === CLS_SOURCE && form.isFutureSource) {
+      setPendingSource(val as string);
+      return;
+    }
+    setForm((p) => {
+      const next = { ...p, [key]: val };
+      if (key === 'sourceFirstVisit' && val === CLS_SOURCE) next.isFutureSource = false;
+      return next;
+    });
     if (errors[key]) setErrors((p) => ({ ...p, [key]: undefined }));
+  }
+
+  function confirmSourceChange() {
+    if (!pendingSource) return;
+    setForm((p) => ({ ...p, sourceFirstVisit: pendingSource, isFutureSource: false }));
+    setPendingSource(null);
   }
 
   function validate(): boolean {
@@ -125,6 +145,7 @@ export function EditPatientModal({ open, onClose, patient }: EditPatientModalPro
     if (form.email)                 body.email = form.email;
     if (form.emergencyContactName)  body.emergencyContactName = form.emergencyContactName;
     if (form.emergencyContactMobile) body.emergencyContactMobile = mobileToE164(form.emergencyContactMobile);
+    body.isFutureSource = form.isFutureSource;
 
     mutation.mutate({ id: patient.patientId, ...body } as Parameters<typeof mutation.mutate>[0], {
       onSuccess: () => {
@@ -270,6 +291,60 @@ export function EditPatientModal({ open, onClose, patient }: EditPatientModalPro
             </select>
           </div>
         </div>
+
+        {/* ── Future Source (conditional) ── */}
+        <div
+          style={{
+            maxHeight: showFutureSource ? '80px' : '0',
+            opacity: showFutureSource ? 1 : 0,
+            overflow: 'hidden',
+            transition: 'max-height 0.25s ease, opacity 0.25s ease',
+          }}
+        >
+          <p className="form-section-title mt-1">
+            <span className="text-primary-500">◈</span>
+            {t('مصدر مستقبلي', 'Future Source')}
+          </p>
+          <label className={cn(
+            'flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all',
+            form.isFutureSource
+              ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
+              : 'border-gray-200 dark:border-neutral-700 hover:border-primary-300 dark:hover:border-primary-600',
+          )}>
+            <input
+              type="checkbox"
+              className="mt-0.5 w-4 h-4 rounded border-gray-300 dark:border-neutral-600 text-primary-600 focus:ring-primary-500 cursor-pointer"
+              checked={form.isFutureSource}
+              onChange={(e) => set('isFutureSource', e.target.checked)}
+            />
+            <span className="text-sm text-gray-700 dark:text-gray-200">
+              {t("تسجيل هذا المريض كمصدر إحالة مستقبلي للعيادة (Cl.'s)", "Register this patient as a future Cl.'s referral source")}
+            </span>
+          </label>
+        </div>
+
+        {/* ── Source-change warning dialog ── */}
+        {pendingSource && (
+          <div className="flex flex-col gap-3 p-4 rounded-lg border border-amber-400/40 bg-amber-50 dark:bg-amber-900/20">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+              <p className="text-sm text-amber-800 dark:text-amber-300">
+                {t(
+                  "تغيير المصدر سيُزيل علامة 'مصدر Cl.'s المستقبلي'. هل تريد المتابعة؟",
+                  "Changing source will remove the Future Cl.'s Source flag. Continue?",
+                )}
+              </p>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button size="sm" variant="ghost" onClick={() => setPendingSource(null)}>
+                {t('إلغاء', 'Cancel')}
+              </Button>
+              <Button size="sm" onClick={confirmSourceChange} className="bg-amber-500 hover:bg-amber-400 text-white">
+                {t('نعم، تابع', 'Yes, Continue')}
+              </Button>
+            </div>
+          </div>
+        )}
 
         <div>
           <label className="field-label"><MapPin className="w-3 h-3 inline me-1" />{t('العنوان', 'Address')}</label>

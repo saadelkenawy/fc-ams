@@ -274,6 +274,24 @@ function DemographicsView({
           <CardHeader><CardTitle><ClipboardList className="w-4 h-4" />{t('بيانات إدارية', 'Administrative')}</CardTitle></CardHeader>
           <CardContent className="space-y-3 pt-1">
             <InfoRow label={t('مصدر أول زيارة', 'First Visit Source')} value={patient.sourceFirstVisit} />
+            {patient.isFutureSource && (
+              <div className="flex justify-between gap-3 text-sm">
+                <span className="text-gray-500 dark:text-gray-400 shrink-0">{t('مصدر مستقبلي', 'Future Source')}</span>
+                <span
+                  title={
+                    patient.futureSourceSetAt
+                      ? t(
+                          `مسجل في ${formatDate(patient.futureSourceSetAt, 'ar-EG')}`,
+                          `Registered as future Cl.'s referral source on ${formatDate(patient.futureSourceSetAt, 'en-US')}`,
+                        )
+                      : undefined
+                  }
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-primary-400/50 text-primary-600 dark:text-primary-400 text-xs font-medium cursor-default"
+                >
+                  ◈ {t("مصدر Cl.'s المستقبلي", "Future Cl.'s Source")}
+                </span>
+              </div>
+            )}
             <InfoRow
               label={t('تاريخ التسجيل', 'Registered')}
               value={formatDate(patient.createdAt, lang === 'ar' ? 'ar-EG' : 'en-US')}
