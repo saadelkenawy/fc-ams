@@ -5,7 +5,7 @@
 /* ── Design tokens ──────────────────────────────────────────────────────── */
 @layer base {
   :root {
-    --gradient-logo:      linear-gradient(135deg,#1e3a8a 0%,#1e40af 40%,#2563eb 70%,#3b82f6 100%);
+    --gradient-logo:      linear-gradient(135deg,#450A0A 0%,#7F1D1D 40%,#B71C1C 70%,#EF4444 100%);
     --gradient-sidebar:   #0f172a;
     --gradient-hero:      linear-gradient(135deg,#eff6ff 0%,#dbeafe 35%,#FFFFFF 60%,#f8fafc 100%);
     --gradient-glass:     linear-gradient(135deg,rgba(255,255,255,0.75) 0%,rgba(255,255,255,0.5) 100%);
@@ -98,7 +98,7 @@
     border: 1px solid rgba(255,255,255,0.5);
   }
   .glass-primary {
-    background: linear-gradient(135deg,rgba(37,99,235,0.85) 0%,rgba(30,64,175,0.75) 100%);
+    background: linear-gradient(135deg,rgba(183,28,28,0.85) 0%,rgba(127,29,29,0.75) 100%);
     backdrop-filter: blur(16px);
     border: 1px solid rgba(255,255,255,0.2);
     color: white;
@@ -147,8 +147,8 @@
   /* Atmospheric background */
   .bg-atmospheric {
     background:
-      radial-gradient(ellipse at top left,  rgba(37,99,235,0.05) 0%, transparent 50%),
-      radial-gradient(ellipse at bottom right, rgba(14,165,233,0.03) 0%, transparent 50%),
+      radial-gradient(ellipse at top left,  rgba(183,28,28,0.04) 0%, transparent 50%),
+      radial-gradient(ellipse at bottom right, rgba(239,68,68,0.02) 0%, transparent 50%),
       var(--color-bg);
   }
 
@@ -243,8 +243,8 @@
 
 /* Glow pulse on focus */
 @keyframes glow-pulse {
-  0%, 100% { box-shadow: 0 0 0 0   var(--theme-primary-from, #2563EB)33; }
-  50%       { box-shadow: 0 0 0 8px var(--theme-primary-from, #2563EB)00; }
+  0%, 100% { box-shadow: 0 0 0 0   var(--theme-primary-from, #B71C1C)33; }
+  50%       { box-shadow: 0 0 0 8px var(--theme-primary-from, #B71C1C)00; }
 }
 .animate-glow-pulse { animation: glow-pulse 1.8s ease-in-out infinite; }
 

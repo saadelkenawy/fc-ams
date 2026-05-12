@@ -10,7 +10,7 @@ const buttonVariants = cva(
         primary:
           'bg-primary-600 text-white hover:bg-primary-700 active:scale-[0.98] shadow-2',
         secondary:
-          'bg-white dark:bg-neutral-800 text-primary-700 dark:text-primary-400 border border-primary-200 dark:border-primary-800 hover:bg-primary-50 dark:hover:bg-primary-900/30 active:scale-[0.98]',
+          'bg-white dark:bg-neutral-800 text-primary-700 dark:text-gray-200 border border-primary-200 dark:border-neutral-600 hover:bg-primary-50 dark:hover:bg-neutral-700 active:scale-[0.98]',
         ghost:
           'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-neutral-700 hover:text-gray-900 dark:hover:text-gray-100',
         danger:

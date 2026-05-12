@@ -19,10 +19,10 @@ import { useProcedureMap } from '@/hooks/useProcedures';
 import { cn } from '@/lib/utils';
 import type { PaymentStatus } from '@fadl/types';
 
-const STATUS_CONFIG: Record<PaymentStatus, { labelAr: string; labelEn: string; variant: 'warning' | 'info' | 'success' | 'default' | 'danger' | 'primary' }> = {
+const STATUS_CONFIG: Record<PaymentStatus, { labelAr: string; labelEn: string; variant: 'warning' | 'info' | 'success' | 'default' | 'danger' }> = {
   pending:    { labelAr: 'معلق',   labelEn: 'Pending',    variant: 'warning' },
   verified:   { labelAr: 'مراجع', labelEn: 'Verified',   variant: 'info' },
-  approved:   { labelAr: 'معتمد', labelEn: 'Approved',   variant: 'primary' },
+  approved:   { labelAr: 'معتمد', labelEn: 'Approved',   variant: 'success' },
   paid:       { labelAr: 'مدفوع', labelEn: 'Paid',       variant: 'success' },
   reconciled: { labelAr: 'مطابق', labelEn: 'Reconciled', variant: 'default' },
   refunded:   { labelAr: 'مسترد', labelEn: 'Refunded',   variant: 'danger' },
@@ -90,8 +90,7 @@ function StatusDropdown({
               cfg.variant === 'success' ? 'bg-emerald-500' :
               cfg.variant === 'warning' ? 'bg-amber-500' :
               cfg.variant === 'info'    ? 'bg-blue-500' :
-              cfg.variant === 'danger'  ? 'bg-red-500' :
-              cfg.variant === 'primary' ? 'bg-primary-500' : 'bg-gray-400',
+              cfg.variant === 'danger'  ? 'bg-red-500' : 'bg-gray-400',
             )} />
             {lang === 'ar' ? cfg.labelAr : cfg.labelEn}
           </button>
