@@ -243,13 +243,13 @@ export default function SettlementsPage() {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex items-center gap-2">
-            <label className="text-xs text-gray-500">{t('من', 'From')}</label>
-            <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
+            <label htmlFor="settle-from-date" className="text-xs text-gray-500">{t('من', 'From')}</label>
+            <input id="settle-from-date" type="date" value={from} onChange={(e) => setFrom(e.target.value)}
               className="text-sm border border-gray-200 dark:border-neutral-600 rounded-lg px-3 py-1.5 bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500" />
           </div>
           <div className="flex items-center gap-2">
-            <label className="text-xs text-gray-500">{t('إلى', 'To')}</label>
-            <input type="date" value={to} onChange={(e) => setTo(e.target.value)}
+            <label htmlFor="settle-to-date" className="text-xs text-gray-500">{t('إلى', 'To')}</label>
+            <input id="settle-to-date" type="date" value={to} onChange={(e) => setTo(e.target.value)}
               className="text-sm border border-gray-200 dark:border-neutral-600 rounded-lg px-3 py-1.5 bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500" />
           </div>
           <Button variant="outline" size="sm" onClick={() => void refetch()} disabled={isFetching}>
@@ -269,6 +269,7 @@ export default function SettlementsPage() {
               value={doctorSearch}
               onChange={(e) => { setDoctorSearch(e.target.value); setSelectedDoctor(''); }}
               placeholder={t('بحث باسم الطبيب...', 'Search doctor name...')}
+              aria-label={t('بحث باسم الطبيب', 'Search by doctor name')}
               className="w-full ps-8 pe-3 py-1.5 text-sm border border-gray-200 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
             />
           </div>
@@ -309,7 +310,7 @@ export default function SettlementsPage() {
           <div className="rounded-xl border border-gray-200 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-800/60 px-4 py-3 flex flex-wrap gap-4 items-end">
             {/* Net pool range */}
             <div className="space-y-1">
-              <p className="text-xs font-medium text-gray-500">{t('صافي المجمع — من', 'Net Pool — min')}</p>
+              <p id="settle-minpool-label" className="text-xs font-medium text-gray-500">{t('صافي المجمع — من', 'Net Pool — min')}</p>
               <input
                 type="number"
                 min="0"
@@ -317,11 +318,12 @@ export default function SettlementsPage() {
                 value={minNetPool}
                 onChange={(e) => setMinNetPool(e.target.value)}
                 placeholder="0"
+                aria-labelledby="settle-minpool-label"
                 className="w-32 text-sm border border-gray-200 dark:border-neutral-600 rounded-lg px-3 py-1.5 bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
               />
             </div>
             <div className="space-y-1">
-              <p className="text-xs font-medium text-gray-500">{t('صافي المجمع — إلى', 'Net Pool — max')}</p>
+              <p id="settle-maxpool-label" className="text-xs font-medium text-gray-500">{t('صافي المجمع — إلى', 'Net Pool — max')}</p>
               <input
                 type="number"
                 min="0"
@@ -329,6 +331,7 @@ export default function SettlementsPage() {
                 value={maxNetPool}
                 onChange={(e) => setMaxNetPool(e.target.value)}
                 placeholder="∞"
+                aria-labelledby="settle-maxpool-label"
                 className="w-32 text-sm border border-gray-200 dark:border-neutral-600 rounded-lg px-3 py-1.5 bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
               />
             </div>
@@ -718,9 +721,10 @@ export default function SettlementsPage() {
 
             <div className="space-y-3">
               <div className="space-y-1">
-                <label className="field-label">{t('كلمة مرور المدير', 'Admin password')}</label>
+                <label htmlFor="settle-rollback-pw" className="field-label">{t('كلمة مرور المدير', 'Admin password')}</label>
                 <div className="relative">
                   <input
+                    id="settle-rollback-pw"
                     type={showPw ? 'text' : 'password'}
                     value={rollbackPw}
                     onChange={(e) => setRollbackPw(e.target.value)}
@@ -884,6 +888,7 @@ function ExtraServicesPopup({ tx, initItems, onSave, onClose, locked, t, fmt }: 
                   disabled={locked}
                   className={cn(fieldCls, 'w-full')}
                   placeholder={t('اسم الخدمة', 'Service name')}
+                  aria-label={t('اسم الخدمة', 'Service name')}
                   value={item.name}
                   onChange={(e) => update(item.id, 'name', e.target.value)}
                 />
@@ -894,6 +899,7 @@ function ExtraServicesPopup({ tx, initItems, onSave, onClose, locked, t, fmt }: 
                   step="10"
                   className={cn(fieldCls, 'w-full text-end font-mono tabular-nums text-violet-700 dark:text-violet-300 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none')}
                   placeholder="0"
+                  aria-label={t('تكلفة الخدمة', 'Service cost')}
                   value={item.cost}
                   onChange={(e) => update(item.id, 'cost', e.target.value)}
                   dir="ltr"
