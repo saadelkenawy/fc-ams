@@ -113,7 +113,7 @@ function ClinicInfoTab({ t, lang }: { t: (ar: string, en: string) => string; lan
           </ul>
         </CardContent>
       </Card>
-      <Button disabled className="opacity-60 cursor-not-allowed">{t('حفظ التغييرات — قريباً', 'Save Changes — Coming Soon')}</Button>
+      <Button disabled className="opacity-60 cursor-not-allowed">{t('حفظ التغييرات (قريباً)', 'Save Changes (Coming Soon)')}</Button>
     </div>
   );
 }
@@ -232,7 +232,7 @@ function EditRoleModal({
 
   return (
     <Modal title={t('تغيير دور المستخدم', 'Change User Role')} onClose={onClose}>
-      <p className="text-sm text-gray-600 dark:text-gray-300">{user.nameEn} — <span className="font-mono text-xs">{user.email}</span></p>
+      <p className="text-sm text-gray-600 dark:text-gray-300">{user.nameEn} · <span className="font-mono text-xs">{user.email}</span></p>
       <div>
         <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1.5">{lang === 'ar' ? 'الدور الجديد' : 'New Role'}</label>
         <div className="space-y-2">
@@ -293,7 +293,7 @@ function ResetPasswordModal({
 
   return (
     <Modal title={t('إعادة تعيين كلمة المرور', 'Reset Password')} onClose={onClose}>
-      <p className="text-sm text-gray-600 dark:text-gray-300">{user.nameEn} — <span className="font-mono text-xs">{user.email}</span></p>
+      <p className="text-sm text-gray-600 dark:text-gray-300">{user.nameEn} · <span className="font-mono text-xs">{user.email}</span></p>
       {ok ? (
         <p className="text-center text-emerald-600 py-2">{t('✅ تم إعادة تعيين كلمة المرور', '✅ Password reset')}</p>
       ) : (

@@ -617,6 +617,7 @@ export default function ReceptionistPage() {
               </div>
             </CardHeader>
             <CardContent className="p-0">
+              <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
@@ -706,6 +707,7 @@ export default function ReceptionistPage() {
                   )}
                 </tbody>
               </table>
+              </div>
             </CardContent>
           </Card>
         </div>

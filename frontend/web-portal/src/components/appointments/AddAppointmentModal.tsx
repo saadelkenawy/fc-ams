@@ -344,7 +344,7 @@ function DoctorPicker({ lang, t, value, onChange, specialties }: {
         <div className="relative flex-1">
           <Search className="absolute inset-y-0 start-3 my-auto w-4 h-4 text-gray-400 pointer-events-none" />
           <input
-            className="w-full h-9 rounded-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 ps-9 pe-3 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow"
+            className="w-full h-9 rounded-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 ps-9 pe-3 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-600 transition-shadow"
             placeholder={t('بحث باسم الطبيب...', 'Search doctor...')}
             value={q}
             onChange={(e) => setQ(e.target.value)}
@@ -356,7 +356,7 @@ function DoctorPicker({ lang, t, value, onChange, specialties }: {
           )}
         </div>
         <select
-          className="h-9 rounded-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-2 text-xs text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 max-w-[130px]"
+          className="h-9 rounded-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-2 text-xs text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-600 max-w-[130px]"
           value={specId}
           onChange={(e) => setSpecId(e.target.value)}
         >

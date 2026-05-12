@@ -64,7 +64,7 @@ function SessionProgress({ done, total, color }: { done: number; total: number; 
 
 function QueuePill({ entry, isCurrent }: { entry: PatientQueueEntry; isCurrent: boolean }) {
   const label = isCurrent
-    ? entry.status === 'called' ? 'Called — waiting to enter' : 'In Session'
+    ? entry.status === 'called' ? 'Called, waiting to enter' : 'In Session'
     : `Patient #${entry.position}`;
   return (
     <div className={cn(
@@ -112,19 +112,19 @@ function NextPatientModal({
   }
 
   return (
-    <Modal open onClose={onClose} title={`Next Patient — ${room.roomCode}`}>
+    <Modal open onClose={onClose} title={`Next Patient: ${room.roomCode}`}>
       <div className="flex flex-col gap-4">
         <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-3.5 text-sm space-y-1.5 text-emerald-300">
           <p>✓ Current session will be marked complete</p>
           <p>✓ Billing record will be created automatically</p>
           {nextEntry
             ? <p>✓ Patient #{nextEntry.position} will be called next</p>
-            : <p className="text-slate-400">No more patients waiting — queue will be empty</p>}
+            : <p className="text-slate-400">No more patients waiting; queue will be empty</p>}
         </div>
         {nextPatient.isError && (
           <p className="text-xs text-red-400">
             {(nextPatient.error as { response?: { data?: { error?: { message?: string } } } })
-              ?.response?.data?.error?.message ?? 'Operation failed — please retry'}
+              ?.response?.data?.error?.message ?? 'Operation failed. Please retry.'}
           </p>
         )}
         <div className="flex gap-2 pt-1">
@@ -364,7 +364,7 @@ function AssignDoctorModal({ room, onClose }: { room: RoomDetail; onClose: () =>
       <div className="flex flex-col gap-4">
         <div>
           <label className="block text-xs text-slate-400 mb-1">Room</label>
-          <div className="px-3 py-2 rounded-lg bg-white/5 text-white text-sm">{room.roomCode} — {room.roomName}</div>
+          <div className="px-3 py-2 rounded-lg bg-white/5 text-white text-sm">{room.roomCode}: {room.roomName}</div>
         </div>
         <div>
           <label className="block text-xs text-slate-400 mb-1">Doctor</label>

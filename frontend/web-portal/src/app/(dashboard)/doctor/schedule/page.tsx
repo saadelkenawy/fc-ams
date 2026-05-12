@@ -149,7 +149,7 @@ export default function DoctorSchedulePage() {
             {t('مواعيد اليوم', "Today's Appointments")}
             {' '}
             <span className="text-gray-400 dark:text-gray-500 normal-case font-normal">
-              — {formatDate(selectedDate, lang === 'ar' ? 'ar-EG' : 'en-US')}
+              , {formatDate(selectedDate, lang === 'ar' ? 'ar-EG' : 'en-US')}
             </span>
           </h3>
 

@@ -52,7 +52,7 @@ function CancelConfirmDialog({ entry, patientLabel, onConfirm, onClose, isPendin
               {t('إلغاء دور المريض', 'Cancel Patient Turn')}
             </h3>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-              {patientLabel} — {t('موضع', 'Position')} #{entry.position}
+              {patientLabel}, {t('موضع', 'Position')} #{entry.position}
             </p>
           </div>
         </div>

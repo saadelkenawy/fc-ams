@@ -384,7 +384,7 @@ function EditDemographicsForm({
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number } }).response?.status;
       if (status === 409) {
-        setServerError(t('تعارض في البيانات — أعد المحاولة', 'Conflict — please refresh and try again'));
+        setServerError(t('تعارض في البيانات؛ أعد المحاولة', 'Conflict; please refresh and try again'));
       } else {
         setServerError(t('تعذّر الحفظ، حاول مرة أخرى', 'Failed to save, please try again'));
       }
@@ -671,7 +671,7 @@ function PatientFilesTab({
             {t('اسحب ملفات هنا أو اضغط للرفع', 'Drag files here or click to upload')}
           </p>
           <p className="text-xs text-gray-400 dark:text-gray-500">
-            {t('PDF، صور — بحد أقصى 50 ميجابايت', 'PDF, images — max 50 MB')}
+            {t('PDF، صور (بحد أقصى 50 ميجابايت)', 'PDF, images (max 50 MB)')}
           </p>
           {upload.isPending && (
             <div className="flex items-center gap-2 text-xs text-primary-600">

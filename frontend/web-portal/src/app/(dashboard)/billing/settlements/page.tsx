@@ -310,7 +310,7 @@ export default function SettlementsPage() {
           <div className="rounded-xl border border-gray-200 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-800/60 px-4 py-3 flex flex-wrap gap-4 items-end">
             {/* Net pool range */}
             <div className="space-y-1">
-              <p id="settle-minpool-label" className="text-xs font-medium text-gray-500">{t('صافي المجمع — من', 'Net Pool — min')}</p>
+              <p id="settle-minpool-label" className="text-xs font-medium text-gray-500">{t('صافي المجمع: من', 'Net Pool: min')}</p>
               <input
                 type="number"
                 min="0"
@@ -323,7 +323,7 @@ export default function SettlementsPage() {
               />
             </div>
             <div className="space-y-1">
-              <p id="settle-maxpool-label" className="text-xs font-medium text-gray-500">{t('صافي المجمع — إلى', 'Net Pool — max')}</p>
+              <p id="settle-maxpool-label" className="text-xs font-medium text-gray-500">{t('صافي المجمع: إلى', 'Net Pool: max')}</p>
               <input
                 type="number"
                 min="0"
@@ -716,7 +716,7 @@ export default function SettlementsPage() {
             <div className="rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 p-3 text-xs text-amber-700 dark:text-amber-400 space-y-1">
               <p><span className="font-semibold">{t('الطبيب:', 'Doctor:')}</span> {doctorMap.get(rollbackTarget.s.doctorId)?.nameEn ?? '—'}</p>
               <p><span className="font-semibold">{t('مبلغ التسوية:', 'Settled amount:')}</span> {fmt(rollbackTarget.rec.amount)}</p>
-              <p><span className="font-semibold">{t('بواسطة:', 'Settled by:')}</span> {rollbackTarget.rec.settledBy} — {new Date(rollbackTarget.rec.settledAt).toLocaleString()}</p>
+              <p><span className="font-semibold">{t('بواسطة:', 'Settled by:')}</span> {rollbackTarget.rec.settledBy}, {new Date(rollbackTarget.rec.settledAt).toLocaleString()}</p>
             </div>
 
             <div className="space-y-3">

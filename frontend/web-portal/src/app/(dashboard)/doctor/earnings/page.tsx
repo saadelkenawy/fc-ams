@@ -134,7 +134,7 @@ export default function DoctorEarningsPage() {
         {monthLabel}
         {' '}
         <span className="text-gray-400 dark:text-gray-500 font-normal">
-          ({from} — {to})
+          ({from}–{to})
         </span>
       </p>
 
