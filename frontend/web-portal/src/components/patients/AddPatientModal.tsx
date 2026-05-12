@@ -280,36 +280,32 @@ export function AddPatientModal({ open, onClose, onCreated }: AddPatientModalPro
           </div>
         </div>
 
-        {/* ── Future Source (conditional) ── */}
-        <div
-          style={{
-            maxHeight: showFutureSource ? '80px' : '0',
-            opacity: showFutureSource ? 1 : 0,
-            overflow: 'hidden',
-            transition: 'max-height 0.25s ease, opacity 0.25s ease',
-          }}
-        >
-          <p className="form-section-title mt-1">
-            <span className="text-primary-500">◈</span>
-            {t('مصدر مستقبلي', 'Future Source')}
-          </p>
-          <label className={cn(
-            'flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all',
-            form.isFutureSource
-              ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
-              : 'border-gray-200 dark:border-neutral-700 hover:border-primary-300 dark:hover:border-primary-600',
-          )}>
-            <input
-              type="checkbox"
-              className="mt-0.5 w-4 h-4 rounded border-gray-300 dark:border-neutral-600 text-primary-600 focus:ring-primary-500 cursor-pointer"
-              checked={form.isFutureSource}
-              onChange={(e) => set('isFutureSource', e.target.checked)}
-            />
-            <span className="text-sm text-gray-700 dark:text-gray-200">
-              {t("تسجيل هذا المريض كمصدر إحالة مستقبلي للعيادة (Cl.'s)", "Register this patient as a future Cl.'s referral source")}
-            </span>
-          </label>
-        </div>
+        {/* ── Future Source (conditional — hidden when Cl.'s is selected) ── */}
+        {showFutureSource && (
+          <div className="mb-4 animate-slide-down">
+            <p className="form-section-title">
+              <span className="text-primary-500 text-sm leading-none">◈</span>
+              {t('مصدر مستقبلي', 'Future Source')}
+            </p>
+            <label className={cn(
+              'flex items-start gap-2.5 w-full px-3 py-2.5 rounded-lg border cursor-pointer transition-colors',
+              'bg-white/[0.03] dark:bg-white/[0.03]',
+              form.isFutureSource
+                ? 'border-primary-500/50 dark:border-primary-500/40 bg-primary-50/50 dark:bg-primary-900/20'
+                : 'border-white/10 dark:border-neutral-700 hover:border-primary-400/30 dark:hover:border-primary-600/40',
+            )}>
+              <input
+                type="checkbox"
+                className="mt-0.5 w-4 h-4 flex-shrink-0 rounded border-gray-300 dark:border-neutral-600 text-primary-600 focus:ring-primary-500 cursor-pointer"
+                checked={form.isFutureSource}
+                onChange={(e) => set('isFutureSource', e.target.checked)}
+              />
+              <span className="text-[13px] leading-snug text-gray-700 dark:text-slate-200 flex-1">
+                {t("تسجيل هذا المريض كمصدر إحالة مستقبلي للعيادة (Cl.'s)", "Register this patient as a future Cl.'s referral source")}
+              </span>
+            </label>
+          </div>
+        )}
 
         {/* ── Address ── */}
         <div>
