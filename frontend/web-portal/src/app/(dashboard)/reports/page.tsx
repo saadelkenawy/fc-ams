@@ -216,7 +216,7 @@ function SettlementsReport({ lang, locale }: { lang: string; locale: string }) {
 
 /* ──────────────── Source Breakdown ──────────────── */
 const SOURCE_COLORS: Record<string, string> = {
-  VEZ:  '#DC2626', EKF:  '#F87171', DO:   '#6366F1',
+  VEZ:  '#D97706', EKF:  '#F87171', DO:   '#6366F1',
   SHL:  '#10B981', 'Cl.s':'#F59E0B', 'Ref.':'#8B5CF6',
 };
 

@@ -5,7 +5,7 @@ import '@/styles/globals.css';
 
 export const metadata: Metadata = {
   title: { default: 'فضل كلينك | Fadl Clinic', template: '%s | Fadl Clinic' },
-  description: 'نظام إدارة فضل كلينك — Fadl Clinic Management System',
+  description: 'نظام إدارة فضل كلينك | Fadl Clinic Management System',
   icons: { icon: '/favicon.ico' },
 };
 

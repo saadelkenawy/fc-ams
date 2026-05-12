@@ -5,6 +5,8 @@
 /* ── Design tokens ──────────────────────────────────────────────────────── */
 @layer base {
   :root {
+    --theme-primary-from: #B71C1C;
+    --theme-primary-to:   #991B1B;
     --gradient-logo:      linear-gradient(135deg,#450A0A 0%,#7F1D1D 40%,#B71C1C 70%,#EF4444 100%);
     --gradient-sidebar:   #0f172a;
     --gradient-hero:      linear-gradient(135deg,#eff6ff 0%,#dbeafe 35%,#FFFFFF 60%,#f8fafc 100%);

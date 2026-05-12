@@ -230,7 +230,7 @@ function DeleteModal({ appointment, patientName, lang, t, onClose, onDone }: Del
           <div>
             <h3 className="font-semibold text-gray-900 dark:text-gray-100">{t('حذف الموعد', 'Delete Appointment')}</h3>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-              {patientName} — {appointment.appointmentDate} {formatTime(appointment.startTime)}
+              {patientName}, {appointment.appointmentDate} {formatTime(appointment.startTime)}
             </p>
           </div>
         </div>

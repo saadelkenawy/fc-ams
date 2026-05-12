@@ -101,7 +101,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex flex-col lg:flex-row" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
 
       {/* ── Hero panel ─────────────────────────────────────────────────────── */}
-      <div className="relative hidden lg:flex lg:w-[58%] min-h-screen flex-col overflow-hidden bg-blue-950">
+      <div className="relative hidden lg:flex lg:w-[58%] min-h-screen flex-col overflow-hidden bg-[#120404]">
 
         {/* Ken Burns image — crossfade via opacity on index change */}
         {HERO_IMAGES.map((src, i) => (
@@ -125,13 +125,13 @@ export default function LoginPage() {
         <div
           className="absolute inset-0 animate-mesh"
           style={{
-            background: 'linear-gradient(135deg,rgba(15,23,42,0.82) 0%,rgba(37,99,235,0.45) 40%,rgba(15,23,42,0.75) 100%)',
+            background: 'linear-gradient(135deg,rgba(15,4,4,0.85) 0%,rgba(183,28,28,0.35) 40%,rgba(15,4,4,0.78) 100%)',
           }}
         />
 
         {/* Soft particle glow spots */}
-        <div className="absolute top-1/4 start-1/4 w-72 h-72 rounded-full bg-blue-500/10 blur-3xl pointer-events-none" />
-        <div className="absolute bottom-1/3 end-1/4 w-56 h-56 rounded-full bg-cyan-400/10 blur-3xl pointer-events-none" />
+        <div className="absolute top-1/4 start-1/4 w-72 h-72 rounded-full bg-rose-900/10 blur-3xl pointer-events-none" />
+        <div className="absolute bottom-1/3 end-1/4 w-56 h-56 rounded-full bg-red-900/8 blur-3xl pointer-events-none" />
 
         {/* Content */}
         <div className="relative z-10 flex flex-col items-center justify-center flex-1 px-14 text-center">
@@ -161,7 +161,7 @@ export default function LoginPage() {
                 key={labelEn}
                 className="flex items-center gap-2 bg-white/10 backdrop-blur border border-white/20 rounded-full px-4 py-2 text-white text-sm font-medium hover:bg-white/15 transition-colors"
               >
-                <Icon className="w-4 h-4 text-blue-300 flex-shrink-0" />
+                <Icon className="w-4 h-4 text-white/70 flex-shrink-0" />
                 {t(labelAr, labelEn)}
               </div>
             ))}
@@ -439,7 +439,7 @@ export default function LoginPage() {
 
         {/* Footer */}
         <p className="mt-auto pt-8 text-xs text-center" style={{ color: 'var(--color-text-disabled)' }}>
-          {t('فضل كلينك © ٢٠٢٦ — جميع الحقوق محفوظة', '© 2026 Fadl Clinic — All rights reserved')}
+          {t('فضل كلينك © ٢٠٢٦، جميع الحقوق محفوظة', '© 2026 Fadl Clinic. All rights reserved.')}
           {' · '}
           <span className="font-mono" dir="ltr">v1.0.0</span>
         </p>
