@@ -113,7 +113,7 @@ function NotificationBell() {
       >
         <Bell className="w-4 h-4" />
         {unseen > 0 && (
-          <span className="absolute -top-0.5 -end-0.5 min-w-[16px] h-4 bg-primary-600 text-white text-[9px] font-bold rounded-full flex items-center justify-center px-0.5">
+          <span className="absolute -top-0.5 -end-0.5 min-w-[16px] h-4 bg-primary-600 text-white text-[9px] font-bold rounded-full flex items-center justify-center px-0.5 animate-badge-pop">
             {unseen > 9 ? '9+' : unseen}
           </span>
         )}

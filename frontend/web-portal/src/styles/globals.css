@@ -257,6 +257,21 @@
 }
 .animate-dot-flash { animation: dot-flash 1.2s ease-in-out infinite both; }
 
+/* Notification badge entrance — scale from 0 with slight overshoot */
+@keyframes badge-pop {
+  0%   { transform: scale(0); opacity: 0; }
+  60%  { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.animate-badge-pop { animation: badge-pop 250ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* Stat card value reveal — subtle upward drift as data arrives */
+@keyframes value-in {
+  0%   { opacity: 0; transform: translateY(4px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.animate-value-in { animation: value-in var(--duration-medium) var(--ease-snap) both; }
+
 /* Soft float for cards */
 @keyframes float {
   0%, 100% { transform: translateY(0px); }

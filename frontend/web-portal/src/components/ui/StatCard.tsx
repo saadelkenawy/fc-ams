@@ -44,7 +44,7 @@ export function StatCard({ title, value, icon, description, color = 'blue', tren
         )}
       </div>
       <div>
-        <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 font-display">{value}</p>
+        <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 font-display animate-value-in">{value}</p>
         <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mt-0.5">{title}</p>
         {description && (
           <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{description}</p>
