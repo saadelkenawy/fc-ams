@@ -146,6 +146,7 @@ export function EditDoctorModal({ open, onClose, doctor }: EditDoctorModalProps)
     if (!validate()) return;
     mutation.mutate({
       id: doctor.id,
+      version:      doctor.version,
       mobile:       mobileToE164(form.mobile),
       nameEn:       form.nameEn || form.nameAr,
       nameAr:       form.nameAr || undefined,
