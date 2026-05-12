@@ -61,7 +61,7 @@ export default function DoctorsPage() {
         d.isActive ? t('تم تعطيل الطبيب', 'Doctor deactivated') : t('تم تفعيل الطبيب', 'Doctor activated'),
         'success',
       ),
-      onError: () => toast(t('حدث خطأ', 'An error occurred'), 'error'),
+      onError: () => toast(t('تعذّر تحديث الحالة. حاول مرة أخرى.', "Couldn't update status. Try again."), 'error'),
     });
   }
 
@@ -73,7 +73,7 @@ export default function DoctorsPage() {
         if (selected === deleteTarget.id) setSelected(null);
         setDeleteTarget(null);
       },
-      onError: () => toast(t('حدث خطأ', 'An error occurred'), 'error'),
+      onError: () => toast(t('تعذّر حذف الطبيب. حاول مرة أخرى.', "Couldn't delete doctor. Refresh and try again."), 'error'),
     });
   }
 
@@ -199,7 +199,7 @@ export default function DoctorsPage() {
                 selectedKey={selected}
                 loading={isLoading}
                 error={isError}
-                emptyMessage={t('لا توجد نتائج', 'No results found')}
+                emptyMessage={t('لا يوجد أطباء يطابق البحث', 'No doctors match that search.')}
                 onAddNew={() => setAddOpen(true)}
                 addNewLabel={t('إضافة طبيب', 'Add Doctor')}
                 errorMessage={t('تعذّر تحميل البيانات', 'Failed to load doctors')}
@@ -244,7 +244,7 @@ export default function DoctorsPage() {
           deleteTarget
             ? t(
                 `هل أنت متأكد من حذف د. ${deleteTarget.nameAr ?? deleteTarget.nameEn}؟ لا يمكن التراجع عن هذا الإجراء.`,
-                `Are you sure you want to delete ${deleteTarget.nameEn}? This action cannot be undone.`,
+                `Delete Dr. ${deleteTarget.nameEn}? Their profile and schedule will be removed permanently.`,
               )
             : ''
         }

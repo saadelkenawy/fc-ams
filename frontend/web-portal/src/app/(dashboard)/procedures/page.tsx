@@ -213,7 +213,7 @@ export default function ProceduresPage() {
 
   async function handleSubmit() {
     if (!formData.code.trim() || !formData.nameEn.trim()) {
-      toast(t('يرجى ملء الحقول المطلوبة', 'Please fill in required fields'), 'error');
+      toast(t('أضف اسمًا ورمزًا للإجراء للمتابعة', 'Add a name and code to continue.'), 'error');
       return;
     }
     try {
@@ -226,7 +226,7 @@ export default function ProceduresPage() {
       }
       setModalOpen(false);
     } catch {
-      toast(t('حدث خطأ', 'Something went wrong'), 'error');
+      toast(t('تعذّر الحفظ. حاول مرة أخرى.', "Couldn't save. Try again."), 'error');
     }
   }
 
@@ -240,7 +240,7 @@ export default function ProceduresPage() {
         'success',
       );
     } catch {
-      toast(t('حدث خطأ', 'Something went wrong'), 'error');
+      toast(t('تعذّر تحديث الحالة. حاول مرة أخرى.', "Couldn't update status. Try again."), 'error');
     }
   }
 
@@ -251,7 +251,7 @@ export default function ProceduresPage() {
       toast(t('تم حذف الإجراء', 'Procedure deleted'), 'success');
       setDeleteTarget(null);
     } catch {
-      toast(t('حدث خطأ', 'Something went wrong'), 'error');
+      toast(t('تعذّر الحذف. حاول مرة أخرى.', "Couldn't delete. Try again."), 'error');
     }
   }
 

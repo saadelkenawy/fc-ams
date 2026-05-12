@@ -149,7 +149,7 @@ export function EditPatientModal({ open, onClose, patient }: EditPatientModalPro
 
     mutation.mutate({ id: patient.patientId, ...body } as Parameters<typeof mutation.mutate>[0], {
       onSuccess: () => {
-        toast(t('تم تحديث بيانات المريض', 'Patient updated successfully'), 'success');
+        toast(t('تم حفظ سجل المريض', 'Patient record saved.'), 'success');
         onClose();
       },
       onError: (err: unknown) => {

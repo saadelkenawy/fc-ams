@@ -162,7 +162,7 @@ export function EditDoctorModal({ open, onClose, doctor }: EditDoctorModalProps)
       allowOverbooking: form.allowOverbooking,
     }, {
       onSuccess: () => {
-        toast(t('تم تحديث بيانات الطبيب', 'Doctor updated successfully'), 'success');
+        toast(t('تم حفظ بيانات الطبيب', 'Doctor profile saved.'), 'success');
         onClose();
       },
       onError: (err: unknown) => {

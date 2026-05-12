@@ -73,7 +73,7 @@ export default function PatientsPage() {
         toast(t('تم حذف المريض', 'Patient deleted'), 'success');
         setDeleteTarget(null);
       },
-      onError: () => toast(t('حدث خطأ', 'An error occurred'), 'error'),
+      onError: () => toast(t('تعذّر حذف المريض. حاول مرة أخرى.', "Couldn't delete patient. Refresh and try again."), 'error'),
     });
   }
 
@@ -202,7 +202,7 @@ export default function PatientsPage() {
             onRowClick={(p) => router.push(`/patients/${p.patientId}`)}
             loading={isLoading}
             error={isError}
-            emptyMessage={t('لا توجد نتائج', 'No results found')}
+            emptyMessage={t('لا يوجد مرضى يطابق البحث', 'No patients match that search.')}
             onAddNew={() => setAddOpen(true)}
             addNewLabel={t('إضافة مريض', 'Add Patient')}
             errorMessage={t('تعذّر تحميل البيانات', 'Failed to load patients')}
@@ -238,7 +238,7 @@ export default function PatientsPage() {
           deleteTarget
             ? t(
                 `هل أنت متأكد من حذف ${deleteTarget.nameAr ?? deleteTarget.nameEn}؟ لا يمكن التراجع عن هذا الإجراء.`,
-                `Are you sure you want to delete ${deleteTarget.nameEn}? This action cannot be undone.`,
+                `Delete ${deleteTarget.nameEn}? This removes their record permanently.`,
               )
             : ''
         }

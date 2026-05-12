@@ -131,7 +131,7 @@ function SourceModal({
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: { message?: string } } } })
         ?.response?.data?.error?.message;
-      toast(msg ?? t('تعذّر الحفظ', 'Failed to save'), 'error');
+      toast(msg ?? t('تعذّر الحفظ. حاول مرة أخرى.', "Couldn't save source. Try again."), 'error');
     }
   }
 
@@ -304,7 +304,7 @@ function SourceModal({
 
               {specialtyRates.length === 0 && (
                 <p className="text-xs text-gray-400 dark:text-gray-500 italic">
-                  {t('لم تُضف تخصصات بعد — ستُطبّق النسبة الافتراضية على الجميع', 'No specialties added — default rate applies to all')}
+                  {t('لم تُضف تخصصات بعد؛ ستُطبّق النسبة الافتراضية على الجميع', 'No specialties added; the default rate applies to all procedures.')}
                 </p>
               )}
             </div>
@@ -468,7 +468,7 @@ export default function SourcesPage() {
       await deleteSource.mutateAsync(deleteTarget.sourceCode);
       toast(t('تم حذف المصدر', 'Source deleted'), 'success');
     } catch {
-      toast(t('تعذّر الحذف', 'Delete failed'), 'error');
+      toast(t('تعذّر الحذف. حاول مرة أخرى.', "Couldn't delete source. Try again."), 'error');
     } finally {
       setDeleteTarget(null);
     }

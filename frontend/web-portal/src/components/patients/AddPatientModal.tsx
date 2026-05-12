@@ -153,7 +153,7 @@ export function AddPatientModal({ open, onClose, onCreated }: AddPatientModalPro
       open={open}
       onClose={onClose}
       title={t('إضافة مريض جديد', 'Add New Patient')}
-      subtitle={t('أدخل بيانات المريض الأساسية', 'Enter patient information')}
+      subtitle={t('البيانات الأساسية الآن؛ التفاصيل الطبية تُضاف من سجل المريض لاحقًا', 'Fill in the basics; clinical details can be added from the patient record later.')}
       maxWidth="2xl"
       footer={
         <>

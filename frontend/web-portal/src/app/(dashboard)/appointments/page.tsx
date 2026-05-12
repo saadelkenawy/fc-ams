@@ -576,7 +576,7 @@ export default function AppointmentsPage() {
                       <td colSpan={9} className="px-5 py-12 text-center text-gray-400 dark:text-gray-300">
                         {hasActiveFilters
                           ? t('لا توجد نتائج تطابق الفلتر', 'No appointments match the filter')
-                          : t('لا توجد مواعيد', 'No appointments found')}
+                          : t('لا توجد مواعيد مجدولة بعد', 'No appointments scheduled yet.')}
                       </td>
                     </tr>
                   )}

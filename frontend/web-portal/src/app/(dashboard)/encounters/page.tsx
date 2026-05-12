@@ -108,7 +108,7 @@ export default function EncountersPage() {
       setFormError('');
     },
     onError: (err: { message?: string }) => {
-      setFormError(err?.message ?? t('حدث خطأ', 'An error occurred'));
+      setFormError(err?.message ?? t('تعذّر الحفظ. حاول مرة أخرى.', "Couldn't save. Try again."));
     },
   });
 
@@ -227,7 +227,7 @@ export default function EncountersPage() {
                       <td colSpan={6} className="px-5 py-12 text-center">
                         <div className="flex flex-col items-center gap-2 text-gray-400 dark:text-gray-500">
                           <FileHeart className="w-8 h-8" />
-                          <span>{t('لا توجد حالات سريرية', 'No encounters found')}</span>
+                          <span>{t('لا توجد حالات سريرية مسجلة بعد', 'No clinical encounters recorded yet.')}</span>
                         </div>
                       </td>
                     </tr>

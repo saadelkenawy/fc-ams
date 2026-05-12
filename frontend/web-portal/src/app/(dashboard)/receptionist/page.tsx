@@ -113,7 +113,7 @@ function PatientLookup({ lang, t, selectedPatient, onSelect, onRegisterClick }: 
 
         {!isFetching && enabled && results.length === 0 && (
           <p className="text-xs text-gray-400 dark:text-gray-300 text-center py-4">
-            {t('لم يُعثر على مريض', 'No patient found')}
+            {t('لا يوجد مريض بهذا الاسم أو الرقم', 'No patient matches that name or number.')}
           </p>
         )}
 
@@ -178,7 +178,7 @@ function RegisterPatientModal({ lang, t, onClose, onCreated }: RegisterPatientMo
       onCreated(patient);
       onClose();
     },
-    onError: () => setError(t('فشل إنشاء المريض', 'Failed to register patient')),
+    onError: () => setError(t('تعذّر التسجيل. تحقق من البيانات وأعد المحاولة.', "Couldn't register patient. Check the details and try again.")),
   });
 
   return (
@@ -289,7 +289,7 @@ function NewAppointmentFormPanel({ lang, t, initialPatient, onClose, onSuccess }
       if (err.response?.data?.error?.code === 'DOUBLE_BOOKING') {
         setError(t('هذا الوقت محجوز بالفعل، اختر وقتاً مختلفاً.', 'This slot is already taken. Please choose a different time.'));
       } else {
-        setError(t('فشل حفظ الموعد', 'Failed to save appointment'));
+        setError(t('لم يُحفظ الموعد. حاول مرة أخرى.', 'Appointment not saved. Refresh and try again.'));
       }
     },
   });
@@ -635,7 +635,7 @@ export default function ReceptionistPage() {
                   ) : appointments.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-400 dark:text-gray-300">
-                        {t('لا توجد مواعيد اليوم', 'No appointments today')}
+                        {t('لا توجد مواعيد مجدولة اليوم', 'No appointments scheduled for today.')}
                       </td>
                     </tr>
                   ) : (

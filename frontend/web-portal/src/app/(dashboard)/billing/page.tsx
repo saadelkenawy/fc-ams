@@ -57,9 +57,9 @@ function StatusDropdown({
     if (status === current) { onClose(); return; }
     try {
       await mutateAsync({ id: txId, status });
-      toast(t('تم تحديث الحالة', 'Status updated'), 'success');
+      toast(t('تم حفظ حالة الدفع', 'Payment status saved.'), 'success');
     } catch {
-      toast(t('فشل تحديث الحالة', 'Failed to update status'), 'error');
+      toast(t('لم يُحفظ التغيير. حاول مرة أخرى.', 'Status not saved. Try again.'), 'error');
     }
     onClose();
   }
@@ -277,7 +277,7 @@ export default function BillingPage() {
                       );
                     })}
                     {filtered.length === 0 && (
-                      <tr><td colSpan={9} className="px-5 py-12 text-center text-gray-400 dark:text-gray-300">{t('لا توجد نتائج', 'No results')}</td></tr>
+                      <tr><td colSpan={9} className="px-5 py-12 text-center text-gray-400 dark:text-gray-300">{t('لا توجد سجلات تطابق الفلتر', 'No billing records match the filter.')}</td></tr>
                     )}
                   </tbody>
                 </table>
