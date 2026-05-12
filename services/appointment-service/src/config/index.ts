@@ -13,6 +13,7 @@ const envSchema = z.object({
   BRANCH_ID: z.coerce.number().default(1),
   SERVICE_NAME: z.string().default('appointment-service'),
   NOTIFICATION_SERVICE_URL: z.string().default('http://localhost:3007/api/v1'),
+  BILLING_SERVICE_URL: z.string().default('http://localhost:3004/api/v1'),
 });
 
 const parsed = envSchema.safeParse(process.env);

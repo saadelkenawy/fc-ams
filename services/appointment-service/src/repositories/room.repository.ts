@@ -34,10 +34,39 @@ export interface RoomAssignmentRow {
 
 export interface RoomDetail extends RoomRow {
   status: RoomStatus;
-  assignedDoctor: { id: string; doctorStatus?: string } | null;
+  assignedDoctor: {
+    id: string;
+    nameEn: string | null;
+    nameAr: string | null;
+    specialtyNameEn: string | null;
+    assignedFrom: string | null;
+    assignedUntil: string | null;
+    doctorStatus?: string;
+  } | null;
   assignmentId: string | null;
   appointmentsToday: number;
   appointmentsRemaining: number;
+}
+
+export interface NextPatientResult {
+  completed: {
+    appointmentId: string;
+    patientId: string;
+    doctorId: string;
+    patientSource: string;
+    approvedCharge: number;
+    splitDoctorPercentage: number;
+    splitClinicPercentage: number;
+    specialtyId: number | null;
+    durationMins: number;
+    sessionStart: string | null;
+  };
+  next: {
+    queueId: string;
+    appointmentId: string;
+    patientId: string;
+    position: number;
+  } | null;
 }
 
 export interface AssignRoomResult {
@@ -88,17 +117,25 @@ export async function listRooms(date: string, branchId: number): Promise<RoomDet
     const { rows } = await client.query(
       `SELECT
          cr.*,
-         ra.id            AS assignment_id,
-         ra.status        AS assignment_status,
+         ra.id             AS assignment_id,
+         ra.status         AS assignment_status,
          ra.doctor_id,
-         COUNT(al.id) FILTER (WHERE al.assigned_date = $1)                         AS appointments_today,
+         ra.assigned_from,
+         ra.assigned_until,
+         d.name_en         AS doctor_name_en,
+         d.name_ar         AS doctor_name_ar,
+         s.name_en         AS specialty_name_en,
+         COUNT(al.id) FILTER (WHERE al.assigned_date = $1)                          AS appointments_today,
          COUNT(al.id) FILTER (WHERE al.assigned_date = $1 AND al.exited_at IS NULL) AS remaining
        FROM clinic_rooms cr
        LEFT JOIN room_assignments ra
          ON ra.room_id = cr.id AND ra.assigned_date = $1 AND ra.status IN ('reserved','active')
+       LEFT JOIN doctors d ON d.id = ra.doctor_id
+       LEFT JOIN specialties s ON s.id = d.specialty_id
        LEFT JOIN room_appointment_log al ON al.room_id = cr.id
        WHERE cr.branch_id = $2 AND cr.room_type = 'clinical' AND cr.room_code IS NOT NULL
-       GROUP BY cr.id, ra.id, ra.status, ra.doctor_id
+       GROUP BY cr.id, ra.id, ra.status, ra.doctor_id, ra.assigned_from, ra.assigned_until,
+                d.name_en, d.name_ar, s.name_en
        ORDER BY cr.room_code`,
       [date, branchId],
     );
@@ -114,7 +151,16 @@ export async function listRooms(date: string, branchId: number): Promise<RoomDet
       return {
         ...rowToRoomRow(row),
         status,
-        assignedDoctor: row.doctor_id ? { id: row.doctor_id as string } : null,
+        assignedDoctor: row.doctor_id
+          ? {
+              id: row.doctor_id as string,
+              nameEn: (row.doctor_name_en as string | null) ?? null,
+              nameAr: (row.doctor_name_ar as string | null) ?? null,
+              specialtyNameEn: (row.specialty_name_en as string | null) ?? null,
+              assignedFrom: (row.assigned_from as string | null) ?? null,
+              assignedUntil: (row.assigned_until as string | null) ?? null,
+            }
+          : null,
         assignmentId: row.assignment_id as string | null,
         appointmentsToday: Number(row.appointments_today ?? 0),
         appointmentsRemaining: Number(row.remaining ?? 0),
@@ -375,6 +421,98 @@ export async function updateRoomSettings(
     );
     if (!rows.length) throw Object.assign(new Error('Room not found'), { statusCode: 404, code: 'ROOM_NOT_FOUND' });
     return rowToRoomRow(rows[0] as Record<string, unknown>);
+  });
+}
+
+export async function nextPatient(
+  appointmentId: string,
+  performedBy: string,
+  branchId: number,
+): Promise<NextPatientResult> {
+  return withTransaction(async (client) => {
+    // 1. Lock and fetch the appointment being completed
+    const { rows: apptRows } = await client.query(
+      `SELECT a.id, a.patient_id, a.doctor_id, a.patient_source, a.approved_charge,
+              a.specialty_id, a.status,
+              d.consultation_split_doctor, d.consultation_split_clinic
+       FROM appointments a
+       JOIN doctors d ON d.id = a.doctor_id
+       WHERE a.id = $1 AND a.deleted_at IS NULL FOR UPDATE`,
+      [appointmentId],
+    );
+    if (!apptRows.length) {
+      throw Object.assign(new Error('Appointment not found'), { statusCode: 404, code: 'APPOINTMENT_NOT_FOUND' });
+    }
+    const appt = apptRows[0] as Record<string, unknown>;
+
+    // 2. Mark appointment as Completed
+    await client.query(
+      `UPDATE appointments
+       SET status = 'Comp.', version = version + 1, updated_at = NOW(), updated_by = $2
+       WHERE id = $1`,
+      [appointmentId, performedBy],
+    );
+
+    // 3. Complete the queue entry — allow in_session or called/waiting states
+    const { rows: qRows } = await client.query(
+      `UPDATE patient_queue
+       SET status = 'completed', session_end = NOW(), updated_at = NOW()
+       WHERE appointment_id = $1 AND status IN ('in_session','called','waiting')
+       RETURNING id, session_start, doctor_id, queue_date`,
+      [appointmentId],
+    );
+    const qEntry = qRows.length ? (qRows[0] as Record<string, unknown>) : null;
+
+    const sessionStart = qEntry?.session_start ? (qEntry.session_start as Date).toISOString() : null;
+    const durationMins = sessionStart
+      ? Math.round((Date.now() - new Date(sessionStart).getTime()) / 60_000)
+      : 0;
+
+    // 4. Find next waiting patient for this doctor
+    const doctorId = appt.doctor_id as string;
+    const queueDate = qEntry?.queue_date
+      ? (qEntry.queue_date as Date).toISOString().split('T')[0]
+      : new Date().toISOString().split('T')[0];
+
+    const { rows: nextRows } = await client.query(
+      `SELECT id, appointment_id, patient_id, position
+       FROM patient_queue
+       WHERE doctor_id = $1 AND queue_date = $2 AND status = 'waiting'
+       ORDER BY position ASC LIMIT 1 FOR UPDATE`,
+      [doctorId, queueDate],
+    );
+
+    let next: NextPatientResult['next'] = null;
+    if (nextRows.length) {
+      const nr = nextRows[0] as Record<string, unknown>;
+      await client.query(
+        `UPDATE patient_queue SET status = 'called', called_at = NOW(), updated_at = NOW()
+         WHERE id = $1`,
+        [nr.id],
+      );
+      next = {
+        queueId: nr.id as string,
+        appointmentId: nr.appointment_id as string,
+        patientId: nr.patient_id as string,
+        position: nr.position as number,
+      };
+    }
+
+    return {
+      completed: {
+        appointmentId,
+        patientId: appt.patient_id as string,
+        doctorId,
+        patientSource: appt.patient_source as string,
+        approvedCharge: Number(appt.approved_charge ?? 0),
+        splitDoctorPercentage: Number(appt.consultation_split_doctor ?? 50),
+        splitClinicPercentage: Number(appt.consultation_split_clinic ?? 50),
+        specialtyId: appt.specialty_id as number | null,
+        durationMins,
+        sessionStart,
+      },
+      next,
+    };
   });
 }
 

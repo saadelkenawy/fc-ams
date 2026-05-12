@@ -7,7 +7,7 @@ const TODAY = () => new Date().toISOString().split('T')[0];
 
 // ── Standard queries ──────────────────────────────────────────────────────────
 
-export function useQueue(doctorId: string, date?: string) {
+export function useQueue(doctorId: string, date?: string, enabled = true) {
   const d = date ?? TODAY();
   return useQuery({
     queryKey: ['queue', doctorId, d],
@@ -15,7 +15,7 @@ export function useQueue(doctorId: string, date?: string) {
       const { data } = await appointmentApi.get<ApiResponse<PatientQueueEntry[]>>('/queue', { params: { doctorId, date: d } });
       return data.data ?? [];
     },
-    enabled: !!doctorId,
+    enabled: enabled && !!doctorId,
     refetchInterval: 20_000,
     staleTime: 5_000,
   });

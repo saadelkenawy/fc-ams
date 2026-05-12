@@ -4,6 +4,7 @@ import type { JwtPayload } from '@fadl/types';
 import * as repo from '../repositories/room.repository';
 import { registerRoomClient, broadcastRoom } from '../lib/room-sse';
 import { redis } from '../config/redis';
+import { createBillingTransaction } from '../clients/billing';
 
 const assignSchema = z.object({
   doctorId:  z.string().uuid(),
@@ -176,6 +177,36 @@ export async function releaseRoom(request: FastifyRequest, reply: FastifyReply):
   });
 
   void reply.send({ success: true, data: result.assignment });
+}
+
+export async function nextPatientHandler(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { roomCode } = request.params as { roomCode: string };
+  const { appointmentId } = request.body as { appointmentId: string };
+  const user = request.user as JwtPayload;
+
+  const result = await repo.nextPatient(appointmentId, user.sub, user.branchId);
+
+  // Fire-and-forget billing — idempotency key prevents double billing
+  const { completed } = result;
+  if (completed.approvedCharge > 0) {
+    createBillingTransaction({
+      idempotencyKey:        `appt-next-${completed.appointmentId}`,
+      appointmentId:         completed.appointmentId,
+      patientId:             completed.patientId,
+      doctorId:              completed.doctorId,
+      patientSource:         completed.patientSource,
+      doctorSpecialtyId:     completed.specialtyId,
+      approvedCharge:        completed.approvedCharge,
+      splitDoctorPercentage: completed.splitDoctorPercentage,
+      splitClinicPercentage: completed.splitClinicPercentage,
+    }).catch((err: unknown) => {
+      request.log.error({ err, appointmentId }, 'billing transaction failed — will retry via idempotency');
+    });
+  }
+
+  broadcastRoom(user.branchId, 'room_status_changed', { roomCode: roomCode.toUpperCase() });
+
+  void reply.send({ success: true, data: result });
 }
 
 export async function updateRoom(request: FastifyRequest, reply: FastifyReply): Promise<void> {

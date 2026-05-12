@@ -130,3 +130,43 @@ export function useUpdateRoom() {
     },
   });
 }
+
+export interface NextPatientResult {
+  completed: {
+    appointmentId: string;
+    patientId: string;
+    doctorId: string;
+    patientSource: string;
+    approvedCharge: number;
+    splitDoctorPercentage: number;
+    splitClinicPercentage: number;
+    specialtyId: number | null;
+    durationMins: number;
+    sessionStart: string | null;
+  };
+  next: {
+    queueId: string;
+    appointmentId: string;
+    patientId: string;
+    position: number;
+  } | null;
+}
+
+export function useNextPatient() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: { roomCode: string; appointmentId: string }) => {
+      const { roomCode, appointmentId } = body;
+      const { data } = await appointmentApi.post<ApiResponse<NextPatientResult>>(
+        `/rooms/${roomCode}/next-patient`,
+        { appointmentId },
+      );
+      return data.data!;
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['rooms'] });
+      void qc.invalidateQueries({ queryKey: ['appointments'] });
+      void qc.invalidateQueries({ queryKey: ['queue'] });
+    },
+  });
+}

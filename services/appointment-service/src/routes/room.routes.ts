@@ -75,6 +75,22 @@ export async function roomRoutes(app: FastifyInstance): Promise<void> {
     preHandler: [requireRole('admin', 'receptionist')],
   }, ctrl.releaseRoom);
 
+  // POST /rooms/:roomCode/next-patient — complete current session and call next
+  app.post('/rooms/:roomCode/next-patient', {
+    schema: {
+      tags: ['rooms'],
+      params: { type: 'object', properties: { roomCode: { type: 'string' } }, required: ['roomCode'] },
+      body: {
+        type: 'object',
+        required: ['appointmentId'],
+        properties: {
+          appointmentId: { type: 'string', format: 'uuid' },
+        },
+      },
+    },
+    preHandler: [requireRole('admin', 'receptionist', 'doctor')],
+  }, ctrl.nextPatientHandler);
+
   // PATCH /rooms/:roomCode/settings — update room metadata (admin)
   app.patch('/rooms/:roomCode/settings', {
     schema: {
