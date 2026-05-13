@@ -206,8 +206,8 @@ export async function getSourceRateHandler(req: FastifyRequest, reply: FastifyRe
   void reply.send({ success: true, data: { sourceCode: code, specialtyId, rate } });
 }
 
-export async function deleteTransactionByAppointmentHandler(req: FastifyRequest, reply: FastifyReply): Promise<void> {
+export async function refundTransactionByAppointmentHandler(req: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { appointmentId } = req.params as { appointmentId: string };
-  await repo.deleteTransactionByAppointmentId(appointmentId);
+  await repo.refundTransactionByAppointmentId(appointmentId);
   void reply.status(204).send();
 }

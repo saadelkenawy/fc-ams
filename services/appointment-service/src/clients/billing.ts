@@ -63,6 +63,6 @@ export async function createBillingTransaction(input: CreateBillingTransactionIn
   });
 }
 
-export async function deleteTransactionByAppointment(appointmentId: string): Promise<void> {
-  await billingClient.delete(`/transactions/by-appointment/${appointmentId}`);
+export async function refundTransactionByAppointment(appointmentId: string): Promise<void> {
+  await billingClient.patch(`/transactions/by-appointment/${appointmentId}/refund`);
 }

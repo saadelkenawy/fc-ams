@@ -3,7 +3,7 @@ import { z } from 'zod';
 import type { AppointmentStatus, JwtPayload } from '@fadl/types';
 import * as repo from '../repositories/appointment.repository';
 import { fireNotification } from '../clients/notification';
-import { createBillingTransaction, deleteTransactionByAppointment } from '../clients/billing';
+import { createBillingTransaction, refundTransactionByAppointment } from '../clients/billing';
 import { verifyUserPassword } from '../clients/identity';
 
 const APPOINTMENT_STATUS = z.enum(['TBC', 'Ok!', 'Conf.', 'Comp.', 'Canc.', 'Resch.', 'Inf.']);
@@ -212,12 +212,12 @@ export async function deleteAppointment(request: FastifyRequest, reply: FastifyR
   // Hard delete appointment + audit log
   await repo.hardDeleteAppointment(id, user.sub, reason, ipAddress, user.branchId);
 
-  // Delete linked billing record (fire-and-forget with error logging)
+  // Mark linked billing record as refunded (fire-and-forget with error logging)
   void (async () => {
     try {
-      await deleteTransactionByAppointment(id);
+      await refundTransactionByAppointment(id);
     } catch (err) {
-      console.error('[appt] billing delete after appointment delete failed', (err as Error).message);
+      console.error('[appt] billing refund after appointment delete failed', (err as Error).message);
     }
   })();
 

@@ -196,8 +196,8 @@ export async function billingRoutes(app: FastifyInstance): Promise<void> {
     },
   }, ctrl.deleteSourceHandler);
 
-  // DELETE /transactions/by-appointment/:appointmentId  (admin hard-delete, called by appointment-service)
-  app.delete('/transactions/by-appointment/:appointmentId', {
+  // PATCH /transactions/by-appointment/:appointmentId/refund  (marks as refunded when appointment is deleted)
+  app.patch('/transactions/by-appointment/:appointmentId/refund', {
     preHandler: [requireRole('admin')],
     schema: {
       tags: ['billing'],
@@ -207,7 +207,7 @@ export async function billingRoutes(app: FastifyInstance): Promise<void> {
         properties: { appointmentId: { type: 'string', format: 'uuid' } },
       },
     },
-  }, ctrl.deleteTransactionByAppointmentHandler);
+  }, ctrl.refundTransactionByAppointmentHandler);
 
   // GET /sources/:code/rate?specialtyId=
   app.get('/sources/:code/rate', {
