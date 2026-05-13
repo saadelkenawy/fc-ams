@@ -690,6 +690,13 @@ export async function deleteSource(sourceCode: string): Promise<void> {
   if (result.rowCount === 0) throw Object.assign(new Error('Source not found'), { statusCode: 404, code: 'NOT_FOUND' });
 }
 
+export async function updatePaymentStatusByAppointmentId(appointmentId: string, status: string): Promise<void> {
+  await pool.query(
+    `UPDATE financial_transactions SET payment_status = $2 WHERE appointment_id = $1`,
+    [appointmentId, status],
+  );
+}
+
 export async function refundTransactionByAppointmentId(appointmentId: string): Promise<void> {
   await pool.query(
     `UPDATE financial_transactions SET payment_status = 'refunded' WHERE appointment_id = $1`,

@@ -196,6 +196,24 @@ export async function billingRoutes(app: FastifyInstance): Promise<void> {
     },
   }, ctrl.deleteSourceHandler);
 
+  // PATCH /transactions/by-appointment/:appointmentId/payment-status  (sync billing status from appointment)
+  app.patch('/transactions/by-appointment/:appointmentId/payment-status', {
+    preHandler: [requireRole('admin')],
+    schema: {
+      tags: ['billing'],
+      params: {
+        type: 'object',
+        required: ['appointmentId'],
+        properties: { appointmentId: { type: 'string', format: 'uuid' } },
+      },
+      body: {
+        type: 'object',
+        required: ['status'],
+        properties: { status: { type: 'string', enum: STATUS_ENUM } },
+      },
+    },
+  }, ctrl.updatePaymentStatusByAppointmentHandler);
+
   // PATCH /transactions/by-appointment/:appointmentId/refund  (marks as refunded when appointment is deleted)
   app.patch('/transactions/by-appointment/:appointmentId/refund', {
     preHandler: [requireRole('admin')],

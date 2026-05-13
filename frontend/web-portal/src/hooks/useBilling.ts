@@ -26,7 +26,9 @@ export function useTransactions(params: TransactionListParams = {}) {
       const res = await billingApi.get('/transactions', { params: qs });
       return res.data as PaginatedResponse<FinancialTransaction>;
     },
-    staleTime: 20_000,
+    staleTime: 15_000,
+    refetchInterval: 15_000,
+    refetchOnWindowFocus: true,
     keepPreviousData: true,
   });
 }

@@ -206,6 +206,13 @@ export async function getSourceRateHandler(req: FastifyRequest, reply: FastifyRe
   void reply.send({ success: true, data: { sourceCode: code, specialtyId, rate } });
 }
 
+export async function updatePaymentStatusByAppointmentHandler(req: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { appointmentId } = req.params as { appointmentId: string };
+  const { status } = (req.body as { status: string });
+  await repo.updatePaymentStatusByAppointmentId(appointmentId, status);
+  void reply.status(204).send();
+}
+
 export async function refundTransactionByAppointmentHandler(req: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { appointmentId } = req.params as { appointmentId: string };
   await repo.refundTransactionByAppointmentId(appointmentId);
