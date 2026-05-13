@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { CalendarPlus, ChevronLeft, ChevronRight, CalendarDays, MoreVertical, Pencil, Trash2, Check, X, Search, SlidersHorizontal } from 'lucide-react';
+import { CalendarPlus, ChevronLeft, ChevronRight, CalendarDays, MoreVertical, Pencil, Trash2, Check, X, Search, SlidersHorizontal, ShieldAlert, Loader2 } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -157,6 +157,126 @@ function ActionMenu({ appointment, lang, t, userRole, onStatusChange, onEdit, on
   );
 }
 
+// ── Bulk delete modal ─────────────────────────────────────────────────────
+
+interface BulkDeleteModalProps {
+  ids: string[];
+  lang: 'ar' | 'en';
+  t: (ar: string, en: string) => string;
+  onClose: () => void;
+  onDeleted: () => void;
+}
+
+function BulkDeleteModal({ ids, lang, t, onClose, onDeleted }: BulkDeleteModalProps) {
+  const [password, setPassword] = useState('');
+  const [reason,   setReason]   = useState('');
+  const [loading,  setLoading]  = useState(false);
+  const [error,    setError]    = useState('');
+  const [progress, setProgress] = useState(0);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!password) { setError(t('كلمة المرور مطلوبة', 'Password is required')); return; }
+    if (reason.length < 10) { setError(t('السبب يجب أن يكون 10 أحرف على الأقل', 'Reason must be at least 10 characters')); return; }
+    setError('');
+    setLoading(true);
+    let done = 0;
+    for (const id of ids) {
+      try {
+        await appointmentApi.delete(`/appointments/${id}`, { data: { password, reason } });
+      } catch {
+        // continue deleting the rest; errors ignored per-item
+      }
+      done++;
+      setProgress(Math.round((done / ids.length) * 100));
+    }
+    setLoading(false);
+    onDeleted();
+    onClose();
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="w-full max-w-md mx-4 bg-white dark:bg-neutral-800 rounded-2xl shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100 dark:border-neutral-700">
+          <div className="p-2 rounded-xl bg-red-50 dark:bg-red-900/20">
+            <ShieldAlert className="w-5 h-5 text-red-500" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100">
+              {t(`حذف ${ids.length} موعد`, `Delete ${ids.length} appointment${ids.length > 1 ? 's' : ''}`)}
+            </h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {t('هذا الإجراء لا يمكن التراجع عنه', 'This action cannot be undone')}
+            </p>
+          </div>
+          <button onClick={onClose} className="ms-auto text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+              {t('كلمة المرور', 'Password')}
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder={t('كلمة مرورك', 'Your password')}
+              className="w-full h-10 rounded-xl border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-700 px-3 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500"
+              autoFocus
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+              {t('سبب الحذف', 'Reason for deletion')}
+            </label>
+            <textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder={t('يجب أن يكون 10 أحرف على الأقل...', 'At least 10 characters...')}
+              rows={3}
+              className="w-full rounded-xl border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
+            />
+            <p className="text-[10px] text-gray-400">{reason.length}/10 {t('حرف كحد أدنى', 'chars min')}</p>
+          </div>
+
+          {loading && (
+            <div className="space-y-1">
+              <div className="h-1.5 rounded-full bg-gray-100 dark:bg-neutral-700 overflow-hidden">
+                <div className="h-full bg-red-500 rounded-full transition-all duration-200" style={{ width: `${progress}%` }} />
+              </div>
+              <p className="text-xs text-gray-400 text-center">{progress}%</p>
+            </div>
+          )}
+
+          {error && <p className="text-xs text-red-500">{error}</p>}
+
+          <div className="flex gap-2 pt-1">
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex-1 h-10 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-medium transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+            >
+              {loading ? <><Loader2 className="w-4 h-4 animate-spin" />{t('جاري الحذف...', 'Deleting...')}</> : t('تأكيد الحذف', 'Confirm Delete')}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={loading}
+              className="px-4 h-10 rounded-xl border border-gray-200 dark:border-neutral-600 text-gray-600 dark:text-gray-300 text-sm hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors"
+            >
+              {t('إلغاء', 'Cancel')}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // ── Status change modal ────────────────────────────────────────────────────
 
 interface StatusModalProps {
@@ -249,6 +369,8 @@ export default function AppointmentsPage() {
   const [editAppt,   setEditAppt]   = useState<Appointment | null>(null);
   const [editPatientState, setEditPatientState] = useState<Patient | null>(null);
   const [editDoctorState,  setEditDoctorState]  = useState<Doctor | null>(null);
+  const [selectedIds,      setSelectedIds]      = useState<Set<string>>(new Set());
+  const [bulkDeleteOpen,   setBulkDeleteOpen]   = useState(false);
 
   // Advanced filters (client-side)
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -320,6 +442,27 @@ export default function AppointmentsPage() {
     setEditAppt(null);
     setEditPatientState(null);
     setEditDoctorState(null);
+  }
+
+  const isAdmin = user?.role === 'admin';
+  const allVisibleIds = visible.map((a) => a.id);
+  const allSelected = allVisibleIds.length > 0 && allVisibleIds.every((id) => selectedIds.has(id));
+  const someSelected = !allSelected && allVisibleIds.some((id) => selectedIds.has(id));
+
+  function toggleAll() {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(allVisibleIds));
+    }
+  }
+
+  function toggleOne(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
   }
 
   const isToday = date === todayStr();
@@ -479,12 +622,35 @@ export default function AppointmentsPage() {
         </div>
       </div>
 
+      {/* Selection action bar */}
+      {isAdmin && selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 animate-fade-in">
+          <span className="text-sm font-medium text-red-700 dark:text-red-300">
+            {t(`${selectedIds.size} موعد محدد`, `${selectedIds.size} selected`)}
+          </span>
+          <button
+            onClick={() => setBulkDeleteOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-medium transition-colors"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            {t('حذف المحدد', 'Delete Selected')}
+          </button>
+          <button
+            onClick={() => setSelectedIds(new Set())}
+            className="ms-auto text-xs text-red-400 hover:text-red-600 flex items-center gap-1"
+          >
+            <X className="w-3 h-3" />{t('إلغاء التحديد', 'Clear')}
+          </button>
+        </div>
+      )}
+
       <Card>
         <CardContent className="p-0">
           {isLoading && (
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
+                  {isAdmin && <th className="w-10 px-3 py-3" />}
                   {[t('الوقت','Time'), t('المريض','Patient'), t('الطبيب','Doctor'), t('التخصص','Specialty'), t('المصدر','Source'), t('الحالة','Status'), t('الغرفة','Room'), t('الرسوم','Charge'), ''].map((h, i) => (
                     <th key={i} className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{h}</th>
                   ))}
@@ -508,6 +674,17 @@ export default function AppointmentsPage() {
               <table className="w-full text-sm">
                 <thead className="sticky top-0 z-10 bg-white dark:bg-neutral-800 shadow-sm">
                   <tr className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
+                    {isAdmin && (
+                      <th className="w-10 px-3 py-3">
+                        <input
+                          type="checkbox"
+                          checked={allSelected}
+                          ref={(el) => { if (el) el.indeterminate = someSelected; }}
+                          onChange={toggleAll}
+                          className="w-4 h-4 rounded border-gray-300 dark:border-neutral-600 text-red-600 focus:ring-red-500 cursor-pointer"
+                        />
+                      </th>
+                    )}
                     <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الوقت', 'Time')}</th>
                     <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('المريض', 'Patient')}</th>
                     <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الطبيب', 'Doctor')}</th>
@@ -527,8 +704,23 @@ export default function AppointmentsPage() {
                     const patName   = patient
                       ? formatName(lang === 'ar' ? (patient.nameAr ?? patient.nameEn) : patient.nameEn)
                       : a.patientId.slice(-8).toUpperCase();
+                    const isSelected = selectedIds.has(a.id);
                     return (
-                      <tr key={a.id} className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors">
+                      <tr key={a.id} className={cn(
+                        'border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors',
+                        isSelected && 'bg-red-50/60 dark:bg-red-900/10',
+                      )}>
+                        {isAdmin && (
+                          <td className="w-10 px-3 py-3.5">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleOne(a.id)}
+                              onClick={(e) => e.stopPropagation()}
+                              className="w-4 h-4 rounded border-gray-300 dark:border-neutral-600 text-red-600 focus:ring-red-500 cursor-pointer"
+                            />
+                          </td>
+                        )}
                         <td className="px-5 py-3.5 font-mono text-gray-600 dark:text-gray-300 text-xs" dir="ltr">{formatTime(a.startTime)}</td>
                         <td className="px-5 py-3.5 font-medium text-gray-900 dark:text-gray-100 max-w-[180px] truncate" title={patName}>
                           {patName}
@@ -571,7 +763,7 @@ export default function AppointmentsPage() {
                   })}
                   {visible.length === 0 && (
                     <tr>
-                      <td colSpan={9} className="px-5 py-12 text-center text-gray-400 dark:text-gray-300">
+                      <td colSpan={isAdmin ? 10 : 9} className="px-5 py-12 text-center text-gray-400 dark:text-gray-300">
                         {hasActiveFilters
                           ? t('لا توجد نتائج تطابق الفلتر', 'No appointments match the filter')
                           : t('لا توجد مواعيد مجدولة بعد', 'No appointments scheduled yet.')}
@@ -611,6 +803,16 @@ export default function AppointmentsPage() {
           t={t}
           onClose={() => setStatusAppt(null)}
           onDone={invalidate}
+        />
+      )}
+
+      {bulkDeleteOpen && (
+        <BulkDeleteModal
+          ids={[...selectedIds]}
+          lang={lang}
+          t={t}
+          onClose={() => setBulkDeleteOpen(false)}
+          onDeleted={() => { setSelectedIds(new Set()); invalidate(); }}
         />
       )}
     </div>
