@@ -105,7 +105,7 @@ function FinancialReport({ lang, locale }: { lang: string; locale: string }) {
                   </div>
                 </div>
                 <div className="h-2 bg-gray-100 dark:bg-neutral-700 rounded-full overflow-hidden">
-                  <div className="h-full bg-primary-500 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+                  <div className="h-full w-full bg-primary-500 origin-left transition-transform duration-500" style={{ transform: `scaleX(${pct / 100})` }} />
                 </div>
               </div>
             );
@@ -264,7 +264,7 @@ function SourcesReport({ lang, locale }: { lang: string; locale: string }) {
                       </div>
                     </div>
                     <div className="h-2 bg-gray-100 dark:bg-neutral-700 rounded-full overflow-hidden">
-                      <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: SOURCE_COLORS[src] ?? '#94A3B8' }} />
+                      <div className="h-full w-full origin-left transition-transform duration-500" style={{ transform: `scaleX(${pct / 100})`, backgroundColor: SOURCE_COLORS[src] ?? '#94A3B8' }} />
                     </div>
                   </div>
                 );
@@ -355,7 +355,7 @@ function ActivityReport({ lang, locale }: { lang: string; locale: string }) {
                     <td className="px-5 py-3.5 font-mono tabular-nums text-primary-700 dark:text-primary-400">{formatCurrency(stats.drShare, 'EGP', locale)}</td>
                     <td className="px-5 py-3.5">
                       <div className="h-1.5 bg-gray-100 dark:bg-neutral-700 rounded-full overflow-hidden w-28">
-                        <div className="h-full bg-primary-500 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+                        <div className="h-full w-full bg-primary-500 origin-left transition-transform duration-500" style={{ transform: `scaleX(${pct / 100})` }} />
                       </div>
                     </td>
                   </tr>
@@ -477,8 +477,10 @@ export default function ReportsPage() {
           return (
             <button
               key={rt.key}
+              type="button"
               onClick={() => setTab(rt.key)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-150 ${
+              aria-pressed={active}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-600 ${
                 active
                   ? 'bg-primary-600 text-white shadow-sm'
                   : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-neutral-700 hover:text-gray-900 dark:hover:text-gray-100'

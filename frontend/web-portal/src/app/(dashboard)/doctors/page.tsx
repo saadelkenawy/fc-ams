@@ -334,8 +334,8 @@ function DoctorDetailPanel({ doctor, lang, t, onEdit, onToggle, onDelete }: {
               </div>
               <div className="h-2 bg-gray-100 dark:bg-neutral-700 rounded-full overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-primary-600 transition-all duration-500"
-                  style={{ width: `${s.split.doctorPercentage}%` }}
+                  className="h-full w-full bg-primary-600 origin-left transition-transform duration-500"
+                  style={{ transform: `scaleX(${s.split.doctorPercentage / 100})` }}
                 />
               </div>
             </div>

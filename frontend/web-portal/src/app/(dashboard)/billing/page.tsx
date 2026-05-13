@@ -609,10 +609,10 @@ function SettlementDetail({ doctorId, from, to, locale, t }: {
                 <td className="px-3 py-2 whitespace-nowrap">
                   {isDirty && (
                     <div className="flex gap-1">
-                      <button onClick={() => handleSave(tx.id)} disabled={updateCost.isPending} className="p-1 rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400" title="Save">
+                      <button type="button" onClick={() => handleSave(tx.id)} disabled={updateCost.isPending} className="p-1 rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400" aria-label="Save">
                         <Check className="w-3 h-3" />
                       </button>
-                      <button onClick={() => handleReset(tx.id)} className="p-1 rounded bg-gray-100 hover:bg-gray-200 text-gray-500 dark:bg-neutral-700 dark:text-gray-400" title="Cancel">
+                      <button type="button" onClick={() => handleReset(tx.id)} className="p-1 rounded bg-gray-100 hover:bg-gray-200 text-gray-500 dark:bg-neutral-700 dark:text-gray-400" aria-label="Cancel">
                         <X className="w-3 h-3" />
                       </button>
                     </div>

@@ -51,8 +51,8 @@ function SessionProgress({ done, total, color }: { done: number; total: number; 
     <div className="flex items-center gap-2">
       <div className="flex-1 h-1 rounded-full bg-white/10 overflow-hidden">
         <div
-          className={cn('h-full rounded-full transition-all duration-700', color)}
-          style={{ width: `${pct}%` }}
+          className={cn('h-full w-full origin-left transition-transform duration-700', color)}
+          style={{ transform: `scaleX(${pct / 100})` }}
         />
       </div>
       <span className="text-[10px] text-slate-500 tabular-nums w-8 text-end">{done}/{total}</span>
@@ -304,8 +304,9 @@ function RoomCard({
         {/* ── Chevron toggle ─────────────────────────────────────────────── */}
         {canExpand && (
           <button
+            type="button"
             onClick={() => setExpanded((v) => !v)}
-            className="absolute bottom-2.5 right-2.5 w-5 h-5 flex items-center justify-center text-slate-600 hover:text-slate-400 transition-colors"
+            className="absolute bottom-2.5 end-2.5 w-5 h-5 flex items-center justify-center text-slate-600 hover:text-slate-400 transition-colors"
             aria-label={expanded ? 'Collapse' : 'Expand'}
           >
             <svg

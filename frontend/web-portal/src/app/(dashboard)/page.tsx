@@ -146,7 +146,7 @@ export default function DashboardPage() {
                   {Object.entries(statusCounts).map(([status, count]) => (
                     <div
                       key={status}
-                      className={`${STATUS_COLORS[status as AppointmentStatus] ?? 'bg-gray-300'} transition-all`}
+                      className={STATUS_COLORS[status as AppointmentStatus] ?? 'bg-gray-300'}
                       style={{ width: `${(count / total) * 100}%` }}
                       title={`${status}: ${count}`}
                     />

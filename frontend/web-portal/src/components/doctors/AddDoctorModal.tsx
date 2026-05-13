@@ -98,8 +98,8 @@ function SplitRow({
         <div className="flex-1">
           <div className="h-2 bg-gray-200 dark:bg-neutral-700 rounded-full overflow-hidden">
             <div
-              className="h-full bg-primary-600 rounded-full transition-all duration-300"
-              style={{ width: `${value.doctor}%` }}
+              className="h-full w-full bg-primary-600 origin-left transition-transform duration-300"
+              style={{ transform: `scaleX(${value.doctor / 100})` }}
             />
           </div>
         </div>
