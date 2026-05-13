@@ -64,5 +64,5 @@ export async function createBillingTransaction(input: CreateBillingTransactionIn
 }
 
 export async function refundTransactionByAppointment(appointmentId: string): Promise<void> {
-  await billingClient.patch(`/transactions/by-appointment/${appointmentId}/refund`);
+  await billingClient.patch(`/transactions/by-appointment/${appointmentId}/refund`, {});
 }

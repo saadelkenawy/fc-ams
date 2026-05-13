@@ -278,7 +278,8 @@ export async function getDoctorSettlement(
       `SELECT ft.*
        FROM financial_transactions ft
        WHERE ft.doctor_id = $1
-         AND ft.transaction_date BETWEEN $2 AND $3`,
+         AND ft.transaction_date BETWEEN $2 AND $3
+         AND ft.payment_status <> 'refunded'`,
       [doctorId, from, to],
     );
 
@@ -349,7 +350,9 @@ export async function listDoctorSettlements(params: {
       client.query(
         `SELECT COUNT(DISTINCT doctor_id)::int AS total
          FROM financial_transactions
-         WHERE transaction_date BETWEEN $1 AND $2 AND doctor_id IS NOT NULL`,
+         WHERE transaction_date BETWEEN $1 AND $2
+           AND doctor_id IS NOT NULL
+           AND payment_status <> 'refunded'`,
         [params.from, params.to],
       ),
       client.query(
@@ -367,6 +370,7 @@ export async function listDoctorSettlements(params: {
          FROM financial_transactions ft
          WHERE ft.transaction_date BETWEEN $1 AND $2
            AND ft.doctor_id IS NOT NULL
+           AND ft.payment_status <> 'refunded'
          GROUP BY ft.doctor_id
          ORDER BY gross_revenue DESC
          LIMIT $3 OFFSET $4`,
