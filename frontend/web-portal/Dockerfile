@@ -37,6 +37,8 @@ COPY --from=builder /deploy/package.json ./
 # compiled Next.js output
 COPY --from=builder /app/frontend/web-portal/.next  ./.next
 COPY --from=builder /app/frontend/web-portal/public ./public
+# pre-create runtime-writable dirs so the fadl user can write without root
+RUN mkdir -p .next/cache/images && chown -R fadl:fadl .next public
 USER fadl
 EXPOSE 3010
 ENV PORT=3010

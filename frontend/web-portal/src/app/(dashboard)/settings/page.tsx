@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { identityApi } from '@/lib/api';
 import {
   Building2, Users, Activity, Check, Loader2, Key, RefreshCw, X,
-  UserPlus, Edit2, ShieldOff, ShieldCheck, RotateCcw, Search,
+  UserPlus, Edit2, ShieldOff, ShieldCheck, RotateCcw, Search, Trash2,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -312,6 +312,51 @@ function ResetPasswordModal({
   );
 }
 
+/* ──────────────── Delete User Modal ──────────────── */
+function DeleteUserModal({
+  user, lang, t, onClose, onDone,
+}: {
+  user: PlatformUser;
+  lang: 'ar' | 'en';
+  t: (ar: string, en: string) => string;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const [err, setErr] = useState('');
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      await identityApi.delete(`/users/${user.id}`);
+    },
+    onSuccess: () => { onDone(); onClose(); },
+    onError: (e: unknown) => {
+      setErr((e as { response?: { data?: { message?: string } } }).response?.data?.message ?? t('فشل الحذف', 'Delete failed'));
+    },
+  });
+
+  return (
+    <Modal title={t('حذف المستخدم', 'Delete User')} onClose={onClose}>
+      <div className="rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-400">
+        {lang === 'ar'
+          ? `هل أنت متأكد من حذف "${user.nameAr ?? user.nameEn}"؟ لا يمكن التراجع عن هذا الإجراء.`
+          : `Are you sure you want to permanently delete "${user.nameEn}"? This cannot be undone.`}
+      </div>
+      <p className="text-xs text-gray-400 dark:text-gray-500 font-mono">{user.email}</p>
+      {err && <p className="text-xs text-red-500">{err}</p>}
+      <div className="flex gap-2 pt-1">
+        <Button variant="ghost" className="flex-1" onClick={onClose}>{t('إلغاء', 'Cancel')}</Button>
+        <Button
+          className="flex-1 bg-red-600 hover:bg-red-700 focus-visible:ring-red-600 text-white"
+          onClick={() => mutation.mutate()}
+          disabled={mutation.isPending}
+        >
+          {mutation.isPending ? t('جاري الحذف...', 'Deleting...') : t('حذف نهائي', 'Delete permanently')}
+        </Button>
+      </div>
+    </Modal>
+  );
+}
+
 /* ──────────────── My Account card (change password) ──────────────── */
 function MyAccountCard({ t, lang }: { t: (ar: string, en: string) => string; lang: 'ar' | 'en' }) {
   const { user } = useAuth();
@@ -399,9 +444,10 @@ function UsersTab({ t, lang }: { t: (ar: string, en: string) => string; lang: 'a
   const qc = useQueryClient();
   const { user: currentUser } = useAuth();
   const [search, setSearch]               = useState('');
-  const [showCreate, setShowCreate]       = useState(false);
-  const [editRoleUser, setEditRoleUser]   = useState<PlatformUser | null>(null);
-  const [resetPwUser, setResetPwUser]     = useState<PlatformUser | null>(null);
+  const [showCreate, setShowCreate]           = useState(false);
+  const [editRoleUser, setEditRoleUser]       = useState<PlatformUser | null>(null);
+  const [resetPwUser, setResetPwUser]         = useState<PlatformUser | null>(null);
+  const [deleteConfirmUser, setDeleteConfirm] = useState<PlatformUser | null>(null);
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['platform-users'],
@@ -523,31 +569,45 @@ function UsersTab({ t, lang }: { t: (ar: string, en: string) => string; lang: 'a
                           <div className="flex items-center gap-1">
                             {/* Edit role */}
                             <button
+                              type="button"
                               onClick={() => setEditRoleUser(u)}
                               className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-700 text-gray-400 hover:text-primary-600 transition-colors"
-                              title={t('تغيير الدور', 'Edit role')}
+                              aria-label={t('تغيير الدور', 'Edit role')}
                             >
                               <Edit2 className="w-3.5 h-3.5" />
                             </button>
-                            {/* Reset password */}
+                            {/* Reset password — admin-initiated only */}
                             <button
+                              type="button"
                               onClick={() => setResetPwUser(u)}
                               className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-700 text-gray-400 hover:text-amber-600 transition-colors"
-                              title={t('إعادة تعيين كلمة المرور', 'Reset password')}
+                              aria-label={t('إعادة تعيين كلمة المرور', 'Reset password')}
                             >
                               <RotateCcw className="w-3.5 h-3.5" />
                             </button>
                             {/* Activate / Deactivate */}
                             {!isSelf && (
                               <button
+                                type="button"
                                 onClick={() => toggleActive.mutate({ id: u.id, isActive: !u.isActive })}
                                 className={`p-1.5 rounded-lg transition-colors ${u.isActive
                                   ? 'hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500'
                                   : 'hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-gray-400 hover:text-emerald-600'
                                 }`}
-                                title={u.isActive ? t('تعطيل', 'Deactivate') : t('تفعيل', 'Activate')}
+                                aria-label={u.isActive ? t('تعطيل', 'Deactivate') : t('تفعيل', 'Activate')}
                               >
                                 {u.isActive ? <ShieldOff className="w-3.5 h-3.5" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+                              </button>
+                            )}
+                            {/* Delete */}
+                            {!isSelf && (
+                              <button
+                                type="button"
+                                onClick={() => setDeleteConfirm(u)}
+                                className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-300 hover:text-red-500 dark:text-gray-600 dark:hover:text-red-400 transition-colors"
+                                aria-label={t('حذف المستخدم', 'Delete user')}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
                               </button>
                             )}
                           </div>
@@ -610,9 +670,10 @@ function UsersTab({ t, lang }: { t: (ar: string, en: string) => string; lang: 'a
       </Card>
 
       {/* Modals */}
-      {showCreate   && <CreateUserModal    lang={lang} t={t} onClose={() => setShowCreate(false)}     onDone={invalidate} />}
-      {editRoleUser && <EditRoleModal      lang={lang} t={t} user={editRoleUser} onClose={() => setEditRoleUser(null)} onDone={invalidate} />}
-      {resetPwUser  && <ResetPasswordModal lang={lang} t={t} user={resetPwUser}  onClose={() => setResetPwUser(null)} />}
+      {showCreate        && <CreateUserModal    lang={lang} t={t} onClose={() => setShowCreate(false)}      onDone={invalidate} />}
+      {editRoleUser      && <EditRoleModal      lang={lang} t={t} user={editRoleUser}      onClose={() => setEditRoleUser(null)}   onDone={invalidate} />}
+      {resetPwUser       && <ResetPasswordModal lang={lang} t={t} user={resetPwUser}       onClose={() => setResetPwUser(null)} />}
+      {deleteConfirmUser && <DeleteUserModal    lang={lang} t={t} user={deleteConfirmUser} onClose={() => setDeleteConfirm(null)}  onDone={invalidate} />}
     </div>
   );
 }

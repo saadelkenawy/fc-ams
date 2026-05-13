@@ -49,12 +49,13 @@ export default function LoginPage() {
   const { lang, toggle, t }         = useLang();
   const { theme, setTheme }         = useTheme();
   const router                      = useRouter();
-  const [showPass, setShowPass]     = useState(false);
-  const [error, setError]           = useState('');
-  const [mounted, setMounted]       = useState(false);
-  const [heroIdx, setHeroIdx]       = useState(0);
-  const [shakeKey, setShakeKey]     = useState(0);
+  const [showPass, setShowPass]           = useState(false);
+  const [error, setError]                 = useState('');
+  const [mounted, setMounted]             = useState(false);
+  const [heroIdx, setHeroIdx]             = useState(0);
+  const [shakeKey, setShakeKey]           = useState(0);
   const [themePanelOpen, setThemePanelOpen] = useState(false);
+  const [forgotClicked, setForgotClicked] = useState(false);
   const themePanelRef               = useRef<HTMLDivElement>(null);
 
   useEffect(() => { setMounted(true); }, []);
@@ -374,10 +375,25 @@ export default function LoginPage() {
                 type="button"
                 className="text-sm font-medium transition-colors hover:underline"
                 style={{ color: 'var(--theme-primary-from, #B71C1C)' }}
+                onClick={() => setForgotClicked((v) => !v)}
               >
                 {t('نسيت كلمة المرور؟', 'Forgot password?')}
               </button>
             </div>
+
+            {/* Admin-only reset notice */}
+            {forgotClicked && (
+              <div className="rounded-xl border px-4 py-3 text-sm flex items-start gap-2.5"
+                style={{ backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}>
+                <span className="text-base flex-shrink-0">ℹ️</span>
+                <span>
+                  {t(
+                    'إعادة تعيين كلمة المرور تتم عبر مسؤول النظام فقط. تواصل مع مدير العيادة للمساعدة.',
+                    'Password resets are managed by the system administrator only. Contact your clinic admin for assistance.',
+                  )}
+                </span>
+              </div>
+            )}
 
             {/* Inline error */}
             {error && (
