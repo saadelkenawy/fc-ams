@@ -56,7 +56,7 @@ export async function appointmentRoutes(app: FastifyInstance): Promise<void> {
           appointmentDate: { type: 'string', format: 'date' },
           startTime:       { type: 'string', pattern: '^\\d{2}:\\d{2}$' },
           endTime:         { type: 'string', pattern: '^\\d{2}:\\d{2}$' },
-          appointmentType: { type: 'string', enum: ['in_person', 'online', 'home_visit'], default: 'in_person' },
+          appointmentType: { type: 'string', enum: ['in_person', 'online', 'home_visit', 'walk_in'], default: 'in_person' },
           isOnline:        { type: 'boolean', default: false },
           patientSource:   { type: 'string' },
           approvedCharge:  { type: 'number', exclusiveMinimum: 0 },

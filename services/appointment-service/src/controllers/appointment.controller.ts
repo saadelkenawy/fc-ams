@@ -13,7 +13,7 @@ export const createSchema = z.object({
   appointmentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   startTime:       z.string().regex(/^\d{2}:\d{2}$/),
   endTime:         z.string().regex(/^\d{2}:\d{2}$/),
-  appointmentType: z.enum(['in_person', 'online', 'home_visit']).default('in_person'),
+  appointmentType: z.enum(['in_person', 'online', 'home_visit', 'walk_in']).default('in_person'),
   isOnline:        z.boolean().default(false),
   patientSource:   z.string().default("Cl.'s"),
   approvedCharge:  z.number().positive().optional(),
