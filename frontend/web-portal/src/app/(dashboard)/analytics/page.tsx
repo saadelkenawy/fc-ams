@@ -344,7 +344,7 @@ export default function AnalyticsPage() {
                     <td className="px-5 py-3.5 hidden lg:table-cell">
                       <div className="flex items-center gap-2">
                         <div className="flex-1 h-1.5 bg-gray-100 dark:bg-neutral-700 rounded-full overflow-hidden w-20">
-                          <div className="h-full bg-primary-500 rounded-full" style={{ width: `${s.sharePct}%` }} />
+                          <div className="h-full w-full bg-primary-500 origin-left" style={{ transform: `scaleX(${s.sharePct / 100})` }} />
                         </div>
                         <span className="text-xs text-gray-500 dark:text-gray-400 w-8">{formatNumber(s.sharePct, locale)}%</span>
                       </div>
@@ -381,8 +381,8 @@ export default function AnalyticsPage() {
                     </div>
                     <div className="h-2 bg-gray-100 dark:bg-neutral-700 rounded-full overflow-hidden">
                       <div
-                        className={`h-full rounded-full transition-all duration-500 ${d.noShowRate >= 15 ? 'bg-red-400' : d.noShowRate >= 10 ? 'bg-amber-400' : 'bg-emerald-400'}`}
-                        style={{ width: `${Math.min((d.noShowRate / 25) * 100, 100)}%` }}
+                        className={`h-full w-full origin-left transition-transform duration-500 ${d.noShowRate >= 15 ? 'bg-red-400' : d.noShowRate >= 10 ? 'bg-amber-400' : 'bg-emerald-400'}`}
+                        style={{ transform: `scaleX(${Math.min(d.noShowRate / 25, 1)})` }}
                       />
                     </div>
                   </div>
@@ -427,8 +427,8 @@ export default function AnalyticsPage() {
                         </div>
                         <div className="h-2 bg-gray-100 dark:bg-neutral-700 rounded-full overflow-hidden">
                           <div
-                            className="h-full bg-primary-600 rounded-full transition-all duration-500"
-                            style={{ width: `${(dr.revenue / maxRev) * 100}%` }}
+                            className="h-full w-full bg-primary-600 origin-left transition-transform duration-500"
+                            style={{ transform: `scaleX(${dr.revenue / maxRev})` }}
                           />
                         </div>
                       </div>
