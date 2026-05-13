@@ -4,8 +4,9 @@ import { useState, useEffect, useCallback, useRef, type FormEvent } from 'react'
 import { createPortal } from 'react-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Calendar, Clock, Search, User, Stethoscope, AlertCircle, CalendarPlus,
+  Calendar, Clock, Search, Stethoscope, AlertCircle, CalendarPlus,
   FlaskConical, X, UserPlus, Building2, Globe, Zap, ChevronRight, Phone,
+  Banknote, CreditCard, Smartphone, Pencil,
 } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
@@ -16,7 +17,7 @@ import { useProcedures } from '@/hooks/useProcedures';
 import { useDebounce } from '@/hooks/useDebounce';
 import { appointmentApi, patientApi } from '@/lib/api';
 import { cn } from '@/lib/utils';
-import type { Doctor, Patient, Specialty } from '@fadl/types';
+import type { Appointment, Doctor, Patient, Specialty } from '@fadl/types';
 
 const PATIENT_SOURCES = [
   { code: "Cl.'s",  labelAr: 'عيادة',    labelEn: 'Clinic' },
@@ -36,10 +37,22 @@ const APPT_TYPES = [
   { value: 'walk_in',   labelAr: 'بدون موعد', labelEn: 'Walk-in',   Icon: Zap },
 ];
 
+const PAYMENT_METHODS = [
+  { value: 'cash',     labelAr: 'كاش',      labelEn: 'Cash',     Icon: Banknote },
+  { value: 'visa',     labelAr: 'فيزا',      labelEn: 'Visa',     Icon: CreditCard },
+  { value: 'instapay', labelAr: 'إنستاباي', labelEn: 'InstaPay', Icon: Smartphone },
+] as const;
+
 function addMinutes(time: string, mins: number): string {
   const [h, m] = time.split(':').map(Number);
   const total = h * 60 + m + mins;
   return `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+}
+
+function diffMinutes(start: string, end: string): number {
+  const [sh, sm] = start.split(':').map(Number);
+  const [eh, em] = end.split(':').map(Number);
+  return (eh * 60 + em) - (sh * 60 + sm);
 }
 
 function makeKey() { return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`; }
@@ -154,9 +167,10 @@ function QuickCreatePatient({ lang, t, prefillName, onCreated, onCancel }: {
 }
 
 // ── Patient picker ────────────────────────────────────────────────────────────
-function PatientPicker({ lang, t, value, onChange }: {
+function PatientPicker({ lang, t, value, onChange, disabled }: {
   lang: 'ar' | 'en'; t: (a: string, b: string) => string;
   value: Patient | null; onChange: (p: Patient | null) => void;
+  disabled?: boolean;
 }) {
   const [q, setQ]               = useState('');
   const [open, setOpen]         = useState(false);
@@ -214,13 +228,15 @@ function PatientPicker({ lang, t, value, onChange }: {
             </p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => onChange(null)}
-          className="text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-200 font-medium px-2 py-1 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors"
-        >
-          {t('تغيير', 'Change')}
-        </button>
+        {!disabled && (
+          <button
+            type="button"
+            onClick={() => onChange(null)}
+            className="text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-200 font-medium px-2 py-1 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors"
+          >
+            {t('تغيير', 'Change')}
+          </button>
+        )}
       </div>
     );
   }
@@ -383,9 +399,7 @@ function DoctorPicker({ lang, t, value, onChange, specialties }: {
                 {dName.charAt(0).toUpperCase()}
               </div>
               <div className="min-w-0">
-                <p className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate group-hover:text-blue-700 dark:group-hover:text-blue-400 transition-colors">
-                  {dName}
-                </p>
+                <p className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate group-hover:text-blue-700 dark:group-hover:text-blue-400 transition-colors">{dName}</p>
                 {spec && (
                   <p className="text-[10px] text-blue-500 dark:text-blue-400 truncate font-medium">
                     {lang === 'ar' ? spec.nameAr : spec.nameEn}
@@ -396,9 +410,7 @@ function DoctorPicker({ lang, t, value, onChange, specialties }: {
           );
         })}
         {filtered.length === 0 && (
-          <div className="col-span-2 py-5 text-center text-xs text-gray-400">
-            {t('لا يوجد أطباء', 'No doctors found')}
-          </div>
+          <div className="col-span-2 py-5 text-center text-xs text-gray-400">{t('لا يوجد أطباء', 'No doctors found')}</div>
         )}
       </div>
     </div>
@@ -411,29 +423,77 @@ interface AddAppointmentModalProps {
   onClose: () => void;
   defaultDate?: string;
   onCreated?: () => void;
+  /** When provided, the modal runs in edit mode */
+  editAppointment?: Appointment;
+  /** Pre-selected patient object for edit mode */
+  editPatient?: Patient | null;
+  /** Pre-selected doctor object for edit mode */
+  editDoctor?: Doctor | null;
 }
 
-export function AddAppointmentModal({ open, onClose, defaultDate, onCreated }: AddAppointmentModalProps) {
+export function AddAppointmentModal({
+  open, onClose, defaultDate, onCreated,
+  editAppointment, editPatient, editDoctor,
+}: AddAppointmentModalProps) {
   const { lang, t } = useLang();
   const qc = useQueryClient();
   const { data: specialties = [] } = useSpecialties();
   const { data: proceduresData } = useProcedures({ isActive: true, limit: 100 });
   const procedures = proceduresData?.data ?? [];
 
-  const [patient,     setPatient]     = useState<Patient | null>(null);
-  const [doctor,      setDoctor]      = useState<Doctor | null>(null);
-  const [date,        setDate]        = useState(defaultDate ?? new Date().toISOString().split('T')[0]);
-  const [time,        setTime]        = useState('09:00');
-  const [duration,    setDuration]    = useState(20);
-  const [apptType,    setApptType]    = useState<'in_person' | 'online' | 'walk_in'>('in_person');
-  const [source,      setSource]      = useState("Cl.'s");
-  const [charge,      setCharge]      = useState('');
-  const [notes,       setNotes]       = useState('');
-  const [procedureId, setProcedureId] = useState('');
-  const [procCost,    setProcCost]    = useState('');
-  const [errors,      setErrors]      = useState<Record<string, string>>({});
+  const isEdit = !!editAppointment;
 
-  useEffect(() => { if (defaultDate) setDate(defaultDate); }, [defaultDate]);
+  const [patient,       setPatient]       = useState<Patient | null>(editPatient ?? null);
+  const [doctor,        setDoctor]        = useState<Doctor | null>(editDoctor ?? null);
+  const [date,          setDate]          = useState(editAppointment?.appointmentDate ?? defaultDate ?? new Date().toISOString().split('T')[0]);
+  const [time,          setTime]          = useState(editAppointment?.startTime ?? '09:00');
+  const [duration,      setDuration]      = useState(
+    editAppointment ? diffMinutes(editAppointment.startTime, editAppointment.endTime) : 20
+  );
+  const [apptType,      setApptType]      = useState<'in_person' | 'online' | 'walk_in'>(
+    (editAppointment?.appointmentType ?? 'in_person') as 'in_person' | 'online' | 'walk_in'
+  );
+  const [source,        setSource]        = useState(editAppointment?.patientSource ?? "Cl.'s");
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'visa' | 'instapay' | null>(
+    editAppointment?.paymentMethod ?? null
+  );
+  const [charge,        setCharge]        = useState(editAppointment?.approvedCharge != null ? String(editAppointment.approvedCharge) : '');
+  const [notes,         setNotes]         = useState(editAppointment?.notes ?? '');
+  const [procedureId,   setProcedureId]   = useState(editAppointment?.procedureId ?? '');
+  const [procCost,      setProcCost]      = useState(editAppointment?.procedureCost != null ? String(editAppointment.procedureCost) : '');
+  const [errors,        setErrors]        = useState<Record<string, string>>({});
+
+  // Sync when editAppointment changes (modal re-used)
+  useEffect(() => {
+    if (!open) return;
+    setPatient(editPatient ?? null);
+    setDoctor(editDoctor ?? null);
+    if (editAppointment) {
+      setDate(editAppointment.appointmentDate);
+      setTime(editAppointment.startTime);
+      setDuration(diffMinutes(editAppointment.startTime, editAppointment.endTime));
+      setApptType((editAppointment.appointmentType ?? 'in_person') as 'in_person' | 'online' | 'walk_in');
+      setSource(editAppointment.patientSource ?? "Cl.'s");
+      setPaymentMethod(editAppointment.paymentMethod ?? null);
+      setCharge(editAppointment.approvedCharge != null ? String(editAppointment.approvedCharge) : '');
+      setNotes(editAppointment.notes ?? '');
+      setProcedureId(editAppointment.procedureId ?? '');
+      setProcCost(editAppointment.procedureCost != null ? String(editAppointment.procedureCost) : '');
+    } else {
+      setDate(defaultDate ?? new Date().toISOString().split('T')[0]);
+      setTime('09:00');
+      setDuration(20);
+      setApptType('in_person');
+      setSource("Cl.'s");
+      setPaymentMethod(null);
+      setCharge('');
+      setNotes('');
+      setProcedureId('');
+      setProcCost('');
+    }
+    setErrors({});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, editAppointment?.id]);
 
   useEffect(() => {
     if (!procedureId) { setProcCost(''); return; }
@@ -444,36 +504,57 @@ export function AddAppointmentModal({ open, onClose, defaultDate, onCreated }: A
   const mutation = useMutation({
     mutationFn: async () => {
       if (!patient || !doctor) throw new Error('Missing required fields');
-      const body: Record<string, unknown> = {
-        patientId:       patient.patientId,
-        doctorId:        doctor.id,
-        appointmentDate: date,
-        startTime:       time,
-        endTime:         addMinutes(time, duration),
-        appointmentType: apptType,
-        patientSource:   source,
-        idempotencyKey:  makeKey(),
-      };
-      if (charge)      body.approvedCharge = Number(charge);
-      if (notes)       body.notes          = notes;
-      if (procedureId) body.procedureId    = procedureId;
-      if (procCost)    body.procedureCost  = Number(procCost);
-      await appointmentApi.post('/appointments', body);
+      if (!paymentMethod) throw new Error('Payment method required');
+
+      if (isEdit && editAppointment) {
+        // Edit mode — PATCH
+        const body: Record<string, unknown> = {
+          doctorId:        doctor.id,
+          appointmentDate: date,
+          startTime:       time,
+          endTime:         addMinutes(time, duration),
+          appointmentType: apptType,
+          patientSource:   source,
+          paymentMethod:   paymentMethod,
+          notes:           notes || null,
+          procedureId:     procedureId || null,
+        };
+        if (charge)    body.approvedCharge = Number(charge);
+        if (procCost)  body.procedureCost  = Number(procCost);
+        await appointmentApi.patch(`/appointments/${editAppointment.id}`, body);
+      } else {
+        // Create mode — POST
+        const body: Record<string, unknown> = {
+          patientId:       patient.patientId,
+          doctorId:        doctor.id,
+          appointmentDate: date,
+          startTime:       time,
+          endTime:         addMinutes(time, duration),
+          appointmentType: apptType,
+          patientSource:   source,
+          paymentMethod:   paymentMethod,
+          idempotencyKey:  makeKey(),
+        };
+        if (charge)      body.approvedCharge = Number(charge);
+        if (notes)       body.notes          = notes;
+        if (procedureId) body.procedureId    = procedureId;
+        if (procCost)    body.procedureCost  = Number(procCost);
+        await appointmentApi.post('/appointments', body);
+      }
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['appointments'] });
       onCreated?.();
       onClose();
-      setPatient(null); setDoctor(null); setCharge(''); setNotes('');
-      setProcedureId(''); setProcCost(''); setErrors({});
     },
   });
 
   function validate(): boolean {
     const e: Record<string, string> = {};
-    if (!patient) e.patient = t('اختر مريضاً', 'Select a patient');
-    if (!doctor)  e.doctor  = t('اختر طبيباً', 'Select a doctor');
-    if (!date)    e.date    = t('التاريخ مطلوب', 'Date required');
+    if (!patient)        e.patient       = t('اختر مريضاً', 'Select a patient');
+    if (!doctor)         e.doctor        = t('اختر طبيباً', 'Select a doctor');
+    if (!date)           e.date          = t('التاريخ مطلوب', 'Date required');
+    if (!paymentMethod)  e.paymentMethod = t('طريقة الدفع مطلوبة', 'Payment method is required to confirm this booking.');
     setErrors(e);
     return Object.keys(e).length === 0;
   }
@@ -490,8 +571,8 @@ export function AddAppointmentModal({ open, onClose, defaultDate, onCreated }: A
     <Modal
       open={open}
       onClose={onClose}
-      title={t('موعد جديد', 'New Appointment')}
-      subtitle={t('احجز موعدًا لمريض مع الطبيب', 'Schedule a patient visit')}
+      title={isEdit ? t('تعديل الموعد', 'Edit Appointment') : t('موعد جديد', 'New Appointment')}
+      subtitle={isEdit ? t('تحديث بيانات الموعد', 'Update appointment details') : t('احجز موعدًا لمريض مع الطبيب', 'Schedule a patient visit')}
       maxWidth="xl"
       stretch
       footer={
@@ -499,9 +580,16 @@ export function AddAppointmentModal({ open, onClose, defaultDate, onCreated }: A
           <Button variant="ghost" size="sm" onClick={onClose} disabled={mutation.isPending}>
             {t('إلغاء', 'Cancel')}
           </Button>
-          <Button size="sm" onClick={handleSubmit} disabled={mutation.isPending} className="gap-2 min-w-[140px]">
-            <CalendarPlus className="w-4 h-4" />
-            {mutation.isPending ? t('جاري الحجز...', 'Booking...') : t('تأكيد الحجز', 'Confirm Booking')}
+          <Button
+            size="sm"
+            onClick={handleSubmit}
+            disabled={mutation.isPending || !paymentMethod}
+            className="gap-2 min-w-[140px]"
+          >
+            {isEdit ? <Pencil className="w-4 h-4" /> : <CalendarPlus className="w-4 h-4" />}
+            {mutation.isPending
+              ? (isEdit ? t('جاري الحفظ...', 'Saving...') : t('جاري الحجز...', 'Booking...'))
+              : (isEdit ? t('حفظ التغييرات', 'Save Changes') : t('تأكيد الحجز', 'Confirm Booking'))}
           </Button>
         </>
       }
@@ -516,177 +604,212 @@ export function AddAppointmentModal({ open, onClose, defaultDate, onCreated }: A
           </div>
         )}
 
+        {/* Step 1 — Patient */}
+        <StepSection step={1} title={t('المريض', 'Patient')} badge="bg-emerald-600">
+          <PatientPicker lang={lang} t={t} value={patient} onChange={setPatient} disabled={isEdit} />
+          {errors.patient && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{errors.patient}</p>}
+        </StepSection>
 
-            {/* Step 1 — Patient */}
-            <StepSection step={1} title={t('المريض', 'Patient')} badge="bg-emerald-600">
-              <PatientPicker lang={lang} t={t} value={patient} onChange={setPatient} />
-              {errors.patient && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{errors.patient}</p>}
-            </StepSection>
+        {/* Step 2 — Doctor */}
+        <StepSection step={2} title={t('الطبيب', 'Doctor')} badge="bg-blue-600">
+          <DoctorPicker lang={lang} t={t} value={doctor} onChange={setDoctor} specialties={specialties} />
+          {errors.doctor && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{errors.doctor}</p>}
+        </StepSection>
 
-            {/* Step 2 — Doctor */}
-            <StepSection step={2} title={t('الطبيب', 'Doctor')} badge="bg-blue-600">
-              <DoctorPicker lang={lang} t={t} value={doctor} onChange={setDoctor} specialties={specialties} />
-              {errors.doctor && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{errors.doctor}</p>}
-            </StepSection>
-
-            {/* Step 3 — Schedule */}
-            <StepSection step={3} title={t('الجدول', 'Schedule')} badge="bg-indigo-600">
-              <div className="grid grid-cols-3 gap-2">
-                <div className="col-span-1 space-y-1">
-                  <label className="field-label">{t('التاريخ', 'Date')}</label>
-                  <input
-                    type="date"
-                    className={cn(inputCls, errors.date && 'border-red-400 focus:ring-red-400')}
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                  />
-                  {errors.date && <p className="text-xs text-red-500">{errors.date}</p>}
-                </div>
-                <div className="space-y-1">
-                  <label className="field-label">{t('الوقت', 'Time')}</label>
-                  <div className="relative">
-                    <Clock className="absolute inset-y-0 start-3 my-auto w-3.5 h-3.5 text-gray-400 pointer-events-none" />
-                    <input type="time" className={cn(inputCls, 'ps-8')} value={time} step={60 * 5} onChange={(e) => setTime(e.target.value)} />
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <label className="field-label">{t('المدة', 'Duration')}</label>
-                  <select className={cn(inputCls, 'cursor-pointer')} value={duration} onChange={(e) => setDuration(Number(e.target.value))}>
-                    {[10, 15, 20, 30, 45, 60, 90].map((m) => (
-                      <option key={m} value={m}>{m} {t('د', 'min')}</option>
-                    ))}
-                  </select>
-                </div>
+        {/* Step 3 — Schedule */}
+        <StepSection step={3} title={t('الجدول', 'Schedule')} badge="bg-indigo-600">
+          <div className="grid grid-cols-3 gap-2">
+            <div className="col-span-1 space-y-1">
+              <label className="field-label">{t('التاريخ', 'Date')}</label>
+              <input
+                type="date"
+                className={cn(inputCls, errors.date && 'border-red-400 focus:ring-red-400')}
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+              />
+              {errors.date && <p className="text-xs text-red-500">{errors.date}</p>}
+            </div>
+            <div className="space-y-1">
+              <label className="field-label">{t('الوقت', 'Time')}</label>
+              <div className="relative">
+                <Clock className="absolute inset-y-0 start-3 my-auto w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                <input type="time" className={cn(inputCls, 'ps-8')} value={time} step={60 * 5} onChange={(e) => setTime(e.target.value)} />
               </div>
-            </StepSection>
+            </div>
+            <div className="space-y-1">
+              <label className="field-label">{t('المدة', 'Duration')}</label>
+              <select className={cn(inputCls, 'cursor-pointer')} value={duration} onChange={(e) => setDuration(Number(e.target.value))}>
+                {[10, 15, 20, 30, 45, 60, 90].map((m) => (
+                  <option key={m} value={m}>{m} {t('د', 'min')}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </StepSection>
 
-            {/* Step 4 — Details */}
-            <StepSection step={4} title={t('التفاصيل', 'Details')} badge="bg-primary-600">
-              <div className="space-y-3">
+        {/* Step 4 — Details */}
+        <StepSection step={4} title={t('التفاصيل', 'Details')} badge="bg-primary-600">
+          <div className="space-y-3">
 
-                {/* Appointment type — icon buttons */}
-                <div className="space-y-1.5">
-                  <label className="field-label">{t('نوع الموعد', 'Appointment Type')}</label>
-                  <div className="grid grid-cols-3 gap-1.5">
-                    {APPT_TYPES.map(({ value: v, labelAr, labelEn, Icon }) => {
-                      const active = apptType === v;
-                      return (
-                        <button
-                          key={v}
-                          type="button"
-                          onClick={() => setApptType(v as typeof apptType)}
-                          className={cn(
-                            'flex flex-col items-center gap-1 py-2.5 rounded-xl border text-xs font-semibold transition-all',
-                            active
-                              ? 'bg-primary-600 text-white border-primary-600 shadow-sm'
-                              : 'bg-white dark:bg-neutral-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-neutral-700 hover:border-primary-400 hover:text-primary-600 dark:hover:text-primary-400',
-                          )}
-                        >
-                          <Icon className="w-4 h-4" />
-                          {lang === 'ar' ? labelAr : labelEn}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Patient source — pill chips */}
-                <div className="space-y-1.5">
-                  <label className="field-label">{t('مصدر المريض', 'Patient Source')}</label>
-                  <div className="flex flex-wrap gap-1.5">
-                    {PATIENT_SOURCES.map((s) => {
-                      const active = source === s.code;
-                      return (
-                        <button
-                          key={s.code}
-                          type="button"
-                          onClick={() => setSource(s.code)}
-                          className={cn(
-                            'px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-all',
-                            active
-                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                              : 'bg-white dark:bg-neutral-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-neutral-700 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-400',
-                          )}
-                        >
-                          {lang === 'ar' ? s.labelAr : s.code}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Session fee + Notes */}
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-1">
-                    <label className="field-label">{t('التعرفة', 'Session Fee')}</label>
-                    <div className="relative flex">
-                      <span className="inline-flex items-center px-3 rounded-s-xl border border-e-0 border-gray-200 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-700 text-xs font-bold text-gray-500 dark:text-gray-400 select-none">
-                        EGP
-                      </span>
-                      <input
-                        type="number"
-                        min="0"
-                        step="50"
-                        className="flex-1 h-10 rounded-e-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 text-sm font-semibold tabular-nums text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-600 transition-shadow [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                        placeholder="0"
-                        value={charge}
-                        onChange={(e) => setCharge(e.target.value)}
-                        dir="ltr"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="field-label">{t('ملاحظات', 'Notes')}</label>
-                    <input className={inputCls} placeholder={t('اختياري...', 'Optional...')} value={notes} onChange={(e) => setNotes(e.target.value)} />
-                  </div>
-                </div>
-
-              </div>
-            </StepSection>
-
-            {/* Extra service (optional) */}
-            <div className="rounded-xl border border-violet-100 dark:border-violet-900/40 bg-violet-50/50 dark:bg-violet-900/10 p-3.5 space-y-2.5">
-              <p className="flex items-center gap-2 text-xs font-bold text-violet-600 dark:text-violet-400 uppercase tracking-wider">
-                <FlaskConical className="w-3.5 h-3.5" />
-                {t('خدمة إضافية (اختياري)', 'Extra Service (optional)')}
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <label className="field-label">{t('الإجراء', 'Procedure')}</label>
-                  <select
-                    className={cn(inputCls, 'cursor-pointer border-violet-200 dark:border-violet-800 focus:ring-violet-500')}
-                    value={procedureId}
-                    onChange={(e) => setProcedureId(e.target.value)}
-                  >
-                    <option value="">{t('لا شيء', 'None')}</option>
-                    {procedures.map((p) => (
-                      <option key={p.id} value={p.id}>{lang === 'ar' ? (p.nameAr ?? p.nameEn) : p.nameEn}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="field-label">{t('التكلفة (EGP)', 'Cost (EGP)')}</label>
-                  <div className="relative flex">
-                    <span className={cn('inline-flex items-center px-2.5 rounded-s-xl border border-e-0 border-violet-200 dark:border-violet-800 text-[10px] font-bold text-violet-500 select-none', !procedureId && 'opacity-40')}>
-                      EGP
-                    </span>
-                    <input
-                      type="number"
-                      min="0"
-                      step="10"
-                      className={cn('flex-1 h-10 rounded-e-xl border border-violet-200 dark:border-violet-800 bg-white dark:bg-neutral-800 px-3 text-sm font-semibold tabular-nums text-violet-700 dark:text-violet-300 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-shadow [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none', !procedureId && 'opacity-40 cursor-not-allowed bg-gray-50 dark:bg-neutral-900')}
-                      placeholder="0"
-                      value={procCost}
-                      disabled={!procedureId}
-                      onChange={(e) => setProcCost(e.target.value)}
-                      dir="ltr"
-                    />
-                  </div>
-                </div>
+            {/* Appointment type */}
+            <div className="space-y-1.5">
+              <label className="field-label">{t('نوع الموعد', 'Appointment Type')}</label>
+              <div className="grid grid-cols-3 gap-1.5">
+                {APPT_TYPES.map(({ value: v, labelAr, labelEn, Icon }) => {
+                  const active = apptType === v;
+                  return (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => setApptType(v as typeof apptType)}
+                      className={cn(
+                        'flex flex-col items-center gap-1 py-2.5 rounded-xl border text-xs font-semibold transition-all',
+                        active
+                          ? 'bg-primary-600 text-white border-primary-600 shadow-sm'
+                          : 'bg-white dark:bg-neutral-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-neutral-700 hover:border-primary-400 hover:text-primary-600 dark:hover:text-primary-400',
+                      )}
+                    >
+                      <Icon className="w-4 h-4" />
+                      {lang === 'ar' ? labelAr : labelEn}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-        {/* ── Booking summary bar ── */}
+            {/* Patient source */}
+            <div className="space-y-1.5">
+              <label className="field-label">{t('مصدر المريض', 'Patient Source')}</label>
+              <div className="flex flex-wrap gap-1.5">
+                {PATIENT_SOURCES.map((s) => {
+                  const active = source === s.code;
+                  return (
+                    <button
+                      key={s.code}
+                      type="button"
+                      onClick={() => setSource(s.code as Parameters<typeof setSource>[0])}
+                      className={cn(
+                        'px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-all',
+                        active
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                          : 'bg-white dark:bg-neutral-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-neutral-700 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-400',
+                      )}
+                    >
+                      {lang === 'ar' ? s.labelAr : s.code}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Session fee + Notes */}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <label className="field-label">{t('التعرفة', 'Session Fee')}</label>
+                <div className="relative flex">
+                  <span className="inline-flex items-center px-3 rounded-s-xl border border-e-0 border-gray-200 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-700 text-xs font-bold text-gray-500 dark:text-gray-400 select-none">
+                    EGP
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="50"
+                    className="flex-1 h-10 rounded-e-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 text-sm font-semibold tabular-nums text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-600 transition-shadow [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    placeholder="0"
+                    value={charge}
+                    onChange={(e) => setCharge(e.target.value)}
+                    dir="ltr"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="field-label">{t('ملاحظات', 'Notes')}</label>
+                <input className={inputCls} placeholder={t('اختياري...', 'Optional...')} value={notes} onChange={(e) => setNotes(e.target.value)} />
+              </div>
+            </div>
+
+            {/* Payment method — mandatory */}
+            <div className="space-y-1.5">
+              <label className={cn('field-label', errors.paymentMethod && 'text-red-500')}>
+                {t('طريقة الدفع', 'Payment Method')}
+                <span className="text-red-500 ms-0.5">*</span>
+              </label>
+              <div className="grid grid-cols-3 gap-1.5">
+                {PAYMENT_METHODS.map(({ value: v, labelAr, labelEn, Icon }) => {
+                  const active = paymentMethod === v;
+                  return (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => setPaymentMethod(v)}
+                      className={cn(
+                        'flex flex-col items-center gap-1 py-2.5 rounded-xl border text-xs font-semibold transition-all',
+                        active
+                          ? 'bg-teal-600 text-white border-teal-600 shadow-sm'
+                          : errors.paymentMethod
+                          ? 'bg-white dark:bg-neutral-800 text-red-400 border-red-300 dark:border-red-700 hover:border-teal-400'
+                          : 'bg-white dark:bg-neutral-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-neutral-700 hover:border-teal-400 hover:text-teal-600 dark:hover:text-teal-400',
+                      )}
+                    >
+                      <Icon className="w-4 h-4" />
+                      {lang === 'ar' ? labelAr : labelEn}
+                    </button>
+                  );
+                })}
+              </div>
+              {errors.paymentMethod && (
+                <p className="text-xs text-red-500 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />{errors.paymentMethod}
+                </p>
+              )}
+            </div>
+
+          </div>
+        </StepSection>
+
+        {/* Extra service (optional) */}
+        <div className="rounded-xl border border-violet-100 dark:border-violet-900/40 bg-violet-50/50 dark:bg-violet-900/10 p-3.5 space-y-2.5">
+          <p className="flex items-center gap-2 text-xs font-bold text-violet-600 dark:text-violet-400 uppercase tracking-wider">
+            <FlaskConical className="w-3.5 h-3.5" />
+            {t('خدمة إضافية (اختياري)', 'Extra Service (optional)')}
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <label className="field-label">{t('الإجراء', 'Procedure')}</label>
+              <select
+                className={cn(inputCls, 'cursor-pointer border-violet-200 dark:border-violet-800 focus:ring-violet-500')}
+                value={procedureId}
+                onChange={(e) => setProcedureId(e.target.value)}
+              >
+                <option value="">{t('لا شيء', 'None')}</option>
+                {procedures.map((p) => (
+                  <option key={p.id} value={p.id}>{lang === 'ar' ? (p.nameAr ?? p.nameEn) : p.nameEn}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="field-label">{t('التكلفة (EGP)', 'Cost (EGP)')}</label>
+              <div className="relative flex">
+                <span className={cn('inline-flex items-center px-2.5 rounded-s-xl border border-e-0 border-violet-200 dark:border-violet-800 text-[10px] font-bold text-violet-500 select-none', !procedureId && 'opacity-40')}>
+                  EGP
+                </span>
+                <input
+                  type="number"
+                  min="0"
+                  step="10"
+                  className={cn('flex-1 h-10 rounded-e-xl border border-violet-200 dark:border-violet-800 bg-white dark:bg-neutral-800 px-3 text-sm font-semibold tabular-nums text-violet-700 dark:text-violet-300 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-shadow [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none', !procedureId && 'opacity-40 cursor-not-allowed bg-gray-50 dark:bg-neutral-900')}
+                  placeholder="0"
+                  value={procCost}
+                  disabled={!procedureId}
+                  onChange={(e) => setProcCost(e.target.value)}
+                  dir="ltr"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Booking summary */}
         {patient && doctor && (
           <div className="rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-100 dark:border-blue-900/40 px-4 py-3.5">
             <p className="text-[10px] font-bold text-blue-500 dark:text-blue-400 uppercase tracking-widest mb-2">
@@ -717,6 +840,11 @@ export function AddAppointmentModal({ open, onClose, defaultDate, onCreated }: A
               <span className="flex items-center gap-1 text-gray-500 dark:text-gray-400 font-mono text-xs">
                 <Clock className="w-3.5 h-3.5" />{time}
               </span>
+              {paymentMethod && (
+                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300">
+                  {paymentMethod.charAt(0).toUpperCase() + paymentMethod.slice(1)}
+                </span>
+              )}
               {charge && (
                 <span className="ms-auto font-mono font-bold text-primary-700 dark:text-primary-400">
                   {Number(charge).toLocaleString()} EGP

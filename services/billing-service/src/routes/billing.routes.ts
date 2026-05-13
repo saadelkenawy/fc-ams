@@ -196,6 +196,19 @@ export async function billingRoutes(app: FastifyInstance): Promise<void> {
     },
   }, ctrl.deleteSourceHandler);
 
+  // DELETE /transactions/by-appointment/:appointmentId  (admin hard-delete, called by appointment-service)
+  app.delete('/transactions/by-appointment/:appointmentId', {
+    preHandler: [requireRole('admin')],
+    schema: {
+      tags: ['billing'],
+      params: {
+        type: 'object',
+        required: ['appointmentId'],
+        properties: { appointmentId: { type: 'string', format: 'uuid' } },
+      },
+    },
+  }, ctrl.deleteTransactionByAppointmentHandler);
+
   // GET /sources/:code/rate?specialtyId=
   app.get('/sources/:code/rate', {
     preHandler: [requireRole('admin', 'finance', 'receptionist')],

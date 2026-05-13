@@ -181,6 +181,7 @@ services:
       SERVICE_NAME: appointment-service
       NOTIFICATION_SERVICE_URL: http://notification-service:3007/api/v1
       BILLING_SERVICE_URL: http://billing-service:3004/api/v1
+      IDENTITY_SERVICE_URL: http://identity-service:3000/api/v1
     ports:
       - "3001:3001"
     depends_on:
@@ -191,6 +192,8 @@ services:
       notification-service:
         condition: service_healthy
       billing-service:
+        condition: service_healthy
+      identity-service:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3001/health || exit 1"]

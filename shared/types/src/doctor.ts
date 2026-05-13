@@ -1,4 +1,4 @@
-export type PaymentMethod = 'cash' | 'instapay' | 'bank_transfer' | 'vfc_wallet' | 'mobile_wallet';
+export type DoctorPaymentMethod = 'cash' | 'instapay' | 'bank_transfer' | 'vfc_wallet' | 'mobile_wallet';
 export type SettlementStatus = 'pending' | 'verified' | 'approved' | 'paid' | 'reconciled';
 
 export interface RevenueSplit {
@@ -21,7 +21,7 @@ export interface Doctor {
   subSpecialty?: string;
   isOnlineDoctor: boolean;
   revenueSplits: DoctorRevenueSplits;
-  paymentMethod?: PaymentMethod;
+  paymentMethod?: DoctorPaymentMethod;
   allowOverbooking: boolean;
   overbookingBufferPercentage: number; // 0–15
   isActive: boolean;

@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { CalendarPlus, ChevronLeft, ChevronRight, CalendarDays, MoreVertical, Pencil, Trash2, Check, X, Search, SlidersHorizontal, CalendarOff } from 'lucide-react';
+import { useState, useMemo, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { CalendarPlus, ChevronLeft, ChevronRight, CalendarDays, MoreVertical, Pencil, Trash2, Check, X, Search, SlidersHorizontal } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge, AppointmentStatusBadge } from '@/components/ui/Badge';
 import { useLang } from '@/contexts/LanguageContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { formatTime, cn } from '@/lib/utils';
 import { useAppointments } from '@/hooks/useAppointments';
 import { useDoctors, useDoctorMap, useSpecialtyMap } from '@/hooks/useDoctors';
@@ -14,12 +16,12 @@ import { usePatientMap } from '@/hooks/usePatients';
 import { useDebounce } from '@/hooks/useDebounce';
 import { AddAppointmentModal } from '@/components/appointments/AddAppointmentModal';
 import { appointmentApi } from '@/lib/api';
-import type { Appointment, AppointmentStatus } from '@fadl/types';
+import type { Appointment, AppointmentStatus, Patient, Doctor } from '@fadl/types';
 
 // Allowed forward transitions shown in the UI
 const TRANSITIONS: Record<AppointmentStatus, AppointmentStatus[]> = {
-  'TBC':    ['Ok!', 'Conf.', 'Canc.'],
-  'Ok!':    ['Conf.', 'Canc.'],
+  'TBC':    ['Ok!', 'Canc.'],
+  'Ok!':    ['Comp.', 'Canc.'],
   'Conf.':  ['Comp.', 'Canc.'],
   'Comp.':  [],
   'Canc.':  [],
@@ -72,15 +74,19 @@ interface ActionMenuProps {
   appointment: Appointment;
   lang: 'ar' | 'en';
   t: (ar: string, en: string) => string;
+  userRole: string;
   onStatusChange: (appt: Appointment) => void;
+  onEdit: (appt: Appointment) => void;
   onDelete: (appt: Appointment) => void;
 }
 
-function ActionMenu({ appointment, lang, t, onStatusChange, onDelete }: ActionMenuProps) {
+function ActionMenu({ appointment, lang, t, userRole, onStatusChange, onEdit, onDelete }: ActionMenuProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const canChange = (TRANSITIONS[appointment.status] ?? []).length > 0;
   const isTerminal = appointment.status === 'Comp.' || appointment.status === 'Canc.' || appointment.status === 'Resch.';
+  const canEdit = !isTerminal && (userRole === 'admin' || userRole === 'receptionist');
+  const canDelete = userRole === 'admin';
 
   useEffect(() => {
     function handle(e: MouseEvent) {
@@ -90,34 +96,57 @@ function ActionMenu({ appointment, lang, t, onStatusChange, onDelete }: ActionMe
     return () => document.removeEventListener('mousedown', handle);
   }, [open]);
 
-  if (isTerminal) return null;
-
   return (
-    <div ref={ref} className="relative">
-      <button
-        onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
-        className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-700 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-      >
-        <MoreVertical className="w-4 h-4" />
-      </button>
-      {open && (
-        <div className="absolute end-0 top-8 z-50 w-44 rounded-xl border border-gray-100 dark:border-neutral-700 bg-white dark:bg-neutral-800 shadow-lg py-1 text-sm">
-          {canChange && (
-            <button
-              onClick={(e) => { e.stopPropagation(); setOpen(false); onStatusChange(appointment); }}
-              className="w-full flex items-center gap-2.5 px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors"
-            >
-              <Pencil className="w-3.5 h-3.5 text-primary-500" />
-              {t('تغيير الحالة', 'Change Status')}
-            </button>
-          )}
+    <div className="flex items-center gap-1">
+      {canEdit && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onEdit(appointment); }}
+          className="p-1.5 rounded-lg hover:bg-primary-50 dark:hover:bg-primary-900/20 text-gray-400 dark:text-gray-500 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
+          title={t('تعديل الموعد', 'Edit appointment')}
+        >
+          <Pencil className="w-3.5 h-3.5" />
+        </button>
+      )}
+
+      {(canChange || canDelete || userRole === 'receptionist') && (
+        <div ref={ref} className="relative">
           <button
-            onClick={(e) => { e.stopPropagation(); setOpen(false); onDelete(appointment); }}
-            className="w-full flex items-center gap-2.5 px-4 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+            onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
+            className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-700 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
           >
-            <Trash2 className="w-3.5 h-3.5" />
-            {t('حذف الموعد', 'Delete')}
+            <MoreVertical className="w-4 h-4" />
           </button>
+          {open && (
+            <div className="absolute end-0 top-8 z-50 w-48 rounded-xl border border-gray-100 dark:border-neutral-700 bg-white dark:bg-neutral-800 shadow-lg py-1 text-sm">
+              {canChange && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setOpen(false); onStatusChange(appointment); }}
+                  className="w-full flex items-center gap-2.5 px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors"
+                >
+                  <Check className="w-3.5 h-3.5 text-primary-500" />
+                  {t('تغيير الحالة', 'Change Status')}
+                </button>
+              )}
+              {canDelete ? (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setOpen(false); onDelete(appointment); }}
+                  className="w-full flex items-center gap-2.5 px-4 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  {t('حذف الموعد', 'Delete')}
+                </button>
+              ) : (
+                <button
+                  disabled
+                  title={t('الحذف للمدير فقط', 'Only administrators can delete')}
+                  className="w-full flex items-center gap-2.5 px-4 py-2 text-gray-300 dark:text-gray-600 cursor-not-allowed"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  {t('حذف الموعد', 'Delete')}
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -201,74 +230,21 @@ function StatusModal({ appointment, lang, t, onClose, onDone }: StatusModalProps
   );
 }
 
-// ── Delete confirm modal ───────────────────────────────────────────────────
-
-interface DeleteModalProps {
-  appointment: Appointment;
-  patientName: string;
-  lang: 'ar' | 'en';
-  t: (ar: string, en: string) => string;
-  onClose: () => void;
-  onDone: () => void;
-}
-
-function DeleteModal({ appointment, patientName, lang, t, onClose, onDone }: DeleteModalProps) {
-  const mutation = useMutation({
-    mutationFn: async () => {
-      await appointmentApi.delete(`/appointments/${appointment.id}`);
-    },
-    onSuccess: () => { onDone(); onClose(); },
-  });
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-sm mx-4 bg-white dark:bg-neutral-800 rounded-2xl shadow-xl p-6" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center flex-shrink-0">
-            <Trash2 className="w-5 h-5 text-red-600 dark:text-red-400" />
-          </div>
-          <div>
-            <h3 className="font-semibold text-gray-900 dark:text-gray-100">{t('حذف الموعد', 'Delete Appointment')}</h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-              {patientName}, {appointment.appointmentDate} {formatTime(appointment.startTime)}
-            </p>
-          </div>
-        </div>
-
-        <p className="text-sm text-gray-600 dark:text-gray-300 mb-5">
-          {t('هل أنت متأكد من حذف هذا الموعد؟ لا يمكن التراجع عن هذا الإجراء.', 'Are you sure you want to delete this appointment? This action cannot be undone.')}
-        </p>
-
-        {mutation.isError && (
-          <p className="text-xs text-red-500 mb-3">{t('فشل الحذف', 'Delete failed')}</p>
-        )}
-
-        <div className="flex gap-2">
-          <Button
-            className="flex-1 bg-red-600 hover:bg-red-700 text-white border-0"
-            disabled={mutation.isPending}
-            onClick={() => mutation.mutate()}
-          >
-            {mutation.isPending ? t('جاري الحذف...', 'Deleting...') : t('حذف', 'Delete')}
-          </Button>
-          <Button variant="ghost" onClick={onClose}>{t('إلغاء', 'Cancel')}</Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ── Main page ──────────────────────────────────────────────────────────────
 
 export default function AppointmentsPage() {
   const { lang, t } = useLang();
+  const { user } = useAuth();
+  const router = useRouter();
   const qc = useQueryClient();
   const [activeTab,  setActiveTab]  = useState<AppointmentStatus | 'all'>('all');
   const [date,       setDate]       = useState(todayStr);
   const [doctorId,   setDoctorId]   = useState<string>('');
   const [addOpen,    setAddOpen]    = useState(false);
   const [statusAppt, setStatusAppt] = useState<Appointment | null>(null);
-  const [deleteAppt, setDeleteAppt] = useState<Appointment | null>(null);
+  const [editAppt,   setEditAppt]   = useState<Appointment | null>(null);
+  const [editPatientState, setEditPatientState] = useState<Patient | null>(null);
+  const [editDoctorState,  setEditDoctorState]  = useState<Doctor | null>(null);
 
   // Advanced filters (client-side)
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -324,6 +300,22 @@ export default function AppointmentsPage() {
 
   function invalidate() {
     void qc.invalidateQueries({ queryKey: ['appointments'] });
+  }
+
+  function handleEdit(a: Appointment) {
+    setEditAppt(a);
+    setEditPatientState(patientMap.get(a.patientId) ?? null);
+    setEditDoctorState(a.doctorId ? (doctorMap.get(a.doctorId) ?? null) : null);
+  }
+
+  function handleDelete(a: Appointment) {
+    router.push(`/billing?deleteApptId=${a.id}`);
+  }
+
+  function closeEdit() {
+    setEditAppt(null);
+    setEditPatientState(null);
+    setEditDoctorState(null);
   }
 
   const isToday = date === todayStr();
@@ -564,8 +556,10 @@ export default function AppointmentsPage() {
                             appointment={a}
                             lang={lang}
                             t={t}
+                            userRole={user?.role ?? ''}
                             onStatusChange={setStatusAppt}
-                            onDelete={setDeleteAppt}
+                            onEdit={handleEdit}
+                            onDelete={handleDelete}
                           />
                         </td>
                       </tr>
@@ -587,11 +581,23 @@ export default function AppointmentsPage() {
         </CardContent>
       </Card>
 
+      {/* Create new appointment */}
       <AddAppointmentModal
         open={addOpen}
         onClose={() => setAddOpen(false)}
         defaultDate={date}
         onCreated={() => { setAddOpen(false); void refetch(); }}
+      />
+
+      {/* Edit existing appointment */}
+      <AddAppointmentModal
+        open={!!editAppt}
+        onClose={closeEdit}
+        defaultDate={date}
+        onCreated={() => { closeEdit(); void refetch(); }}
+        editAppointment={editAppt ?? undefined}
+        editPatient={editPatientState}
+        editDoctor={editDoctorState}
       />
 
       {statusAppt && (
@@ -600,22 +606,6 @@ export default function AppointmentsPage() {
           lang={lang}
           t={t}
           onClose={() => setStatusAppt(null)}
-          onDone={invalidate}
-        />
-      )}
-
-      {deleteAppt && (
-        <DeleteModal
-          appointment={deleteAppt}
-          patientName={
-            (() => {
-              const p = patientMap.get(deleteAppt.patientId);
-              return p ? formatName(lang === 'ar' ? (p.nameAr ?? p.nameEn) : p.nameEn) : deleteAppt.patientId.slice(-8).toUpperCase();
-            })()
-          }
-          lang={lang}
-          t={t}
-          onClose={() => setDeleteAppt(null)}
           onDone={invalidate}
         />
       )}

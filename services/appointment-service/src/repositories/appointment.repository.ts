@@ -7,13 +7,13 @@ import { withRlsContext, withTransaction, pool } from '../config/database';
 // Allowed status transitions
 // ---------------------------------------------------------------------------
 const ALLOWED_TRANSITIONS: Record<AppointmentStatus, AppointmentStatus[]> = {
-  'TBC':   ['Ok!', 'Canc.', 'Inf.'],
-  'Ok!':   ['Conf.', 'Canc.', 'TBC', 'Inf.'],
-  'Conf.': ['Comp.', 'Canc.', 'Resch.', 'Inf.'],
-  'Comp.': [],
-  'Canc.': [],
+  'TBC':    ['Ok!', 'Canc.'],
+  'Ok!':    ['Comp.', 'Canc.'],
+  'Conf.':  ['Comp.', 'Canc.'],
+  'Comp.':  [],
+  'Canc.':  [],
   'Resch.': [],
-  'Inf.':  ['TBC', 'Ok!'],
+  'Inf.':   ['TBC', 'Ok!'],
 };
 
 // ---------------------------------------------------------------------------
@@ -34,6 +34,7 @@ function rowToAppointment(row: Record<string, unknown>): Appointment {
     isOnline:               row.is_online as boolean,
     isOverbooked:           row.is_overbooked as boolean,
     patientSource:          row.patient_source as Appointment['patientSource'],
+    paymentMethod:          row.payment_method as Appointment['paymentMethod'] | undefined,
     procedureId:            row.procedure_id as string | undefined,
     approvedCharge:         row.approved_charge != null ? Number(row.approved_charge) : undefined,
     procedureCost:          row.procedure_cost != null ? Number(row.procedure_cost) : undefined,
@@ -90,37 +91,29 @@ export async function listAppointments(params: {
     const values: unknown[] = [];
     let idx = 1;
 
-    // Include date early for partition pruning
     if (params.date) {
       conditions.push(`appointment_date = $${idx++}`);
       values.push(params.date);
     }
-
     if (params.doctorId) {
       conditions.push(`doctor_id = $${idx++}`);
       values.push(params.doctorId);
     }
-
     if (params.patientId) {
       conditions.push(`patient_id = $${idx++}`);
       values.push(params.patientId);
     }
-
     if (params.status) {
       conditions.push(`status = $${idx++}`);
       values.push(params.status);
     }
 
     const where = conditions.join(' AND ');
-
     const limitIdx  = idx;
     const offsetIdx = idx + 1;
 
     const [{ rows: countRows }, { rows: dataRows }] = await Promise.all([
-      client.query(
-        `SELECT COUNT(*)::int AS total FROM appointments WHERE ${where}`,
-        values,
-      ),
+      client.query(`SELECT COUNT(*)::int AS total FROM appointments WHERE ${where}`, values),
       client.query(
         `SELECT * FROM appointments WHERE ${where} ORDER BY appointment_date, start_time LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
         [...values, limit, offset],
@@ -128,7 +121,6 @@ export async function listAppointments(params: {
     ]);
 
     const total = (countRows[0] as { total: number }).total;
-
     return {
       data: dataRows.map((r) => rowToAppointment(r as Record<string, unknown>)),
       total,
@@ -153,6 +145,7 @@ export async function createAppointment(
     appointmentType?: string;
     isOnline?: boolean;
     patientSource?: string;
+    paymentMethod?: string;
     approvedCharge?: number;
     procedureCost?: number;
     idempotencyKey?: string;
@@ -160,39 +153,43 @@ export async function createAppointment(
   },
   createdBy: string,
   branchId: number,
-): Promise<Appointment> {
+): Promise<Appointment & { doctorSplitDoctor: number; doctorSplitClinic: number }> {
   return withTransaction(async (client: PoolClient) => {
-    // Idempotency check — return existing row if key already used
     if (input.idempotencyKey) {
       const { rows: existing } = await client.query(
         `SELECT * FROM appointments WHERE idempotency_key = $1 AND deleted_at IS NULL`,
         [input.idempotencyKey],
       );
       if (existing.length) {
-        return rowToAppointment(existing[0] as Record<string, unknown>);
+        const appt = rowToAppointment(existing[0] as Record<string, unknown>);
+        return { ...appt, doctorSplitDoctor: 50, doctorSplitClinic: 50 };
       }
     }
 
-    // Get next queue number; lock existing rows first, then aggregate
+    // Queue number
     await client.query(
       `SELECT id FROM appointments
-       WHERE doctor_id = $1
-         AND appointment_date = $2
-         AND status NOT IN ('Canc.', 'Resch.')
-         AND deleted_at IS NULL
+       WHERE doctor_id = $1 AND appointment_date = $2
+         AND status NOT IN ('Canc.', 'Resch.') AND deleted_at IS NULL
        FOR UPDATE`,
       [input.doctorId, input.appointmentDate],
     );
     const { rows: queueRows } = await client.query(
       `SELECT COALESCE(MAX(queue_number), 0) + 1 AS next_queue
        FROM appointments
-       WHERE doctor_id = $1
-         AND appointment_date = $2
-         AND status NOT IN ('Canc.', 'Resch.')
-         AND deleted_at IS NULL`,
+       WHERE doctor_id = $1 AND appointment_date = $2
+         AND status NOT IN ('Canc.', 'Resch.') AND deleted_at IS NULL`,
       [input.doctorId, input.appointmentDate],
     );
     const queueNumber = (queueRows[0] as { next_queue: number }).next_queue;
+
+    // Doctor split percentages for auto-billing
+    const { rows: docRows } = await client.query(
+      `SELECT consultation_split_doctor, consultation_split_clinic FROM doctors WHERE id = $1`,
+      [input.doctorId],
+    );
+    const splitDoctor = docRows.length ? Number((docRows[0] as Record<string, unknown>).consultation_split_doctor) : 50;
+    const splitClinic = docRows.length ? Number((docRows[0] as Record<string, unknown>).consultation_split_clinic) : 50;
 
     const id = uuidv4();
 
@@ -203,16 +200,16 @@ export async function createAppointment(
           id, patient_id, doctor_id, specialty_id,
           appointment_date, start_time, end_time,
           appointment_type, is_online,
-          patient_source, approved_charge, procedure_cost,
+          patient_source, payment_method, approved_charge, procedure_cost,
           queue_number, idempotency_key, notes,
           status, created_by, branch_id
         ) VALUES (
           $1, $2, $3, $4,
           $5, $6, $7,
           $8, $9,
-          $10, $11, $12,
-          $13, $14, $15,
-          'TBC', $16, $17
+          $10, $11, $12, $13,
+          $14, $15, $16,
+          'TBC', $17, $18
         ) RETURNING *`,
         [
           id,
@@ -225,6 +222,7 @@ export async function createAppointment(
           input.appointmentType ?? 'in_person',
           input.isOnline ?? false,
           input.patientSource ?? "Cl.'s",
+          input.paymentMethod ?? null,
           input.approvedCharge ?? null,
           input.procedureCost ?? null,
           queueNumber,
@@ -245,7 +243,87 @@ export async function createAppointment(
       throw err;
     }
 
-    return rowToAppointment(insertResult.rows[0] as Record<string, unknown>);
+    // Log initial status
+    await client.query(
+      `INSERT INTO appointment_status_log (appointment_id, from_status, to_status, changed_by, branch_id)
+       VALUES ($1, NULL, 'TBC', $2, $3)`,
+      [id, createdBy, branchId],
+    );
+
+    const appt = rowToAppointment(insertResult.rows[0] as Record<string, unknown>);
+    return { ...appt, doctorSplitDoctor: splitDoctor, doctorSplitClinic: splitClinic };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// updateAppointment (edit flow)
+// ---------------------------------------------------------------------------
+export async function updateAppointment(
+  id: string,
+  input: {
+    doctorId?: string;
+    specialtyId?: number;
+    appointmentDate?: string;
+    startTime?: string;
+    endTime?: string;
+    appointmentType?: string;
+    patientSource?: string;
+    paymentMethod?: string | null;
+    approvedCharge?: number | null;
+    procedureCost?: number | null;
+    notes?: string | null;
+    procedureId?: string | null;
+  },
+  updatedBy: string,
+): Promise<Appointment> {
+  return withTransaction(async (client: PoolClient) => {
+    const { rows } = await client.query(
+      `SELECT * FROM appointments WHERE id = $1 AND deleted_at IS NULL FOR UPDATE`,
+      [id],
+    );
+
+    if (!rows.length) {
+      throw Object.assign(new Error('Appointment not found'), { code: 'APPOINTMENT_NOT_FOUND', statusCode: 404 });
+    }
+
+    const current = rows[0] as Record<string, unknown>;
+    const currentStatus = current.status as AppointmentStatus;
+
+    if (currentStatus === 'Comp.' || currentStatus === 'Canc.') {
+      throw Object.assign(
+        new Error('Cannot edit a completed or cancelled appointment'),
+        { code: 'INVALID_STATUS', statusCode: 422 },
+      );
+    }
+
+    const setClauses: string[] = ['updated_at = NOW()', 'updated_by = $2', 'version = version + 1'];
+    const values: unknown[] = [id, updatedBy];
+    let idx = 3;
+
+    function addSet(col: string, val: unknown) {
+      setClauses.push(`${col} = $${idx++}`);
+      values.push(val);
+    }
+
+    if (input.doctorId       !== undefined) addSet('doctor_id',        input.doctorId);
+    if (input.specialtyId    !== undefined) addSet('specialty_id',     input.specialtyId);
+    if (input.appointmentDate !== undefined) addSet('appointment_date', input.appointmentDate);
+    if (input.startTime      !== undefined) addSet('start_time',       input.startTime);
+    if (input.endTime        !== undefined) addSet('end_time',         input.endTime);
+    if (input.appointmentType !== undefined) addSet('appointment_type', input.appointmentType);
+    if (input.patientSource  !== undefined) addSet('patient_source',   input.patientSource);
+    if (input.paymentMethod  !== undefined) addSet('payment_method',   input.paymentMethod);
+    if (input.approvedCharge !== undefined) addSet('approved_charge',  input.approvedCharge);
+    if (input.procedureCost  !== undefined) addSet('procedure_cost',   input.procedureCost);
+    if (input.notes          !== undefined) addSet('notes',            input.notes);
+    if (input.procedureId    !== undefined) addSet('procedure_id',     input.procedureId);
+
+    const { rows: updated } = await client.query(
+      `UPDATE appointments SET ${setClauses.join(', ')} WHERE id = $1 RETURNING *`,
+      values,
+    );
+
+    return rowToAppointment(updated[0] as Record<string, unknown>);
   });
 }
 
@@ -265,15 +343,13 @@ export async function updateAppointmentStatus(
     );
 
     if (!rows.length) {
-      throw Object.assign(
-        new Error('Appointment not found'),
-        { code: 'APPOINTMENT_NOT_FOUND', statusCode: 404 },
-      );
+      throw Object.assign(new Error('Appointment not found'), { code: 'APPOINTMENT_NOT_FOUND', statusCode: 404 });
     }
 
     const current = rows[0] as Record<string, unknown>;
     const currentVersion = current.version as number;
     const currentStatus  = current.status as AppointmentStatus;
+    const branchId       = current.branch_id as number;
 
     if (currentVersion !== version) {
       throw Object.assign(
@@ -292,13 +368,17 @@ export async function updateAppointmentStatus(
 
     const { rows: updated } = await client.query(
       `UPDATE appointments
-          SET status     = $1,
-              version    = $2,
-              updated_at = NOW(),
-              updated_by = $3
+          SET status = $1, version = $2, updated_at = NOW(), updated_by = $3
         WHERE id = $4
         RETURNING *`,
       [newStatus, currentVersion + 1, updatedBy, id],
+    );
+
+    // Write status log
+    await client.query(
+      `INSERT INTO appointment_status_log (appointment_id, from_status, to_status, changed_by, branch_id)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [id, currentStatus, newStatus, updatedBy, branchId],
     );
 
     return rowToAppointment(updated[0] as Record<string, unknown>);
@@ -308,10 +388,7 @@ export async function updateAppointmentStatus(
 // ---------------------------------------------------------------------------
 // checkInAppointment
 // ---------------------------------------------------------------------------
-export async function checkInAppointment(
-  id: string,
-  updatedBy: string,
-): Promise<Appointment> {
+export async function checkInAppointment(id: string, updatedBy: string): Promise<Appointment> {
   return withTransaction(async (client: PoolClient) => {
     const { rows } = await client.query(
       `SELECT * FROM appointments WHERE id = $1 AND deleted_at IS NULL FOR UPDATE`,
@@ -319,10 +396,7 @@ export async function checkInAppointment(
     );
 
     if (!rows.length) {
-      throw Object.assign(
-        new Error('Appointment not found'),
-        { code: 'APPOINTMENT_NOT_FOUND', statusCode: 404 },
-      );
+      throw Object.assign(new Error('Appointment not found'), { code: 'APPOINTMENT_NOT_FOUND', statusCode: 404 });
     }
 
     const current = rows[0] as Record<string, unknown>;
@@ -337,10 +411,7 @@ export async function checkInAppointment(
 
     const { rows: updated } = await client.query(
       `UPDATE appointments
-          SET checked_in_at = NOW(),
-              status        = 'Conf.',
-              updated_at    = NOW(),
-              updated_by    = $1
+          SET checked_in_at = NOW(), status = 'Conf.', updated_at = NOW(), updated_by = $1
         WHERE id = $2
         RETURNING *`,
       [updatedBy, id],
@@ -351,20 +422,46 @@ export async function checkInAppointment(
 }
 
 // ---------------------------------------------------------------------------
-// softDeleteAppointment
+// hardDeleteAppointment (Feature 5 — secure delete with audit)
+// ---------------------------------------------------------------------------
+export async function hardDeleteAppointment(
+  id: string,
+  deletedBy: string,
+  reason: string,
+  ipAddress: string | undefined,
+  branchId: number,
+): Promise<void> {
+  return withTransaction(async (client: PoolClient) => {
+    const { rows } = await client.query(
+      `SELECT id, branch_id FROM appointments WHERE id = $1 AND deleted_at IS NULL FOR UPDATE`,
+      [id],
+    );
+
+    if (!rows.length) {
+      throw Object.assign(new Error('Appointment not found'), { code: 'APPOINTMENT_NOT_FOUND', statusCode: 404 });
+    }
+
+    // Write audit log BEFORE delete
+    await client.query(
+      `INSERT INTO deletion_audit_log (record_type, record_id, deleted_by, deletion_reason, ip_address, branch_id)
+       VALUES ('appointment', $1, $2, $3, $4, $5)`,
+      [id, deletedBy, reason, ipAddress ?? null, branchId],
+    );
+
+    // Hard delete
+    await client.query(`DELETE FROM appointments WHERE id = $1`, [id]);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// softDeleteAppointment (kept for backward compat)
 // ---------------------------------------------------------------------------
 export async function softDeleteAppointment(id: string, deletedBy: string): Promise<void> {
   const result = await pool.query(
-    `UPDATE appointments
-        SET deleted_at = NOW(),
-            updated_by = $2
-      WHERE id = $1 AND deleted_at IS NULL`,
+    `UPDATE appointments SET deleted_at = NOW(), updated_by = $2 WHERE id = $1 AND deleted_at IS NULL`,
     [id, deletedBy],
   );
   if (result.rowCount === 0) {
-    throw Object.assign(
-      new Error('Appointment not found'),
-      { code: 'APPOINTMENT_NOT_FOUND', statusCode: 404 },
-    );
+    throw Object.assign(new Error('Appointment not found'), { code: 'APPOINTMENT_NOT_FOUND', statusCode: 404 });
   }
 }

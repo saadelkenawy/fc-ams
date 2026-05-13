@@ -179,6 +179,10 @@ export async function revokeAllUserTokens(userId: string): Promise<void> {
   );
 }
 
+export async function deleteUser(userId: string): Promise<void> {
+  await pool.query(`DELETE FROM users WHERE id = $1`, [userId]);
+}
+
 // ─── Audit Log ────────────────────────────────────────────────────────────────
 
 export async function auditLog(entry: {

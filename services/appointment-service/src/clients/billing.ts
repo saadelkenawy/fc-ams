@@ -39,8 +39,10 @@ export interface CreateBillingTransactionInput {
   patientSource: string;
   doctorSpecialtyId?: number | null;
   approvedCharge: number;
+  procedureCost?: number;
   splitDoctorPercentage: number;
   splitClinicPercentage: number;
+  paymentMethod?: string;
   currencyCode?: string;
 }
 
@@ -53,8 +55,14 @@ export async function createBillingTransaction(input: CreateBillingTransactionIn
     patientSource:         input.patientSource,
     doctorSpecialtyId:     input.doctorSpecialtyId ?? undefined,
     approvedCharge:        input.approvedCharge,
+    procedureCost:         input.procedureCost ?? undefined,
     splitDoctorPercentage: input.splitDoctorPercentage,
     splitClinicPercentage: input.splitClinicPercentage,
+    paymentMethod:         input.paymentMethod ?? undefined,
     currencyCode:          input.currencyCode ?? 'EGP',
   });
+}
+
+export async function deleteTransactionByAppointment(appointmentId: string): Promise<void> {
+  await billingClient.delete(`/transactions/by-appointment/${appointmentId}`);
 }

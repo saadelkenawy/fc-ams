@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Download, FileDown, Filter, Search, CheckCircle, Clock, TrendingUp, Loader2, RefreshCw, ReceiptText, ChevronDown, ChevronRight, Building2, Stethoscope, Share2, FlaskConical, Check, X } from 'lucide-react';
-import { analyticsApi } from '@/lib/api';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { Download, FileDown, Filter, Search, CheckCircle, Clock, TrendingUp, Loader2, RefreshCw, ReceiptText, ChevronDown, ChevronRight, Building2, Stethoscope, Share2, FlaskConical, Check, X, Trash2, ShieldAlert } from 'lucide-react';
+import { analyticsApi, appointmentApi } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -100,8 +101,120 @@ function StatusDropdown({
   );
 }
 
+// ── Secure Delete Modal (Feature 5) ──────────────────────────────────────
+
+interface SecureDeleteModalProps {
+  appointmentId: string;
+  onClose: () => void;
+  onDeleted: () => void;
+}
+
+function SecureDeleteModal({ appointmentId, onClose, onDeleted }: SecureDeleteModalProps) {
+  const { lang, t } = useLang();
+  const { toast } = useToast();
+  const [password, setPassword] = useState('');
+  const [reason,   setReason]   = useState('');
+  const [error,    setError]    = useState('');
+  const [loading,  setLoading]  = useState(false);
+
+  async function handleConfirm() {
+    setError('');
+    if (!password) { setError(t('كلمة المرور مطلوبة', 'Password is required')); return; }
+    if (reason.trim().length < 10) { setError(t('السبب يجب أن يكون 10 أحرف على الأقل', 'Reason must be at least 10 characters')); return; }
+    setLoading(true);
+    try {
+      await appointmentApi.delete(`/appointments/${appointmentId}`, { data: { password, reason } });
+      toast(t('تم حذف الموعد والفاتورة المرتبطة به', 'Appointment and linked billing record deleted'), 'success');
+      onDeleted();
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message;
+      setError(msg ?? t('فشل الحذف. تحقق من كلمة المرور.', 'Delete failed. Check your password.'));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="w-full max-w-md mx-4 bg-white dark:bg-neutral-800 rounded-2xl shadow-2xl p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-11 h-11 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center flex-shrink-0">
+            <ShieldAlert className="w-6 h-6 text-red-600 dark:text-red-400" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100">{t('حذف آمن للموعد', 'Secure Appointment Deletion')}</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{t('هذا الإجراء لا يمكن التراجع عنه', 'This action cannot be undone')}</p>
+          </div>
+        </div>
+
+        <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
+          {t(
+            'سيتم حذف الموعد وسجل الفاتورة المرتبط به نهائياً. يُسجَّل هذا الحذف في سجل المراجعة.',
+            'The appointment and its linked billing record will be permanently deleted. This deletion is logged in the audit trail.',
+          )}
+        </p>
+
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
+              {t('كلمة مرورك', 'Your password')}
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full h-10 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-gray-900 dark:text-gray-100 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+              placeholder="••••••••"
+              autoFocus
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
+              {t('سبب الحذف (10 أحرف على الأقل)', 'Reason for deletion (min 10 characters)')}
+            </label>
+            <textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              rows={3}
+              className="w-full rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
+              placeholder={t('أدخل سبباً واضحاً للحذف...', 'Enter a clear reason for deletion...')}
+            />
+            <p className={cn('text-xs mt-1', reason.trim().length >= 10 ? 'text-gray-400' : 'text-red-400')}>
+              {reason.trim().length} / 10 {t('حرف', 'chars')}
+            </p>
+          </div>
+        </div>
+
+        {error && (
+          <p className="text-xs text-red-500 mt-3 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-lg">{error}</p>
+        )}
+
+        <div className="flex gap-2 mt-5">
+          <Button
+            className="flex-1 bg-red-600 hover:bg-red-700 text-white border-0"
+            disabled={loading}
+            onClick={() => void handleConfirm()}
+          >
+            {loading ? (
+              <><Loader2 className="w-4 h-4 animate-spin me-2 inline" />{t('جاري الحذف...', 'Deleting...')}</>
+            ) : (
+              <><Trash2 className="w-4 h-4 me-2 inline" />{t('تأكيد الحذف', 'Confirm Delete')}</>
+            )}
+          </Button>
+          <Button variant="ghost" onClick={onClose}>{t('إلغاء', 'Cancel')}</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export default function BillingPage() {
   const { lang, t } = useLang();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const deleteApptId = searchParams.get('deleteApptId');
   const locale = lang === 'ar' ? 'ar-EG' : 'en-US';
   const [activeTab, setActiveTab]       = useState('transactions');
   const [query, setQuery]               = useState('');
@@ -109,6 +222,18 @@ export default function BillingPage() {
   const [page, setPage]                 = useState(1);
   const [limit, setLimit]               = useState(10);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  // Auto-open secure delete modal and scroll to highlighted row
+  useEffect(() => {
+    if (deleteApptId) {
+      setActiveTab('transactions');
+      setShowDeleteModal(true);
+      setTimeout(() => {
+        document.getElementById('delete-target-row')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 400);
+    }
+  }, [deleteApptId]);
 
   const { data, isLoading, isError } = useTransactions({
     status: statusFilter === 'all' ? undefined : statusFilter,
@@ -238,8 +363,18 @@ export default function BillingPage() {
                       const pat = patientMap.get(tx.patientId);
                       const patName = pat ? (lang === 'ar' ? (pat.nameAr ?? pat.nameEn) : pat.nameEn) : `…${tx.patientId.slice(-8).toUpperCase()}`;
                       const docName = doc ? (lang === 'ar' ? (doc.nameAr ?? doc.nameEn) : doc.nameEn) : (tx.doctorId ? `…${tx.doctorId.slice(-8).toUpperCase()}` : '—');
+                      const isDeleteTarget = deleteApptId && tx.appointmentId === deleteApptId;
                       return (
-                        <tr key={tx.id} className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors">
+                        <tr
+                          key={tx.id}
+                          id={isDeleteTarget ? 'delete-target-row' : undefined}
+                          className={cn(
+                            'border-b transition-colors',
+                            isDeleteTarget
+                              ? 'border-2 border-red-400 dark:border-red-500 bg-red-50 dark:bg-red-900/15'
+                              : 'border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30',
+                          )}
+                        >
                           <td className="px-5 py-3.5 text-gray-500 dark:text-gray-300 text-xs">{formatDate(tx.transactionDate, locale)}</td>
                           <td className="px-5 py-3.5 text-gray-800 dark:text-gray-200 text-xs" title={patName}>{patName}</td>
                           <td className="px-5 py-3.5 text-gray-600 dark:text-gray-300 text-xs" title={docName}>{docName}</td>
@@ -296,6 +431,20 @@ export default function BillingPage() {
       )}
 
       {activeTab === 'settlements' && <SettlementsTab lang={lang} t={t} />}
+
+      {showDeleteModal && deleteApptId && (
+        <SecureDeleteModal
+          appointmentId={deleteApptId}
+          onClose={() => {
+            setShowDeleteModal(false);
+            router.replace('/billing');
+          }}
+          onDeleted={() => {
+            setShowDeleteModal(false);
+            router.replace('/appointments');
+          }}
+        />
+      )}
     </div>
   );
 }

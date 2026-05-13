@@ -14,6 +14,7 @@ const envSchema = z.object({
   SERVICE_NAME: z.string().default('appointment-service'),
   NOTIFICATION_SERVICE_URL: z.string().default('http://localhost:3007/api/v1'),
   BILLING_SERVICE_URL: z.string().default('http://localhost:3004/api/v1'),
+  IDENTITY_SERVICE_URL: z.string().default('http://localhost:3000/api/v1'),
 });
 
 const parsed = envSchema.safeParse(process.env);

@@ -129,4 +129,26 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       },
     },
   }, ctrl.adminResetPassword);
+
+  // DELETE /users/:id  (admin only)
+  app.delete('/users/:id', {
+    preHandler: [requireAuth, requireRole('admin')],
+    schema: {
+      tags: ['users'],
+      params: { type: 'object', properties: { id: { type: 'string', format: 'uuid' } } },
+    },
+  }, ctrl.deleteUser);
+
+  // POST /auth/verify-password  (current user verifies their own password — used for sensitive actions)
+  app.post('/auth/verify-password', {
+    preHandler: [requireAuth],
+    schema: {
+      tags: ['auth'],
+      body: {
+        type: 'object',
+        required: ['password'],
+        properties: { password: { type: 'string', minLength: 1 } },
+      },
+    },
+  }, ctrl.verifyPasswordEndpoint);
 }

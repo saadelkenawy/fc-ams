@@ -12,6 +12,8 @@ export type PatientSource =
   | 'Ex-DO'   // Ex-CliniDo
   | 'SHL';    // Shamel
 
+export type PaymentMethod = 'cash' | 'visa' | 'instapay';
+
 export interface Appointment {
   id: string; // UUID
   patientId: string; // FK to patients.patient_id (UUID)
@@ -26,6 +28,7 @@ export interface Appointment {
   isOnline: boolean;
   isOverbooked: boolean;
   patientSource: PatientSource;
+  paymentMethod?: PaymentMethod;
   procedureId?: string;
   approvedCharge?: number;
   procedureCost?: number;

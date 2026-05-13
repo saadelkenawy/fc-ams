@@ -59,6 +59,7 @@ export async function appointmentRoutes(app: FastifyInstance): Promise<void> {
           appointmentType: { type: 'string', enum: ['in_person', 'online', 'home_visit', 'walk_in'], default: 'in_person' },
           isOnline:        { type: 'boolean', default: false },
           patientSource:   { type: 'string' },
+          paymentMethod:   { type: 'string', enum: ['cash', 'visa', 'instapay'] },
           approvedCharge:  { type: 'number', exclusiveMinimum: 0 },
           procedureCost:   { type: 'number', exclusiveMinimum: 0 },
           idempotencyKey:  { type: 'string', maxLength: 100 },
@@ -67,6 +68,32 @@ export async function appointmentRoutes(app: FastifyInstance): Promise<void> {
       },
     },
   }, ctrl.createAppointment);
+
+  // PATCH /appointments/:id  (edit appointment — admin and receptionist)
+  app.patch('/appointments/:id', {
+    preHandler: [requireRole('receptionist', 'admin')],
+    schema: {
+      tags: ['appointments'],
+      params: idParam,
+      body: {
+        type: 'object',
+        properties: {
+          doctorId:        { type: 'string', format: 'uuid' },
+          specialtyId:     { type: 'integer' },
+          appointmentDate: { type: 'string', format: 'date' },
+          startTime:       { type: 'string', pattern: '^\\d{2}:\\d{2}$' },
+          endTime:         { type: 'string', pattern: '^\\d{2}:\\d{2}$' },
+          appointmentType: { type: 'string', enum: ['in_person', 'online', 'home_visit', 'walk_in'] },
+          patientSource:   { type: 'string' },
+          paymentMethod:   { type: ['string', 'null'], enum: ['cash', 'visa', 'instapay', null] },
+          approvedCharge:  { type: ['number', 'null'], exclusiveMinimum: 0 },
+          procedureCost:   { type: ['number', 'null'], exclusiveMinimum: 0 },
+          procedureId:     { type: ['string', 'null'], format: 'uuid' },
+          notes:           { type: ['string', 'null'], maxLength: 2000 },
+        },
+      },
+    },
+  }, ctrl.updateAppointment);
 
   // PATCH /appointments/:id/status
   app.patch('/appointments/:id/status', {
@@ -94,12 +121,20 @@ export async function appointmentRoutes(app: FastifyInstance): Promise<void> {
     },
   }, ctrl.checkIn);
 
-  // DELETE /appointments/:id
+  // DELETE /appointments/:id  (hard delete — admin only, requires password + reason)
   app.delete('/appointments/:id', {
     preHandler: [requireRole('admin')],
     schema: {
       tags: ['appointments'],
       params: idParam,
+      body: {
+        type: 'object',
+        required: ['password', 'reason'],
+        properties: {
+          password: { type: 'string', minLength: 1 },
+          reason:   { type: 'string', minLength: 10 },
+        },
+      },
     },
   }, ctrl.deleteAppointment);
 

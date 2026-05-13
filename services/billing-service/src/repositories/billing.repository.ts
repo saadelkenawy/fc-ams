@@ -685,3 +685,11 @@ export async function deleteSource(sourceCode: string): Promise<void> {
   );
   if (result.rowCount === 0) throw Object.assign(new Error('Source not found'), { statusCode: 404, code: 'NOT_FOUND' });
 }
+
+export async function deleteTransactionByAppointmentId(appointmentId: string): Promise<void> {
+  // Hard delete — protected by admin-only route; audit log written by appointment-service
+  await pool.query(
+    `DELETE FROM financial_transactions WHERE appointment_id = $1`,
+    [appointmentId],
+  );
+}

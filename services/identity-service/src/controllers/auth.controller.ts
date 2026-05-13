@@ -344,3 +344,39 @@ export async function adminResetPassword(request: FastifyRequest, reply: Fastify
 
   void reply.send({ success: true });
 }
+
+export async function deleteUser(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { id } = request.params as { id: string };
+  const actor  = request.user as JwtPayload;
+
+  if (id === actor.sub) {
+    throw Object.assign(new Error('Cannot delete your own account'), { statusCode: 400, code: 'SELF_DELETE' });
+  }
+
+  const user = await repo.findUserById(id);
+  if (!user) throw Object.assign(new Error('User not found'), { statusCode: 404 });
+
+  await repo.revokeAllUserTokens(id);
+  await repo.deleteUser(id);
+  await repo.auditLog({ userId: actor.sub, email: actor.sub, event: 'user_deleted', meta: { targetUserId: id } });
+
+  void reply.status(204).send();
+}
+
+const verifyPasswordSchema = z.object({
+  password: z.string().min(1),
+});
+
+export async function verifyPasswordEndpoint(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const payload = request.user as JwtPayload;
+  const { password } = verifyPasswordSchema.parse(request.body);
+
+  const user = await repo.findUserById(payload.sub);
+  if (!user) {
+    void reply.send({ success: true, data: { valid: false } });
+    return;
+  }
+
+  const valid = await verifyPassword(password, user.passwordHash);
+  void reply.send({ success: true, data: { valid } });
+}
