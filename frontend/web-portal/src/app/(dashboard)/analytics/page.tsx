@@ -373,7 +373,7 @@ export default function AnalyticsPage() {
                     <div className="flex justify-between text-xs mb-1">
                       <span className="text-gray-600 dark:text-gray-400 w-24">
                         {lang === 'ar' ? d.dayAr : d.dayEn}
-                        <span className="ml-1 text-gray-400 dark:text-gray-500">({formatNumber(d.total, locale)})</span>
+                        <span className="ms-1 text-gray-400 dark:text-gray-500">({formatNumber(d.total, locale)})</span>
                       </span>
                       <span className={`font-semibold ${d.noShowRate >= 15 ? 'text-red-500' : d.noShowRate >= 10 ? 'text-amber-600' : 'text-emerald-600'}`}>
                         {formatNumber(d.noShowRate, locale)}%

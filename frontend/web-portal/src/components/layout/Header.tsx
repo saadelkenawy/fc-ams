@@ -226,8 +226,7 @@ function QuickSearch() {
     <div ref={wrapRef} className="flex-1 max-w-xs relative">
       <div className="relative">
         <Search className={cn(
-          'absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none',
-          lang === 'ar' ? 'right-2.5' : 'left-2.5',
+          'absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none start-2.5',
         )} />
         <input
           type="text"
@@ -239,7 +238,7 @@ function QuickSearch() {
             'w-full h-8 text-xs bg-gray-50 dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg',
             'focus:outline-none focus:ring-1 focus:ring-primary-600 focus:border-primary-400',
             'text-gray-800 dark:text-gray-100 placeholder:text-gray-400 transition-colors',
-            lang === 'ar' ? 'pr-8 pl-7 text-right' : 'pl-8 pr-7',
+            'ps-8 pe-7',
           )}
         />
         {value && (
@@ -247,7 +246,7 @@ function QuickSearch() {
             onClick={() => { setValue(''); setOpen(false); }}
             className={cn(
               'absolute top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600',
-              lang === 'ar' ? 'left-2' : 'right-2',
+              'end-2',
             )}
           >
             <X className="w-3 h-3" />

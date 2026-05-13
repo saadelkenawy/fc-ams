@@ -368,7 +368,7 @@ function DoctorPicker({ lang, t, value, onChange, specialties }: {
           ))}
         </select>
       </div>
-      <div className="grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto pr-0.5">
+      <div className="grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto pe-0.5">
         {filtered.map((d) => {
           const spec = specMap.get(d.specialtyId);
           const dName = lang === 'ar' ? (d.nameAr ?? d.nameEn) : d.nameEn;

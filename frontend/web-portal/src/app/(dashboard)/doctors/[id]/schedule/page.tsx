@@ -503,7 +503,7 @@ export default function DoctorSchedulePage() {
 
       {/* Stats strip */}
       {!schedLoading && (
-        <div className="grid grid-cols-3 gap-4 stagger animate-slide-up">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 stagger animate-slide-up">
           {[
             { labelAr: 'أيام العمل',         labelEn: 'Working Days',     value: activeDays,         unit: t('أيام', 'days') },
             { labelAr: 'مواعيد أسبوعية',     labelEn: 'Weekly Slots',     value: totalSlotsPerWeek,  unit: t('موعد', 'slots') },

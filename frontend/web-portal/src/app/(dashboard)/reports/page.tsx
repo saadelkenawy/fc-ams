@@ -161,7 +161,7 @@ function SettlementsReport({ lang, locale }: { lang: string; locale: string }) {
 
   return (
     <div className="animate-fade-in space-y-4">
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card>
           <CardContent className="pt-5">
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{lang === 'ar' ? 'إجمالي مستحق' : 'Total Due'}</p>

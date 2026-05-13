@@ -55,7 +55,7 @@ function SessionProgress({ done, total, color }: { done: number; total: number; 
           style={{ width: `${pct}%` }}
         />
       </div>
-      <span className="text-[10px] text-slate-500 tabular-nums w-8 text-right">{done}/{total}</span>
+      <span className="text-[10px] text-slate-500 tabular-nums w-8 text-end">{done}/{total}</span>
     </div>
   );
 }
@@ -196,7 +196,7 @@ function RoomCard({
         {/* ── Always-visible header ──────────────────────────────────────── */}
         <button
           onClick={() => canExpand && setExpanded((v) => !v)}
-          className={cn('flex flex-col gap-2.5 p-5 text-left w-full', canExpand && 'cursor-pointer')}
+          className={cn('flex flex-col gap-2.5 p-5 text-start w-full', canExpand && 'cursor-pointer')}
           disabled={!canExpand}
         >
           {/* Room code + status */}
@@ -259,7 +259,7 @@ function RoomCard({
                   )
                 }
                 {room.appointmentsRemaining > waitingEntries.length + (currentEntry ? 1 : 0) && (
-                  <p className="text-[10px] text-slate-500 pl-2">
+                  <p className="text-[10px] text-slate-500 ps-2">
                     +{room.appointmentsRemaining - waitingEntries.length - (currentEntry ? 1 : 0)} more waiting
                   </p>
                 )}

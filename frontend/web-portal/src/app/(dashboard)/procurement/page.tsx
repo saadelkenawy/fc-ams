@@ -88,7 +88,7 @@ export default function ProcurementPage() {
 
       {/* Secondary stats row */}
       {!isLoading && overview && (
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card>
             <CardContent className="p-4 flex items-center gap-3">
               <Clock className="w-5 h-5 text-amber-500 flex-shrink-0" />
