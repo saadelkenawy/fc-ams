@@ -10,7 +10,7 @@ function makeServiceToken(): string {
   const header  = base64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
   const now     = Math.floor(Date.now() / 1000);
   const payload = base64url(JSON.stringify({
-    sub: 'integration-service', role: 'admin',
+    sub: '00000000-0000-0000-0000-000000000003', role: 'admin',
     branchId: config.BRANCH_ID, doctorId: null,
     iat: now, exp: now + 3600,
   }));

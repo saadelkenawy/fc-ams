@@ -528,8 +528,8 @@ function rowToSource(row: Record<string, unknown>, specialtyRates: SpecialtyRate
     deductFrom:     row.deduct_from as 'clinic' | 'doctor' | 'both',
     isGeneral:      (row.is_general as boolean) ?? true,
     isActive:       row.is_active as boolean,
-    validFrom:      row.valid_from as string,
-    validUntil:     (row.valid_until as string | null) ?? null,
+    validFrom:      row.valid_from instanceof Date ? (row.valid_from as Date).toISOString().split('T')[0] : row.valid_from as string,
+    validUntil:     row.valid_until instanceof Date ? (row.valid_until as Date).toISOString().split('T')[0] : (row.valid_until as string | null) ?? null,
     specialtyRates,
     lastModifiedAt: (row.last_modified_at as Date).toISOString(),
   };

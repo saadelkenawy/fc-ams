@@ -158,8 +158,15 @@ const createSourceSchema = z.object({
 });
 
 const updateSourceSchema = createSourceSchema.omit({ sourceCode: true }).partial().extend({
+  validFrom:      z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   validUntil:     z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   specialtyRates: z.array(specialtyRateSchema).optional(),
+}).transform((v) => {
+  // Strip empty strings so they are treated as not-provided (not sent to DB)
+  const out = { ...v };
+  if (out.validFrom === '') delete out.validFrom;
+  if (out.validUntil === '') out.validUntil = null;
+  return out;
 });
 
 const sourceRateQuerySchema = z.object({
