@@ -2,8 +2,9 @@
 
 import { useState } from 'react';
 import {
-  TrendingUp, Download, Loader2, DollarSign, Activity, PieChart,
+  TrendingUp, Download, Printer, Loader2, DollarSign, Activity, PieChart,
 } from 'lucide-react';
+import { downloadCSV } from '@/lib/export';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -377,6 +378,76 @@ export default function ReportsPage() {
   const [tab, setTab] = useState<ReportTab>('financial');
   const locale = lang === 'ar' ? 'ar-EG' : 'en-US';
 
+  const { from, to } = currentMonthRange();
+  const { data: txnData }      = useTransactions({ limit: 500 });
+  const { data: settlData }    = useSettlements({ from, to });
+  const { data: doctorsData }  = useDoctors({ limit: 100 });
+
+  function handleExportCSV() {
+    const txns       = txnData?.data ?? [];
+    const settlements = settlData?.data ?? [];
+    const allDoctors  = doctorsData?.data ?? [];
+
+    if (tab === 'financial') {
+      const rows = txns.filter((t) => t.paymentStatus === 'approved' || t.paymentStatus === 'paid').map((t) => ({
+        Date:           t.createdAt?.slice(0, 10) ?? '',
+        Source:         t.patientSource,
+        'Payment Method': t.paymentMethod ?? 'cash',
+        'Charged (EGP)': t.approvedCharge,
+        'Source Fee (EGP)': t.sourceFeeAmount,
+        'Net Revenue (EGP)': t.grossRevenue,
+        "Doctor's Share (EGP)": t.doctorShare,
+        "Clinic's Share (EGP)": t.clinicShare,
+      }));
+      downloadCSV(rows, 'financial-summary');
+    } else if (tab === 'settlements') {
+      const rows = settlements.map((s: import('@fadl/types').DoctorSettlement) => ({
+        'Doctor (EN)':        s.doctorNameEn,
+        Consultations:        s.totalConsultations ?? 0,
+        'Total Charged (EGP)': s.grossRevenue ?? 0,
+        "Doctor's Share (EGP)": s.doctorShare ?? 0,
+        Status:               'Pending',
+      }));
+      downloadCSV(rows, 'doctor-settlements');
+    } else if (tab === 'sources') {
+      const bySource: Record<string, { count: number; revenue: number; fees: number }> = {};
+      txns.forEach((t) => {
+        if (!bySource[t.patientSource]) bySource[t.patientSource] = { count: 0, revenue: 0, fees: 0 };
+        bySource[t.patientSource].count++;
+        bySource[t.patientSource].revenue += t.approvedCharge;
+        bySource[t.patientSource].fees    += t.sourceFeeAmount;
+      });
+      const rows = Object.entries(bySource).sort((a, b) => b[1].revenue - a[1].revenue).map(([src, s]) => ({
+        Source:           src,
+        Transactions:     s.count,
+        'Revenue (EGP)':  s.revenue,
+        'Fees (EGP)':     s.fees,
+        'Net (EGP)':      s.revenue - s.fees,
+      }));
+      downloadCSV(rows, 'patient-sources');
+    } else if (tab === 'activity') {
+      const byDoctor: Record<string, { name: string; count: number; revenue: number; drShare: number }> = {};
+      txns.forEach((t) => {
+        const dId = t.doctorId ?? 'unknown';
+        if (!byDoctor[dId]) {
+          const dr = allDoctors.find((d) => d.id === dId);
+          byDoctor[dId] = { name: dr?.nameEn ?? dId, count: 0, revenue: 0, drShare: 0 };
+        }
+        byDoctor[dId].count++;
+        byDoctor[dId].revenue  += t.approvedCharge;
+        byDoctor[dId].drShare  += t.doctorShare;
+      });
+      const rows = Object.values(byDoctor).sort((a, b) => b.revenue - a.revenue).map((d, i) => ({
+        Rank:               i + 1,
+        Doctor:             d.name,
+        Patients:           d.count,
+        'Revenue (EGP)':    d.revenue,
+        "Doctor's Share (EGP)": d.drShare,
+      }));
+      downloadCSV(rows, 'doctor-activity');
+    }
+  }
+
   return (
     <div className="space-y-5 max-w-7xl mx-auto animate-fade-in">
       <div className="flex items-center justify-between gap-4">
@@ -387,9 +458,13 @@ export default function ReportsPage() {
           </p>
         </div>
         <div className="flex gap-2 animate-slide-down" style={{ animationDelay: '40ms' }}>
-          <Button size="sm" variant="outline">
+          <Button size="sm" variant="outline" onClick={handleExportCSV}>
             <Download className="w-4 h-4" />
-            {t('تصدير PDF', 'Export PDF')}
+            {t('تصدير CSV', 'Export CSV')}
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => window.print()}>
+            <Printer className="w-4 h-4" />
+            <span className="sr-only">{t('طباعة', 'Print')}</span>
           </Button>
         </div>
       </div>
