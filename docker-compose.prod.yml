@@ -1,0 +1,315 @@
+# ─── Fadl Clinic — Production Overrides ───────────────────────────────────────
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Prerequisites:
+#   1.  bash scripts/gen-secrets.sh          # generates .env + pgbouncer hash
+#   2.  Fill in SMTP, Twilio, AI keys in .env
+#   3.  Place TLS certs at infra/nginx/ssl/cert.pem + key.pem
+#       (see infra/nginx/nginx.conf header for certbot instructions)
+#
+# Firewall note:
+#   Block direct access to service ports 3000-3013, 5432, 5433, 6379, 9000-9001.
+#   Only ports 80 and 443 (nginx) should be reachable from the internet.
+#   Example (ufw):
+#     ufw allow 80/tcp
+#     ufw allow 443/tcp
+#     ufw allow 22/tcp
+#     ufw enable
+# ──────────────────────────────────────────────────────────────────────────────
+
+x-prod-logging: &prod-logging
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+x-prod-svc: &prod-svc
+  <<: *prod-logging
+  restart: unless-stopped
+
+services:
+
+  # ── Infrastructure ─────────────────────────────────────────────────────────
+
+  postgres:
+    <<: *prod-svc
+    environment:
+      POSTGRES_USER:     ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      PGPASSWORD:        ${DB_PASSWORD}
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+          cpus: "1.0"
+
+  redis:
+    <<: *prod-svc
+    command: >
+      redis-server
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --requirepass ${REDIS_PASSWORD}
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: "0.5"
+
+  minio:
+    <<: *prod-svc
+    environment:
+      MINIO_ROOT_USER:     ${MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: "0.5"
+
+  pgbouncer:
+    <<: *prod-svc
+
+  # ── Microservices ──────────────────────────────────────────────────────────
+
+  identity-service:
+    <<: *prod-svc
+    environment:
+      NODE_ENV:     production
+      LOG_LEVEL:    warn
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@pgbouncer:5432/fadl_identity
+      JWT_SECRET:   ${JWT_SECRET}
+      JWT_EXPIRY:   ${JWT_EXPIRY:-15m}
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: "0.5"
+
+  patient-service:
+    <<: *prod-svc
+    environment:
+      NODE_ENV:     production
+      LOG_LEVEL:    warn
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@pgbouncer:5432/fadl_patients
+      JWT_SECRET:   ${JWT_SECRET}
+      JWT_EXPIRY:   ${JWT_EXPIRY:-15m}
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: "0.5"
+
+  appointment-service:
+    <<: *prod-svc
+    environment:
+      NODE_ENV:     production
+      LOG_LEVEL:    warn
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@pgbouncer:5432/fadl_appointments
+      JWT_SECRET:   ${JWT_SECRET}
+      JWT_EXPIRY:   ${JWT_EXPIRY:-15m}
+      REDIS_URL:    redis://:${REDIS_PASSWORD}@redis:6379
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: "0.5"
+
+  doctor-service:
+    <<: *prod-svc
+    environment:
+      NODE_ENV:     production
+      LOG_LEVEL:    warn
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@pgbouncer:5432/fadl_doctors
+      JWT_SECRET:   ${JWT_SECRET}
+      JWT_EXPIRY:   ${JWT_EXPIRY:-15m}
+      REDIS_URL:    redis://:${REDIS_PASSWORD}@redis:6379
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: "0.5"
+
+  billing-service:
+    <<: *prod-svc
+    environment:
+      NODE_ENV:     production
+      LOG_LEVEL:    warn
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@pgbouncer:5432/fadl_billing
+      JWT_SECRET:   ${JWT_SECRET}
+      JWT_EXPIRY:   ${JWT_EXPIRY:-15m}
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: "0.5"
+
+  notification-service:
+    <<: *prod-svc
+    environment:
+      NODE_ENV:     production
+      LOG_LEVEL:    warn
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@pgbouncer:5432/fadl_notifications
+      JWT_SECRET:   ${JWT_SECRET}
+      JWT_EXPIRY:   ${JWT_EXPIRY:-15m}
+      SMTP_HOST:    ${SMTP_HOST:-}
+      SMTP_PORT:    ${SMTP_PORT:-587}
+      SMTP_SECURE:  ${SMTP_SECURE:-false}
+      SMTP_USER:    ${SMTP_USER:-}
+      SMTP_PASS:    ${SMTP_PASS:-}
+      SMTP_FROM:    ${SMTP_FROM:-Fadl Clinic <noreply@fadlclinic.com>}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN:  ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_FROM_NUMBER: ${TWILIO_FROM_NUMBER:-}
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: "0.25"
+
+  ai-chatbot-service:
+    <<: *prod-svc
+    environment:
+      NODE_ENV:            production
+      LOG_LEVEL:           warn
+      DATABASE_URL:        postgresql://${DB_USER}:${DB_PASSWORD}@pgbouncer:5432/fadl_chatbot
+      JWT_SECRET:          ${JWT_SECRET}
+      JWT_EXPIRY:          ${JWT_EXPIRY:-15m}
+      ANTHROPIC_API_KEY:   ${ANTHROPIC_API_KEY:-}
+      OPENROUTER_API_KEY:  ${OPENROUTER_API_KEY:-}
+      OPENROUTER_MODEL:    ${OPENROUTER_MODEL:-openai/gpt-4o-mini}
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: "0.5"
+
+  file-service:
+    <<: *prod-svc
+    environment:
+      NODE_ENV:          production
+      LOG_LEVEL:         warn
+      DATABASE_URL:      postgresql://${DB_USER}:${DB_PASSWORD}@pgbouncer:5432/fadl_files
+      JWT_SECRET:        ${JWT_SECRET}
+      JWT_EXPIRY:        ${JWT_EXPIRY:-15m}
+      MINIO_ACCESS_KEY:  ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY:  ${MINIO_SECRET_KEY}
+      MINIO_PUBLIC_URL:  ${MINIO_PUBLIC_URL}
+      MINIO_USE_SSL:     "false"
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: "0.25"
+
+  analytics-service:
+    <<: *prod-svc
+    environment:
+      NODE_ENV:   production
+      LOG_LEVEL:  warn
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRY: ${JWT_EXPIRY:-15m}
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: "0.5"
+
+  ehr-service:
+    <<: *prod-svc
+    environment:
+      NODE_ENV:     production
+      LOG_LEVEL:    warn
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@pgbouncer:5432/fadl_ehr
+      JWT_SECRET:   ${JWT_SECRET}
+      JWT_EXPIRY:   ${JWT_EXPIRY:-15m}
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: "0.25"
+
+  procedure-service:
+    <<: *prod-svc
+    environment:
+      NODE_ENV:     production
+      LOG_LEVEL:    warn
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@pgbouncer:5432/fadl_procedures
+      JWT_SECRET:   ${JWT_SECRET}
+      JWT_EXPIRY:   ${JWT_EXPIRY:-15m}
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: "0.25"
+
+  procurement-service:
+    <<: *prod-svc
+    environment:
+      NODE_ENV:     production
+      LOG_LEVEL:    warn
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@pgbouncer:5432/fadl_procurement
+      JWT_SECRET:   ${JWT_SECRET}
+      JWT_EXPIRY:   ${JWT_EXPIRY:-15m}
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: "0.25"
+
+  integration-service:
+    <<: *prod-svc
+    environment:
+      NODE_ENV:                production
+      LOG_LEVEL:               warn
+      DATABASE_URL:            postgresql://${DB_USER}:${DB_PASSWORD}@pgbouncer:5432/fadl_integrations
+      JWT_SECRET:              ${JWT_SECRET}
+      JWT_EXPIRY:              ${JWT_EXPIRY:-15m}
+      VIZITA_WEBHOOK_SECRET:   ${VIZITA_WEBHOOK_SECRET:-}
+      EKSHF_WEBHOOK_SECRET:    ${EKSHF_WEBHOOK_SECRET:-}
+      CLINIDO_WEBHOOK_SECRET:  ${CLINIDO_WEBHOOK_SECRET:-}
+      INSTAPAY_WEBHOOK_SECRET: ${INSTAPAY_WEBHOOK_SECRET:-}
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: "0.25"
+
+  web-portal:
+    <<: *prod-svc
+    environment:
+      NODE_ENV: production
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: "1.0"
+
+  # ── Nginx ingress (production only) ───────────────────────────────────────
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    networks:
+      - fadl-net
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./infra/nginx/proxy_params.conf:/etc/nginx/proxy_params.conf:ro
+      - ./infra/nginx/ssl:/etc/nginx/ssl:ro
+      - certbot_webroot:/var/www/certbot:ro
+    depends_on:
+      - web-portal
+    <<: *prod-logging
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+          cpus: "0.25"
+
+volumes:
+  certbot_webroot:
