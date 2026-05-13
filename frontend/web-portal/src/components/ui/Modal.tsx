@@ -108,7 +108,7 @@ export function Modal({ open, onClose, title, subtitle, children, maxWidth = 'xl
           <button
             onClick={onClose}
             aria-label={t('إغلاق', 'Close')}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-neutral-800 transition-colors ml-4 flex-shrink-0"
+            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-neutral-800 transition-colors ms-4 flex-shrink-0"
           >
             <X className="w-4 h-4" aria-hidden="true" />
           </button>

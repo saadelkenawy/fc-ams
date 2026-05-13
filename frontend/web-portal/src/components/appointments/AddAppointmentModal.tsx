@@ -215,6 +215,7 @@ function PatientPicker({ lang, t, value, onChange }: {
           </div>
         </div>
         <button
+          type="button"
           onClick={() => onChange(null)}
           className="text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-200 font-medium px-2 py-1 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors"
         >
@@ -329,6 +330,7 @@ function DoctorPicker({ lang, t, value, onChange, specialties }: {
           </div>
         </div>
         <button
+          type="button"
           onClick={() => onChange(null)}
           className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 font-medium px-2 py-1 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
         >

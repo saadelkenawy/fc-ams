@@ -373,7 +373,7 @@ export default function LoginPage() {
               <button
                 type="button"
                 className="text-sm font-medium transition-colors hover:underline"
-                style={{ color: 'var(--theme-primary-from, #2563EB)' }}
+                style={{ color: 'var(--theme-primary-from, #B71C1C)' }}
               >
                 {t('نسيت كلمة المرور؟', 'Forgot password?')}
               </button>

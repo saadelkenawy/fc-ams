@@ -107,9 +107,9 @@ function NotificationBell() {
       <Button
         variant="ghost"
         size="icon"
-        className="relative h-8 w-8 me-2"
+        className="relative h-9 w-9 me-2"
         onClick={handleOpen}
-        title={t('الإشعارات', 'Notifications')}
+        aria-label={t('الإشعارات', 'Notifications')}
       >
         <Bell className="w-4 h-4" />
         {unseen > 0 && (
@@ -369,7 +369,7 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
             onClick={zoomOut}
             disabled={textSize === 'sm'}
             className="px-2 py-1.5 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-neutral-700 disabled:opacity-30 transition-colors"
-            title={t('تصغير النص', 'Decrease font')}
+            aria-label={t('تصغير النص', 'Decrease font')}
           >
             <Minus className="w-3.5 h-3.5" />
           </button>
@@ -378,7 +378,7 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
             onClick={zoomIn}
             disabled={textSize === 'xl'}
             className="px-2 py-1.5 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-neutral-700 disabled:opacity-30 transition-colors"
-            title={t('تكبير النص', 'Increase font')}
+            aria-label={t('تكبير النص', 'Increase font')}
           >
             <Plus className="w-3.5 h-3.5" />
           </button>
@@ -389,7 +389,7 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
           <button
             onClick={() => setShowDensity((s) => !s)}
             className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg bg-gray-100 dark:bg-neutral-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-neutral-700 transition-colors text-xs font-medium"
-            title={t('كثافة العرض', 'Display density')}
+            aria-label={t('كثافة العرض', 'Display density')}
           >
             <LayoutGrid className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">{t(DENSITIES.find((d) => d.key === density)!.labelAr, DENSITIES.find((d) => d.key === density)!.labelEn)}</span>
@@ -415,7 +415,7 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
         </div>
 
         {/* Language toggle */}
-        <Button variant="ghost" size="icon" onClick={toggle} title={t('English', 'عربي')} className="h-8 w-8">
+        <Button variant="ghost" size="icon" onClick={toggle} aria-label={t('English', 'عربي')} className="h-9 w-9">
           <Globe className="w-4 h-4" />
         </Button>
 
@@ -423,8 +423,8 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
         <Button
           variant="ghost" size="icon"
           onClick={toggleTheme}
-          title={dark ? t('وضع النهار', 'Light mode') : t('وضع الليل', 'Dark mode')}
-          className="h-8 w-8"
+          aria-label={dark ? t('وضع النهار', 'Light mode') : t('وضع الليل', 'Dark mode')}
+          className="h-9 w-9"
         >
           {dark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
         </Button>
@@ -434,7 +434,7 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
 
         {/* User pill */}
         {userName && (
-          <div className="flex items-center gap-2.5 pl-3 border-l border-gray-200 dark:border-neutral-700">
+          <div className="flex items-center gap-2.5 ps-3 border-s border-gray-200 dark:border-neutral-700">
             <div className="w-7 h-7 rounded-full bg-primary-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
               {userName.charAt(0)}
             </div>
