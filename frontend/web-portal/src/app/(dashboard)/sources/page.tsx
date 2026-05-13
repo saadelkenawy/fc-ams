@@ -526,7 +526,7 @@ export default function SourcesPage() {
         <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
         <span>
           {t(
-            'كود المصدر يُستخدم في المواعيد والفواتير لحساب رسوم المنصة تلقائياً. يمكن تحديد نسب مختلفة لكل تخصص — التخصصات غير المُدرجة تستخدم النسبة الافتراضية.',
+            'كود المصدر يُستخدم في المواعيد والفواتير لحساب رسوم المنصة تلقائياً. يمكن تحديد نسب مختلفة لكل تخصص؛ التخصصات غير المُدرجة تستخدم النسبة الافتراضية.',
             'Source code is used in appointments and billing to auto-calculate platform fees. Per-specialty rates override the default; unlisted specialties use the default rate.',
           )}
         </span>

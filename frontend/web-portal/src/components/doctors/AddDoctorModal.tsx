@@ -304,7 +304,7 @@ export function AddDoctorModal({ open, onClose, onCreated }: AddDoctorModalProps
               value={form.specialtyId}
               onChange={(e) => set('specialtyId', e.target.value)}
             >
-              <option value="">{t('-- اختر التخصص --', '-- Select Specialty --')}</option>
+              <option value="">{t('اختر التخصص', 'Select a specialty')}</option>
               {Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b)).map(([cat, specs]) => (
                 <optgroup key={cat} label={cat.charAt(0).toUpperCase() + cat.slice(1)}>
                   {specs.sort((a, b) => (a.nameEn > b.nameEn ? 1 : -1)).map((s) => (
@@ -432,7 +432,7 @@ export function AddDoctorModal({ open, onClose, onCreated }: AddDoctorModalProps
           <div>
             <label className="field-label">{t('طريقة الدفع', 'Payment Method')}</label>
             <select className={cn(inputClass, 'cursor-pointer')} value={form.paymentMethod} onChange={(e) => set('paymentMethod', e.target.value)}>
-              <option value="">{t('-- اختر --', '-- Select --')}</option>
+              <option value="">{t('اختر', 'Select')}</option>
               {PAYMENT_METHODS.map((m) => (
                 <option key={m.value} value={m.value}>
                   {lang === 'ar' ? m.labelAr : m.labelEn}

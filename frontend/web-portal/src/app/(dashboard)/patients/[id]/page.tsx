@@ -429,7 +429,7 @@ function EditDemographicsForm({
                   className="w-full h-11 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-3 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-600"
                   {...register('gender')}
                 >
-                  <option value="">—</option>
+                  <option value="">{t('غير محدد', 'Not specified')}</option>
                   <option value="M">{t('ذكر', 'Male')}</option>
                   <option value="F">{t('أنثى', 'Female')}</option>
                 </select>
@@ -442,7 +442,7 @@ function EditDemographicsForm({
                   className="w-full h-11 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-3 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-600"
                   {...register('bloodType')}
                 >
-                  <option value="">—</option>
+                  <option value="">{t('غير محدد', 'Not specified')}</option>
                   {BLOOD_TYPES.map((bt) => <option key={bt} value={bt}>{bt}</option>)}
                 </select>
               </div>

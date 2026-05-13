@@ -60,7 +60,7 @@ function VendorForm({ value, onChange, t }: { value: VendorPayload; onChange: (v
       <div className="sm:col-span-2">
         <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">{t('نوع المورد', 'Vendor Type')} *</label>
         <select value={value.vendorType} onChange={(e) => set('vendorType', e.target.value as VendorPayload['vendorType'])}
-          className="w-full rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500">
+          className="w-full rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-600">
           {VENDOR_TYPES.map((vt) => <option key={vt} value={vt}>{vt}</option>)}
         </select>
       </div>

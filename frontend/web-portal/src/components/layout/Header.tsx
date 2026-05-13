@@ -237,7 +237,7 @@ function QuickSearch() {
           placeholder={t('بحث سريع...', 'Quick search...')}
           className={cn(
             'w-full h-8 text-xs bg-gray-50 dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg',
-            'focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-400',
+            'focus:outline-none focus:ring-1 focus:ring-primary-600 focus:border-primary-400',
             'text-gray-800 dark:text-gray-100 placeholder:text-gray-400 transition-colors',
             lang === 'ar' ? 'pr-8 pl-7 text-right' : 'pl-8 pr-7',
           )}

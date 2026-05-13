@@ -90,7 +90,7 @@ function ProcedureForm({ value, onChange, t }: ProcedureFormProps) {
         <select
           value={value.procedureType}
           onChange={(e) => set('procedureType', e.target.value as ProcedurePayload['procedureType'])}
-          className="w-full rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm px-3 py-2 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500"
+          className="w-full rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm px-3 py-2 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-600"
         >
           {PROC_TYPES_SELECTABLE.map((type) => (
             <option key={type} value={type}>{TYPE_LABELS[type].en}</option>
@@ -138,7 +138,7 @@ function ProcedureForm({ value, onChange, t }: ProcedureFormProps) {
             type="checkbox"
             checked={value.requiresPreAuth}
             onChange={(e) => set('requiresPreAuth', e.target.checked)}
-            className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+            className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-600"
           />
           <span className="text-sm text-gray-700 dark:text-gray-300">{t('يتطلب موافقة مسبقة', 'Requires Pre-Auth')}</span>
         </label>
@@ -147,7 +147,7 @@ function ProcedureForm({ value, onChange, t }: ProcedureFormProps) {
             type="checkbox"
             checked={value.isActive}
             onChange={(e) => set('isActive', e.target.checked)}
-            className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+            className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-600"
           />
           <span className="text-sm text-gray-700 dark:text-gray-300">{t('نشط', 'Active')}</span>
         </label>

@@ -460,7 +460,7 @@ function UsersTab({ t, lang }: { t: (ar: string, en: string) => string; lang: 'a
               placeholder={t('بحث بالاسم أو البريد...', 'Search by name or email...')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full h-9 ps-9 pe-4 text-sm bg-gray-50 dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-gray-800 dark:text-gray-100 placeholder:text-gray-400"
+              className="w-full h-9 ps-9 pe-4 text-sm bg-gray-50 dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-600 text-gray-800 dark:text-gray-100 placeholder:text-gray-400"
             />
           </div>
 

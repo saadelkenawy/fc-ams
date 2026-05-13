@@ -79,7 +79,7 @@ function SourceBar({ sources, locale, lang }: { sources: SourceBarItem[]; locale
         {sources.map((s) => (
           <div
             key={s.sourceEn}
-            title={`${isAr ? s.sourceAr : s.sourceEn} — ${formatNumber(s.pct, locale)}%`}
+            title={`${isAr ? s.sourceAr : s.sourceEn}: ${formatNumber(s.pct, locale)}%`}
             style={{ width: `${s.pct}%`, backgroundColor: s.color }}
           />
         ))}

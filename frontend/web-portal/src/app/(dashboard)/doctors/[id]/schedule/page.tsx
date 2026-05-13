@@ -596,7 +596,7 @@ export default function DoctorSchedulePage() {
                       {lang === 'ar' ? ot.ar : ot.en}
                     </span>
                     <span className="text-[11px] text-gray-500 dark:text-gray-400">
-                      {ot.key === 'unavailable'  && t('يوم عمل لا مواعيد فيه', 'Day blocked — no bookings')}
+                      {ot.key === 'unavailable'  && t('يوم عمل لا مواعيد فيه', 'Day blocked: no bookings')}
                       {ot.key === 'custom_hours' && t('ساعات عمل مخصصة لهذا اليوم', 'Different hours for this day')}
                       {ot.key === 'holiday'      && t('إجازة رسمية أو شخصية', 'Official or personal leave')}
                     </span>

@@ -251,7 +251,7 @@ export function AddPatientModal({ open, onClose, onCreated }: AddPatientModalPro
           <div>
             <label className="field-label">{t('الجنس', 'Gender')}</label>
             <select className={selectClass} value={form.gender} onChange={(e) => set('gender', e.target.value as 'M' | 'F' | '')}>
-              <option value="">{t('-- اختر --', '-- Select --')}</option>
+              <option value="">{t('اختر', 'Select')}</option>
               <option value="M">{t('ذكر', 'Male')}</option>
               <option value="F">{t('أنثى', 'Female')}</option>
             </select>
@@ -296,7 +296,7 @@ export function AddPatientModal({ open, onClose, onCreated }: AddPatientModalPro
             )}>
               <input
                 type="checkbox"
-                className="mt-0.5 w-4 h-4 flex-shrink-0 rounded border-gray-300 dark:border-neutral-600 text-primary-600 focus:ring-primary-500 cursor-pointer"
+                className="mt-0.5 w-4 h-4 flex-shrink-0 rounded border-gray-300 dark:border-neutral-600 text-primary-600 focus:ring-primary-600 cursor-pointer"
                 checked={form.isFutureSource}
                 onChange={(e) => set('isFutureSource', e.target.checked)}
               />

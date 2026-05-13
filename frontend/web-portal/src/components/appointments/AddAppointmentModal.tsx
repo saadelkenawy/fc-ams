@@ -107,7 +107,7 @@ function QuickCreatePatient({ lang, t, prefillName, onCreated, onCancel }: {
     }
   }
 
-  const fieldCls = 'h-9 rounded-lg border px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 transition-shadow w-full bg-white dark:bg-neutral-800 text-gray-900 dark:text-gray-100 border-gray-200 dark:border-neutral-600';
+  const fieldCls = 'h-9 rounded-lg border px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600 transition-shadow w-full bg-white dark:bg-neutral-800 text-gray-900 dark:text-gray-100 border-gray-200 dark:border-neutral-600';
 
   return (
     <div className="mt-2 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 p-4 space-y-3">
@@ -232,7 +232,7 @@ function PatientPicker({ lang, t, value, onChange }: {
         <Search className="absolute inset-y-0 start-3 my-auto w-4 h-4 text-gray-400 pointer-events-none" />
         <input
           ref={inputRef}
-          className="w-full h-10 rounded-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 ps-9 pe-9 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-shadow"
+          className="w-full h-10 rounded-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 ps-9 pe-9 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-600 transition-shadow"
           placeholder={t('اكتب اسم المريض أو رقم الهاتف...', 'Name or phone (min 2 chars)...')}
           value={q}
           onChange={(e) => { setQ(e.target.value); setOpen(true); setCreating(false); updatePosition(); }}
@@ -482,7 +482,7 @@ export function AddAppointmentModal({ open, onClose, defaultDate, onCreated }: A
     mutation.mutate();
   }
 
-  const inputCls = 'w-full h-10 rounded-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-shadow';
+  const inputCls = 'w-full h-10 rounded-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-600 transition-shadow';
 
   return (
     <Modal
@@ -625,7 +625,7 @@ export function AddAppointmentModal({ open, onClose, defaultDate, onCreated }: A
                         type="number"
                         min="0"
                         step="50"
-                        className="flex-1 h-10 rounded-e-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 text-sm font-semibold tabular-nums text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-shadow [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                        className="flex-1 h-10 rounded-e-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 text-sm font-semibold tabular-nums text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-600 transition-shadow [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                         placeholder="0"
                         value={charge}
                         onChange={(e) => setCharge(e.target.value)}
@@ -656,7 +656,7 @@ export function AddAppointmentModal({ open, onClose, defaultDate, onCreated }: A
                     value={procedureId}
                     onChange={(e) => setProcedureId(e.target.value)}
                   >
-                    <option value="">{t('— لا شيء —', '— None —')}</option>
+                    <option value="">{t('لا شيء', 'None')}</option>
                     {procedures.map((p) => (
                       <option key={p.id} value={p.id}>{lang === 'ar' ? (p.nameAr ?? p.nameEn) : p.nameEn}</option>
                     ))}

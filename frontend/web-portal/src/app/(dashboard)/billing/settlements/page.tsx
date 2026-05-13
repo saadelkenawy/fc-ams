@@ -245,12 +245,12 @@ export default function SettlementsPage() {
           <div className="flex items-center gap-2">
             <label htmlFor="settle-from-date" className="text-xs text-gray-500">{t('من', 'From')}</label>
             <input id="settle-from-date" type="date" value={from} onChange={(e) => setFrom(e.target.value)}
-              className="text-sm border border-gray-200 dark:border-neutral-600 rounded-lg px-3 py-1.5 bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+              className="text-sm border border-gray-200 dark:border-neutral-600 rounded-lg px-3 py-1.5 bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-600" />
           </div>
           <div className="flex items-center gap-2">
             <label htmlFor="settle-to-date" className="text-xs text-gray-500">{t('إلى', 'To')}</label>
             <input id="settle-to-date" type="date" value={to} onChange={(e) => setTo(e.target.value)}
-              className="text-sm border border-gray-200 dark:border-neutral-600 rounded-lg px-3 py-1.5 bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+              className="text-sm border border-gray-200 dark:border-neutral-600 rounded-lg px-3 py-1.5 bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-600" />
           </div>
           <Button variant="outline" size="sm" onClick={() => void refetch()} disabled={isFetching}>
             <RefreshCw className={cn('w-3.5 h-3.5', isFetching && 'animate-spin')} />
@@ -270,7 +270,7 @@ export default function SettlementsPage() {
               onChange={(e) => { setDoctorSearch(e.target.value); setSelectedDoctor(''); }}
               placeholder={t('بحث باسم الطبيب...', 'Search doctor name...')}
               aria-label={t('بحث باسم الطبيب', 'Search by doctor name')}
-              className="w-full ps-8 pe-3 py-1.5 text-sm border border-gray-200 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full ps-8 pe-3 py-1.5 text-sm border border-gray-200 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-600"
             />
           </div>
 
@@ -278,7 +278,7 @@ export default function SettlementsPage() {
           <select
             value={selectedDoctor}
             onChange={(e) => { setSelectedDoctor(e.target.value); setDoctorSearch(''); }}
-            className="text-sm border border-gray-200 dark:border-neutral-600 rounded-lg px-3 py-1.5 bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="text-sm border border-gray-200 dark:border-neutral-600 rounded-lg px-3 py-1.5 bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-600"
           >
             <option value="">{t('كل الأطباء', 'All doctors')}</option>
             {doctorList.map((d) => (
@@ -319,7 +319,7 @@ export default function SettlementsPage() {
                 onChange={(e) => setMinNetPool(e.target.value)}
                 placeholder="0"
                 aria-labelledby="settle-minpool-label"
-                className="w-32 text-sm border border-gray-200 dark:border-neutral-600 rounded-lg px-3 py-1.5 bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                className="w-32 text-sm border border-gray-200 dark:border-neutral-600 rounded-lg px-3 py-1.5 bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-600 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
               />
             </div>
             <div className="space-y-1">
@@ -332,7 +332,7 @@ export default function SettlementsPage() {
                 onChange={(e) => setMaxNetPool(e.target.value)}
                 placeholder="∞"
                 aria-labelledby="settle-maxpool-label"
-                className="w-32 text-sm border border-gray-200 dark:border-neutral-600 rounded-lg px-3 py-1.5 bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                className="w-32 text-sm border border-gray-200 dark:border-neutral-600 rounded-lg px-3 py-1.5 bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-600 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
               />
             </div>
 
@@ -343,7 +343,7 @@ export default function SettlementsPage() {
                 <select
                   value={sortKey}
                   onChange={(e) => setSortKey(e.target.value as SortKey)}
-                  className="text-sm border border-gray-200 dark:border-neutral-600 rounded-lg px-3 py-1.5 bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="text-sm border border-gray-200 dark:border-neutral-600 rounded-lg px-3 py-1.5 bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-600"
                 >
                   <option value="name">{t('الاسم', 'Name')}</option>
                   <option value="sessions">{t('الجلسات', 'Sessions')}</option>

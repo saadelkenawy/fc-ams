@@ -67,29 +67,29 @@ function ItemForm({ value, onChange, t }: { value: ItemPayload; onChange: (v: It
       <div>
         <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">{t('الفئة', 'Category')} *</label>
         <select value={value.category} onChange={(e) => set('category', e.target.value as CatalogItem['category'])}
-          className="w-full rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500">
+          className="w-full rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-600">
           {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
       </div>
       <div>
         <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">{t('الشريحة السعرية', 'Budget Tier')} *</label>
         <select value={value.budgetTier} onChange={(e) => set('budgetTier', e.target.value as CatalogItem['budgetTier'])}
-          className="w-full rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500">
+          className="w-full rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-600">
           {BUDGET_TIERS.map((b) => <option key={b} value={b}>{b}</option>)}
         </select>
       </div>
       <div>
         <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">{t('حالة التسجيل EDA', 'EDA Status')} *</label>
         <select value={value.edaStatus} onChange={(e) => set('edaStatus', e.target.value as CatalogItem['edaStatus'])}
-          className="w-full rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500">
+          className="w-full rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-600">
           {EDA_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
       </div>
       <div>
         <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">{t('تصنيف EDA', 'EDA Class')}</label>
         <select value={value.edaClass ?? ''} onChange={(e) => set('edaClass', (e.target.value || undefined) as CatalogItem['edaClass'])}
-          className="w-full rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500">
-          <option value="">—</option>
+          className="w-full rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-600">
+          <option value="">{t('غير محدد', 'None')}</option>
           <option value="I">Class I</option>
           <option value="II">Class II</option>
           <option value="III">Class III</option>

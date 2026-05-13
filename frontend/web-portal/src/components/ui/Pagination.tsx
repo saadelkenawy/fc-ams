@@ -50,7 +50,7 @@ export function Pagination({
             <select
               value={limit}
               onChange={(e) => { onLimitChange(Number(e.target.value)); onPageChange(1); }}
-              className="text-xs border border-gray-200 dark:border-neutral-600 rounded-md px-2 py-1 bg-white dark:bg-neutral-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="text-xs border border-gray-200 dark:border-neutral-600 rounded-md px-2 py-1 bg-white dark:bg-neutral-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-primary-600"
             >
               {pageSizes.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>

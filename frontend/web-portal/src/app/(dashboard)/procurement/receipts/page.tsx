@@ -208,8 +208,8 @@ export default function ReceiptsPage() {
                             <div>
                               <label className="block text-xs text-gray-500 mb-1">{t('المادة *','Item *')}</label>
                               <select value={lineForm.itemId} onChange={(e) => setLineForm((f) => ({ ...f, itemId: e.target.value }))}
-                                className="w-full rounded border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-xs px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary-500">
-                                <option value="">— {t('اختر المادة','Select item')} —</option>
+                                className="w-full rounded border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-xs px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary-600">
+                                <option value="">{t('اختر المادة', 'Select item')}</option>
                                 {catalogItems.map((ci) => <option key={ci.id} value={ci.id}>{ci.itemName}</option>)}
                               </select>
                             </div>
@@ -313,8 +313,8 @@ export default function ReceiptsPage() {
           <div className="sm:col-span-2">
             <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">{t('المورد *','Vendor *')}</label>
             <select value={receiptForm.vendorId} onChange={(e) => setReceiptForm((f) => ({ ...f, vendorId: e.target.value }))}
-              className="w-full rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500">
-              <option value="">— {t('اختر المورد','Select vendor')} —</option>
+              className="w-full rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-600">
+              <option value="">{t('اختر المورد', 'Select vendor')}</option>
               {vendors.map((v) => <option key={v.id} value={v.id}>{v.vendorName}</option>)}
             </select>
           </div>

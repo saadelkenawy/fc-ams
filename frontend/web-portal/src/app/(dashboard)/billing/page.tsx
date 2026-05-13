@@ -351,12 +351,12 @@ function SettlementsTab({ lang, t }: { lang: 'ar' | 'en'; t: (ar: string, en: st
         <div className="flex items-center gap-2">
           <label htmlFor="billing-from-date" className="text-xs text-gray-500">{t('من', 'From')}</label>
           <input id="billing-from-date" type="date" value={from} onChange={(e) => setFrom(e.target.value)}
-            className="text-sm border border-gray-200 dark:border-neutral-600 rounded-lg px-3 py-1.5 bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+            className="text-sm border border-gray-200 dark:border-neutral-600 rounded-lg px-3 py-1.5 bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-600" />
         </div>
         <div className="flex items-center gap-2">
           <label htmlFor="billing-to-date" className="text-xs text-gray-500">{t('إلى', 'To')}</label>
           <input id="billing-to-date" type="date" value={to} onChange={(e) => setTo(e.target.value)}
-            className="text-sm border border-gray-200 dark:border-neutral-600 rounded-lg px-3 py-1.5 bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+            className="text-sm border border-gray-200 dark:border-neutral-600 rounded-lg px-3 py-1.5 bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-600" />
         </div>
         <Button variant="outline" size="sm" onClick={() => void refetch()} disabled={isFetching}>
           <RefreshCw className={cn('w-3.5 h-3.5', isFetching && 'animate-spin')} />

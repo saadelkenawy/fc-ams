@@ -328,7 +328,7 @@ function ActivityReport({ lang, locale }: { lang: string; locale: string }) {
     <div className="animate-fade-in">
       <Card>
         <CardHeader>
-          <CardTitle>{lang === 'ar' ? `أداء الأطباء — ${new Date().toLocaleString('ar-EG', { month: 'long', year: 'numeric' })}` : `Doctor Performance — ${new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' })}`}</CardTitle>
+          <CardTitle>{lang === 'ar' ? `أداء الأطباء: ${new Date().toLocaleString('ar-EG', { month: 'long', year: 'numeric' })}` : `Doctor Performance: ${new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' })}`}</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <table className="w-full text-sm">
