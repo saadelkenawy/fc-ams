@@ -28,7 +28,6 @@ const HERO_IMAGES = [
   '/images/medical-clinic.jpg',
   '/images/medical-team.jpg',
   '/images/medical-abstract.jpg',
-  '/images/login-bg.jpg',
 ];
 
 const FEATURE_PILLS = [
