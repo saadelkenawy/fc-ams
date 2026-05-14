@@ -23,6 +23,8 @@ import type { PaymentStatus, FinancialTransaction } from '@fadl/types';
 
 // Simplified status set per spec — verified/approved removed from UI options
 const ACTIVE_STATUSES: PaymentStatus[] = ['pending', 'paid', 'refunded', 'reconciled'];
+// Statuses that can be manually set from billing page; paid/reconciled are set programmatically only
+const SELECTABLE_STATUSES: PaymentStatus[] = ['pending', 'refunded'];
 
 const STATUS_CONFIG: Record<PaymentStatus, { labelAr: string; labelEn: string; variant: 'warning' | 'info' | 'success' | 'default' | 'danger' }> = {
   pending:    { labelAr: 'معلق',   labelEn: 'Pending',    variant: 'warning' },
@@ -79,7 +81,7 @@ function StatusDropdown({
           <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
         </div>
       )}
-      {!isPending && ACTIVE_STATUSES.map((s) => {
+      {!isPending && SELECTABLE_STATUSES.map((s) => {
         const cfg = STATUS_CONFIG[s];
         return (
           <button

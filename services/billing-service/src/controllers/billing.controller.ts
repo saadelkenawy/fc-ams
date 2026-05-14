@@ -27,8 +27,11 @@ const createTxSchema = z.object({
   { message: 'splitDoctorPercentage + splitClinicPercentage must equal 100' },
 );
 
+// paid and reconciled are set programmatically only — not via the manual status endpoint
+const MANUAL_STATUS = ['pending', 'verified', 'approved', 'refunded'] as const;
+
 const updateStatusSchema = z.object({
-  status: z.enum(PAYMENT_STATUS),
+  status: z.enum(MANUAL_STATUS),
   settlementReference: z.string().optional(),
   checkInAmount: z.number().positive().optional(),
   checkOutAmount: z.number().positive().optional(),
