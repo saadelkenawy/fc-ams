@@ -20,13 +20,14 @@ import type { Appointment, AppointmentStatus, Patient, Doctor } from '@fadl/type
 
 // Allowed forward transitions shown in the UI
 const TRANSITIONS: Record<AppointmentStatus, AppointmentStatus[]> = {
-  'TBC':    ['Ok!', 'Canc.'],
-  'Ok!':    ['Comp.', 'Canc.'],
-  'Conf.':  ['Comp.', 'Canc.'],
-  'Comp.':  [],
-  'Canc.':  [],
+  'TBC':    ['Ok!', 'Canc.', 'Ref.'],
+  'Ok!':    ['Comp.', 'Canc.', 'Ref.'],
+  'Conf.':  ['Comp.', 'Canc.', 'Ref.'],
+  'Comp.':  ['Ref.'],
+  'Canc.':  ['Ref.'],
   'Resch.': [],
   'Inf.':   ['TBC', 'Ok!'],
+  'Ref.':   [],
 };
 
 const STATUS_LABELS: Record<AppointmentStatus, { ar: string; en: string }> = {
@@ -37,6 +38,7 @@ const STATUS_LABELS: Record<AppointmentStatus, { ar: string; en: string }> = {
   'Canc.':  { ar: 'ملغي',    en: 'Cancelled' },
   'Resch.': { ar: 'معاد جدولة', en: 'Rescheduled' },
   'Inf.':   { ar: 'مُبلَّغ',  en: 'Informed' },
+  'Ref.':   { ar: 'مسترد',   en: 'Refunded' },
 };
 
 const STATUS_TABS: { status: AppointmentStatus | 'all'; labelAr: string; labelEn: string }[] = [
@@ -87,8 +89,10 @@ interface ActionMenuProps {
 function ActionMenu({ appointment, lang, t, userRole, onStatusChange, onEdit, onDelete }: ActionMenuProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const canChange = (TRANSITIONS[appointment.status] ?? []).length > 0;
-  const isTerminal = appointment.status === 'Comp.' || appointment.status === 'Canc.' || appointment.status === 'Resch.';
+  const allTransitions = TRANSITIONS[appointment.status] ?? [];
+  const visibleTransitions = userRole === 'admin' ? allTransitions : allTransitions.filter((s) => s !== 'Ref.');
+  const canChange = visibleTransitions.length > 0;
+  const isTerminal = appointment.status === 'Comp.' || appointment.status === 'Canc.' || appointment.status === 'Resch.' || appointment.status === 'Ref.';
   const canEdit = !isTerminal && (userRole === 'admin' || userRole === 'receptionist');
   const canDelete = userRole === 'admin';
 
@@ -285,11 +289,13 @@ interface StatusModalProps {
   t: (ar: string, en: string) => string;
   onClose: () => void;
   onDone: () => void;
+  userRole: string;
 }
 
-function StatusModal({ appointment, lang, t, onClose, onDone }: StatusModalProps) {
+function StatusModal({ appointment, lang, t, onClose, onDone, userRole }: StatusModalProps) {
   const [selected, setSelected] = useState<AppointmentStatus | null>(null);
-  const allowed = TRANSITIONS[appointment.status] ?? [];
+  const allAllowed = TRANSITIONS[appointment.status] ?? [];
+  const allowed = userRole === 'admin' ? allAllowed : allAllowed.filter((s) => s !== 'Ref.');
 
   const mutation = useMutation({
     mutationFn: async (status: AppointmentStatus) => {
@@ -803,6 +809,7 @@ export default function AppointmentsPage() {
           t={t}
           onClose={() => setStatusAppt(null)}
           onDone={invalidate}
+          userRole={user?.role ?? ''}
         />
       )}
 

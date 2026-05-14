@@ -43,6 +43,7 @@ const STATUS_CONFIG: Record<AppointmentStatus, { label: string; labelAr: string;
   'Canc.': { label: 'Cancelled',  labelAr: 'ملغي',   variant: 'danger',  icon: '✕'  },
   'Resch.':{ label: 'Rescheduled',labelAr: 'معاد',   variant: 'purple',  icon: '↻'  },
   'Inf.':  { label: 'Informed',   labelAr: 'مُبلَّغ',variant: 'default', icon: 'ⓘ' },
+  'Ref.':  { label: 'Refunded',   labelAr: 'مسترد',  variant: 'purple',  icon: '↩' },
 };
 
 export function AppointmentStatusBadge({ status, lang = 'ar' }: { status: AppointmentStatus; lang?: 'ar' | 'en' }) {

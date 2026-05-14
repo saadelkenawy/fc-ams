@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Download, FileDown, Filter, Search, CheckCircle, Clock, TrendingUp, Loader2, RefreshCw, ReceiptText, ChevronDown, ChevronRight, Building2, Stethoscope, Share2, FlaskConical, Check, X, Trash2, ShieldAlert } from 'lucide-react';
+import { Download, FileDown, Filter, Search, CheckCircle, Clock, TrendingUp, Loader2, RefreshCw, ReceiptText, ChevronDown, ChevronRight, Building2, Stethoscope, Share2, FlaskConical, Check, X, Trash2, ShieldAlert, RotateCcw, FileSpreadsheet, FileText } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { analyticsApi, appointmentApi } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -18,7 +19,10 @@ import { useDoctorMap } from '@/hooks/useDoctors';
 import { usePatientMap } from '@/hooks/usePatients';
 import { useProcedureMap } from '@/hooks/useProcedures';
 import { cn } from '@/lib/utils';
-import type { PaymentStatus } from '@fadl/types';
+import type { PaymentStatus, FinancialTransaction } from '@fadl/types';
+
+// Simplified status set per spec — verified/approved removed from UI options
+const ACTIVE_STATUSES: PaymentStatus[] = ['pending', 'paid', 'refunded', 'reconciled'];
 
 const STATUS_CONFIG: Record<PaymentStatus, { labelAr: string; labelEn: string; variant: 'warning' | 'info' | 'success' | 'default' | 'danger' }> = {
   pending:    { labelAr: 'معلق',   labelEn: 'Pending',    variant: 'warning' },
@@ -29,7 +33,7 @@ const STATUS_CONFIG: Record<PaymentStatus, { labelAr: string; labelEn: string; v
   refunded:   { labelAr: 'مسترد', labelEn: 'Refunded',   variant: 'danger' },
 };
 
-const ALL_STATUSES = Object.keys(STATUS_CONFIG) as PaymentStatus[];
+const PAYMENT_METHODS = ['cash', 'visa', 'instapay'];
 
 const TABS = [
   { key: 'transactions', labelAr: 'المعاملات', labelEn: 'Transactions' },
@@ -75,7 +79,7 @@ function StatusDropdown({
           <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
         </div>
       )}
-      {!isPending && ALL_STATUSES.map((s) => {
+      {!isPending && ACTIVE_STATUSES.map((s) => {
         const cfg = STATUS_CONFIG[s];
         return (
           <button
@@ -216,13 +220,20 @@ export default function BillingPage() {
   const searchParams = useSearchParams();
   const deleteApptId = searchParams.get('deleteApptId');
   const locale = lang === 'ar' ? 'ar-EG' : 'en-US';
-  const [activeTab, setActiveTab]       = useState('transactions');
-  const [query, setQuery]               = useState('');
-  const [statusFilter, setStatusFilter] = useState<PaymentStatus | 'all'>('all');
-  const [page, setPage]                 = useState(1);
-  const [limit, setLimit]               = useState(10);
-  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  const [activeTab, setActiveTab]           = useState('transactions');
+  const [query, setQuery]                   = useState('');
+  const [statusFilter, setStatusFilter]     = useState<PaymentStatus | 'all'>('all');
+  const [methodFilter, setMethodFilter]     = useState<string>('');
+  const [dateFrom, setDateFrom]             = useState('');
+  const [dateTo, setDateTo]                 = useState('');
+  const [dateError, setDateError]           = useState('');
+  const [page, setPage]                     = useState(1);
+  const [limit, setLimit]                   = useState(10);
+  const [openDropdown, setOpenDropdown]     = useState<string | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [exportLoading, setExportLoading]   = useState(false);
 
   // Auto-open secure delete modal and scroll to highlighted row
   useEffect(() => {
@@ -235,8 +246,12 @@ export default function BillingPage() {
     }
   }, [deleteApptId]);
 
+  const validDates = !dateFrom || !dateTo || dateFrom <= dateTo;
+
   const { data, isLoading, isError } = useTransactions({
-    status: statusFilter === 'all' ? undefined : statusFilter,
+    status:   statusFilter === 'all' ? undefined : statusFilter,
+    dateFrom: (validDates && dateFrom) ? dateFrom : undefined,
+    dateTo:   (validDates && dateTo)   ? dateTo   : undefined,
     page,
     limit,
   });
@@ -245,20 +260,47 @@ export default function BillingPage() {
   const doctorMap    = useDoctorMap();
   const patientMap   = usePatientMap();
 
-  const filtered = transactions.filter((tx) => {
+  const filtered = useMemo(() => transactions.filter((tx) => {
+    if (methodFilter && tx.paymentMethod !== methodFilter) return false;
     if (!query) return true;
     const q = query.toLowerCase();
     const doc = tx.doctorId ? doctorMap.get(tx.doctorId) : null;
     const pat = patientMap.get(tx.patientId);
     const docName = doc ? (lang === 'ar' ? (doc.nameAr ?? doc.nameEn) : doc.nameEn).toLowerCase() : '';
     const patName = pat ? ((pat.nameAr ?? pat.nameEn ?? '')).toLowerCase() : '';
-    return docName.includes(q) || patName.includes(q) || tx.patientId.toLowerCase().includes(q);
-  });
+    return docName.includes(q) || patName.includes(q);
+  }), [transactions, query, methodFilter, doctorMap, patientMap, lang]);
 
-  const totalRevenue     = transactions.reduce((s, tx) => s + tx.approvedCharge, 0);
-  const totalDoctorShare = transactions.reduce((s, tx) => s + tx.doctorShare, 0);
-  const totalClinicShare = transactions.reduce((s, tx) => s + tx.clinicShare, 0);
-  const pendingCount     = transactions.filter((tx) => tx.paymentStatus === 'pending').length;
+  // KPIs computed from filtered view
+  const kpiRevenue   = useMemo(() => filtered.filter((tx) => tx.paymentStatus === 'paid').reduce((s, tx) => s + tx.approvedCharge, 0), [filtered]);
+  const kpiTotal     = filtered.length;
+  const kpiPending   = useMemo(() => filtered.filter((tx) => tx.paymentStatus === 'pending').reduce((s, tx) => s + tx.approvedCharge, 0), [filtered]);
+  const kpiRefunded  = useMemo(() => filtered.filter((tx) => tx.paymentStatus === 'refunded').reduce((s, tx) => s + tx.approvedCharge, 0), [filtered]);
+
+  const hasActiveFilters = statusFilter !== 'all' || methodFilter || dateFrom || dateTo || query;
+
+  function clearFilters() {
+    setStatusFilter('all');
+    setMethodFilter('');
+    setDateFrom('');
+    setDateTo('');
+    setDateError('');
+    setQuery('');
+    setPage(1);
+  }
+
+  function handleDateFrom(v: string) {
+    setDateFrom(v);
+    setDateError('');
+    if (v && dateTo && v > dateTo) setDateError(t('تاريخ البداية يجب أن يكون قبل تاريخ النهاية', '"From" date must be before "To" date'));
+    setPage(1);
+  }
+  function handleDateTo(v: string) {
+    setDateTo(v);
+    setDateError('');
+    if (dateFrom && v && dateFrom > v) setDateError(t('تاريخ البداية يجب أن يكون قبل تاريخ النهاية', '"From" date must be before "To" date'));
+    setPage(1);
+  }
 
   async function downloadPdf(endpoint: string, filename: string) {
     const res = await analyticsApi.get(endpoint, { responseType: 'blob' });
@@ -266,6 +308,35 @@ export default function BillingPage() {
     const a = document.createElement('a');
     a.href = url; a.download = filename; a.click();
     URL.revokeObjectURL(url);
+  }
+
+  function exportXlsx() {
+    if (!filtered.length) { toast(t('لا توجد بيانات للتصدير', 'No data to export'), 'error'); return; }
+    setExportLoading(true);
+    try {
+      const rows = filtered.map((tx) => {
+        const doc = tx.doctorId ? doctorMap.get(tx.doctorId) : null;
+        const pat = patientMap.get(tx.patientId);
+        return {
+          Date:          tx.transactionDate?.slice(0, 10) ?? '',
+          Patient:       pat ? (pat.nameEn ?? pat.nameAr ?? '') : tx.patientId.slice(0, 8),
+          Doctor:        doc ? (doc.nameEn ?? doc.nameAr ?? '') : (tx.doctorId?.slice(0, 8) ?? ''),
+          Source:        tx.patientSource,
+          Charge:        tx.approvedCharge,
+          'Dr. Share':   tx.doctorShare,
+          'Clinic Share':tx.clinicShare,
+          Status:        tx.paymentStatus,
+          Payment:       tx.paymentMethod ?? '',
+        };
+      });
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Transactions');
+      const today = new Date().toISOString().split('T')[0];
+      XLSX.writeFile(wb, `billing_export_${today}.xlsx`);
+    } finally {
+      setExportLoading(false);
+    }
   }
 
   function handlePageChange(p: number) { setPage(p); }
@@ -281,22 +352,32 @@ export default function BillingPage() {
           <p className="text-sm text-gray-500 dark:text-gray-300 mt-0.5">{t('السجل المحاسبي غير القابل للتعديل', 'Immutable financial ledger')}</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => void downloadPdf('/reports/settlement', 'settlement-report.pdf')}>
-            <FileDown className="w-4 h-4" />
-            {t('تقرير التسويات', 'Settlement PDF')}
+          <Button
+            variant="outline" size="sm"
+            disabled={exportLoading || !filtered.length}
+            onClick={() => exportXlsx()}
+            title={t('تصدير إلى Excel', 'Export to Excel')}
+          >
+            {exportLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileSpreadsheet className="w-4 h-4" />}
+            {t('Excel', 'Excel')}
           </Button>
-          <Button variant="outline" size="sm" onClick={() => void downloadPdf('/reports/financial-summary', 'financial-summary.pdf')}>
+          <Button variant="outline" size="sm" onClick={() => void downloadPdf('/reports/settlement', 'settlement-report.pdf')}>
+            <FileText className="w-4 h-4" />
+            {t('تقرير PDF', 'Settlement PDF')}
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => void downloadPdf('/reports/financial-summary', `billing_export_${new Date().toISOString().split('T')[0]}.pdf`)}>
             <Download className="w-4 h-4" />
-            {t('ملخص مالي', 'Financial Summary')}
+            {t('ملخص مالي', 'Summary PDF')}
           </Button>
         </div>
       </div>
 
+      {/* KPI banner */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title={t('إجمالي الإيرادات', 'Total Revenue')}  value={formatCurrency(totalRevenue, 'EGP', locale)}     icon={<TrendingUp className="w-5 h-5" />}  color="blue" />
-        <StatCard title={t('حصة الأطباء', 'Doctor Share')}         value={formatCurrency(totalDoctorShare, 'EGP', locale)} icon={<TrendingUp className="w-5 h-5" />}  color="violet" />
-        <StatCard title={t('حصة العيادة', 'Clinic Share')}          value={formatCurrency(totalClinicShare, 'EGP', locale)} icon={<CheckCircle className="w-5 h-5" />} color="green" />
-        <StatCard title={t('معلقة', 'Pending')}                     value={pendingCount}                                   icon={<Clock className="w-5 h-5" />}        color="amber" />
+        <StatCard title={t('إجمالي الإيرادات المدفوعة', 'Total Revenue (Paid)')} value={formatCurrency(kpiRevenue, 'EGP', locale)}  icon={<TrendingUp className="w-5 h-5" />}  color="blue" />
+        <StatCard title={t('إجمالي الفواتير', 'Total Invoices')}                 value={kpiTotal}                                    icon={<ReceiptText className="w-5 h-5" />} color="violet" />
+        <StatCard title={t('المبلغ المعلق', 'Pending Amount')}                   value={formatCurrency(kpiPending, 'EGP', locale)}   icon={<Clock className="w-5 h-5" />}       color="amber" />
+        <StatCard title={t('المبلغ المسترد', 'Refunded Amount')}                 value={formatCurrency(kpiRefunded, 'EGP', locale)}  icon={<RotateCcw className="w-5 h-5" />}   color="red" />
       </div>
 
       <div className="pill-tab-bar w-fit">
@@ -310,18 +391,84 @@ export default function BillingPage() {
 
       {activeTab === 'transactions' && (
         <Card>
-          <div className="p-5 border-b border-gray-50 dark:border-neutral-700 flex flex-col sm:flex-row gap-3">
-            <Input
-              placeholder={t('بحث بالطبيب أو المريض...', 'Search by doctor or patient...')}
-              icon={<Search className="w-4 h-4" />}
-              value={query}
-              onChange={(e) => handleSearch(e.target.value)}
-              className="max-w-sm"
-              lang={lang}
-            />
+          {/* Search + filters */}
+          <div className="p-5 border-b border-gray-50 dark:border-neutral-700 space-y-3">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Input
+                placeholder={t('بحث بالطبيب أو المريض...', 'Search by doctor or patient...')}
+                icon={<Search className="w-4 h-4" />}
+                value={query}
+                onChange={(e) => handleSearch(e.target.value)}
+                className="max-w-sm"
+                lang={lang}
+              />
+              {hasActiveFilters && (
+                <button onClick={clearFilters} className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-red-500 transition-colors">
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  {t('مسح الفلاتر', 'Clear filters')}
+                </button>
+              )}
+            </div>
+
+            {/* Date range + method */}
+            <div className="flex flex-wrap gap-3 items-end">
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-gray-500">{t('من', 'From')}</label>
+                <input type="date" value={dateFrom} onChange={(e) => handleDateFrom(e.target.value)}
+                  className="text-sm border border-gray-200 dark:border-neutral-600 rounded-lg px-3 py-1.5 bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-600" />
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-gray-500">{t('إلى', 'To')}</label>
+                <input type="date" value={dateTo} onChange={(e) => handleDateTo(e.target.value)}
+                  className="text-sm border border-gray-200 dark:border-neutral-600 rounded-lg px-3 py-1.5 bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-600" />
+              </div>
+              <select
+                value={methodFilter}
+                onChange={(e) => { setMethodFilter(e.target.value); setPage(1); }}
+                className="text-sm border border-gray-200 dark:border-neutral-600 rounded-lg px-3 py-1.5 bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-600"
+              >
+                <option value="">{t('كل طرق الدفع', 'All payment methods')}</option>
+                {PAYMENT_METHODS.map((m) => (
+                  <option key={m} value={m}>{m.charAt(0).toUpperCase() + m.slice(1)}</option>
+                ))}
+              </select>
+            </div>
+            {dateError && <p className="text-xs text-red-500">{dateError}</p>}
+
+            {/* Active filter chips */}
+            {hasActiveFilters && (
+              <div className="flex flex-wrap gap-1.5">
+                {statusFilter !== 'all' && (
+                  <span className="inline-flex items-center gap-1 text-xs bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 px-2.5 py-0.5 rounded-full">
+                    {lang === 'ar' ? STATUS_CONFIG[statusFilter]?.labelAr : STATUS_CONFIG[statusFilter]?.labelEn}
+                    <button onClick={() => { setStatusFilter('all'); setPage(1); }}><X className="w-3 h-3" /></button>
+                  </span>
+                )}
+                {methodFilter && (
+                  <span className="inline-flex items-center gap-1 text-xs bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 px-2.5 py-0.5 rounded-full">
+                    {methodFilter}
+                    <button onClick={() => { setMethodFilter(''); setPage(1); }}><X className="w-3 h-3" /></button>
+                  </span>
+                )}
+                {dateFrom && (
+                  <span className="inline-flex items-center gap-1 text-xs bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 px-2.5 py-0.5 rounded-full">
+                    {t('من', 'From')} {dateFrom}
+                    <button onClick={() => { setDateFrom(''); setDateError(''); setPage(1); }}><X className="w-3 h-3" /></button>
+                  </span>
+                )}
+                {dateTo && (
+                  <span className="inline-flex items-center gap-1 text-xs bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 px-2.5 py-0.5 rounded-full">
+                    {t('إلى', 'To')} {dateTo}
+                    <button onClick={() => { setDateTo(''); setDateError(''); setPage(1); }}><X className="w-3 h-3" /></button>
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* Status filter pills */}
             <div className="flex items-center gap-2 flex-wrap">
               <Filter className="w-4 h-4 text-gray-400" />
-              {(['all', ...ALL_STATUSES] as const).map((s) => (
+              {(['all', ...ACTIVE_STATUSES] as const).map((s) => (
                 <button key={s} onClick={() => handleStatusFilter(s)}
                   className={`pill-tab text-xs py-1 ${statusFilter === s ? 'active' : ''}`}>
                   {s === 'all' ? t('الكل', 'All') : lang === 'ar' ? STATUS_CONFIG[s]?.labelAr : STATUS_CONFIG[s]?.labelEn}

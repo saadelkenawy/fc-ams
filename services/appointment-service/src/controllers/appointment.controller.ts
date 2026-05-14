@@ -6,7 +6,7 @@ import { fireNotification } from '../clients/notification';
 import { createBillingTransaction, refundTransactionByAppointment, syncBillingPaymentStatus } from '../clients/billing';
 import { verifyUserPassword } from '../clients/identity';
 
-const APPOINTMENT_STATUS = z.enum(['TBC', 'Ok!', 'Conf.', 'Comp.', 'Canc.', 'Resch.', 'Inf.']);
+const APPOINTMENT_STATUS = z.enum(['TBC', 'Ok!', 'Conf.', 'Comp.', 'Canc.', 'Resch.', 'Inf.', 'Ref.']);
 
 export const createSchema = z.object({
   patientId:       z.string().uuid(),
@@ -181,6 +181,10 @@ export async function updateStatus(request: FastifyRequest, reply: FastifyReply)
     // Sync billing: confirmed appointment → payment marked as paid
     void syncBillingPaymentStatus(appointment.id, 'paid').catch((err: Error) =>
       console.error('[appt] billing status sync failed', err.message),
+    );
+  } else if (status === 'Ref.') {
+    void refundTransactionByAppointment(appointment.id).catch((err: Error) =>
+      console.error('[appt] billing refund on Ref. status failed', err.message),
     );
   }
 

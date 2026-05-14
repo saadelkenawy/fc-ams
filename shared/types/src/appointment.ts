@@ -1,4 +1,4 @@
-export type AppointmentStatus = 'TBC' | 'Ok!' | 'Conf.' | 'Comp.' | 'Canc.' | 'Resch.' | 'Inf.';
+export type AppointmentStatus = 'TBC' | 'Ok!' | 'Conf.' | 'Comp.' | 'Canc.' | 'Resch.' | 'Inf.' | 'Ref.';
 export type AppointmentType = 'in_person' | 'online' | 'walk_in';
 
 export type PatientSource =

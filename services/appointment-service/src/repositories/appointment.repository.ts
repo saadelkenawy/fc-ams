@@ -7,13 +7,14 @@ import { withRlsContext, withTransaction, pool } from '../config/database';
 // Allowed status transitions
 // ---------------------------------------------------------------------------
 const ALLOWED_TRANSITIONS: Record<AppointmentStatus, AppointmentStatus[]> = {
-  'TBC':    ['Ok!', 'Canc.'],
-  'Ok!':    ['Comp.', 'Canc.'],
-  'Conf.':  ['Comp.', 'Canc.'],
-  'Comp.':  [],
-  'Canc.':  [],
+  'TBC':    ['Ok!', 'Canc.', 'Ref.'],
+  'Ok!':    ['Comp.', 'Canc.', 'Ref.'],
+  'Conf.':  ['Comp.', 'Canc.', 'Ref.'],
+  'Comp.':  ['Ref.'],
+  'Canc.':  ['Ref.'],
   'Resch.': [],
   'Inf.':   ['TBC', 'Ok!'],
+  'Ref.':   [],
 };
 
 // ---------------------------------------------------------------------------
@@ -289,9 +290,9 @@ export async function updateAppointment(
     const current = rows[0] as Record<string, unknown>;
     const currentStatus = current.status as AppointmentStatus;
 
-    if (currentStatus === 'Comp.' || currentStatus === 'Canc.') {
+    if (currentStatus === 'Comp.' || currentStatus === 'Canc.' || currentStatus === 'Ref.') {
       throw Object.assign(
-        new Error('Cannot edit a completed or cancelled appointment'),
+        new Error('Cannot edit a completed, cancelled, or refunded appointment'),
         { code: 'INVALID_STATUS', statusCode: 422 },
       );
     }
@@ -380,6 +381,14 @@ export async function updateAppointmentStatus(
        VALUES ($1, $2, $3, $4, $5)`,
       [id, currentStatus, newStatus, updatedBy, branchId],
     );
+
+    // Refunded appointments are locked and removed from all active lists
+    if (newStatus === 'Ref.') {
+      await client.query(
+        `UPDATE appointments SET deleted_at = NOW() WHERE id = $1`,
+        [id],
+      );
+    }
 
     return rowToAppointment(updated[0] as Record<string, unknown>);
   });

@@ -23,6 +23,7 @@ const STATUS_COLORS: Record<AppointmentStatus, string> = {
   'Canc.': 'bg-red-400',
   'Resch.':'bg-violet-400',
   'Inf.':  'bg-pink-300',
+  'Ref.':  'bg-violet-300',
 };
 
 function SkeletonRow({ cols }: { cols: number }) {
