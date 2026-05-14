@@ -237,6 +237,23 @@ export async function billingRoutes(app: FastifyInstance): Promise<void> {
     },
   }, ctrl.getSourceRateHandler);
 
+  // POST /settlements/reconcile  (atomically reconcile all Paid txs for a doctor)
+  app.post('/settlements/reconcile', {
+    preHandler: [requireRole('admin')],
+    schema: {
+      tags: ['billing'],
+      body: {
+        type: 'object',
+        required: ['doctorId', 'from', 'to'],
+        properties: {
+          doctorId: { type: 'string', format: 'uuid' },
+          from:     { type: 'string', format: 'date' },
+          to:       { type: 'string', format: 'date' },
+        },
+      },
+    },
+  }, ctrl.reconcileDoctorHandler);
+
   // GET /settlements/doctor (single doctor settlement detail)
   app.get('/settlements/doctor', {
     preHandler: [requireRole('admin', 'finance', 'doctor')],

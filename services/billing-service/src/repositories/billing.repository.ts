@@ -208,13 +208,20 @@ export async function updateProcedureCost(
   procedureCost: number | null,
 ): Promise<FinancialTransaction> {
   return withTransaction(async (client: PoolClient) => {
+    const { rows: existing } = await client.query(
+      `SELECT payment_status FROM financial_transactions WHERE id = $1 FOR UPDATE`,
+      [id],
+    );
+    if (!existing.length) {
+      throw Object.assign(new Error('Transaction not found'), { statusCode: 404, code: 'TRANSACTION_NOT_FOUND' });
+    }
+    if ((existing[0] as Record<string, unknown>).payment_status === 'reconciled') {
+      throw Object.assign(new Error('Record is reconciled and locked'), { statusCode: 403, code: 'RECORD_RECONCILED' });
+    }
     const { rows } = await client.query(
       `UPDATE financial_transactions SET procedure_cost = $2 WHERE id = $1 RETURNING *`,
       [id, procedureCost],
     );
-    if (!rows.length) {
-      throw Object.assign(new Error('Transaction not found'), { statusCode: 404, code: 'TRANSACTION_NOT_FOUND' });
-    }
     return rowToTransaction(rows[0] as Record<string, unknown>);
   });
 }
@@ -231,11 +238,14 @@ export async function updatePaymentStatus(
 ): Promise<FinancialTransaction> {
   return withTransaction(async (client: PoolClient) => {
     const { rows: existing } = await client.query(
-      `SELECT id FROM financial_transactions WHERE id = $1 FOR UPDATE`,
+      `SELECT id, payment_status FROM financial_transactions WHERE id = $1 FOR UPDATE`,
       [id],
     );
     if (!existing.length) {
       throw Object.assign(new Error('Transaction not found'), { code: 'TRANSACTION_NOT_FOUND', statusCode: 404 });
+    }
+    if ((existing[0] as Record<string, unknown>).payment_status === 'reconciled') {
+      throw Object.assign(new Error('Record is reconciled and locked'), { statusCode: 403, code: 'RECORD_RECONCILED' });
     }
 
     const fields: string[] = ['payment_status = $2'];
@@ -352,7 +362,7 @@ export async function listDoctorSettlements(params: {
          FROM financial_transactions
          WHERE transaction_date BETWEEN $1 AND $2
            AND doctor_id IS NOT NULL
-           AND payment_status <> 'refunded'`,
+           AND payment_status IN ('paid', 'reconciled')`,
         [params.from, params.to],
       ),
       client.query(
@@ -366,11 +376,12 @@ export async function listDoctorSettlements(params: {
            SUM(ft.gross_revenue)                           AS gross_revenue,
            SUM(ft.doctor_share)                            AS doctor_share,
            SUM(ft.clinic_share)                            AS clinic_share,
-           SUM(ft.doctor_share)                            AS net_payable
+           SUM(ft.doctor_share)                            AS net_payable,
+           BOOL_AND(ft.payment_status = 'reconciled')      AS all_reconciled
          FROM financial_transactions ft
          WHERE ft.transaction_date BETWEEN $1 AND $2
            AND ft.doctor_id IS NOT NULL
-           AND ft.payment_status <> 'refunded'
+           AND ft.payment_status IN ('paid', 'reconciled')
          GROUP BY ft.doctor_id
          ORDER BY gross_revenue DESC
          LIMIT $3 OFFSET $4`,
@@ -382,6 +393,7 @@ export async function listDoctorSettlements(params: {
 
     const data = dataRows.map((r) => {
       const row = r as Record<string, unknown>;
+      const allReconciled = row.all_reconciled as boolean;
       return {
         doctorId: row.doctor_id as string,
         doctorNameEn: '', // resolved client-side via doctors API to avoid cross-DB join
@@ -395,7 +407,7 @@ export async function listDoctorSettlements(params: {
         clinicShare: Number(row.clinic_share),
         totalSourceFees: Number(row.total_source_fees),
         netPayable: Number(row.net_payable),
-        status: 'pending' as PaymentStatus,
+        status: (allReconciled ? 'reconciled' : 'paid') as PaymentStatus,
       };
     });
 
@@ -439,13 +451,16 @@ export async function replaceExtraServices(
   createdBy: string,
 ): Promise<ExtraServiceRecord[]> {
   return withTransaction(async (client: PoolClient) => {
-    // verify transaction exists
+    // verify transaction exists and is not reconciled
     const { rows: txRows } = await client.query(
-      `SELECT id FROM financial_transactions WHERE id = $1`,
+      `SELECT id, payment_status FROM financial_transactions WHERE id = $1`,
       [transactionId],
     );
     if (!txRows.length) {
       throw Object.assign(new Error('Transaction not found'), { statusCode: 404, code: 'TRANSACTION_NOT_FOUND' });
+    }
+    if ((txRows[0] as Record<string, unknown>).payment_status === 'reconciled') {
+      throw Object.assign(new Error('Record is reconciled and locked'), { statusCode: 403, code: 'RECORD_RECONCILED' });
     }
 
     await client.query(
@@ -468,6 +483,104 @@ export async function replaceExtraServices(
       inserted.push(rowToExtraService(rows[0] as Record<string, unknown>));
     }
     return inserted;
+  });
+}
+
+// ─── Reconcile Doctor (atomic Paid → Reconciled for all of a doctor's sessions) ─
+
+export interface ReconcileResult {
+  reconciledCount: number;
+  doctorShare: number;
+  clinicShare: number;
+  grossRevenue: number;
+  transactionIds: string[];
+  settlementRecordId: string;
+}
+
+export async function reconcileDoctor(
+  doctorId: string,
+  from: string,
+  to: string,
+  settledBy: string,
+  branchId: number,
+): Promise<ReconcileResult> {
+  return withTransaction(async (client: PoolClient) => {
+    // Lock all Paid transactions for this doctor in the period
+    const { rows } = await client.query(
+      `SELECT id, doctor_share, clinic_share, gross_revenue, split_doctor_percentage, split_clinic_percentage
+       FROM financial_transactions
+       WHERE doctor_id = $1
+         AND transaction_date BETWEEN $2 AND $3
+         AND payment_status = 'paid'
+       FOR UPDATE`,
+      [doctorId, from, to],
+    );
+
+    if (!rows.length) {
+      throw Object.assign(
+        new Error('No Paid transactions found for this doctor in the given period'),
+        { statusCode: 422, code: 'NO_PAID_TRANSACTIONS' },
+      );
+    }
+
+    // Validate Dr% + Cl% = 100 for all rows
+    for (const r of rows) {
+      const row = r as Record<string, unknown>;
+      const sum = Number(row.split_doctor_percentage) + Number(row.split_clinic_percentage);
+      if (Math.abs(sum - 100) > 0.01) {
+        throw Object.assign(
+          new Error(`Invalid split for transaction ${row.id as string}: Dr% + Cl% = ${sum}`),
+          { statusCode: 422, code: 'INVALID_SPLIT' },
+        );
+      }
+    }
+
+    const transactionIds = rows.map((r) => (r as Record<string, unknown>).id as string);
+    const totals = rows.reduce(
+      (acc, r) => {
+        const row = r as Record<string, unknown>;
+        acc.doctorShare  += Number(row.doctor_share);
+        acc.clinicShare  += Number(row.clinic_share);
+        acc.grossRevenue += Number(row.gross_revenue);
+        return acc;
+      },
+      { doctorShare: 0, clinicShare: 0, grossRevenue: 0 },
+    );
+
+    // Atomically mark all as reconciled
+    await client.query(
+      `UPDATE financial_transactions
+          SET payment_status = 'reconciled', settled_at = NOW(), settled_by = $2
+        WHERE doctor_id = $1
+          AND transaction_date BETWEEN $3 AND $4
+          AND payment_status = 'paid'`,
+      [doctorId, settledBy, from, to],
+    );
+
+    // Write immutable settlement audit record
+    const { rows: srRows } = await client.query(
+      `INSERT INTO settlement_records
+         (doctor_id, settlement_date, amount, payment_method, processed_by_user_id, related_transaction_ids, notes, branch_id)
+       VALUES ($1, CURRENT_DATE, $2, 'system', $3, $4, $5, $6)
+       RETURNING id`,
+      [
+        doctorId,
+        totals.doctorShare,
+        settledBy,
+        transactionIds,
+        `Reconciled ${transactionIds.length} transactions: ${from} to ${to}`,
+        branchId,
+      ],
+    );
+
+    return {
+      reconciledCount: transactionIds.length,
+      doctorShare:     totals.doctorShare,
+      clinicShare:     totals.clinicShare,
+      grossRevenue:    totals.grossRevenue,
+      transactionIds,
+      settlementRecordId: (srRows[0] as Record<string, unknown>).id as string,
+    };
   });
 }
 

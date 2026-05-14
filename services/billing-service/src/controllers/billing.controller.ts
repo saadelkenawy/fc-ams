@@ -218,3 +218,16 @@ export async function refundTransactionByAppointmentHandler(req: FastifyRequest,
   await repo.refundTransactionByAppointmentId(appointmentId);
   void reply.status(204).send();
 }
+
+const reconcileDoctorSchema = z.object({
+  doctorId: z.string().uuid(),
+  from:     z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  to:       z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+
+export async function reconcileDoctorHandler(req: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { doctorId, from, to } = reconcileDoctorSchema.parse(req.body);
+  const user = req.user as JwtPayload;
+  const result = await repo.reconcileDoctor(doctorId, from, to, user.sub, user.branchId);
+  void reply.send({ success: true, data: result });
+}

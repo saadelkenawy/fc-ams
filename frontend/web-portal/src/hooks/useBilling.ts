@@ -115,6 +115,29 @@ export function useUpdateProcedureCost() {
   });
 }
 
+export interface ReconcileResult {
+  reconciledCount: number;
+  doctorShare: number;
+  clinicShare: number;
+  grossRevenue: number;
+  transactionIds: string[];
+  settlementRecordId: string;
+}
+
+export function useReconcileDoctor() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ doctorId, from, to }: { doctorId: string; from: string; to: string }) => {
+      const { data } = await billingApi.post<{ data: ReconcileResult }>('/settlements/reconcile', { doctorId, from, to });
+      return data.data;
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['settlements'] });
+      void qc.invalidateQueries({ queryKey: ['transactions'] });
+    },
+  });
+}
+
 export function useSettlements(params: SettlementParams) {
   return useQuery({
     queryKey: ['settlements', params],

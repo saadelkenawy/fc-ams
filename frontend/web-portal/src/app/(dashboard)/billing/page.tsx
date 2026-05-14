@@ -14,7 +14,7 @@ import { Pagination } from '@/components/ui/Pagination';
 import { useLang } from '@/contexts/LanguageContext';
 import { useToast } from '@/components/ui/Toast';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { useTransactions, useSettlements, useUpdateTransactionStatus, useUpdateProcedureCost } from '@/hooks/useBilling';
+import { useTransactions, useSettlements, useUpdateTransactionStatus, useUpdateProcedureCost, useReconcileDoctor } from '@/hooks/useBilling';
 import { useDoctorMap } from '@/hooks/useDoctors';
 import { usePatientMap } from '@/hooks/usePatients';
 import { useProcedureMap } from '@/hooks/useProcedures';
@@ -44,7 +44,7 @@ const PAGE_SIZES = [10, 25, 50];
 
 function StatusDropdown({
   txId, current, lang, onClose,
-}: { txId: string; current: PaymentStatus; lang: 'ar' | 'en'; onClose: () => void }) {
+}: { txId: string; current: PaymentStatus; lang: 'ar' | 'en'; onClose: () => void; }) {
   const { t } = useLang();
   const { toast } = useToast();
   const { mutateAsync, isLoading: isPending } = useUpdateTransactionStatus();
@@ -535,13 +535,19 @@ export default function BillingPage() {
                           <td className="px-5 py-3.5 text-end font-mono tabular-nums text-emerald-700 dark:text-emerald-400">{formatCurrency(tx.clinicShare, 'EGP', locale)}</td>
                           <td className="px-5 py-3.5">
                             <div className="relative inline-block">
-                              <button
-                                onClick={() => setOpenDropdown(openDropdown === tx.id ? null : tx.id)}
-                                className="cursor-pointer hover:opacity-80 transition-opacity"
-                                title={t('انقر لتغيير الحالة', 'Click to change status')}
-                              >
-                                {cfg ? <Badge variant={cfg.variant} dot>{lang === 'ar' ? cfg.labelAr : cfg.labelEn}</Badge> : tx.paymentStatus}
-                              </button>
+                              {tx.paymentStatus === 'reconciled' ? (
+                                <Badge variant={cfg?.variant ?? 'default'} dot>
+                                  {lang === 'ar' ? cfg?.labelAr : cfg?.labelEn}
+                                </Badge>
+                              ) : (
+                                <button
+                                  onClick={() => setOpenDropdown(openDropdown === tx.id ? null : tx.id)}
+                                  className="cursor-pointer hover:opacity-80 transition-opacity"
+                                  title={t('انقر لتغيير الحالة', 'Click to change status')}
+                                >
+                                  {cfg ? <Badge variant={cfg.variant} dot>{lang === 'ar' ? cfg.labelAr : cfg.labelEn}</Badge> : tx.paymentStatus}
+                                </button>
+                              )}
                               {openDropdown === tx.id && (
                                 <StatusDropdown
                                   txId={tx.id}
@@ -596,16 +602,97 @@ export default function BillingPage() {
   );
 }
 
+interface SettleConfirmProps {
+  doctorName: string;
+  grossRevenue: number;
+  doctorShare: number;
+  clinicShare: number;
+  sessionCount: number;
+  locale: string;
+  lang: 'ar' | 'en';
+  t: (ar: string, en: string) => string;
+  onConfirm: () => void;
+  onClose: () => void;
+  loading: boolean;
+}
+
+function SettleConfirmModal({ doctorName, grossRevenue, doctorShare, clinicShare, sessionCount, locale, lang, t, onConfirm, onClose, loading }: SettleConfirmProps) {
+  const fmt = (n: number) => formatCurrency(n, 'EGP', locale);
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="w-full max-w-md mx-4 bg-white dark:bg-neutral-800 rounded-2xl shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100 dark:border-neutral-700">
+          <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-900/20">
+            <CheckCircle className="w-5 h-5 text-emerald-600" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100">{t('تأكيد التسوية', 'Confirm Settlement')}</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400">{doctorName}</p>
+          </div>
+          <button onClick={onClose} className="ms-auto text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"><X className="w-5 h-5" /></button>
+        </div>
+        <div className="px-6 py-5 space-y-3">
+          <p className="text-sm text-gray-600 dark:text-gray-300">
+            {t(
+              `سيتم تحويل ${sessionCount} معاملة إلى حالة "مطابق" ولن يمكن تعديلها.`,
+              `This will mark ${sessionCount} transaction${sessionCount !== 1 ? 's' : ''} as Reconciled — this cannot be undone.`,
+            )}
+          </p>
+          <div className="rounded-xl border border-gray-100 dark:border-neutral-700 divide-y divide-gray-100 dark:divide-neutral-700 text-sm">
+            {[
+              [t('صافي المجمع', 'Net Pool'),           fmt(grossRevenue)],
+              [t('حصة الطبيب', 'Doctor Share'),          fmt(doctorShare)],
+              [t('حصة العيادة', 'Clinic Share'),          fmt(clinicShare)],
+              [t('عدد المعاملات', 'Transactions'),       String(sessionCount)],
+            ].map(([label, val]) => (
+              <div key={label} className="flex justify-between px-4 py-2.5">
+                <span className="text-gray-500 dark:text-gray-400">{label}</span>
+                <span className="font-mono font-semibold text-gray-900 dark:text-gray-100">{val}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="flex gap-2 px-6 pb-5">
+          <Button
+            className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white border-0"
+            disabled={loading}
+            onClick={onConfirm}
+          >
+            {loading ? <><Loader2 className="w-4 h-4 animate-spin me-2 inline" />{t('جاري التسوية...', 'Settling...')}</> : t('تأكيد التسوية', 'Confirm Settlement')}
+          </Button>
+          <Button variant="ghost" onClick={onClose}>{t('إلغاء', 'Cancel')}</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SettlementsTab({ lang, t }: { lang: 'ar' | 'en'; t: (ar: string, en: string) => string }) {
   const now  = new Date();
   const [from, setFrom] = useState(new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]);
   const [to,   setTo]   = useState(now.toISOString().split('T')[0]);
   const locale = lang === 'ar' ? 'ar-EG' : 'en-US';
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [settleTarget, setSettleTarget] = useState<typeof settlements[0] | null>(null);
+
+  const { toast } = useToast();
+  const reconcile = useReconcileDoctor();
 
   const { data, isLoading, isError, refetch, isFetching } = useSettlements({ from, to, limit: 50 });
   const doctorMap = useDoctorMap();
   const settlements = data?.data ?? [];
+
+  async function handleSettle() {
+    if (!settleTarget) return;
+    try {
+      await reconcile.mutateAsync({ doctorId: settleTarget.doctorId, from, to });
+      toast(t('تمت التسوية بنجاح', 'Settlement applied successfully'), 'success');
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message;
+      toast(msg ?? t('فشلت التسوية', 'Settlement failed'), 'error');
+    }
+    setSettleTarget(null);
+  }
 
   // Totals across all doctors
   const totalSessionFees   = settlements.reduce((s, r) => s + (r.totalSessionFees ?? (r.grossRevenue + r.totalSourceFees)), 0);
@@ -761,8 +848,19 @@ function SettlementsTab({ lang, t }: { lang: 'ar' | 'en'; t: (ar: string, en: st
                           <td className="px-4 py-3 text-end font-mono tabular-nums text-blue-700 dark:text-blue-400 font-semibold">{fmt(s.doctorShare)}</td>
                           <td className="px-4 py-3 text-end font-mono tabular-nums text-emerald-700 dark:text-emerald-400 font-semibold">{fmt(s.clinicShare)}</td>
                           <td className="px-4 py-3">
-                            {(s.netPayable ?? 0) > 0 && (
-                              <Button size="sm" className="h-7 px-3 text-xs whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                            {s.status === 'reconciled' ? (
+                              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2.5 py-1 rounded-full">
+                                <CheckCircle className="w-3 h-3" />
+                                {t('مطابق', 'Settled')}
+                              </span>
+                            ) : (
+                              <Button
+                                size="sm"
+                                className="h-7 px-3 text-xs whitespace-nowrap"
+                                onClick={(e) => { e.stopPropagation(); setSettleTarget(s); }}
+                                disabled={(s.netPayable ?? 0) <= 0}
+                                title={(s.netPayable ?? 0) <= 0 ? t('لا توجد معاملات مدفوعة', 'No paid transactions to settle') : undefined}
+                              >
                                 {t('تسوية', 'Settle')}
                               </Button>
                             )}
@@ -800,6 +898,22 @@ function SettlementsTab({ lang, t }: { lang: 'ar' | 'en'; t: (ar: string, en: st
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {settleTarget && (
+        <SettleConfirmModal
+          doctorName={doctorMap.get(settleTarget.doctorId)?.nameEn ?? settleTarget.doctorId.slice(0, 8)}
+          grossRevenue={settleTarget.grossRevenue}
+          doctorShare={settleTarget.doctorShare}
+          clinicShare={settleTarget.clinicShare}
+          sessionCount={(settleTarget.totalConsultations ?? 0) + (settleTarget.totalProcedures ?? 0)}
+          locale={locale}
+          lang={lang}
+          t={t}
+          onConfirm={() => void handleSettle()}
+          onClose={() => setSettleTarget(null)}
+          loading={reconcile.isPending}
+        />
       )}
     </div>
   );
@@ -894,7 +1008,13 @@ function SettlementDetail({ doctorId, from, to, locale, t }: {
                     value={isDirty ? rawOverride : (tx.procedureCost ?? '')}
                     onChange={(e) => handleCostChange(tx.id, e.target.value)}
                     placeholder="0"
-                    className="w-20 text-end font-mono tabular-nums bg-transparent border border-transparent hover:border-gray-300 dark:hover:border-neutral-500 focus:border-violet-400 focus:outline-none rounded px-1 py-0.5 text-violet-600 dark:text-violet-400 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    disabled={tx.paymentStatus === 'reconciled'}
+                    className={cn(
+                      'w-20 text-end font-mono tabular-nums bg-transparent border border-transparent rounded px-1 py-0.5 text-violet-600 dark:text-violet-400 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none',
+                      tx.paymentStatus === 'reconciled'
+                        ? 'opacity-50 cursor-not-allowed'
+                        : 'hover:border-gray-300 dark:hover:border-neutral-500 focus:border-violet-400 focus:outline-none',
+                    )}
                   />
                 </td>
                 <td className="px-3 py-2 text-end font-mono tabular-nums text-gray-700 dark:text-gray-300">{fmt(netPool)}</td>
@@ -903,7 +1023,7 @@ function SettlementDetail({ doctorId, from, to, locale, t }: {
                 <td className="px-3 py-2 text-end font-mono text-emerald-500">{tx.splitClinicPercentage}%</td>
                 <td className="px-3 py-2 text-end font-mono tabular-nums text-emerald-700 dark:text-emerald-400 font-semibold">{fmt(clinicShare)}</td>
                 <td className="px-3 py-2 whitespace-nowrap">
-                  {isDirty && (
+                  {isDirty && tx.paymentStatus !== 'reconciled' && (
                     <div className="flex gap-1">
                       <button type="button" onClick={() => handleSave(tx.id)} disabled={updateCost.isPending} className="p-1 rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400" aria-label="Save">
                         <Check className="w-3 h-3" />
