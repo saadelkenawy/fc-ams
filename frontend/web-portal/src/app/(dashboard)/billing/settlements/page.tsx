@@ -15,7 +15,6 @@ import { formatCurrency } from '@/lib/utils';
 import { useSettlements, useTransactions, useExtraServices, useReplaceExtraServices } from '@/hooks/useBilling';
 import { useDoctors, useDoctorMap } from '@/hooks/useDoctors';
 import { notificationApi, identityApi } from '@/lib/api';
-import { useProcedureMap } from '@/hooks/useProcedures';
 import { cn } from '@/lib/utils';
 import type { DoctorSettlement, FinancialTransaction } from '@fadl/types';
 
@@ -982,8 +981,9 @@ function SettlementDetail({ doctorId, from, to, locale, t, locked }: {
   t: (ar: string, en: string) => string;
 }) {
   const { data: txData, isLoading } = useTransactions({ doctorId, dateFrom: from, dateTo: to, limit: 100 });
-  const procedureMap = useProcedureMap();
-  const txs = txData?.data ?? [];
+  const txs = (txData?.data ?? []).filter(
+    (tx) => tx.paymentStatus === 'paid' || tx.paymentStatus === 'reconciled',
+  );
   const fmt = (n: number) => formatCurrency(n, 'EGP', locale);
 
   if (isLoading) return (
@@ -1016,7 +1016,6 @@ function SettlementDetail({ doctorId, from, to, locale, t, locked }: {
             <TransactionRow
               key={tx.id}
               tx={tx}
-              procedureMap={procedureMap}
               locked={locked}
               fmt={fmt}
               t={t}
@@ -1055,9 +1054,8 @@ function SettlementDetail({ doctorId, from, to, locale, t, locked }: {
 }
 
 // Each transaction row fetches its own extra services from the API
-function TransactionRow({ tx, procedureMap, locked, fmt, t }: {
+function TransactionRow({ tx, locked, fmt, t }: {
   tx: FinancialTransaction;
-  procedureMap: Map<string, { nameEn: string; nameAr?: string }>;
   locked?: boolean;
   fmt: (n: number) => string;
   t: (ar: string, en: string) => string;
@@ -1067,9 +1065,6 @@ function TransactionRow({ tx, procedureMap, locked, fmt, t }: {
 
   const cost      = serverItems.reduce((s, i) => s + i.cost, 0);
   const itemCount = serverItems.length;
-  const firstName = serverItems.length > 0
-    ? serverItems[0].serviceName
-    : (procedureMap.get(tx.procedureId ?? '')?.nameEn ?? '');
 
   const netPool = (tx.approvedCharge - tx.sourceFeeAmount) + cost;
   const drShare = netPool * tx.splitDoctorPercentage / 100;
@@ -1093,31 +1088,25 @@ function TransactionRow({ tx, procedureMap, locked, fmt, t }: {
         <td className="px-3 py-2 text-end font-mono text-orange-500">{tx.sourceFeePercentage}%</td>
         <td className="px-3 py-2 text-end font-mono tabular-nums text-orange-600 dark:text-orange-400">{fmt(tx.sourceFeeAmount)}</td>
 
-        {/* Extra Services cell — badge or + button */}
+        {/* Extra Services cell — always shows EGP total + edit/add button */}
         <td className="px-3 py-2 text-center">
-          {itemCount > 0 ? (
-            <button
-              type="button"
-              onClick={() => setPopupOpen(true)}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-orange-100 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-800 text-orange-700 dark:text-orange-300 font-semibold text-[11px] hover:bg-orange-200 dark:hover:bg-orange-800/40 transition-colors"
-              title={t('تعديل الخدمات الإضافية', 'Edit extra services')}
-            >
-              <FlaskConical className="w-3 h-3" />
-              {itemCount}
-              {firstName && <span className="max-w-[60px] truncate hidden sm:inline">{firstName}</span>}
-              <span className="font-mono text-[10px] opacity-70">{fmt(cost)}</span>
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setPopupOpen(true)}
-              disabled={locked}
-              className="inline-flex items-center justify-center w-6 h-6 rounded-full border border-dashed border-gray-300 dark:border-neutral-600 text-gray-400 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              title={t('إضافة خدمة إضافية', 'Add extra service')}
-            >
-              <Plus className="w-3 h-3" />
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => setPopupOpen(true)}
+            disabled={locked && itemCount === 0}
+            className={cn(
+              'inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-mono tabular-nums transition-colors',
+              itemCount > 0
+                ? 'bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-800 text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-800/30'
+                : 'border border-dashed border-gray-300 dark:border-neutral-600 text-gray-400 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/20 disabled:opacity-40 disabled:cursor-not-allowed',
+            )}
+            title={itemCount > 0
+              ? t('تعديل الخدمات الإضافية', 'Edit extra services')
+              : t('إضافة خدمة إضافية', 'Add extra service')}
+          >
+            {fmt(cost)}
+            <Plus className="w-3 h-3 flex-shrink-0" />
+          </button>
         </td>
 
         <td className="px-3 py-2 text-end font-mono tabular-nums text-gray-600 dark:text-gray-300">{fmt(netPool)}</td>

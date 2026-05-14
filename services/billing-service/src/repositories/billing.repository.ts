@@ -289,7 +289,7 @@ export async function getDoctorSettlement(
        FROM financial_transactions ft
        WHERE ft.doctor_id = $1
          AND ft.transaction_date BETWEEN $2 AND $3
-         AND ft.payment_status <> 'refunded'`,
+         AND ft.payment_status IN ('paid', 'reconciled')`,
       [doctorId, from, to],
     );
 
