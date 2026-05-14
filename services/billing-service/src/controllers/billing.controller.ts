@@ -3,6 +3,8 @@ import { z } from 'zod';
 import * as repo from '../repositories/billing.repository';
 import type { PaymentStatus, JwtPayload } from '@fadl/types';
 
+const APPOINTMENT_SERVICE_URL = process.env.APPOINTMENT_SERVICE_URL ?? 'http://appointment-service:3001/api/v1';
+
 const PAYMENT_STATUS = ['pending', 'verified', 'approved', 'paid', 'reconciled', 'refunded'] as const;
 const CURRENCY = ['EGP', 'USD', 'EUR', 'SAR', 'AED'] as const;
 
@@ -121,6 +123,20 @@ export async function updateStatus(request: FastifyRequest, reply: FastifyReply)
     user.sub,
     { settlementReference, checkInAmount, checkOutAmount },
   );
+
+  if (status === 'refunded' && tx.appointmentId) {
+    void (async () => {
+      try {
+        await fetch(`${APPOINTMENT_SERVICE_URL}/appointments/${tx.appointmentId}/soft-delete`, {
+          method: 'PATCH',
+          headers: { authorization: request.headers.authorization as string },
+        });
+      } catch (err) {
+        console.error('[billing] soft-delete appointment after refund failed', (err as Error).message);
+      }
+    })();
+  }
+
   void reply.send({ success: true, data: tx });
 }
 

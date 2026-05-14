@@ -231,3 +231,10 @@ export async function deleteAppointment(request: FastifyRequest, reply: FastifyR
 
   void reply.status(204).send();
 }
+
+export async function softDeleteAppointmentHandler(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { id } = request.params as { id: string };
+  const user = request.user as JwtPayload;
+  await repo.softDeleteAppointment(id, user.sub);
+  void reply.status(204).send();
+}

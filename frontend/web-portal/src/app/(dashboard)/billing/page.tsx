@@ -535,7 +535,7 @@ export default function BillingPage() {
                           <td className="px-5 py-3.5 text-end font-mono tabular-nums text-emerald-700 dark:text-emerald-400">{formatCurrency(tx.clinicShare, 'EGP', locale)}</td>
                           <td className="px-5 py-3.5">
                             <div className="relative inline-block">
-                              {tx.paymentStatus === 'reconciled' ? (
+                              {tx.paymentStatus === 'reconciled' || tx.paymentStatus === 'refunded' ? (
                                 <Badge variant={cfg?.variant ?? 'default'} dot>
                                   {lang === 'ar' ? cfg?.labelAr : cfg?.labelEn}
                                 </Badge>

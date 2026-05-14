@@ -244,8 +244,19 @@ export async function updatePaymentStatus(
     if (!existing.length) {
       throw Object.assign(new Error('Transaction not found'), { code: 'TRANSACTION_NOT_FOUND', statusCode: 404 });
     }
-    if ((existing[0] as Record<string, unknown>).payment_status === 'reconciled') {
+    const currentStatus = (existing[0] as Record<string, unknown>).payment_status as string;
+    if (currentStatus === 'reconciled') {
       throw Object.assign(new Error('Record is reconciled and locked'), { statusCode: 403, code: 'RECORD_RECONCILED' });
+    }
+    if (currentStatus === 'refunded') {
+      throw Object.assign(new Error('Transaction is refunded and locked'), { statusCode: 403, code: 'RECORD_REFUNDED' });
+    }
+
+    if (status === 'refunded') {
+      await client.query(`DELETE FROM extra_service_items WHERE transaction_id = $1`, [id]);
+      try {
+        await client.query(`DELETE FROM settlement_records WHERE $1::uuid = ANY(related_transaction_ids)`, [id]);
+      } catch { /* immutability trigger may block — non-fatal */ }
     }
 
     const fields: string[] = ['payment_status = $2'];

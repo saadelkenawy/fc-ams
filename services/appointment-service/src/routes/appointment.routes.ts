@@ -121,6 +121,12 @@ export async function appointmentRoutes(app: FastifyInstance): Promise<void> {
     },
   }, ctrl.checkIn);
 
+  // PATCH /appointments/:id/soft-delete  (internal — called by billing-service on refund)
+  app.patch('/appointments/:id/soft-delete', {
+    preHandler: [requireRole('admin')],
+    schema: { tags: ['appointments'], params: idParam },
+  }, ctrl.softDeleteAppointmentHandler);
+
   // DELETE /appointments/:id  (hard delete — admin only, requires password + reason)
   app.delete('/appointments/:id', {
     preHandler: [requireRole('admin')],
