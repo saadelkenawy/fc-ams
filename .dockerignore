@@ -1,0 +1,22 @@
+# Node modules (Docker installs its own)
+**/node_modules
+**/.pnpm-store
+
+# Next.js build output (rebuilt inside Docker)
+frontend/web-portal/.next
+
+# TypeScript build output (rebuilt inside Docker)
+shared/types/dist
+
+# Dev / local files
+**/.env.local
+**/*.local
+**/coverage
+**/.git
+**/.gitignore
+**/README.md
+
+# Test artifacts
+**/__tests__
+**/*.test.ts
+**/*.spec.ts
