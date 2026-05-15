@@ -74,6 +74,11 @@ function todayYMD(): string {
   return new Date().toISOString().split('T')[0];
 }
 
+function snapDuration(mins: number): number {
+  const opts = [10, 15, 20, 30, 45, 60, 90];
+  return opts.reduce((prev, cur) => Math.abs(cur - mins) < Math.abs(prev - mins) ? cur : prev);
+}
+
 function normalizeEgyptianMobile(raw: string): string {
   const digits = raw.replace(/\D/g, '');
   if (digits.startsWith('20') && digits.length === 12) return `+${digits}`;
@@ -480,7 +485,8 @@ export function AddAppointmentModal({
   const [procCost,      setProcCost]      = useState(editAppointment?.procedureCost != null ? String(editAppointment.procedureCost) : '');
   const [errors,        setErrors]        = useState<Record<string, string>>({});
 
-  const timeManuallyEdited = useRef(false);
+  const timeManuallyEdited     = useRef(false);
+  const durationManuallyEdited = useRef(false);
 
   // Query doctor's existing appointments for the selected date (create mode only)
   const { data: doctorAppts } = useAppointments(
@@ -489,33 +495,41 @@ export function AddAppointmentModal({
       : {},
   );
 
-  // Auto-fill next available time slot when doctor + date are set
+  // Auto-fill next available time slot + duration from the last appointment
   useEffect(() => {
-    if (isEdit || !doctor || !date || timeManuallyEdited.current) return;
+    if (isEdit || !doctor || !date) return;
     const appts = doctorAppts?.data ?? [];
     const isToday = date === todayYMD();
-    let nextSlot: string;
+
     if (appts.length > 0) {
-      const lastEnd = appts
-        .map((a) => a.endTime)
-        .sort()
-        .at(-1)!;
-      nextSlot = isToday ? (lastEnd > nowHHMM() ? lastEnd : roundUpTo5(nowHHMM())) : lastEnd;
+      const lastAppt = appts.sort((a, b) => a.endTime.localeCompare(b.endTime)).at(-1)!;
+      if (!timeManuallyEdited.current) {
+        const nextSlot = isToday
+          ? (lastAppt.endTime > nowHHMM() ? lastAppt.endTime : roundUpTo5(nowHHMM()))
+          : lastAppt.endTime;
+        setTime(nextSlot);
+      }
+      if (!durationManuallyEdited.current) {
+        setDuration(snapDuration(diffMinutes(lastAppt.startTime, lastAppt.endTime)));
+      }
     } else {
-      nextSlot = isToday ? roundUpTo5(nowHHMM()) : '09:00';
+      if (!timeManuallyEdited.current) {
+        setTime(isToday ? roundUpTo5(nowHHMM()) : '09:00');
+      }
     }
-    setTime(nextSlot);
   }, [doctor, date, doctorAppts, isEdit]);
 
-  // Reset manual-edit flag when doctor or date changes
+  // Reset manual-edit flags when doctor or date changes
   useEffect(() => {
-    timeManuallyEdited.current = false;
+    timeManuallyEdited.current     = false;
+    durationManuallyEdited.current = false;
   }, [doctor?.id, date]);
 
   // Sync when editAppointment changes (modal re-used)
   useEffect(() => {
     if (!open) return;
-    timeManuallyEdited.current = false;
+    timeManuallyEdited.current     = false;
+    durationManuallyEdited.current = false;
     setPatient(editPatient ?? null);
     setDoctor(editDoctor ?? null);
     if (editAppointment) {
@@ -605,7 +619,7 @@ export function AddAppointmentModal({
     if (!doctor)              e.doctor        = t('اختر طبيباً', 'Select a doctor');
     if (!date)                e.date          = t('التاريخ مطلوب', 'Date required');
     if (charge.trim() === '') e.charge        = t('التعرفة مطلوبة', 'Session fee is required');
-    if (!notes.trim())        e.notes         = t('الملاحظات مطلوبة', 'Notes are required');
+
     if (!paymentMethod)       e.paymentMethod = t('طريقة الدفع مطلوبة', 'Payment method is required to confirm this booking.');
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -717,7 +731,7 @@ export function AddAppointmentModal({
             </div>
             <div className="space-y-1">
               <label className="field-label">{t('المدة', 'Duration')}</label>
-              <select className={cn(inputCls, 'cursor-pointer')} value={duration} onChange={(e) => setDuration(Number(e.target.value))}>
+              <select className={cn(inputCls, 'cursor-pointer')} value={duration} onChange={(e) => { durationManuallyEdited.current = true; setDuration(Number(e.target.value)); }}>
                 {[10, 15, 20, 30, 45, 60, 90].map((m) => (
                   <option key={m} value={m}>{m} {t('د', 'min')}</option>
                 ))}
@@ -806,17 +820,15 @@ export function AddAppointmentModal({
                 {errors.charge && <p className="text-xs text-red-500 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{errors.charge}</p>}
               </div>
               <div className="space-y-1">
-                <label className={cn('field-label', errors.notes && 'text-red-500')}>
+                <label className="field-label">
                   {t('ملاحظات', 'Notes')}
-                  <span className="text-red-500 ms-0.5">*</span>
                 </label>
                 <input
-                  className={cn(inputCls, errors.notes && 'border-red-400 focus:ring-red-400')}
+                  className={inputCls}
                   placeholder={t('أدخل ملاحظات الموعد...', 'Enter appointment notes...')}
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                 />
-                {errors.notes && <p className="text-xs text-red-500 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{errors.notes}</p>}
               </div>
             </div>
 

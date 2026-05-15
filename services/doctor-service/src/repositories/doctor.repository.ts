@@ -8,6 +8,7 @@ import type {
   PaginatedResponse,
 } from '@fadl/types';
 import { withRlsContext, withTransaction, pool } from '../config/database';
+import { setCompensation } from '../clients/billing';
 
 // ---------------------------------------------------------------------------
 // Row mapping helpers
@@ -187,7 +188,18 @@ export async function createDoctor(
         branchId,
       ],
     );
-    return rowToDoctor(rows[0] as Record<string, unknown>);
+    const doctor = rowToDoctor(rows[0] as Record<string, unknown>);
+
+    if (input.revenueSplits) {
+      const splits = input.revenueSplits;
+      await Promise.allSettled([
+        setCompensation(id, 'consultation', splits.consultation.doctorPercentage, splits.consultation.clinicPercentage, false),
+        setCompensation(id, 'operative',    splits.operative.doctorPercentage,    splits.operative.clinicPercentage,    false),
+        setCompensation(id, 'online',       splits.online.doctorPercentage,       splits.online.clinicPercentage,       false),
+      ]);
+    }
+
+    return doctor;
   });
 }
 
@@ -262,7 +274,18 @@ export async function updateDoctor(
       values,
     );
 
-    return rowToDoctor(rows[0] as Record<string, unknown>);
+    const doctor = rowToDoctor(rows[0] as Record<string, unknown>);
+
+    if ('revenueSplits' in input && input.revenueSplits !== undefined) {
+      const splits = input.revenueSplits;
+      await Promise.allSettled([
+        setCompensation(id, 'consultation', splits.consultation.doctorPercentage, splits.consultation.clinicPercentage),
+        setCompensation(id, 'operative',    splits.operative.doctorPercentage,    splits.operative.clinicPercentage),
+        setCompensation(id, 'online',       splits.online.doctorPercentage,       splits.online.clinicPercentage),
+      ]);
+    }
+
+    return doctor;
   });
 }
 

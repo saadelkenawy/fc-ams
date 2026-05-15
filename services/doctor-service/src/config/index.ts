@@ -12,6 +12,7 @@ const envSchema = z.object({
   JWT_EXPIRY: z.string().default('15m'),
   BRANCH_ID: z.coerce.number().default(1),
   SERVICE_NAME: z.string().default('doctor-service'),
+  BILLING_SERVICE_URL: z.string().default('http://billing-service:3004/api/v1'),
 });
 
 const parsed = envSchema.safeParse(process.env);
