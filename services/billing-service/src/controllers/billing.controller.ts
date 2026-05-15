@@ -1,6 +1,7 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import * as repo from '../repositories/billing.repository';
+import { verifyUserPassword } from '../clients/identity';
 import type { PaymentStatus, JwtPayload } from '@fadl/types';
 
 const APPOINTMENT_SERVICE_URL = process.env.APPOINTMENT_SERVICE_URL ?? 'http://appointment-service:3001/api/v1';
@@ -248,5 +249,48 @@ export async function reconcileDoctorHandler(req: FastifyRequest, reply: Fastify
   const { doctorId, from, to } = reconcileDoctorSchema.parse(req.body);
   const user = req.user as JwtPayload;
   const result = await repo.reconcileDoctor(doctorId, from, to, user.sub, user.branchId);
+  void reply.send({ success: true, data: result });
+}
+
+// ─── Bulk Operations ──────────────────────────────────────────────────────────
+
+const bulkDeleteSchema = z.object({
+  ids:      z.array(z.string().uuid()).min(1).max(500),
+  reason:   z.string().min(20),
+  password: z.string().min(1),
+});
+
+const bulkEditPaymentMethodSchema = z.object({
+  ids:           z.array(z.string().uuid()).min(1).max(500),
+  paymentMethod: z.string().min(1).max(50),
+  reason:        z.string().min(10),
+  password:      z.string().min(1),
+});
+
+export async function bulkDeleteHandler(req: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { ids, reason, password } = bulkDeleteSchema.parse(req.body);
+  const authHeader = req.headers.authorization as string;
+  const valid = await verifyUserPassword(authHeader, password);
+  if (!valid) {
+    void reply.status(401).send({ success: false, error: { code: 'INVALID_CREDENTIALS', message: 'Incorrect password' } });
+    return;
+  }
+  const user = req.user as JwtPayload;
+  const ip = (req.headers['x-forwarded-for'] as string | undefined)?.split(',')[0].trim() ?? req.ip;
+  const result = await repo.bulkDeleteTransactions(ids, reason, user.sub, user.branchId, ip);
+  void reply.send({ success: true, data: result });
+}
+
+export async function bulkEditPaymentMethodHandler(req: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { ids, paymentMethod, reason, password } = bulkEditPaymentMethodSchema.parse(req.body);
+  const authHeader = req.headers.authorization as string;
+  const valid = await verifyUserPassword(authHeader, password);
+  if (!valid) {
+    void reply.status(401).send({ success: false, error: { code: 'INVALID_CREDENTIALS', message: 'Incorrect password' } });
+    return;
+  }
+  const user = req.user as JwtPayload;
+  const ip = (req.headers['x-forwarded-for'] as string | undefined)?.split(',')[0].trim() ?? req.ip;
+  const result = await repo.bulkUpdatePaymentMethod(ids, paymentMethod, reason, user.sub, user.branchId, ip);
   void reply.send({ success: true, data: result });
 }

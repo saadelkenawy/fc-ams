@@ -253,7 +253,7 @@ export async function updatePaymentStatus(
     }
 
     if (status === 'refunded') {
-      await client.query(`DELETE FROM extra_service_items WHERE transaction_id = $1`, [id]);
+      await client.query(`DELETE FROM transaction_extra_services WHERE transaction_id = $1`, [id]);
       try {
         await client.query(`DELETE FROM settlement_records WHERE $1::uuid = ANY(related_transaction_ids)`, [id]);
       } catch { /* immutability trigger may block — non-fatal */ }
@@ -826,4 +826,83 @@ export async function refundTransactionByAppointmentId(appointmentId: string): P
     `UPDATE financial_transactions SET payment_status = 'refunded' WHERE appointment_id = $1`,
     [appointmentId],
   );
+}
+
+// ─── Bulk Operations ──────────────────────────────────────────────────────────
+
+export async function bulkDeleteTransactions(
+  ids: string[],
+  reason: string,
+  performedBy: string,
+  branchId: number,
+  ipAddress?: string,
+): Promise<{ deletedCount: number }> {
+  return withTransaction(async (client: PoolClient) => {
+    const { rows: existing } = await client.query(
+      `SELECT id, payment_status FROM financial_transactions WHERE id = ANY($1::uuid[]) FOR UPDATE`,
+      [ids],
+    );
+
+    const reconciled = (existing as Record<string, unknown>[]).filter((r) => r.payment_status === 'reconciled');
+    if (reconciled.length > 0) {
+      throw Object.assign(new Error('Cannot delete reconciled transactions'), { statusCode: 403, code: 'RECONCILED_TRANSACTIONS' });
+    }
+
+    const { rows: snapshot } = await client.query(
+      `SELECT * FROM financial_transactions WHERE id = ANY($1::uuid[])`,
+      [ids],
+    );
+
+    await client.query(`DELETE FROM transaction_extra_services WHERE transaction_id = ANY($1::uuid[])`, [ids]);
+
+    const { rowCount } = await client.query(
+      `DELETE FROM financial_transactions WHERE id = ANY($1::uuid[])`,
+      [ids],
+    );
+
+    await client.query(
+      `INSERT INTO billing_bulk_audit_log
+         (action_type, performed_by, affected_ids, deleted_snapshot, reason, ip_address, branch_id)
+       VALUES ('BULK_DELETE', $1, $2, $3, $4, $5, $6)`,
+      [performedBy, ids, JSON.stringify(snapshot), reason, ipAddress ?? null, branchId],
+    );
+
+    return { deletedCount: rowCount ?? 0 };
+  });
+}
+
+export async function bulkUpdatePaymentMethod(
+  ids: string[],
+  paymentMethod: string,
+  reason: string,
+  performedBy: string,
+  branchId: number,
+  ipAddress?: string,
+): Promise<{ updatedCount: number }> {
+  return withTransaction(async (client: PoolClient) => {
+    const { rows: before } = await client.query(
+      `SELECT id, payment_method FROM financial_transactions WHERE id = ANY($1::uuid[]) FOR UPDATE`,
+      [ids],
+    );
+
+    const { rowCount } = await client.query(
+      `UPDATE financial_transactions SET payment_method = $2 WHERE id = ANY($1::uuid[])`,
+      [ids, paymentMethod],
+    );
+
+    const changes = {
+      field: 'payment_method',
+      before: (before as Record<string, unknown>[]).map((r) => ({ id: r.id, value: r.payment_method })),
+      after: ids.map((id) => ({ id, value: paymentMethod })),
+    };
+
+    await client.query(
+      `INSERT INTO billing_bulk_audit_log
+         (action_type, performed_by, affected_ids, changes, reason, ip_address, branch_id)
+       VALUES ('BULK_EDIT', $1, $2, $3, $4, $5, $6)`,
+      [performedBy, ids, JSON.stringify(changes), reason, ipAddress ?? null, branchId],
+    );
+
+    return { updatedCount: rowCount ?? 0 };
+  });
 }

@@ -138,6 +138,32 @@ export function useReconcileDoctor() {
   });
 }
 
+export function useBulkDeleteTransactions() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ ids, reason, password }: { ids: string[]; reason: string; password: string }) => {
+      const { data } = await billingApi.post<{ data: { deletedCount: number } }>('/transactions/bulk-delete', { ids, reason, password });
+      return data.data;
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['transactions'] });
+    },
+  });
+}
+
+export function useBulkEditPaymentMethod() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ ids, paymentMethod, reason, password }: { ids: string[]; paymentMethod: string; reason: string; password: string }) => {
+      const { data } = await billingApi.patch<{ data: { updatedCount: number } }>('/transactions/bulk/payment-method', { ids, paymentMethod, reason, password });
+      return data.data;
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['transactions'] });
+    },
+  });
+}
+
 export function useSettlements(params: SettlementParams) {
   return useQuery({
     queryKey: ['settlements', params],

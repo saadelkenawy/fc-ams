@@ -237,6 +237,41 @@ export async function billingRoutes(app: FastifyInstance): Promise<void> {
     },
   }, ctrl.getSourceRateHandler);
 
+  // POST /transactions/bulk-delete  (admin only)
+  app.post('/transactions/bulk-delete', {
+    preHandler: [requireRole('admin')],
+    schema: {
+      tags: ['billing'],
+      body: {
+        type: 'object',
+        required: ['ids', 'reason', 'password'],
+        properties: {
+          ids:      { type: 'array', items: { type: 'string', format: 'uuid' }, minItems: 1 },
+          reason:   { type: 'string', minLength: 20 },
+          password: { type: 'string', minLength: 1 },
+        },
+      },
+    },
+  }, ctrl.bulkDeleteHandler);
+
+  // PATCH /transactions/bulk/payment-method  (admin only)
+  app.patch('/transactions/bulk/payment-method', {
+    preHandler: [requireRole('admin')],
+    schema: {
+      tags: ['billing'],
+      body: {
+        type: 'object',
+        required: ['ids', 'paymentMethod', 'reason', 'password'],
+        properties: {
+          ids:           { type: 'array', items: { type: 'string', format: 'uuid' }, minItems: 1 },
+          paymentMethod: { type: 'string', minLength: 1 },
+          reason:        { type: 'string', minLength: 10 },
+          password:      { type: 'string', minLength: 1 },
+        },
+      },
+    },
+  }, ctrl.bulkEditPaymentMethodHandler);
+
   // POST /settlements/reconcile  (atomically reconcile all Paid txs for a doctor)
   app.post('/settlements/reconcile', {
     preHandler: [requireRole('admin')],

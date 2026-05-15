@@ -252,6 +252,7 @@ services:
       BRANCH_ID: 1
       SERVICE_NAME: billing-service
       APPOINTMENT_SERVICE_URL: http://appointment-service:3001/api/v1
+      IDENTITY_SERVICE_URL: http://identity-service:3000
     ports:
       - "3004:3004"
     depends_on:

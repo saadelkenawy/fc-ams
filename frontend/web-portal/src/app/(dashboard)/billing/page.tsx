@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Download, FileDown, Filter, Search, CheckCircle, Clock, TrendingUp, Loader2, RefreshCw, ReceiptText, ChevronDown, ChevronRight, Building2, Stethoscope, Share2, FlaskConical, Check, X, Trash2, ShieldAlert, RotateCcw, FileSpreadsheet, FileText } from 'lucide-react';
+import { Download, Filter, Search, Clock, TrendingUp, Loader2, ReceiptText, Check, X, Trash2, ShieldAlert, RotateCcw, FileSpreadsheet, FileText, Square, CheckSquare, Minus } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { analyticsApi, appointmentApi } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -14,10 +14,9 @@ import { Pagination } from '@/components/ui/Pagination';
 import { useLang } from '@/contexts/LanguageContext';
 import { useToast } from '@/components/ui/Toast';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { useTransactions, useSettlements, useUpdateTransactionStatus, useUpdateProcedureCost, useReconcileDoctor } from '@/hooks/useBilling';
+import { useTransactions, useUpdateTransactionStatus, useBulkDeleteTransactions, useBulkEditPaymentMethod } from '@/hooks/useBilling';
 import { useDoctorMap } from '@/hooks/useDoctors';
 import { usePatientMap } from '@/hooks/usePatients';
-import { useProcedureMap } from '@/hooks/useProcedures';
 import { cn } from '@/lib/utils';
 import type { PaymentStatus, FinancialTransaction } from '@fadl/types';
 
@@ -36,11 +35,6 @@ const STATUS_CONFIG: Record<PaymentStatus, { labelAr: string; labelEn: string; v
 };
 
 const PAYMENT_METHODS = ['cash', 'visa', 'instapay'];
-
-const TABS = [
-  { key: 'transactions', labelAr: 'المعاملات', labelEn: 'Transactions' },
-  { key: 'settlements',  labelAr: 'التسويات',  labelEn: 'Settlements' },
-];
 
 const PAGE_SIZES = [10, 25, 50];
 
@@ -214,6 +208,344 @@ function SecureDeleteModal({ appointmentId, onClose, onDeleted }: SecureDeleteMo
   );
 }
 
+// ── Bulk Delete Modal ─────────────────────────────────────────────────────────
+
+interface BulkDeleteModalProps {
+  selected: FinancialTransaction[];
+  onClose: () => void;
+  onDeleted: () => void;
+  lang: 'ar' | 'en';
+  t: (ar: string, en: string) => string;
+  locale: string;
+}
+
+function BulkDeleteModal({ selected, onClose, onDeleted, lang, t, locale }: BulkDeleteModalProps) {
+  const { toast } = useToast();
+  const [step, setStep] = useState<'confirm' | 'password'>('confirm');
+  const [reason, setReason] = useState('');
+  const [typed, setTyped] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [cooldown, setCooldown] = useState(0);
+  const bulkDelete = useBulkDeleteTransactions();
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setInterval(() => setCooldown((c) => Math.max(0, c - 1)), 1000);
+    return () => clearInterval(t);
+  }, [cooldown]);
+
+  const canProceedConfirm = reason.trim().length >= 20 && typed === 'DELETE';
+
+  async function handlePasswordSubmit() {
+    if (!password) { setError(t('كلمة المرور مطلوبة', 'Password is required')); return; }
+    if (cooldown > 0) return;
+    setError('');
+    try {
+      await bulkDelete.mutateAsync({ ids: selected.map((tx) => tx.id), reason, password });
+      toast(t(`تم حذف ${selected.length} معاملة`, `${selected.length} transactions deleted`), 'success');
+      onDeleted();
+    } catch (e: unknown) {
+      const code = (e as { response?: { data?: { error?: { code?: string; message?: string } } } })?.response?.data?.error?.code;
+      const msg  = (e as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message;
+      if (code === 'INVALID_CREDENTIALS' || code === 'WRONG_PASSWORD') {
+        const attempts = failedAttempts + 1;
+        setFailedAttempts(attempts);
+        if (attempts >= 3) { setCooldown(60); setError(t('تم قفل الإجراء لمدة 60 ثانية', 'Action locked for 60 seconds')); }
+        else { setError(t('كلمة المرور غير صحيحة. حاول مرة أخرى.', 'Incorrect password. Please try again.')); }
+      } else {
+        setError(msg ?? t('فشل الحذف', 'Delete failed'));
+      }
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="w-full max-w-lg mx-4 bg-white dark:bg-neutral-800 rounded-2xl shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100 dark:border-neutral-700 bg-red-50 dark:bg-red-900/20">
+          <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/40 flex items-center justify-center flex-shrink-0">
+            <ShieldAlert className="w-5 h-5 text-red-600 dark:text-red-400" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100">
+              {t(`حذف ${selected.length} معاملة`, `Delete ${selected.length} transaction${selected.length !== 1 ? 's' : ''}`)}
+            </h3>
+            <p className="text-xs text-red-600 dark:text-red-400">{t('هذا الإجراء لا يمكن التراجع عنه', 'This action cannot be undone')}</p>
+          </div>
+        </div>
+
+        {step === 'confirm' && (
+          <div className="px-6 py-5 space-y-4">
+            <p className="text-sm text-gray-700 dark:text-gray-300">
+              {t(
+                `أنت على وشك حذف ${selected.length} معاملة نهائياً من السجل المحاسبي.`,
+                `You are about to permanently delete ${selected.length} transaction${selected.length !== 1 ? 's' : ''} from the financial ledger.`,
+              )}
+            </p>
+
+            <div className="max-h-48 overflow-y-auto rounded-xl border border-gray-100 dark:border-neutral-700 text-xs">
+              <table className="w-full">
+                <thead className="bg-gray-50 dark:bg-neutral-900/50 sticky top-0">
+                  <tr>
+                    <th className="text-start px-3 py-2 font-medium text-gray-500">{t('التاريخ', 'Date')}</th>
+                    <th className="text-start px-3 py-2 font-medium text-gray-500">{t('الحالة', 'Status')}</th>
+                    <th className="text-end px-3 py-2 font-medium text-gray-500">{t('الرسوم', 'Charge')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selected.map((tx) => (
+                    <tr key={tx.id} className="border-t border-gray-50 dark:border-neutral-700">
+                      <td className="px-3 py-1.5 text-gray-600 dark:text-gray-300">{tx.transactionDate?.slice(0, 10)}</td>
+                      <td className="px-3 py-1.5 text-gray-600 dark:text-gray-300">{tx.paymentStatus}</td>
+                      <td className="px-3 py-1.5 text-end font-mono text-gray-900 dark:text-gray-100">{formatCurrency(tx.approvedCharge, 'EGP', locale)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
+                {t('سبب الحذف (20 حرف على الأقل)', 'Reason for deletion (min 20 characters)')}
+              </label>
+              <textarea
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                rows={3}
+                className="w-full rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
+                placeholder={t('أدخل سبباً واضحاً للحذف...', 'Enter a clear reason for deletion...')}
+              />
+              <p className={cn('text-xs mt-1', reason.trim().length >= 20 ? 'text-gray-400' : 'text-red-400')}>
+                {reason.trim().length} / 20
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
+                {t('اكتب DELETE للتأكيد', 'Type DELETE to confirm')}
+              </label>
+              <input
+                type="text"
+                value={typed}
+                onChange={(e) => setTyped(e.target.value)}
+                className="w-full h-10 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-gray-900 dark:text-gray-100 px-3 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                placeholder="DELETE"
+              />
+            </div>
+
+            <div className="flex gap-2">
+              <Button
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white border-0"
+                disabled={!canProceedConfirm}
+                onClick={() => setStep('password')}
+              >
+                {t('متابعة', 'Proceed')}
+              </Button>
+              <Button variant="ghost" onClick={onClose}>{t('إلغاء', 'Cancel')}</Button>
+            </div>
+          </div>
+        )}
+
+        {step === 'password' && (
+          <div className="px-6 py-5 space-y-4">
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              {t('أدخل كلمة مرور المسؤول للمتابعة', 'Enter admin password to proceed')}
+            </p>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
+                {t('كلمة المرور', 'Password')}
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={cooldown > 0}
+                className="w-full h-10 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-gray-900 dark:text-gray-100 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                placeholder="••••••••"
+                autoFocus
+                onKeyDown={(e) => { if (e.key === 'Enter') void handlePasswordSubmit(); }}
+              />
+            </div>
+            {error && (
+              <p className="text-xs text-red-500 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-lg">
+                {error}{cooldown > 0 && ` (${cooldown}s)`}
+              </p>
+            )}
+            <div className="flex gap-2">
+              <Button
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white border-0"
+                disabled={!password || bulkDelete.isLoading || cooldown > 0}
+                onClick={() => void handlePasswordSubmit()}
+              >
+                {bulkDelete.isLoading
+                  ? <><Loader2 className="w-4 h-4 animate-spin me-2 inline" />{t('جاري الحذف...', 'Deleting...')}</>
+                  : <><Trash2 className="w-4 h-4 me-2 inline" />{t('تأكيد الحذف', 'Confirm Delete')}</>}
+              </Button>
+              <Button variant="ghost" onClick={() => setStep('confirm')}>{t('رجوع', 'Back')}</Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Bulk Edit Modal ───────────────────────────────────────────────────────────
+
+interface BulkEditModalProps {
+  selected: FinancialTransaction[];
+  onClose: () => void;
+  onEdited: () => void;
+  lang: 'ar' | 'en';
+  t: (ar: string, en: string) => string;
+}
+
+function BulkEditModal({ selected, onClose, onEdited, lang, t }: BulkEditModalProps) {
+  const { toast } = useToast();
+  const [step, setStep] = useState<'edit' | 'password'>('edit');
+  const [paymentMethod, setPaymentMethod] = useState('');
+  const [reason, setReason] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [cooldown, setCooldown] = useState(0);
+  const bulkEdit = useBulkEditPaymentMethod();
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setInterval(() => setCooldown((c) => Math.max(0, c - 1)), 1000);
+    return () => clearInterval(t);
+  }, [cooldown]);
+
+  const canProceed = paymentMethod !== '' && reason.trim().length >= 10;
+
+  async function handlePasswordSubmit() {
+    if (!password) { setError(t('كلمة المرور مطلوبة', 'Password is required')); return; }
+    if (cooldown > 0) return;
+    setError('');
+    try {
+      await bulkEdit.mutateAsync({ ids: selected.map((tx) => tx.id), paymentMethod, reason, password });
+      toast(t(`تم تحديث ${selected.length} معاملة`, `${selected.length} transactions updated`), 'success');
+      onEdited();
+    } catch (e: unknown) {
+      const code = (e as { response?: { data?: { error?: { code?: string; message?: string } } } })?.response?.data?.error?.code;
+      const msg  = (e as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message;
+      if (code === 'INVALID_CREDENTIALS' || code === 'WRONG_PASSWORD') {
+        const attempts = failedAttempts + 1;
+        setFailedAttempts(attempts);
+        if (attempts >= 3) { setCooldown(60); setError(t('تم قفل الإجراء لمدة 60 ثانية', 'Action locked for 60 seconds')); }
+        else { setError(t('كلمة المرور غير صحيحة. حاول مرة أخرى.', 'Incorrect password. Please try again.')); }
+      } else {
+        setError(msg ?? t('فشل التحديث', 'Update failed'));
+      }
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="w-full max-w-md mx-4 bg-white dark:bg-neutral-800 rounded-2xl shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100 dark:border-neutral-700">
+          <h3 className="font-semibold text-gray-900 dark:text-gray-100">
+            {t(`تعديل ${selected.length} معاملة`, `Edit ${selected.length} transaction${selected.length !== 1 ? 's' : ''}`)}
+          </h3>
+        </div>
+
+        {step === 'edit' && (
+          <div className="px-6 py-5 space-y-4">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {t('ستُطبَّق التغييرات على جميع المعاملات المحددة.', `Changes will apply to all ${selected.length} selected transactions.`)}
+            </p>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
+                {t('طريقة الدفع', 'Payment Method')}
+              </label>
+              <select
+                value={paymentMethod}
+                onChange={(e) => setPaymentMethod(e.target.value)}
+                className="w-full h-10 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-gray-900 dark:text-gray-100 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                <option value="">{t('اختر طريقة الدفع', 'Select payment method')}</option>
+                {PAYMENT_METHODS.map((m) => (
+                  <option key={m} value={m}>{m.charAt(0).toUpperCase() + m.slice(1)}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
+                {t('سبب التعديل (10 أحرف على الأقل)', 'Reason for edit (min 10 characters)')}
+              </label>
+              <textarea
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                rows={3}
+                className="w-full rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
+                placeholder={t('أدخل سببًا واضحًا للتعديل...', 'Enter a clear reason for the edit...')}
+              />
+              <p className={cn('text-xs mt-1', reason.trim().length >= 10 ? 'text-gray-400' : 'text-red-400')}>
+                {reason.trim().length} / 10
+              </p>
+            </div>
+
+            <div className="flex gap-2">
+              <Button
+                className="flex-1"
+                disabled={!canProceed}
+                onClick={() => setStep('password')}
+              >
+                {t('متابعة', 'Proceed')}
+              </Button>
+              <Button variant="ghost" onClick={onClose}>{t('إلغاء', 'Cancel')}</Button>
+            </div>
+          </div>
+        )}
+
+        {step === 'password' && (
+          <div className="px-6 py-5 space-y-4">
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              {t('أدخل كلمة مرور المسؤول للمتابعة', 'Enter admin password to proceed')}
+            </p>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
+                {t('كلمة المرور', 'Password')}
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={cooldown > 0}
+                className="w-full h-10 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-gray-900 dark:text-gray-100 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                placeholder="••••••••"
+                autoFocus
+                onKeyDown={(e) => { if (e.key === 'Enter') void handlePasswordSubmit(); }}
+              />
+            </div>
+            {error && (
+              <p className="text-xs text-red-500 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-lg">
+                {error}{cooldown > 0 && ` (${cooldown}s)`}
+              </p>
+            )}
+            <div className="flex gap-2">
+              <Button
+                className="flex-1"
+                disabled={!password || bulkEdit.isLoading || cooldown > 0}
+                onClick={() => void handlePasswordSubmit()}
+              >
+                {bulkEdit.isLoading
+                  ? <><Loader2 className="w-4 h-4 animate-spin me-2 inline" />{t('جاري التحديث...', 'Updating...')}</>
+                  : <><Check className="w-4 h-4 me-2 inline" />{t('تأكيد التعديل', 'Confirm Edit')}</>}
+              </Button>
+              <Button variant="ghost" onClick={() => setStep('edit')}>{t('رجوع', 'Back')}</Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function BillingPage() {
@@ -224,7 +556,6 @@ export default function BillingPage() {
   const locale = lang === 'ar' ? 'ar-EG' : 'en-US';
   const { toast } = useToast();
 
-  const [activeTab, setActiveTab]           = useState('transactions');
   const [query, setQuery]                   = useState('');
   const [statusFilter, setStatusFilter]     = useState<PaymentStatus | 'all'>('all');
   const [methodFilter, setMethodFilter]     = useState<string>('');
@@ -236,17 +567,24 @@ export default function BillingPage() {
   const [openDropdown, setOpenDropdown]     = useState<string | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [exportLoading, setExportLoading]   = useState(false);
+  const [selectedIds, setSelectedIds]       = useState<Set<string>>(new Set());
+  const [showBulkDelete, setShowBulkDelete] = useState(false);
+  const [showBulkEdit, setShowBulkEdit]     = useState(false);
 
   // Auto-open secure delete modal and scroll to highlighted row
   useEffect(() => {
     if (deleteApptId) {
-      setActiveTab('transactions');
       setShowDeleteModal(true);
       setTimeout(() => {
         document.getElementById('delete-target-row')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }, 400);
     }
   }, [deleteApptId]);
+
+  // Clear selection when filters change
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [statusFilter, methodFilter, dateFrom, dateTo, query, page]);
 
   const validDates = !dateFrom || !dateTo || dateFrom <= dateTo;
 
@@ -280,6 +618,30 @@ export default function BillingPage() {
   const kpiRefunded  = useMemo(() => filtered.filter((tx) => tx.paymentStatus === 'refunded').reduce((s, tx) => s + tx.approvedCharge, 0), [filtered]);
 
   const hasActiveFilters = statusFilter !== 'all' || methodFilter || dateFrom || dateTo || query;
+
+  // Selection helpers
+  const selectableIds = filtered.map((tx) => tx.id);
+  const allSelected = selectableIds.length > 0 && selectableIds.every((id) => selectedIds.has(id));
+  const someSelected = selectableIds.some((id) => selectedIds.has(id));
+  const selectedTxs = filtered.filter((tx) => selectedIds.has(tx.id));
+  const hasReconciled = selectedTxs.some((tx) => tx.paymentStatus === 'reconciled');
+
+  function toggleAll() {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(selectableIds));
+    }
+  }
+
+  function toggleRow(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   function clearFilters() {
     setStatusFilter('all');
@@ -382,17 +744,40 @@ export default function BillingPage() {
         <StatCard title={t('المبلغ المسترد', 'Refunded Amount')}                 value={formatCurrency(kpiRefunded, 'EGP', locale)}  icon={<RotateCcw className="w-5 h-5" />}   color="red" />
       </div>
 
-      <div className="pill-tab-bar w-fit">
-        {TABS.map((tab) => (
-          <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-            className={`pill-tab ${activeTab === tab.key ? 'active' : ''}`}>
-            {lang === 'ar' ? tab.labelAr : tab.labelEn}
+      {/* Bulk action bar */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-gray-100 dark:bg-neutral-700 border border-gray-200 dark:border-neutral-600 flex-wrap">
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-200 flex-1 min-w-max">
+            {selectedIds.size} {t('معاملة محددة', 'transaction' + (selectedIds.size !== 1 ? 's' : '') + ' selected')}
+          </span>
+          {hasReconciled && (
+            <span className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-2.5 py-1 rounded-lg">
+              {t('التحديد يتضمن معاملات مطابقة، لا يمكن حذفها. أزلها للمتابعة.', 'Selection includes Reconciled transactions which cannot be deleted. Deselect them to proceed.')}
+            </span>
+          )}
+          <Button size="sm" variant="outline" onClick={() => setShowBulkEdit(true)}>
+            {t('تعديل', 'Edit')}
+          </Button>
+          <Button
+            size="sm"
+            className="bg-red-600 hover:bg-red-700 text-white border-0 disabled:opacity-50"
+            disabled={hasReconciled}
+            onClick={() => !hasReconciled && setShowBulkDelete(true)}
+            title={hasReconciled ? t('تحتوي القائمة على معاملات مطابقة', 'Selection contains reconciled transactions') : undefined}
+          >
+            <Trash2 className="w-3.5 h-3.5 me-1.5 inline" />
+            {t('حذف', 'Delete')}
+          </Button>
+          <button
+            onClick={() => setSelectedIds(new Set())}
+            className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+          >
+            <X className="w-4 h-4" />
           </button>
-        ))}
-      </div>
+        </div>
+      )}
 
-      {activeTab === 'transactions' && (
-        <Card>
+      <Card>
           {/* Search + filters */}
           <div className="p-5 border-b border-gray-50 dark:border-neutral-700 space-y-3">
             <div className="flex flex-col sm:flex-row gap-3">
@@ -494,6 +879,21 @@ export default function BillingPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
+                      <th className="w-10 px-3 py-3">
+                        <button
+                          onClick={toggleAll}
+                          className="flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                          title={allSelected ? t('إلغاء تحديد الكل', 'Deselect all') : t('تحديد الكل', 'Select all')}
+                        >
+                          {allSelected ? (
+                            <CheckSquare className="w-4 h-4 text-primary-600" />
+                          ) : someSelected ? (
+                            <Minus className="w-4 h-4 text-primary-600" />
+                          ) : (
+                            <Square className="w-4 h-4" />
+                          )}
+                        </button>
+                      </th>
                       <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('التاريخ', 'Date')}</th>
                       <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('المريض', 'Patient')}</th>
                       <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الطبيب', 'Doctor')}</th>
@@ -513,6 +913,7 @@ export default function BillingPage() {
                       const patName = pat ? (lang === 'ar' ? (pat.nameAr ?? pat.nameEn) : pat.nameEn) : `…${tx.patientId.slice(-8).toUpperCase()}`;
                       const docName = doc ? (lang === 'ar' ? (doc.nameAr ?? doc.nameEn) : doc.nameEn) : (tx.doctorId ? `…${tx.doctorId.slice(-8).toUpperCase()}` : '—');
                       const isDeleteTarget = deleteApptId && tx.appointmentId === deleteApptId;
+                      const isSelected = selectedIds.has(tx.id);
                       return (
                         <tr
                           key={tx.id}
@@ -521,9 +922,21 @@ export default function BillingPage() {
                             'border-b transition-colors',
                             isDeleteTarget
                               ? 'border-2 border-red-400 dark:border-red-500 bg-red-50 dark:bg-red-900/15'
-                              : 'border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30',
+                              : isSelected
+                                ? 'border-primary-100 dark:border-primary-800/40 bg-primary-50/60 dark:bg-primary-900/15'
+                                : 'border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30',
                           )}
                         >
+                          <td className="w-10 px-3 py-3.5">
+                            <button
+                              onClick={() => toggleRow(tx.id)}
+                              className="flex items-center justify-center text-gray-300 hover:text-gray-500 dark:hover:text-gray-200 transition-colors"
+                            >
+                              {isSelected
+                                ? <CheckSquare className="w-4 h-4 text-primary-600" />
+                                : <Square className="w-4 h-4" />}
+                            </button>
+                          </td>
                           <td className="px-5 py-3.5 text-gray-500 dark:text-gray-300 text-xs">{formatDate(tx.transactionDate, locale)}</td>
                           <td className="px-5 py-3.5 text-gray-800 dark:text-gray-200 text-xs" title={patName}>{patName}</td>
                           <td className="px-5 py-3.5 text-gray-600 dark:text-gray-300 text-xs" title={docName}>{docName}</td>
@@ -567,7 +980,7 @@ export default function BillingPage() {
                       );
                     })}
                     {filtered.length === 0 && (
-                      <tr><td colSpan={9} className="px-5 py-12 text-center text-gray-400 dark:text-gray-300">{t('لا توجد سجلات تطابق الفلتر', 'No billing records match the filter.')}</td></tr>
+                      <tr><td colSpan={10} className="px-5 py-12 text-center text-gray-400 dark:text-gray-300">{t('لا توجد سجلات تطابق الفلتر', 'No billing records match the filter.')}</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -583,9 +996,6 @@ export default function BillingPage() {
             />
           </CardContent>
         </Card>
-      )}
-
-      {activeTab === 'settlements' && <SettlementsTab lang={lang} t={t} />}
 
       {showDeleteModal && deleteApptId && (
         <SecureDeleteModal
@@ -600,463 +1010,33 @@ export default function BillingPage() {
           }}
         />
       )}
-    </div>
-  );
-}
 
-interface SettleConfirmProps {
-  doctorName: string;
-  grossRevenue: number;
-  doctorShare: number;
-  clinicShare: number;
-  sessionCount: number;
-  locale: string;
-  lang: 'ar' | 'en';
-  t: (ar: string, en: string) => string;
-  onConfirm: () => void;
-  onClose: () => void;
-  loading: boolean;
-}
-
-function SettleConfirmModal({ doctorName, grossRevenue, doctorShare, clinicShare, sessionCount, locale, lang, t, onConfirm, onClose, loading }: SettleConfirmProps) {
-  const fmt = (n: number) => formatCurrency(n, 'EGP', locale);
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-md mx-4 bg-white dark:bg-neutral-800 rounded-2xl shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100 dark:border-neutral-700">
-          <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-900/20">
-            <CheckCircle className="w-5 h-5 text-emerald-600" />
-          </div>
-          <div>
-            <h3 className="font-semibold text-gray-900 dark:text-gray-100">{t('تأكيد التسوية', 'Confirm Settlement')}</h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400">{doctorName}</p>
-          </div>
-          <button onClick={onClose} className="ms-auto text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"><X className="w-5 h-5" /></button>
-        </div>
-        <div className="px-6 py-5 space-y-3">
-          <p className="text-sm text-gray-600 dark:text-gray-300">
-            {t(
-              `سيتم تحويل ${sessionCount} معاملة إلى حالة "مطابق" ولن يمكن تعديلها.`,
-              `This will mark ${sessionCount} transaction${sessionCount !== 1 ? 's' : ''} as Reconciled — this cannot be undone.`,
-            )}
-          </p>
-          <div className="rounded-xl border border-gray-100 dark:border-neutral-700 divide-y divide-gray-100 dark:divide-neutral-700 text-sm">
-            {[
-              [t('صافي المجمع', 'Net Pool'),           fmt(grossRevenue)],
-              [t('حصة الطبيب', 'Doctor Share'),          fmt(doctorShare)],
-              [t('حصة العيادة', 'Clinic Share'),          fmt(clinicShare)],
-              [t('عدد المعاملات', 'Transactions'),       String(sessionCount)],
-            ].map(([label, val]) => (
-              <div key={label} className="flex justify-between px-4 py-2.5">
-                <span className="text-gray-500 dark:text-gray-400">{label}</span>
-                <span className="font-mono font-semibold text-gray-900 dark:text-gray-100">{val}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="flex gap-2 px-6 pb-5">
-          <Button
-            className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white border-0"
-            disabled={loading}
-            onClick={onConfirm}
-          >
-            {loading ? <><Loader2 className="w-4 h-4 animate-spin me-2 inline" />{t('جاري التسوية...', 'Settling...')}</> : t('تأكيد التسوية', 'Confirm Settlement')}
-          </Button>
-          <Button variant="ghost" onClick={onClose}>{t('إلغاء', 'Cancel')}</Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function SettlementsTab({ lang, t }: { lang: 'ar' | 'en'; t: (ar: string, en: string) => string }) {
-  const now  = new Date();
-  const [from, setFrom] = useState(new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]);
-  const [to,   setTo]   = useState(now.toISOString().split('T')[0]);
-  const locale = lang === 'ar' ? 'ar-EG' : 'en-US';
-  const [expanded, setExpanded] = useState<string | null>(null);
-  const [settleTarget, setSettleTarget] = useState<typeof settlements[0] | null>(null);
-
-  const { toast } = useToast();
-  const reconcile = useReconcileDoctor();
-
-  const { data, isLoading, isError, refetch, isFetching } = useSettlements({ from, to, limit: 50 });
-  const doctorMap = useDoctorMap();
-  const settlements = data?.data ?? [];
-
-  async function handleSettle() {
-    if (!settleTarget) return;
-    try {
-      await reconcile.mutateAsync({ doctorId: settleTarget.doctorId, from, to });
-      toast(t('تمت التسوية بنجاح', 'Settlement applied successfully'), 'success');
-    } catch (e: unknown) {
-      const msg = (e as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message;
-      toast(msg ?? t('فشلت التسوية', 'Settlement failed'), 'error');
-    }
-    setSettleTarget(null);
-  }
-
-  // Totals across all doctors
-  const totalSessionFees   = settlements.reduce((s, r) => s + (r.totalSessionFees ?? (r.grossRevenue + r.totalSourceFees)), 0);
-  const totalMediator      = settlements.reduce((s, r) => s + r.totalSourceFees,    0);
-  const totalExtraServices = settlements.reduce((s, r) => s + (r.totalExtraServices ?? 0), 0);
-  const totalNetPool       = settlements.reduce((s, r) => s + r.grossRevenue,        0);
-  const totalDoctors       = settlements.reduce((s, r) => s + r.doctorShare,         0);
-  const totalClinic        = settlements.reduce((s, r) => s + r.clinicShare,         0);
-
-  const fmt = (n: number) => formatCurrency(n, 'EGP', locale);
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-16 text-gray-400">
-        <Loader2 className="w-5 h-5 animate-spin me-2" />{t('جاري التحميل...', 'Loading...')}
-      </div>
-    );
-  }
-
-  if (isError) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 gap-4">
-        <ReceiptText className="w-12 h-12 text-gray-300 dark:text-gray-600" />
-        <div className="text-center">
-          <p className="text-gray-600 dark:text-gray-300 font-medium">{t('تعذّر تحميل التسويات', 'Failed to load settlements')}</p>
-        </div>
-        <Button variant="outline" size="sm" onClick={() => void refetch()} disabled={isFetching}>
-          <RefreshCw className={cn('w-4 h-4', isFetching && 'animate-spin')} />
-          {t('إعادة المحاولة', 'Try Again')}
-        </Button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-5">
-      {/* Date range filter */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex items-center gap-2">
-          <label htmlFor="billing-from-date" className="text-xs text-gray-500">{t('من', 'From')}</label>
-          <input id="billing-from-date" type="date" value={from} onChange={(e) => setFrom(e.target.value)}
-            className="text-sm border border-gray-200 dark:border-neutral-600 rounded-lg px-3 py-1.5 bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-600" />
-        </div>
-        <div className="flex items-center gap-2">
-          <label htmlFor="billing-to-date" className="text-xs text-gray-500">{t('إلى', 'To')}</label>
-          <input id="billing-to-date" type="date" value={to} onChange={(e) => setTo(e.target.value)}
-            className="text-sm border border-gray-200 dark:border-neutral-600 rounded-lg px-3 py-1.5 bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-600" />
-        </div>
-        <Button variant="outline" size="sm" onClick={() => void refetch()} disabled={isFetching}>
-          <RefreshCw className={cn('w-3.5 h-3.5', isFetching && 'animate-spin')} />
-        </Button>
-      </div>
-
-      {/* Net profit summary cards */}
-      {settlements.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-          <div className="rounded-xl border border-gray-100 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-3">
-            <p className="text-xs text-gray-400 mb-1">{t('رسوم الجلسات', 'Session Fees')}</p>
-            <p className="text-base font-bold tabular-nums text-gray-900 dark:text-gray-100">{fmt(totalSessionFees)}</p>
-          </div>
-          <div className="rounded-xl border border-orange-100 dark:border-orange-900/30 bg-orange-50 dark:bg-orange-900/10 p-3">
-            <div className="flex items-center gap-1 mb-1">
-              <Share2 className="w-3 h-3 text-orange-500" />
-              <p className="text-xs text-orange-600 dark:text-orange-400">{t('الوسيط', 'Mediator')}</p>
-            </div>
-            <p className="text-base font-bold tabular-nums text-orange-700 dark:text-orange-300">{fmt(totalMediator)}</p>
-            {totalSessionFees > 0 && <p className="text-xs text-orange-500 mt-0.5">{((totalMediator / totalSessionFees) * 100).toFixed(1)}%</p>}
-          </div>
-          <div className="rounded-xl border border-violet-100 dark:border-violet-900/30 bg-violet-50 dark:bg-violet-900/10 p-3">
-            <div className="flex items-center gap-1 mb-1">
-              <FlaskConical className="w-3 h-3 text-violet-500" />
-              <p className="text-xs text-violet-600 dark:text-violet-400">{t('خدمات إضافية', 'Extra Services')}</p>
-            </div>
-            <p className="text-base font-bold tabular-nums text-violet-700 dark:text-violet-300">{fmt(totalExtraServices)}</p>
-          </div>
-          <div className="rounded-xl border border-gray-200 dark:border-neutral-600 bg-gray-50 dark:bg-neutral-700/40 p-3">
-            <p className="text-xs text-gray-500 mb-1">{t('صافي المجمع', 'Net Pool')}</p>
-            <p className="text-base font-bold tabular-nums text-gray-800 dark:text-gray-100">{fmt(totalNetPool)}</p>
-          </div>
-          <div className="rounded-xl border border-blue-100 dark:border-blue-900/30 bg-blue-50 dark:bg-blue-900/10 p-3">
-            <div className="flex items-center gap-1 mb-1">
-              <Stethoscope className="w-3 h-3 text-blue-500" />
-              <p className="text-xs text-blue-600 dark:text-blue-400">{t('مستحق الأطباء', "Doctors'")}</p>
-            </div>
-            <p className="text-base font-bold tabular-nums text-blue-700 dark:text-blue-300">{fmt(totalDoctors)}</p>
-            {totalNetPool > 0 && <p className="text-xs text-blue-500 mt-0.5">{((totalDoctors / totalNetPool) * 100).toFixed(1)}%</p>}
-          </div>
-          <div className="rounded-xl border border-emerald-100 dark:border-emerald-900/30 bg-emerald-50 dark:bg-emerald-900/10 p-3">
-            <div className="flex items-center gap-1 mb-1">
-              <Building2 className="w-3 h-3 text-emerald-500" />
-              <p className="text-xs text-emerald-600 dark:text-emerald-400">{t('صافي العيادة', 'Clinic Net')}</p>
-            </div>
-            <p className="text-base font-bold tabular-nums text-emerald-700 dark:text-emerald-300">{fmt(totalClinic)}</p>
-            {totalNetPool > 0 && <p className="text-xs text-emerald-500 mt-0.5">{((totalClinic / totalNetPool) * 100).toFixed(1)}%</p>}
-          </div>
-        </div>
-      )}
-
-      {/* Per-doctor table */}
-      {settlements.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 gap-3">
-          <ReceiptText className="w-12 h-12 text-gray-300 dark:text-gray-600" />
-          <p className="text-gray-500 dark:text-gray-400 font-medium">{t('لا توجد تسويات في هذه الفترة', 'No settlements in this period')}</p>
-        </div>
-      ) : (
-        <Card>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-100 dark:border-neutral-700 bg-gray-50/60 dark:bg-neutral-800/60">
-                    <th className="w-8 px-3 py-3" />
-                    <th className="text-start px-4 py-3 font-medium text-gray-500 text-xs whitespace-nowrap">{t('الطبيب', 'Doctor')}</th>
-                    <th className="text-end px-4 py-3 font-medium text-gray-500 text-xs whitespace-nowrap">{t('حجوزات', 'Sessions')}</th>
-                    <th className="text-end px-4 py-3 font-medium text-gray-500 text-xs whitespace-nowrap">{t('رسوم الجلسة', 'Session Fees')}</th>
-                    <th className="text-end px-4 py-3 font-medium text-orange-500 text-xs whitespace-nowrap">
-                      <span className="flex items-center justify-end gap-1"><Share2 className="w-3 h-3" />{t('الوسيط', 'Mediator')}</span>
-                    </th>
-                    <th className="text-end px-4 py-3 font-medium text-violet-500 text-xs whitespace-nowrap">
-                      <span className="flex items-center justify-end gap-1"><FlaskConical className="w-3 h-3" />{t('إضافية', 'Extra')}</span>
-                    </th>
-                    <th className="text-end px-4 py-3 font-medium text-gray-500 text-xs whitespace-nowrap">{t('الصافي', 'Net Pool')}</th>
-                    <th className="text-end px-4 py-3 font-medium text-blue-500 text-xs whitespace-nowrap">
-                      <span className="flex items-center justify-end gap-1"><Stethoscope className="w-3 h-3" />{t('الطبيب', 'Doctor')}</span>
-                    </th>
-                    <th className="text-end px-4 py-3 font-medium text-emerald-500 text-xs whitespace-nowrap">
-                      <span className="flex items-center justify-end gap-1"><Building2 className="w-3 h-3" />{t('العيادة', 'Clinic')}</span>
-                    </th>
-                    <th className="px-4 py-3" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {settlements.map((s) => {
-                    const sessionFees = s.totalSessionFees ?? (s.grossRevenue + s.totalSourceFees);
-                    const extraSvcs   = s.totalExtraServices ?? 0;
-                    const isOpen      = expanded === s.doctorId;
-                    return (
-                      <>
-                        <tr
-                          key={s.doctorId}
-                          onClick={() => setExpanded(isOpen ? null : s.doctorId)}
-                          className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/60 dark:hover:bg-neutral-700/20 cursor-pointer transition-colors"
-                        >
-                          <td className="px-3 py-3 text-gray-400">
-                            {isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                          </td>
-                          <td className="px-4 py-3 font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">{doctorMap.get(s.doctorId)?.nameEn ?? s.doctorId.slice(0, 8)}</td>
-                          <td className="px-4 py-3 text-end font-mono text-gray-600 dark:text-gray-300">{(s.totalConsultations ?? 0) + (s.totalProcedures ?? 0)}</td>
-                          <td className="px-4 py-3 text-end font-mono tabular-nums text-gray-700 dark:text-gray-200">{fmt(sessionFees)}</td>
-                          <td className="px-4 py-3 text-end font-mono tabular-nums text-orange-600 dark:text-orange-400">{fmt(s.totalSourceFees)}</td>
-                          <td className="px-4 py-3 text-end font-mono tabular-nums text-violet-600 dark:text-violet-400">{fmt(extraSvcs)}</td>
-                          <td className="px-4 py-3 text-end font-mono tabular-nums text-gray-700 dark:text-gray-300">{fmt(s.grossRevenue)}</td>
-                          <td className="px-4 py-3 text-end font-mono tabular-nums text-blue-700 dark:text-blue-400 font-semibold">{fmt(s.doctorShare)}</td>
-                          <td className="px-4 py-3 text-end font-mono tabular-nums text-emerald-700 dark:text-emerald-400 font-semibold">{fmt(s.clinicShare)}</td>
-                          <td className="px-4 py-3">
-                            {s.status === 'reconciled' ? (
-                              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2.5 py-1 rounded-full">
-                                <CheckCircle className="w-3 h-3" />
-                                {t('مطابق', 'Settled')}
-                              </span>
-                            ) : (
-                              <Button
-                                size="sm"
-                                className="h-7 px-3 text-xs whitespace-nowrap"
-                                onClick={(e) => { e.stopPropagation(); setSettleTarget(s); }}
-                                disabled={(s.netPayable ?? 0) <= 0}
-                                title={(s.netPayable ?? 0) <= 0 ? t('لا توجد معاملات مدفوعة', 'No paid transactions to settle') : undefined}
-                              >
-                                {t('تسوية', 'Settle')}
-                              </Button>
-                            )}
-                          </td>
-                        </tr>
-                        {isOpen && (
-                          <tr key={`${s.doctorId}-detail`} className="bg-gray-50/40 dark:bg-neutral-800/30">
-                            <td colSpan={10} className="px-6 py-4">
-                              <SettlementDetail doctorId={s.doctorId} from={from} to={to} locale={locale} t={t} />
-                            </td>
-                          </tr>
-                        )}
-                      </>
-                    );
-                  })}
-                </tbody>
-                {/* Totals footer */}
-                <tfoot>
-                  <tr className="border-t-2 border-gray-200 dark:border-neutral-600 bg-gray-50 dark:bg-neutral-800/60 font-semibold">
-                    <td className="px-3 py-3" />
-                    <td className="px-4 py-3 text-xs text-gray-500">{t('الإجمالي', 'Total')}</td>
-                    <td className="px-4 py-3 text-end font-mono text-gray-600">
-                      {settlements.reduce((s, r) => s + (r.totalConsultations ?? 0) + (r.totalProcedures ?? 0), 0)}
-                    </td>
-                    <td className="px-4 py-3 text-end font-mono tabular-nums text-gray-900 dark:text-gray-100">{fmt(totalSessionFees)}</td>
-                    <td className="px-4 py-3 text-end font-mono tabular-nums text-orange-700 dark:text-orange-300">{fmt(totalMediator)}</td>
-                    <td className="px-4 py-3 text-end font-mono tabular-nums text-violet-700 dark:text-violet-300">{fmt(totalExtraServices)}</td>
-                    <td className="px-4 py-3 text-end font-mono tabular-nums text-gray-700 dark:text-gray-300">{fmt(totalNetPool)}</td>
-                    <td className="px-4 py-3 text-end font-mono tabular-nums text-blue-700 dark:text-blue-300">{fmt(totalDoctors)}</td>
-                    <td className="px-4 py-3 text-end font-mono tabular-nums text-emerald-700 dark:text-emerald-300">{fmt(totalClinic)}</td>
-                    <td className="px-4 py-3" />
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {settleTarget && (
-        <SettleConfirmModal
-          doctorName={doctorMap.get(settleTarget.doctorId)?.nameEn ?? settleTarget.doctorId.slice(0, 8)}
-          grossRevenue={settleTarget.grossRevenue}
-          doctorShare={settleTarget.doctorShare}
-          clinicShare={settleTarget.clinicShare}
-          sessionCount={(settleTarget.totalConsultations ?? 0) + (settleTarget.totalProcedures ?? 0)}
-          locale={locale}
+      {showBulkDelete && selectedTxs.length > 0 && (
+        <BulkDeleteModal
+          selected={selectedTxs}
           lang={lang}
           t={t}
-          onConfirm={() => void handleSettle()}
-          onClose={() => setSettleTarget(null)}
-          loading={reconcile.isPending}
+          locale={locale}
+          onClose={() => setShowBulkDelete(false)}
+          onDeleted={() => {
+            setShowBulkDelete(false);
+            setSelectedIds(new Set());
+          }}
         />
       )}
-    </div>
-  );
-}
 
-function SettlementDetail({ doctorId, from, to, locale, t }: {
-  doctorId: string; from: string; to: string; locale: string;
-  t: (ar: string, en: string) => string;
-}) {
-  const { data: txData, isLoading: txLoading } = useTransactions({ doctorId, dateFrom: from, dateTo: to, limit: 100 });
-  const procedureMap = useProcedureMap();
-  const updateCost = useUpdateProcedureCost();
-  const txs = txData?.data ?? [];
-  const fmt = (n: number) => formatCurrency(n, 'EGP', locale);
-
-  const [overrides, setOverrides] = useState<Map<string, string>>(new Map());
-
-  const handleCostChange = useCallback((id: string, val: string) => {
-    setOverrides((prev) => new Map(prev).set(id, val));
-  }, []);
-
-  const handleSave = useCallback(async (id: string) => {
-    const raw = overrides.get(id) ?? '';
-    const parsed = raw === '' ? null : parseFloat(raw);
-    await updateCost.mutateAsync({ id, procedureCost: parsed });
-    setOverrides((prev) => { const m = new Map(prev); m.delete(id); return m; });
-  }, [overrides, updateCost]);
-
-  const handleReset = useCallback((id: string) => {
-    setOverrides((prev) => { const m = new Map(prev); m.delete(id); return m; });
-  }, []);
-
-  if (txLoading) return <div className="flex items-center gap-2 text-xs text-gray-400"><Loader2 className="w-3 h-3 animate-spin" />{t('جاري التحميل...', 'Loading...')}</div>;
-  if (!txs.length) return <p className="text-xs text-gray-400">{t('لا توجد معاملات', 'No transactions')}</p>;
-
-  let footerSession = 0, footerMediator = 0, footerExtra = 0, footerNet = 0, footerDoctor = 0, footerClinic = 0;
-
-  return (
-    <div className="rounded-lg border border-gray-200 dark:border-neutral-700 overflow-hidden">
-      <table className="w-full text-xs">
-        <thead>
-          <tr className="bg-gray-100 dark:bg-neutral-700/50 border-b border-gray-200 dark:border-neutral-700">
-            <th className="text-start px-3 py-2 font-medium text-gray-500">{t('التاريخ', 'Date')}</th>
-            <th className="text-start px-3 py-2 font-medium text-gray-500">{t('المصدر', 'Source')}</th>
-            <th className="text-end   px-3 py-2 font-medium text-gray-500">{t('رسم الجلسة', 'Session Fee')}</th>
-            <th className="text-end   px-3 py-2 font-medium text-orange-500">{t('وسيط %', 'Src %')}</th>
-            <th className="text-end   px-3 py-2 font-medium text-orange-500">{t('حصة الوسيط', 'Mediator Cut')}</th>
-            <th className="text-start px-3 py-2 font-medium text-violet-500">{t('خدمة إضافية', 'Extra Service')}</th>
-            <th className="text-end   px-3 py-2 font-medium text-violet-500">{t('تكلفة', 'Cost')}</th>
-            <th className="text-end   px-3 py-2 font-medium text-gray-500">{t('الصافي', 'Net Pool')}</th>
-            <th className="text-end   px-3 py-2 font-medium text-blue-500">{t('د %', 'Dr %')}</th>
-            <th className="text-end   px-3 py-2 font-medium text-blue-500">{t('حصة الطبيب', 'Doctor')}</th>
-            <th className="text-end   px-3 py-2 font-medium text-emerald-500">{t('ع %', 'Cl %')}</th>
-            <th className="text-end   px-3 py-2 font-medium text-emerald-500">{t('العيادة', 'Clinic')}</th>
-            <th className="px-3 py-2" />
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-100 dark:divide-neutral-700/50">
-          {txs.map((tx) => {
-            const isDirty     = overrides.has(tx.id);
-            const rawOverride = overrides.get(tx.id) ?? '';
-            const overrideCost = isDirty ? (rawOverride === '' ? 0 : parseFloat(rawOverride) || 0) : (tx.procedureCost ?? 0);
-            const netPool     = (tx.approvedCharge - tx.sourceFeeAmount) + overrideCost;
-            const doctorShare = Math.round(netPool * tx.splitDoctorPercentage) / 100;
-            const clinicShare = Math.round(netPool * tx.splitClinicPercentage) / 100;
-            const procName    = tx.procedureId ? (procedureMap.get(tx.procedureId)?.nameEn ?? '—') : '—';
-
-            footerSession  += tx.approvedCharge;
-            footerMediator += tx.sourceFeeAmount;
-            footerExtra    += overrideCost;
-            footerNet      += netPool;
-            footerDoctor   += doctorShare;
-            footerClinic   += clinicShare;
-
-            return (
-              <tr key={tx.id} className={cn('transition-colors', isDirty ? 'bg-amber-50 dark:bg-amber-900/10' : 'hover:bg-white dark:hover:bg-neutral-700/20')}>
-                <td className="px-3 py-2 text-gray-600 dark:text-gray-400 whitespace-nowrap">{tx.transactionDate?.slice(0, 10)}</td>
-                <td className="px-3 py-2">
-                  <span className="bg-gray-100 dark:bg-neutral-700 px-1.5 py-0.5 rounded text-gray-600 dark:text-gray-300">{tx.patientSource}</span>
-                </td>
-                <td className="px-3 py-2 text-end font-mono tabular-nums text-gray-700 dark:text-gray-300">{fmt(tx.approvedCharge)}</td>
-                <td className="px-3 py-2 text-end font-mono text-orange-500">{tx.sourceFeePercentage}%</td>
-                <td className="px-3 py-2 text-end font-mono tabular-nums text-orange-600 dark:text-orange-400">{fmt(tx.sourceFeeAmount)}</td>
-                <td className="px-3 py-2 text-violet-600 dark:text-violet-400 whitespace-nowrap">
-                  {overrideCost > 0 ? procName : <span className="text-gray-300 dark:text-gray-600">—</span>}
-                </td>
-                <td className="px-3 py-2 text-end">
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={isDirty ? rawOverride : (tx.procedureCost ?? '')}
-                    onChange={(e) => handleCostChange(tx.id, e.target.value)}
-                    placeholder="0"
-                    disabled={tx.paymentStatus === 'reconciled'}
-                    className={cn(
-                      'w-20 text-end font-mono tabular-nums bg-transparent border border-transparent rounded px-1 py-0.5 text-violet-600 dark:text-violet-400 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none',
-                      tx.paymentStatus === 'reconciled'
-                        ? 'opacity-50 cursor-not-allowed'
-                        : 'hover:border-gray-300 dark:hover:border-neutral-500 focus:border-violet-400 focus:outline-none',
-                    )}
-                  />
-                </td>
-                <td className="px-3 py-2 text-end font-mono tabular-nums text-gray-700 dark:text-gray-300">{fmt(netPool)}</td>
-                <td className="px-3 py-2 text-end font-mono text-blue-500">{tx.splitDoctorPercentage}%</td>
-                <td className="px-3 py-2 text-end font-mono tabular-nums text-blue-700 dark:text-blue-400 font-semibold">{fmt(doctorShare)}</td>
-                <td className="px-3 py-2 text-end font-mono text-emerald-500">{tx.splitClinicPercentage}%</td>
-                <td className="px-3 py-2 text-end font-mono tabular-nums text-emerald-700 dark:text-emerald-400 font-semibold">{fmt(clinicShare)}</td>
-                <td className="px-3 py-2 whitespace-nowrap">
-                  {isDirty && tx.paymentStatus !== 'reconciled' && (
-                    <div className="flex gap-1">
-                      <button type="button" onClick={() => handleSave(tx.id)} disabled={updateCost.isPending} className="p-1 rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400" aria-label="Save">
-                        <Check className="w-3 h-3" />
-                      </button>
-                      <button type="button" onClick={() => handleReset(tx.id)} className="p-1 rounded bg-gray-100 hover:bg-gray-200 text-gray-500 dark:bg-neutral-700 dark:text-gray-400" aria-label="Cancel">
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
-                  )}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-        <tfoot>
-          <tr className="border-t border-gray-200 dark:border-neutral-600 bg-gray-50 dark:bg-neutral-700/30 font-semibold">
-            <td colSpan={2} className="px-3 py-2 text-gray-500 text-xs">{t('المجموع', 'Total')} ({txs.length})</td>
-            <td className="px-3 py-2 text-end font-mono tabular-nums text-gray-800 dark:text-gray-200">{fmt(footerSession)}</td>
-            <td />
-            <td className="px-3 py-2 text-end font-mono tabular-nums text-orange-600 dark:text-orange-400">{fmt(footerMediator)}</td>
-            <td />
-            <td className="px-3 py-2 text-end font-mono tabular-nums text-violet-600 dark:text-violet-400">{fmt(footerExtra)}</td>
-            <td className="px-3 py-2 text-end font-mono tabular-nums text-gray-700 dark:text-gray-300">{fmt(footerNet)}</td>
-            <td />
-            <td className="px-3 py-2 text-end font-mono tabular-nums text-blue-700 dark:text-blue-300">{fmt(footerDoctor)}</td>
-            <td />
-            <td className="px-3 py-2 text-end font-mono tabular-nums text-emerald-700 dark:text-emerald-300">{fmt(footerClinic)}</td>
-            <td />
-          </tr>
-        </tfoot>
-      </table>
+      {showBulkEdit && selectedTxs.length > 0 && (
+        <BulkEditModal
+          selected={selectedTxs}
+          lang={lang}
+          t={t}
+          onClose={() => setShowBulkEdit(false)}
+          onEdited={() => {
+            setShowBulkEdit(false);
+            setSelectedIds(new Set());
+          }}
+        />
+      )}
     </div>
   );
 }
