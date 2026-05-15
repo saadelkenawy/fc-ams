@@ -34,6 +34,18 @@
     --color-danger:  #EF4444;
     --color-info:    #3B82F6;
 
+    /* Primary scale — referenced by Tailwind so dark-mode overrides take effect */
+    --color-primary-50:  #FEF2F2;
+    --color-primary-100: #FEE2E2;
+    --color-primary-200: #FECACA;
+    --color-primary-300: #FCA5A5;
+    --color-primary-400: #F87171;
+    --color-primary-500: #EF4444;
+    --color-primary-600: #B71C1C;
+    --color-primary-700: #991B1B;
+    --color-primary-800: #7F1D1D;
+    --color-primary-900: #450A0A;
+
     /* Brand role aliases */
     --brand:        #B71C1C;
     --brand-hover:  #991B1B;
