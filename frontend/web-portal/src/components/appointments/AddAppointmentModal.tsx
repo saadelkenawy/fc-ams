@@ -16,6 +16,7 @@ import { usePatients } from '@/hooks/usePatients';
 import { useProcedures } from '@/hooks/useProcedures';
 import { useDebounce } from '@/hooks/useDebounce';
 import { appointmentApi, patientApi } from '@/lib/api';
+import { useAppointments } from '@/hooks/useAppointments';
 import { cn } from '@/lib/utils';
 import type { Appointment, Doctor, Patient, Specialty } from '@fadl/types';
 
@@ -56,6 +57,22 @@ function diffMinutes(start: string, end: string): number {
 }
 
 function makeKey() { return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`; }
+
+function roundUpTo5(hhmm: string): string {
+  const [h, m] = hhmm.split(':').map(Number);
+  const rounded = Math.ceil(m / 5) * 5;
+  if (rounded >= 60) return `${String((h + 1) % 24).padStart(2, '0')}:00`;
+  return `${String(h).padStart(2, '0')}:${String(rounded).padStart(2, '0')}`;
+}
+
+function nowHHMM(): string {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+function todayYMD(): string {
+  return new Date().toISOString().split('T')[0];
+}
 
 function normalizeEgyptianMobile(raw: string): string {
   const digits = raw.replace(/\D/g, '');
@@ -463,9 +480,42 @@ export function AddAppointmentModal({
   const [procCost,      setProcCost]      = useState(editAppointment?.procedureCost != null ? String(editAppointment.procedureCost) : '');
   const [errors,        setErrors]        = useState<Record<string, string>>({});
 
+  const timeManuallyEdited = useRef(false);
+
+  // Query doctor's existing appointments for the selected date (create mode only)
+  const { data: doctorAppts } = useAppointments(
+    !isEdit && !!doctor && !!date
+      ? { doctorId: doctor.id, date, limit: 100 }
+      : {},
+  );
+
+  // Auto-fill next available time slot when doctor + date are set
+  useEffect(() => {
+    if (isEdit || !doctor || !date || timeManuallyEdited.current) return;
+    const appts = doctorAppts?.data ?? [];
+    const isToday = date === todayYMD();
+    let nextSlot: string;
+    if (appts.length > 0) {
+      const lastEnd = appts
+        .map((a) => a.endTime)
+        .sort()
+        .at(-1)!;
+      nextSlot = isToday ? (lastEnd > nowHHMM() ? lastEnd : roundUpTo5(nowHHMM())) : lastEnd;
+    } else {
+      nextSlot = isToday ? roundUpTo5(nowHHMM()) : '09:00';
+    }
+    setTime(nextSlot);
+  }, [doctor, date, doctorAppts, isEdit]);
+
+  // Reset manual-edit flag when doctor or date changes
+  useEffect(() => {
+    timeManuallyEdited.current = false;
+  }, [doctor?.id, date]);
+
   // Sync when editAppointment changes (modal re-used)
   useEffect(() => {
     if (!open) return;
+    timeManuallyEdited.current = false;
     setPatient(editPatient ?? null);
     setDoctor(editDoctor ?? null);
     if (editAppointment) {
@@ -551,10 +601,12 @@ export function AddAppointmentModal({
 
   function validate(): boolean {
     const e: Record<string, string> = {};
-    if (!patient)        e.patient       = t('اختر مريضاً', 'Select a patient');
-    if (!doctor)         e.doctor        = t('اختر طبيباً', 'Select a doctor');
-    if (!date)           e.date          = t('التاريخ مطلوب', 'Date required');
-    if (!paymentMethod)  e.paymentMethod = t('طريقة الدفع مطلوبة', 'Payment method is required to confirm this booking.');
+    if (!patient)             e.patient       = t('اختر مريضاً', 'Select a patient');
+    if (!doctor)              e.doctor        = t('اختر طبيباً', 'Select a doctor');
+    if (!date)                e.date          = t('التاريخ مطلوب', 'Date required');
+    if (charge.trim() === '') e.charge        = t('التعرفة مطلوبة', 'Session fee is required');
+    if (!notes.trim())        e.notes         = t('الملاحظات مطلوبة', 'Notes are required');
+    if (!paymentMethod)       e.paymentMethod = t('طريقة الدفع مطلوبة', 'Payment method is required to confirm this booking.');
     setErrors(e);
     return Object.keys(e).length === 0;
   }
@@ -597,12 +649,39 @@ export function AddAppointmentModal({
       <form onSubmit={handleSubmit} className="space-y-5" noValidate>
 
         {/* Error banner */}
-        {mutation.isError && (
-          <div className="flex items-center gap-2.5 p-3.5 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 rounded-xl text-red-700 dark:text-red-400 text-sm">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            {t('حدث خطأ، يرجى التحقق من البيانات.', 'An error occurred. Please check and try again.')}
-          </div>
-        )}
+        {(mutation.isError || Object.keys(errors).length > 0) && (() => {
+          const errObj = mutation.error as { response?: { data?: { error?: { code?: string; message?: string } } } };
+          const code   = errObj?.response?.data?.error?.code;
+          const apiMsg = errObj?.response?.data?.error?.message;
+
+          let title: string;
+          let description: React.ReactNode;
+
+          if (mutation.isError && code === 'DOUBLE_BOOKING') {
+            title       = t('تعارض في الموعد', 'Time slot conflict');
+            description = t('هذا الموعد محجوز بالفعل. اختر وقتاً آخر.', 'This time slot is already booked. Please pick another time.');
+          } else if (mutation.isError) {
+            title       = t('فشل الحجز', 'Booking failed');
+            description = apiMsg ?? t('حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.', 'An unexpected error occurred. Please try again.');
+          } else {
+            title       = t('حقول مطلوبة مفقودة', 'Required fields missing');
+            description = (
+              <ul className="list-disc ms-5 mt-1 space-y-0.5">
+                {Object.values(errors).map((m, i) => <li key={i}>{m}</li>)}
+              </ul>
+            );
+          }
+
+          return (
+            <div className="flex items-start gap-3 p-4 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 rounded-xl">
+              <AlertCircle className="w-5 h-5 shrink-0 text-red-500 mt-0.5" />
+              <div className="text-sm text-red-700 dark:text-red-400 flex-1">
+                <p className="font-semibold mb-1">{title}</p>
+                <div className="text-red-600 dark:text-red-300/90 text-xs leading-relaxed">{description}</div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Step 1 — Patient */}
         <StepSection step={1} title={t('المريض', 'Patient')} badge="bg-emerald-600">
@@ -633,7 +712,7 @@ export function AddAppointmentModal({
               <label className="field-label">{t('الوقت', 'Time')}</label>
               <div className="relative">
                 <Clock className="absolute inset-y-0 start-3 my-auto w-3.5 h-3.5 text-gray-400 pointer-events-none" />
-                <input type="time" className={cn(inputCls, 'ps-8')} value={time} step={60 * 5} onChange={(e) => setTime(e.target.value)} />
+                <input type="time" className={cn(inputCls, 'ps-8')} value={time} step={60 * 5} onChange={(e) => { timeManuallyEdited.current = true; setTime(e.target.value); }} />
               </div>
             </div>
             <div className="space-y-1">
@@ -705,7 +784,10 @@ export function AddAppointmentModal({
             {/* Session fee + Notes */}
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
-                <label className="field-label">{t('التعرفة', 'Session Fee')}</label>
+                <label className={cn('field-label', errors.charge && 'text-red-500')}>
+                  {t('التعرفة', 'Session Fee')}
+                  <span className="text-red-500 ms-0.5">*</span>
+                </label>
                 <div className="relative flex">
                   <span className="inline-flex items-center px-3 rounded-s-xl border border-e-0 border-gray-200 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-700 text-xs font-bold text-gray-500 dark:text-gray-400 select-none">
                     EGP
@@ -714,17 +796,27 @@ export function AddAppointmentModal({
                     type="number"
                     min="0"
                     step="50"
-                    className="flex-1 h-10 rounded-e-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 text-sm font-semibold tabular-nums text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-600 transition-shadow [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    className={cn('flex-1 h-10 rounded-e-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 text-sm font-semibold tabular-nums text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-600 transition-shadow [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none', errors.charge && 'border-red-400 focus:ring-red-400')}
                     placeholder="0"
                     value={charge}
                     onChange={(e) => setCharge(e.target.value)}
                     dir="ltr"
                   />
                 </div>
+                {errors.charge && <p className="text-xs text-red-500 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{errors.charge}</p>}
               </div>
               <div className="space-y-1">
-                <label className="field-label">{t('ملاحظات', 'Notes')}</label>
-                <input className={inputCls} placeholder={t('اختياري...', 'Optional...')} value={notes} onChange={(e) => setNotes(e.target.value)} />
+                <label className={cn('field-label', errors.notes && 'text-red-500')}>
+                  {t('ملاحظات', 'Notes')}
+                  <span className="text-red-500 ms-0.5">*</span>
+                </label>
+                <input
+                  className={cn(inputCls, errors.notes && 'border-red-400 focus:ring-red-400')}
+                  placeholder={t('أدخل ملاحظات الموعد...', 'Enter appointment notes...')}
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                />
+                {errors.notes && <p className="text-xs text-red-500 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{errors.notes}</p>}
               </div>
             </div>
 
