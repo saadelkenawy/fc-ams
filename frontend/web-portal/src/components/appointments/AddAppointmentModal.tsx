@@ -574,6 +574,7 @@ export function AddAppointmentModal({
         // Edit mode — PATCH
         const body: Record<string, unknown> = {
           doctorId:        doctor.id,
+          specialtyId:     doctor.specialtyId,
           appointmentDate: date,
           startTime:       time,
           endTime:         addMinutes(time, duration),
@@ -591,6 +592,7 @@ export function AddAppointmentModal({
         const body: Record<string, unknown> = {
           patientId:       patient.patientId,
           doctorId:        doctor.id,
+          specialtyId:     doctor.specialtyId,
           appointmentDate: date,
           startTime:       time,
           endTime:         addMinutes(time, duration),
