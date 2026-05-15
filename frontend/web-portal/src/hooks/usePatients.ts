@@ -70,3 +70,33 @@ export function useDeletePatient() {
     },
   });
 }
+
+interface PatientNameRecord {
+  patientId: string;
+  nameEn: string;
+  nameAr: string | null;
+}
+
+export function usePatientBatch(ids: string[]) {
+  const key = [...new Set(ids)].sort().join(',');
+  const uniqueIds = useMemo(() => (key ? key.split(',') : []), [key]);
+
+  const { data = [] } = useQuery({
+    queryKey: ['patients-batch', key],
+    queryFn: async (): Promise<PatientNameRecord[]> => {
+      if (!uniqueIds.length) return [];
+      const res = await patientApi.get<{ data: PatientNameRecord[] }>('/patients/batch', {
+        params: { ids: uniqueIds.join(',') },
+      });
+      return res.data.data ?? [];
+    },
+    enabled: uniqueIds.length > 0,
+    staleTime: 5 * 60_000,
+  });
+
+  return useMemo(() => {
+    const map = new Map<string, PatientNameRecord>();
+    data.forEach((p) => map.set(p.patientId, p));
+    return map;
+  }, [data]);
+}

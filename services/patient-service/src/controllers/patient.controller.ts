@@ -47,6 +47,20 @@ export async function searchPatients(request: FastifyRequest, reply: FastifyRepl
   void reply.send({ success: true, ...result });
 }
 
+const batchSchema = z.object({
+  ids: z.string().transform((s) => s.split(',').map((id) => id.trim()).filter(Boolean)),
+});
+
+export async function batchGetPatients(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { ids } = batchSchema.parse(request.query);
+  if (ids.length > 200) {
+    void reply.status(400).send({ success: false, error: { code: 'TOO_MANY_IDS', message: 'Max 200 IDs per request' } });
+    return;
+  }
+  const patients = await repo.findPatientsByIds(ids);
+  void reply.send({ success: true, data: patients });
+}
+
 export async function createPatient(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const input = createSchema.parse(request.body) as CreatePatientInput;
   const user = request.user as JwtPayload;

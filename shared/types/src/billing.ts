@@ -36,6 +36,7 @@ export interface FinancialTransaction {
   createdBy?: string;
   transactionDate: string;
   branchId: number;
+  visitType?: 'consultation' | 'operative' | 'online';
 }
 
 export interface CreateTransactionInput {
@@ -64,6 +65,8 @@ export interface DoctorSettlement {
   totalSessionFees?: number;
   /** Sum of procedureCost (extra services — added at full cost to net pool) */
   totalExtraServices?: number;
+  /** Count of individual extra service line items */
+  totalExtraServicesCount?: number;
   /** Net pool = (session fees − mediator cuts) + extra services — what doctor+clinic split */
   grossRevenue: number;
   doctorShare: number;
@@ -72,4 +75,35 @@ export interface DoctorSettlement {
   netPayable: number;
   status: PaymentStatus;
   transactions: FinancialTransaction[];
+}
+
+export interface SettlementRecord {
+  id: string;
+  doctorId: string;
+  settlementDate: string;
+  periodFrom: string | null;
+  periodTo: string | null;
+  amount: number;
+  paymentMethod: string;
+  paymentReference: string | null;
+  notes: string | null;
+  processedByUserId: string | null;
+  relatedTransactionIds: string[];
+  reversedAt: string | null;
+  reversedBy: string | null;
+  reversedReason: string | null;
+  branchId: number;
+  createdAt: string;
+}
+
+export interface DoctorCompensationRule {
+  id: string;
+  doctorId: string;
+  visitType: 'consultation' | 'operative' | 'online';
+  doctorPercentage: number;
+  clinicPercentage: number;
+  effectiveFrom: string;
+  effectiveUntil: string | null;
+  branchId: number;
+  createdAt: string;
 }

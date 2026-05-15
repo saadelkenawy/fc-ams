@@ -240,16 +240,86 @@ export async function refundTransactionByAppointmentHandler(req: FastifyRequest,
 }
 
 const reconcileDoctorSchema = z.object({
-  doctorId: z.string().uuid(),
-  from:     z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  to:       z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  doctorId:         z.string().uuid(),
+  from:             z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  to:               z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  paymentMethod:    z.enum(['cash', 'bank', 'cheque', 'transfer']).default('cash'),
+  paymentReference: z.string().max(200).optional(),
+  notes:            z.string().max(1000).optional(),
 });
 
 export async function reconcileDoctorHandler(req: FastifyRequest, reply: FastifyReply): Promise<void> {
-  const { doctorId, from, to } = reconcileDoctorSchema.parse(req.body);
+  const { doctorId, from, to, paymentMethod, paymentReference, notes } = reconcileDoctorSchema.parse(req.body);
   const user = req.user as JwtPayload;
-  const result = await repo.reconcileDoctor(doctorId, from, to, user.sub, user.branchId);
+  const result = await repo.reconcileDoctor(doctorId, from, to, user.sub, user.branchId, {
+    paymentMethod,
+    paymentReference,
+    notes,
+  });
   void reply.send({ success: true, data: result });
+}
+
+const listSettlementRecordsSchema = z.object({
+  doctorId: z.string().uuid().optional(),
+  from:     z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  to:       z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  page:     z.coerce.number().int().positive().default(1),
+  limit:    z.coerce.number().int().positive().max(100).default(20),
+});
+
+export async function listSettlementRecordsHandler(req: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const params = listSettlementRecordsSchema.parse(req.query);
+  const user = req.user as JwtPayload;
+  const result = await repo.listSettlementRecords({ ...params, branchId: user.branchId });
+  void reply.send({ success: true, ...result });
+}
+
+const reverseSettlementSchema = z.object({
+  reason: z.string().min(10),
+});
+
+export async function reverseSettlementHandler(req: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { id } = req.params as { id: string };
+  const { reason } = reverseSettlementSchema.parse(req.body);
+  const user = req.user as JwtPayload;
+  const result = await repo.reverseSettlement(id, user.sub, reason, user.branchId);
+  void reply.send({ success: true, data: result });
+}
+
+// ─── Doctor Compensation ──────────────────────────────────────────────────────
+
+const setCompensationSchema = z.object({
+  visitType:        z.enum(['consultation', 'operative', 'online']),
+  doctorPercentage: z.number().min(0).max(100),
+  clinicPercentage: z.number().min(0).max(100),
+  effectiveFrom:    z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  applyToExisting:  z.boolean().default(false),
+}).refine((d) => Math.abs(d.doctorPercentage + d.clinicPercentage - 100) < 0.01, {
+  message: 'doctorPercentage + clinicPercentage must equal 100',
+});
+
+export async function listDoctorCompensationHandler(req: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { doctorId } = req.params as { doctorId: string };
+  const user = req.user as JwtPayload;
+  const rules = await repo.listDoctorCompensation(doctorId, user.branchId);
+  void reply.send({ success: true, data: rules });
+}
+
+export async function setDoctorCompensationHandler(req: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { doctorId } = req.params as { doctorId: string };
+  const { visitType, doctorPercentage, clinicPercentage, effectiveFrom, applyToExisting } = setCompensationSchema.parse(req.body);
+  const user = req.user as JwtPayload;
+  const rule = await repo.setDoctorCompensation(
+    doctorId, visitType, doctorPercentage, clinicPercentage, effectiveFrom, user.branchId, user.sub, applyToExisting,
+  );
+  void reply.status(201).send({ success: true, data: rule });
+}
+
+export async function deleteCompensationRuleHandler(req: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { id } = req.params as { id: string };
+  const user = req.user as JwtPayload;
+  await repo.deleteCompensationRule(id, user.branchId);
+  void reply.status(204).send();
 }
 
 // ─── Bulk Operations ──────────────────────────────────────────────────────────

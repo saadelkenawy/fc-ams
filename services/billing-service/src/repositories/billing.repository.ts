@@ -48,6 +48,7 @@ function rowToTransaction(row: Record<string, unknown>): FinancialTransaction {
       ? (row.transaction_date as Date).toISOString().split('T')[0]
       : (row.transaction_date as string),
     branchId: row.branch_id as number,
+    visitType: row.visit_type as FinancialTransaction['visitType'],
   };
 }
 
@@ -369,27 +370,29 @@ export async function listDoctorSettlements(params: {
   return withRlsContext(async (client) => {
     const [{ rows: countRows }, { rows: dataRows }] = await Promise.all([
       client.query(
-        `SELECT COUNT(DISTINCT doctor_id)::int AS total
-         FROM financial_transactions
-         WHERE transaction_date BETWEEN $1 AND $2
-           AND doctor_id IS NOT NULL
-           AND payment_status IN ('paid', 'reconciled')`,
+        `SELECT COUNT(DISTINCT ft.doctor_id)::int AS total
+         FROM financial_transactions ft
+         WHERE ft.transaction_date BETWEEN $1 AND $2
+           AND ft.doctor_id IS NOT NULL
+           AND ft.payment_status IN ('paid', 'reconciled')`,
         [params.from, params.to],
       ),
       client.query(
         `SELECT
            ft.doctor_id,
-           COUNT(*) FILTER (WHERE ft.procedure_id IS NULL)::int AS total_consultations,
-           COUNT(*) FILTER (WHERE ft.procedure_id IS NOT NULL)::int AS total_procedures,
-           SUM(ft.approved_charge)                         AS total_session_fees,
-           SUM(COALESCE(ft.procedure_cost, 0))             AS total_extra_services,
-           SUM(ft.source_fee_amount)                       AS total_source_fees,
-           SUM(ft.gross_revenue)                           AS gross_revenue,
-           SUM(ft.doctor_share)                            AS doctor_share,
-           SUM(ft.clinic_share)                            AS clinic_share,
-           SUM(ft.doctor_share)                            AS net_payable,
-           BOOL_AND(ft.payment_status = 'reconciled')      AS all_reconciled
+           COUNT(*) FILTER (WHERE ft.procedure_id IS NULL)::int           AS total_consultations,
+           COUNT(*) FILTER (WHERE ft.procedure_id IS NOT NULL)::int        AS total_procedures,
+           SUM(ft.approved_charge)                                          AS total_session_fees,
+           SUM(COALESCE(ft.procedure_cost, 0))                             AS total_extra_services,
+           COUNT(tes.id)::int                                               AS total_extra_services_count,
+           SUM(ft.source_fee_amount)                                        AS total_source_fees,
+           SUM(ft.gross_revenue)                                            AS gross_revenue,
+           SUM(ft.doctor_share)                                             AS doctor_share,
+           SUM(ft.clinic_share)                                             AS clinic_share,
+           SUM(ft.doctor_share)                                             AS net_payable,
+           BOOL_AND(ft.payment_status = 'reconciled')                       AS all_reconciled
          FROM financial_transactions ft
+         LEFT JOIN transaction_extra_services tes ON tes.transaction_id = ft.id
          WHERE ft.transaction_date BETWEEN $1 AND $2
            AND ft.doctor_id IS NOT NULL
            AND ft.payment_status IN ('paid', 'reconciled')
@@ -413,7 +416,8 @@ export async function listDoctorSettlements(params: {
         totalProcedures: Number(row.total_procedures),
         totalSessionFees: Number(row.total_session_fees),
         totalExtraServices: Number(row.total_extra_services),
-        grossRevenue: Number(row.gross_revenue), // net pool = what doctor+clinic split
+        totalExtraServicesCount: Number(row.total_extra_services_count),
+        grossRevenue: Number(row.gross_revenue),
         doctorShare: Number(row.doctor_share),
         clinicShare: Number(row.clinic_share),
         totalSourceFees: Number(row.total_source_fees),
@@ -514,6 +518,7 @@ export async function reconcileDoctor(
   to: string,
   settledBy: string,
   branchId: number,
+  options?: { paymentMethod?: string; paymentReference?: string; notes?: string },
 ): Promise<ReconcileResult> {
   return withTransaction(async (client: PoolClient) => {
     // Lock all Paid transactions for this doctor in the period
@@ -571,15 +576,20 @@ export async function reconcileDoctor(
     // Write immutable settlement audit record
     const { rows: srRows } = await client.query(
       `INSERT INTO settlement_records
-         (doctor_id, settlement_date, amount, payment_method, processed_by_user_id, related_transaction_ids, notes, branch_id)
-       VALUES ($1, CURRENT_DATE, $2, 'system', $3, $4, $5, $6)
+         (doctor_id, settlement_date, amount, payment_method, payment_reference, processed_by_user_id,
+          related_transaction_ids, notes, period_from, period_to, branch_id)
+       VALUES ($1, CURRENT_DATE, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        RETURNING id`,
       [
         doctorId,
         totals.doctorShare,
+        options?.paymentMethod ?? 'cash',
+        options?.paymentReference ?? null,
         settledBy,
         transactionIds,
-        `Reconciled ${transactionIds.length} transactions: ${from} to ${to}`,
+        options?.notes ?? `Reconciled ${transactionIds.length} transactions: ${from} to ${to}`,
+        from,
+        to,
         branchId,
       ],
     );
@@ -913,4 +923,255 @@ export async function bulkUpdatePaymentMethod(
 
     return { updatedCount: rowCount ?? 0 };
   });
+}
+
+// ─── Settlement Records (completed settlements) ───────────────────────────────
+
+export interface SettlementRecord {
+  id: string;
+  doctorId: string;
+  settlementDate: string;
+  periodFrom: string | null;
+  periodTo: string | null;
+  amount: number;
+  paymentMethod: string;
+  paymentReference: string | null;
+  notes: string | null;
+  processedByUserId: string | null;
+  relatedTransactionIds: string[];
+  reversedAt: string | null;
+  reversedBy: string | null;
+  reversedReason: string | null;
+  branchId: number;
+  createdAt: string;
+}
+
+function rowToSettlementRecord(row: Record<string, unknown>): SettlementRecord {
+  return {
+    id:                    row.id as string,
+    doctorId:              row.doctor_id as string,
+    settlementDate:        row.settlement_date instanceof Date
+                            ? (row.settlement_date as Date).toISOString().split('T')[0]
+                            : row.settlement_date as string,
+    periodFrom:            row.period_from instanceof Date
+                            ? (row.period_from as Date).toISOString().split('T')[0]
+                            : (row.period_from as string | null) ?? null,
+    periodTo:              row.period_to instanceof Date
+                            ? (row.period_to as Date).toISOString().split('T')[0]
+                            : (row.period_to as string | null) ?? null,
+    amount:                Number(row.amount),
+    paymentMethod:         row.payment_method as string,
+    paymentReference:      (row.payment_reference as string | null) ?? null,
+    notes:                 (row.notes as string | null) ?? null,
+    processedByUserId:     (row.processed_by_user_id as string | null) ?? null,
+    relatedTransactionIds: (row.related_transaction_ids as string[]) ?? [],
+    reversedAt:            row.reversed_at ? (row.reversed_at as Date).toISOString() : null,
+    reversedBy:            (row.reversed_by as string | null) ?? null,
+    reversedReason:        (row.reversed_reason as string | null) ?? null,
+    branchId:              row.branch_id as number,
+    createdAt:             (row.created_at as Date).toISOString(),
+  };
+}
+
+export async function listSettlementRecords(params: {
+  doctorId?: string;
+  from?: string;
+  to?: string;
+  page: number;
+  limit: number;
+  branchId: number;
+}): Promise<PaginatedResponse<SettlementRecord>> {
+  const page = params.page ?? 1;
+  const limit = Math.min(params.limit ?? 20, 100);
+  const offset = (page - 1) * limit;
+
+  const conditions: string[] = ['branch_id = $1'];
+  const values: unknown[] = [params.branchId];
+  let idx = 2;
+
+  if (params.doctorId) { conditions.push(`doctor_id = $${idx++}`); values.push(params.doctorId); }
+  if (params.from)     { conditions.push(`settlement_date >= $${idx++}`); values.push(params.from); }
+  if (params.to)       { conditions.push(`settlement_date <= $${idx++}`); values.push(params.to); }
+
+  const where = `WHERE ${conditions.join(' AND ')}`;
+
+  const [{ rows: countRows }, { rows: dataRows }] = await Promise.all([
+    pool.query(`SELECT COUNT(*)::int AS total FROM settlement_records ${where}`, values),
+    pool.query(
+      `SELECT * FROM settlement_records ${where} ORDER BY settlement_date DESC, created_at DESC LIMIT $${idx++} OFFSET $${idx++}`,
+      [...values, limit, offset],
+    ),
+  ]);
+
+  const total = (countRows[0] as { total: number }).total;
+  return {
+    data: dataRows.map((r) => rowToSettlementRecord(r as Record<string, unknown>)),
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit),
+  };
+}
+
+export async function reverseSettlement(
+  id: string,
+  reversedBy: string,
+  reason: string,
+  branchId: number,
+): Promise<SettlementRecord> {
+  return withTransaction(async (client: PoolClient) => {
+    const { rows: existing } = await client.query(
+      `SELECT * FROM settlement_records WHERE id = $1 AND branch_id = $2`,
+      [id, branchId],
+    );
+    if (!existing.length) {
+      throw Object.assign(new Error('Settlement record not found'), { statusCode: 404, code: 'SETTLEMENT_NOT_FOUND' });
+    }
+    const rec = existing[0] as Record<string, unknown>;
+    if (rec.reversed_at) {
+      throw Object.assign(new Error('Settlement already reversed'), { statusCode: 409, code: 'ALREADY_REVERSED' });
+    }
+
+    // Mark settlement as reversed (non-immutable columns — trigger only guards core fields)
+    const { rows: updated } = await client.query(
+      `UPDATE settlement_records
+         SET reversed_at = NOW(), reversed_by = $2, reversed_reason = $3
+       WHERE id = $1
+       RETURNING *`,
+      [id, reversedBy, reason],
+    );
+
+    // Revert affected transactions from reconciled → paid
+    const txIds = rec.related_transaction_ids as string[];
+    if (txIds?.length) {
+      await client.query(
+        `UPDATE financial_transactions
+           SET payment_status = 'paid', settled_at = NULL, settled_by = NULL
+         WHERE id = ANY($1::uuid[])
+           AND payment_status = 'reconciled'`,
+        [txIds],
+      );
+    }
+
+    return rowToSettlementRecord(updated[0] as Record<string, unknown>);
+  });
+}
+
+// ─── Doctor Compensation ──────────────────────────────────────────────────────
+
+export interface DoctorCompensationRule {
+  id: string;
+  doctorId: string;
+  visitType: 'consultation' | 'operative' | 'online';
+  doctorPercentage: number;
+  clinicPercentage: number;
+  effectiveFrom: string;
+  effectiveUntil: string | null;
+  branchId: number;
+  createdAt: string;
+}
+
+function rowToCompensation(row: Record<string, unknown>): DoctorCompensationRule {
+  return {
+    id:               row.id as string,
+    doctorId:         row.doctor_id as string,
+    visitType:        row.visit_type as DoctorCompensationRule['visitType'],
+    doctorPercentage: Number(row.doctor_percentage),
+    clinicPercentage: Number(row.clinic_percentage),
+    effectiveFrom:    row.effective_from instanceof Date
+                        ? (row.effective_from as Date).toISOString().split('T')[0]
+                        : row.effective_from as string,
+    effectiveUntil:   row.effective_until instanceof Date
+                        ? (row.effective_until as Date).toISOString().split('T')[0]
+                        : (row.effective_until as string | null) ?? null,
+    branchId:         row.branch_id as number,
+    createdAt:        (row.created_at as Date).toISOString(),
+  };
+}
+
+export async function listDoctorCompensation(doctorId: string, branchId: number): Promise<DoctorCompensationRule[]> {
+  const { rows } = await pool.query(
+    `SELECT * FROM doctor_compensation
+     WHERE doctor_id = $1 AND branch_id = $2
+     ORDER BY visit_type, effective_from DESC`,
+    [doctorId, branchId],
+  );
+  return rows.map((r) => rowToCompensation(r as Record<string, unknown>));
+}
+
+export async function setDoctorCompensation(
+  doctorId: string,
+  visitType: string,
+  doctorPercentage: number,
+  clinicPercentage: number,
+  effectiveFrom: string,
+  branchId: number,
+  createdBy: string,
+  applyToExisting: boolean,
+): Promise<DoctorCompensationRule> {
+  return withTransaction(async (client: PoolClient) => {
+    // Close any existing active rule for this doctor+visitType
+    await client.query(
+      `UPDATE doctor_compensation
+         SET effective_until = $3
+       WHERE doctor_id = $1 AND visit_type = $2 AND branch_id = $4 AND effective_until IS NULL`,
+      [doctorId, visitType, effectiveFrom, branchId],
+    );
+
+    const { rows } = await client.query(
+      `INSERT INTO doctor_compensation
+         (doctor_id, visit_type, doctor_percentage, clinic_percentage, effective_from, branch_id, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)
+       RETURNING *`,
+      [doctorId, visitType, doctorPercentage, clinicPercentage, effectiveFrom, branchId, createdBy],
+    );
+
+    // Optionally recalculate unsettled transactions for this doctor+visitType
+    if (applyToExisting) {
+      await client.query(
+        `UPDATE financial_transactions
+           SET split_doctor_percentage = $3,
+               split_clinic_percentage = $4,
+               doctor_share = gross_revenue * $3 / 100,
+               clinic_share = gross_revenue * $4 / 100
+         WHERE doctor_id = $1
+           AND visit_type = $2
+           AND payment_status NOT IN ('reconciled', 'refunded')`,
+        [doctorId, visitType, doctorPercentage, clinicPercentage],
+      );
+    }
+
+    return rowToCompensation(rows[0] as Record<string, unknown>);
+  });
+}
+
+export async function getCompensationRateForDoctor(
+  doctorId: string,
+  visitType: string,
+  branchId: number,
+): Promise<{ doctorPercentage: number; clinicPercentage: number } | null> {
+  const { rows } = await pool.query(
+    `SELECT doctor_percentage, clinic_percentage
+     FROM doctor_compensation
+     WHERE doctor_id = $1 AND visit_type = $2 AND branch_id = $3
+       AND effective_until IS NULL
+     LIMIT 1`,
+    [doctorId, visitType, branchId],
+  );
+  if (!rows.length) return null;
+  const row = rows[0] as Record<string, unknown>;
+  return {
+    doctorPercentage: Number(row.doctor_percentage),
+    clinicPercentage: Number(row.clinic_percentage),
+  };
+}
+
+export async function deleteCompensationRule(id: string, branchId: number): Promise<void> {
+  const { rowCount } = await pool.query(
+    `DELETE FROM doctor_compensation WHERE id = $1 AND branch_id = $2`,
+    [id, branchId],
+  );
+  if (!rowCount) {
+    throw Object.assign(new Error('Compensation rule not found'), { statusCode: 404, code: 'NOT_FOUND' });
+  }
 }

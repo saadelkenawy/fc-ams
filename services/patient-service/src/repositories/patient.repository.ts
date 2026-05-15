@@ -59,6 +59,27 @@ export async function findPatientByMobile(mobile: string): Promise<Patient | nul
   });
 }
 
+export async function findPatientsByIds(
+  ids: string[],
+): Promise<Array<{ patientId: string; nameEn: string; nameAr: string | null }>> {
+  if (!ids.length) return [];
+  return withRlsContext(async (client) => {
+    const { rows } = await client.query(
+      `SELECT patient_id, name_en, name_ar FROM patients
+       WHERE patient_id = ANY($1::uuid[]) AND deleted_at IS NULL`,
+      [ids],
+    );
+    return rows.map((r) => {
+      const row = r as Record<string, unknown>;
+      return {
+        patientId: row.patient_id as string,
+        nameEn:    row.name_en as string,
+        nameAr:    (row.name_ar as string | null) ?? null,
+      };
+    });
+  });
+}
+
 export async function searchPatients(
   params: PatientSearchParams,
 ): Promise<PaginatedResponse<Patient>> {

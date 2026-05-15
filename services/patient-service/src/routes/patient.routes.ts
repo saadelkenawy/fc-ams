@@ -6,6 +6,18 @@ export async function patientRoutes(app: FastifyInstance): Promise<void> {
   // All routes require authentication
   app.addHook('onRequest', requireAuth);
 
+  // GET /patients/batch?ids=uuid1,uuid2,...  — resolve names for multiple IDs
+  app.get('/patients/batch', {
+    schema: {
+      tags: ['patients'],
+      querystring: {
+        type: 'object',
+        required: ['ids'],
+        properties: { ids: { type: 'string' } },
+      },
+    },
+  }, ctrl.batchGetPatients);
+
   app.get('/patients/:id', {
     schema: {
       tags: ['patients'],

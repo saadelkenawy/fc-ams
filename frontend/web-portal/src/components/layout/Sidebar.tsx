@@ -187,7 +187,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
                 <NavLink
                   key={item.key}
                   item={item}
-                  active={item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)}
+                  active={pathname === item.href}
                   collapsed={collapsed}
                   onMobileClose={isMobile ? onMobileClose : undefined}
                 />

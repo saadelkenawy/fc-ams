@@ -274,20 +274,55 @@ export async function billingRoutes(app: FastifyInstance): Promise<void> {
 
   // POST /settlements/reconcile  (atomically reconcile all Paid txs for a doctor)
   app.post('/settlements/reconcile', {
-    preHandler: [requireRole('admin')],
+    preHandler: [requireRole('admin', 'finance')],
     schema: {
       tags: ['billing'],
       body: {
         type: 'object',
         required: ['doctorId', 'from', 'to'],
         properties: {
-          doctorId: { type: 'string', format: 'uuid' },
-          from:     { type: 'string', format: 'date' },
-          to:       { type: 'string', format: 'date' },
+          doctorId:         { type: 'string', format: 'uuid' },
+          from:             { type: 'string', format: 'date' },
+          to:               { type: 'string', format: 'date' },
+          paymentMethod:    { type: 'string', enum: ['cash', 'bank', 'cheque', 'transfer'] },
+          paymentReference: { type: 'string', maxLength: 200 },
+          notes:            { type: 'string', maxLength: 1000 },
         },
       },
     },
   }, ctrl.reconcileDoctorHandler);
+
+  // GET /settlements/records  (list completed settlement records)
+  app.get('/settlements/records', {
+    preHandler: [requireRole('admin', 'finance')],
+    schema: {
+      tags: ['billing'],
+      querystring: {
+        type: 'object',
+        properties: {
+          doctorId: { type: 'string', format: 'uuid' },
+          from:     { type: 'string', format: 'date' },
+          to:       { type: 'string', format: 'date' },
+          page:     { type: 'integer', minimum: 1, default: 1 },
+          limit:    { type: 'integer', minimum: 1, maximum: 100, default: 20 },
+        },
+      },
+    },
+  }, ctrl.listSettlementRecordsHandler);
+
+  // POST /settlements/records/:id/reverse
+  app.post('/settlements/records/:id/reverse', {
+    preHandler: [requireRole('admin')],
+    schema: {
+      tags: ['billing'],
+      params: { type: 'object', properties: { id: { type: 'string', format: 'uuid' } }, required: ['id'] },
+      body: {
+        type: 'object',
+        required: ['reason'],
+        properties: { reason: { type: 'string', minLength: 10 } },
+      },
+    },
+  }, ctrl.reverseSettlementHandler);
 
   // GET /settlements/doctor (single doctor settlement detail)
   app.get('/settlements/doctor', {
@@ -305,4 +340,44 @@ export async function billingRoutes(app: FastifyInstance): Promise<void> {
       },
     },
   }, ctrl.getDoctorSettlement);
+
+  // ── Doctor Compensation ──────────────────────────────────────────────────────
+
+  // GET /compensation/:doctorId
+  app.get('/compensation/:doctorId', {
+    preHandler: [requireRole('admin', 'finance')],
+    schema: {
+      tags: ['billing'],
+      params: { type: 'object', properties: { doctorId: { type: 'string', format: 'uuid' } }, required: ['doctorId'] },
+    },
+  }, ctrl.listDoctorCompensationHandler);
+
+  // POST /compensation/:doctorId  (set/update a rate for a visit type)
+  app.post('/compensation/:doctorId', {
+    preHandler: [requireRole('admin')],
+    schema: {
+      tags: ['billing'],
+      params: { type: 'object', properties: { doctorId: { type: 'string', format: 'uuid' } }, required: ['doctorId'] },
+      body: {
+        type: 'object',
+        required: ['visitType', 'doctorPercentage', 'clinicPercentage', 'effectiveFrom'],
+        properties: {
+          visitType:        { type: 'string', enum: ['consultation', 'operative', 'online'] },
+          doctorPercentage: { type: 'number', minimum: 0, maximum: 100 },
+          clinicPercentage: { type: 'number', minimum: 0, maximum: 100 },
+          effectiveFrom:    { type: 'string', format: 'date' },
+          applyToExisting:  { type: 'boolean', default: false },
+        },
+      },
+    },
+  }, ctrl.setDoctorCompensationHandler);
+
+  // DELETE /compensation/rules/:id
+  app.delete('/compensation/rules/:id', {
+    preHandler: [requireRole('admin')],
+    schema: {
+      tags: ['billing'],
+      params: { type: 'object', properties: { id: { type: 'string', format: 'uuid' } }, required: ['id'] },
+    },
+  }, ctrl.deleteCompensationRuleHandler);
 }

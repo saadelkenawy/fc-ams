@@ -124,20 +124,6 @@ export interface ReconcileResult {
   settlementRecordId: string;
 }
 
-export function useReconcileDoctor() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ doctorId, from, to }: { doctorId: string; from: string; to: string }) => {
-      const { data } = await billingApi.post<{ data: ReconcileResult }>('/settlements/reconcile', { doctorId, from, to });
-      return data.data;
-    },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['settlements'] });
-      void qc.invalidateQueries({ queryKey: ['transactions'] });
-    },
-  });
-}
-
 export function useBulkDeleteTransactions() {
   const qc = useQueryClient();
   return useMutation({
@@ -174,5 +160,134 @@ export function useSettlements(params: SettlementParams) {
     enabled: !!params.from && !!params.to,
     staleTime: 30_000,
     retry: 1,
+  });
+}
+
+export interface SettlementRecordItem {
+  id: string;
+  doctorId: string;
+  settlementDate: string;
+  periodFrom: string | null;
+  periodTo: string | null;
+  amount: number;
+  paymentMethod: string;
+  paymentReference: string | null;
+  notes: string | null;
+  processedByUserId: string | null;
+  relatedTransactionIds: string[];
+  reversedAt: string | null;
+  reversedBy: string | null;
+  reversedReason: string | null;
+  branchId: number;
+  createdAt: string;
+}
+
+export function useSettlementRecords(params: { doctorId?: string; from?: string; to?: string; page?: number; limit?: number }) {
+  return useQuery({
+    queryKey: ['settlement-records', params],
+    queryFn: async () => {
+      const res = await billingApi.get('/settlements/records', { params });
+      return res.data as PaginatedResponse<SettlementRecordItem>;
+    },
+    staleTime: 30_000,
+    retry: 1,
+  });
+}
+
+export function useReverseSettlement() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
+      const { data } = await billingApi.post<{ data: SettlementRecordItem }>(`/settlements/records/${id}/reverse`, { reason });
+      return data.data;
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['settlement-records'] });
+      void qc.invalidateQueries({ queryKey: ['settlements'] });
+      void qc.invalidateQueries({ queryKey: ['transactions'] });
+    },
+  });
+}
+
+export function useReconcileDoctor() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: {
+      doctorId: string;
+      from: string;
+      to: string;
+      paymentMethod?: string;
+      paymentReference?: string;
+      notes?: string;
+    }) => {
+      const { data } = await billingApi.post<{ data: ReconcileResult }>('/settlements/reconcile', payload);
+      return data.data;
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['settlements'] });
+      void qc.invalidateQueries({ queryKey: ['transactions'] });
+      void qc.invalidateQueries({ queryKey: ['settlement-records'] });
+    },
+  });
+}
+
+export interface DoctorCompensationRule {
+  id: string;
+  doctorId: string;
+  visitType: 'consultation' | 'operative' | 'online';
+  doctorPercentage: number;
+  clinicPercentage: number;
+  effectiveFrom: string;
+  effectiveUntil: string | null;
+  branchId: number;
+  createdAt: string;
+}
+
+export function useDoctorCompensation(doctorId: string | null) {
+  return useQuery({
+    queryKey: ['doctor-compensation', doctorId],
+    queryFn: async () => {
+      const { data } = await billingApi.get<{ data: DoctorCompensationRule[] }>(`/compensation/${doctorId}`);
+      return data.data ?? [];
+    },
+    enabled: !!doctorId,
+    staleTime: 60_000,
+  });
+}
+
+export function useSetDoctorCompensation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: {
+      doctorId: string;
+      visitType: string;
+      doctorPercentage: number;
+      clinicPercentage: number;
+      effectiveFrom: string;
+      applyToExisting?: boolean;
+    }) => {
+      const { data } = await billingApi.post<{ data: DoctorCompensationRule }>(
+        `/compensation/${payload.doctorId}`,
+        payload,
+      );
+      return data.data;
+    },
+    onSuccess: (_data, vars) => {
+      void qc.invalidateQueries({ queryKey: ['doctor-compensation', vars.doctorId] });
+      void qc.invalidateQueries({ queryKey: ['settlements'] });
+    },
+  });
+}
+
+export function useDeleteCompensationRule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, doctorId }: { id: string; doctorId: string }) => {
+      await billingApi.delete(`/compensation/rules/${id}`);
+      return doctorId;
+    },
+    onSuccess: (doctorId) => {
+      void qc.invalidateQueries({ queryKey: ['doctor-compensation', doctorId] });
+    },
   });
 }
