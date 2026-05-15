@@ -83,7 +83,7 @@ A production microservices platform replacing Excel-based clinic operations at F
 
 | Component | Tech | Role |
 |---|---|---|
-| PostgreSQL 16 | `postgres:16-alpine` | Single cluster; 14 logical databases (one per service) |
+| PostgreSQL 16 | `postgres:16-alpine` | Single cluster; 12 logical databases (analytics reads billing + appointments directly; telehealth uses a configurable `DATABASE_URL`) |
 | PgBouncer | `pgbouncer/pgbouncer:latest` | Connection pooling in front of PostgreSQL (all services connect here) |
 | Redis 7 | `redis:7-alpine` | Session cache, idempotency key store, rate limiting |
 | MinIO | `minio/minio:latest` | S3-compatible object store for patient file uploads |
@@ -108,6 +108,7 @@ Each service connects to its own logical database via PgBouncer:
 | file-service | `fadl_files` |
 | procedure-service | `fadl_procedures` |
 | procurement-service | `fadl_procurement` |
+| telehealth-service | configurable via `DATABASE_URL` (stub; not in docker-compose) |
 
 All connections: `postgresql://fadl:<secret>@pgbouncer:5432/<database>`
 
@@ -193,20 +194,20 @@ Appointment scheduling with exclusion constraints (no double-booking), status wo
 | POST | `/rooms/:roomCode/next-patient` | receptionist, admin | Advance queue |
 | PATCH | `/rooms/:roomCode/settings` | admin | Update room config |
 
-**Status workflow:**
+**Status workflow** (`['TBC', 'Ok!', 'Conf.', 'Comp.', 'Canc.', 'Resch.', 'Inf.', 'Ref.']`):
 ```
-TBC → Ok! → Conf. → in_session → Comp.
-                              ↘ Canc.
-                              ↘ Resch.
-          ↘ Inf. (no-show)
+TBC → Ok! → Conf. → Comp.
+                  ↘ Canc.
+                  ↘ Resch.
+     ↘ Inf. (no-show)
+     ↘ Ref. (referred out)
 ```
 
 **Double-booking prevention:**
 PostgreSQL exclusion constraint on `(doctor_id, appointment_date, time_range)` where `time_range` overlaps — rejects any slot collision at the DB level.
 
-**On appointment create**, the service synchronously calls:
-- `billing-service POST /transactions` — creates a pending financial transaction
-- `doctor-service GET /doctors/:id` — resolves doctor revenue splits for billing
+**On appointment create**, when `approvedCharge > 0` is provided, the service fire-and-forgets a call to:
+- `billing-service POST /transactions` — creates a pending financial transaction; uses `splitDoctorPercentage`/`splitClinicPercentage` already stored on the appointment row
 
 ---
 
@@ -439,6 +440,16 @@ Vendor and purchase order management.
 
 ---
 
+### telehealth-service (port 3013)
+
+Online consultation session management. Currently scaffolded (Fastify skeleton with `/health` endpoint only). Not yet included in docker-compose; intended for Phase 2 online consultation workflows.
+
+**API Routes (`/api/v1`):** *(planned — not yet implemented)*
+- Session lifecycle: create, join, end, list sessions
+- Integration with appointment `appointmentType: 'online'`
+
+---
+
 ## 4. Database Design
 
 ### Core Principles
@@ -644,7 +655,7 @@ Signed with the same `JWT_SECRET`. Each service validates it the same way as a u
    → Doctor sees patient in queue on their screen
 
 5. Doctor clicks "Next Patient" (POST /rooms/:code/next-patient)
-   → Status advances: TBC → in_session
+   → Room queue advances; appointment status updated (e.g. TBC → Conf.)
 
 6. Session complete: PATCH /appointments/:id/status { status: 'Comp.' }
 ```
