@@ -219,6 +219,7 @@ export function useReconcileDoctor() {
       paymentMethod?: string;
       paymentReference?: string;
       notes?: string;
+      password: string;
     }) => {
       const { data } = await billingApi.post<{ data: ReconcileResult }>('/settlements/reconcile', payload);
       return data.data;

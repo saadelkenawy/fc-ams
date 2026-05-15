@@ -153,11 +153,34 @@ export async function createTransaction(
     // gross_revenue stores this net pool — the total amount split between doctor and clinic
     const netPool = (input.approvedCharge - sourceFeeAmount) + (input.procedureCost ?? 0);
     const grossRevenue = netPool;
-    const doctorShare = netPool * input.splitDoctorPercentage / 100;
-    const clinicShare = netPool * input.splitClinicPercentage / 100;
     const vatRate = 0.14;
     const transactionDate = new Date().toISOString().split('T')[0];
     const id = uuidv4();
+
+    // Look up active doctor_compensation rate; fall back to caller-supplied splits when absent
+    let splitDoctorPercentage = input.splitDoctorPercentage;
+    let splitClinicPercentage = input.splitClinicPercentage;
+    if (input.doctorId && input.visitType) {
+      const { rows: compRows } = await client.query(
+        `SELECT doctor_percentage, clinic_percentage
+         FROM doctor_compensation
+         WHERE doctor_id = $1
+           AND visit_type = $2
+           AND branch_id = $3
+           AND effective_from <= $4
+           AND (effective_until IS NULL OR effective_until >= $4)
+         ORDER BY effective_from DESC
+         LIMIT 1`,
+        [input.doctorId, input.visitType, branchId, transactionDate],
+      );
+      if (compRows.length) {
+        const comp = compRows[0] as { doctor_percentage: string; clinic_percentage: string };
+        splitDoctorPercentage = Number(comp.doctor_percentage);
+        splitClinicPercentage = Number(comp.clinic_percentage);
+      }
+    }
+    const doctorShare = netPool * splitDoctorPercentage / 100;
+    const clinicShare = netPool * splitClinicPercentage / 100;
 
     const { rows } = await client.query(
       `INSERT INTO financial_transactions (
@@ -184,8 +207,8 @@ export async function createTransaction(
         input.approvedCharge,
         input.procedureCost ?? null,
         grossRevenue,
-        input.splitDoctorPercentage,
-        input.splitClinicPercentage,
+        splitDoctorPercentage,
+        splitClinicPercentage,
         doctorShare,
         clinicShare,
         input.paymentMethod ?? null,

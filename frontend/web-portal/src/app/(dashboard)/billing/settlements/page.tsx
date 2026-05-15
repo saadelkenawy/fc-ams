@@ -56,6 +56,8 @@ export default function SettlementsPage() {
   const [settleMethod, setSettleMethod]         = useState<'cash' | 'bank' | 'cheque' | 'transfer'>('cash');
   const [settleRef, setSettleRef]               = useState('');
   const [settleNotes, setSettleNotes]           = useState('');
+  const [settlePassword, setSettlePassword]     = useState('');
+  const [settlePasswordErr, setSettlePasswordErr] = useState('');
   const { mutateAsync: reconcile, isPending: settling, error: settleErr } = useReconcileDoctor();
 
   // Reverse dialog
@@ -126,6 +128,8 @@ export default function SettlementsPage() {
 
   const handleSettle = async () => {
     if (!settleTarget) return;
+    if (!settlePassword) { setSettlePasswordErr(t('كلمة المرور مطلوبة', 'Password is required')); return; }
+    setSettlePasswordErr('');
     await reconcile({
       doctorId: settleTarget.doctorId,
       from,
@@ -133,11 +137,14 @@ export default function SettlementsPage() {
       paymentMethod: settleMethod,
       paymentReference: settleRef || undefined,
       notes: settleNotes || undefined,
+      password: settlePassword,
     });
     setSettleTarget(null);
     setSettleRef('');
     setSettleNotes('');
     setSettleMethod('cash');
+    setSettlePassword('');
+    setSettlePasswordErr('');
   };
 
   const handleReverse = async () => {
@@ -517,10 +524,21 @@ export default function SettlementsPage() {
                 <textarea rows={2} value={settleNotes} onChange={(e) => setSettleNotes(e.target.value)}
                   className="w-full text-sm border border-gray-200 dark:border-neutral-600 rounded-lg px-3 py-2 bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none" />
               </div>
+              <div>
+                <label className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 block">{t('كلمة مرورك للتأكيد', 'Your password to confirm')}</label>
+                <input
+                  type="password"
+                  value={settlePassword}
+                  onChange={(e) => { setSettlePassword(e.target.value); setSettlePasswordErr(''); }}
+                  placeholder="••••••••"
+                  className="w-full text-sm border border-gray-200 dark:border-neutral-600 rounded-lg px-3 py-2 bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+                {settlePasswordErr && <p className="text-xs text-red-500 mt-1">{settlePasswordErr}</p>}
+              </div>
             </div>
-            {settleErr != null && <p className="text-xs text-red-600 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">{settleErr instanceof Error ? settleErr.message : 'Settlement failed'}</p>}
+            {settleErr != null && <p className="text-xs text-red-600 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">{settleErr instanceof Error ? settleErr.message : t('فشلت التسوية', 'Settlement failed')}</p>}
             <div className="flex gap-3 justify-end pt-1">
-              <Button variant="outline" size="sm" onClick={() => setSettleTarget(null)} disabled={settling}>{t('إلغاء', 'Cancel')}</Button>
+              <Button variant="outline" size="sm" onClick={() => { setSettleTarget(null); setSettlePassword(''); setSettlePasswordErr(''); }} disabled={settling}>{t('إلغاء', 'Cancel')}</Button>
               <Button size="sm" onClick={() => void handleSettle()} disabled={settling} className="min-w-28 bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-500">
                 {settling ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : <><Check className="w-3.5 h-3.5 me-1.5" />{t('تأكيد التسوية', 'Confirm & Settle')}</>}
               </Button>

@@ -247,10 +247,17 @@ const reconcileDoctorSchema = z.object({
   paymentMethod:    z.enum(['cash', 'bank', 'cheque', 'transfer']).default('cash'),
   paymentReference: z.string().max(200).optional(),
   notes:            z.string().max(1000).optional(),
+  password:         z.string().min(1),
 });
 
 export async function reconcileDoctorHandler(req: FastifyRequest, reply: FastifyReply): Promise<void> {
-  const { doctorId, from, to, paymentMethod, paymentReference, notes } = reconcileDoctorSchema.parse(req.body);
+  const { doctorId, from, to, paymentMethod, paymentReference, notes, password } = reconcileDoctorSchema.parse(req.body);
+  const authHeader = req.headers.authorization as string;
+  const valid = await verifyUserPassword(authHeader, password);
+  if (!valid) {
+    void reply.status(401).send({ success: false, error: { code: 'INVALID_CREDENTIALS', message: 'Incorrect password' } });
+    return;
+  }
   const user = req.user as JwtPayload;
   const result = await repo.reconcileDoctor(doctorId, from, to, user.sub, user.branchId, {
     paymentMethod,
