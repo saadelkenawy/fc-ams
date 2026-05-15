@@ -61,9 +61,11 @@ export default function SettlementsPage() {
   const { mutateAsync: reconcile, isPending: settling, error: settleErr } = useReconcileDoctor();
 
   // Reverse dialog
-  const [reverseTarget, setReverseTarget]       = useState<string | null>(null);
-  const [reverseReason, setReverseReason]       = useState('');
-  const [reverseError, setReverseError]         = useState('');
+  const [reverseTarget, setReverseTarget]           = useState<string | null>(null);
+  const [reverseReason, setReverseReason]           = useState('');
+  const [reversePassword, setReversePassword]       = useState('');
+  const [reversePasswordErr, setReversePasswordErr] = useState('');
+  const [reverseError, setReverseError]             = useState('');
   const { mutateAsync: reverseSettle, isPending: reversing } = useReverseSettlement();
 
   // Data
@@ -79,7 +81,7 @@ export default function SettlementsPage() {
 
   // Client-side filter + sort for pending settlements
   const settlements: DoctorSettlement[] = useMemo(() => {
-    let list = [...rawSettlements];
+    let list = rawSettlements.filter((s) => (s.netPayable ?? 0) > 0);
     if (selectedDoctor) {
       list = list.filter((s) => s.doctorId === selectedDoctor);
     } else if (doctorSearch.trim()) {
@@ -152,11 +154,22 @@ export default function SettlementsPage() {
       setReverseError(t('السبب يجب أن يكون 10 أحرف على الأقل', 'Reason must be at least 10 characters'));
       return;
     }
+    if (!reversePassword) {
+      setReversePasswordErr(t('كلمة المرور مطلوبة', 'Password is required'));
+      return;
+    }
     setReverseError('');
-    await reverseSettle({ id: reverseTarget, reason: reverseReason });
-    setReverseTarget(null);
-    setReverseReason('');
-    void refetchRecords();
+    setReversePasswordErr('');
+    try {
+      await reverseSettle({ id: reverseTarget, reason: reverseReason, password: reversePassword });
+      setReverseTarget(null);
+      setReverseReason('');
+      setReversePassword('');
+      void refetchRecords();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : '';
+      setReverseError(msg || t('كلمة المرور غير صحيحة أو فشل العكس', 'Incorrect password or reversal failed'));
+    }
   };
 
   return (
@@ -453,14 +466,17 @@ export default function SettlementsPage() {
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3">
                       <div className="text-end">
                         <p className="text-sm font-bold tabular-nums text-emerald-700 dark:text-emerald-400">{fmt(rec.amount)}</p>
                         <p className="text-xs text-gray-400">{new Date(rec.createdAt).toLocaleDateString()}</p>
                       </div>
                       {!rec.reversedAt && (
+                        <Lock className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" aria-label={t('مُسوَّى', 'Settled')} />
+                      )}
+                      {!rec.reversedAt && (
                         <button
-                          onClick={() => { setReverseTarget(rec.id); setReverseReason(''); setReverseError(''); }}
+                          onClick={() => { setReverseTarget(rec.id); setReverseReason(''); setReversePassword(''); setReversePasswordErr(''); setReverseError(''); }}
                           className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors"
                           title={t('عكس التسوية', 'Reverse Settlement')}
                         >
@@ -560,17 +576,30 @@ export default function SettlementsPage() {
                 <p className="text-sm text-gray-500 mt-0.5">{t('ستُعاد المعاملات إلى حالة "مدفوع"', 'Transactions will be restored to "paid" status')}</p>
               </div>
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-gray-600 dark:text-gray-400">{t('سبب العكس (10 أحرف على الأقل)', 'Reversal reason (min 10 chars)')}</label>
-              <textarea rows={3} value={reverseReason} onChange={(e) => { setReverseReason(e.target.value); setReverseError(''); }}
-                className="w-full text-sm border border-gray-200 dark:border-neutral-600 rounded-lg px-3 py-2 bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none" />
-              <p className={cn('text-xs', reverseReason.length >= 10 ? 'text-gray-400' : 'text-amber-500')}>
-                {reverseReason.length}/10 {t('حرف على الأقل', 'characters minimum')}
-              </p>
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-600 dark:text-gray-400">{t('سبب العكس (10 أحرف على الأقل)', 'Reversal reason (min 10 chars)')}</label>
+                <textarea rows={3} value={reverseReason} onChange={(e) => { setReverseReason(e.target.value); setReverseError(''); }}
+                  className="w-full text-sm border border-gray-200 dark:border-neutral-600 rounded-lg px-3 py-2 bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none" />
+                <p className={cn('text-xs', reverseReason.length >= 10 ? 'text-gray-400' : 'text-amber-500')}>
+                  {reverseReason.length}/10 {t('حرف على الأقل', 'characters minimum')}
+                </p>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 block">{t('كلمة مرورك للتأكيد', 'Your password to confirm')}</label>
+                <input
+                  type="password"
+                  value={reversePassword}
+                  onChange={(e) => { setReversePassword(e.target.value); setReversePasswordErr(''); }}
+                  placeholder="••••••••"
+                  className="w-full text-sm border border-gray-200 dark:border-neutral-600 rounded-lg px-3 py-2 bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                />
+                {reversePasswordErr && <p className="text-xs text-red-500 mt-1">{reversePasswordErr}</p>}
+              </div>
             </div>
             {reverseError && <p className="text-xs text-red-600 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">{reverseError}</p>}
             <div className="flex gap-3 justify-end pt-1">
-              <Button variant="outline" size="sm" onClick={() => setReverseTarget(null)} disabled={reversing}>{t('إلغاء', 'Cancel')}</Button>
+              <Button variant="outline" size="sm" onClick={() => { setReverseTarget(null); setReversePassword(''); setReversePasswordErr(''); setReverseError(''); }} disabled={reversing}>{t('إلغاء', 'Cancel')}</Button>
               <Button size="sm" className="min-w-28 bg-amber-600 hover:bg-amber-700 focus:ring-amber-500"
                 onClick={() => void handleReverse()} disabled={reversing || reverseReason.trim().length < 10}>
                 {reversing ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : <><RotateCcw className="w-3.5 h-3.5 me-1.5" />{t('عكس التسوية', 'Reverse')}</>}

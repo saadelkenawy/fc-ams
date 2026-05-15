@@ -283,12 +283,19 @@ export async function listSettlementRecordsHandler(req: FastifyRequest, reply: F
 }
 
 const reverseSettlementSchema = z.object({
-  reason: z.string().min(10),
+  reason:   z.string().min(10),
+  password: z.string().min(1),
 });
 
 export async function reverseSettlementHandler(req: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { id } = req.params as { id: string };
-  const { reason } = reverseSettlementSchema.parse(req.body);
+  const { reason, password } = reverseSettlementSchema.parse(req.body);
+  const authHeader = req.headers.authorization as string;
+  const valid = await verifyUserPassword(authHeader, password);
+  if (!valid) {
+    void reply.status(401).send({ success: false, error: { code: 'INVALID_CREDENTIALS', message: 'Incorrect password' } });
+    return;
+  }
   const user = req.user as JwtPayload;
   const result = await repo.reverseSettlement(id, user.sub, reason, user.branchId);
   void reply.send({ success: true, data: result });

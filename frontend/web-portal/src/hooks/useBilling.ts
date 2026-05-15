@@ -197,8 +197,8 @@ export function useSettlementRecords(params: { doctorId?: string; from?: string;
 export function useReverseSettlement() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
-      const { data } = await billingApi.post<{ data: SettlementRecordItem }>(`/settlements/records/${id}/reverse`, { reason });
+    mutationFn: async ({ id, reason, password }: { id: string; reason: string; password: string }) => {
+      const { data } = await billingApi.post<{ data: SettlementRecordItem }>(`/settlements/records/${id}/reverse`, { reason, password });
       return data.data;
     },
     onSuccess: () => {
