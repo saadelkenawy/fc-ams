@@ -53,6 +53,7 @@ export interface CreateTransactionInput {
   splitClinicPercentage: number;
   paymentMethod?: string;
   currencyCode?: Currency;
+  visitType?: 'consultation' | 'operative' | 'online';
 }
 
 export interface DoctorSettlement {

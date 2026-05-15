@@ -167,9 +167,9 @@ export async function createTransaction(
         split_doctor_percentage, split_clinic_percentage, doctor_share, clinic_share,
         payment_method, payment_status,
         currency_code, exchange_rate, vat_rate,
-        is_refund, transaction_date, created_by, branch_id
+        is_refund, transaction_date, created_by, branch_id, visit_type
       ) VALUES (
-        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25
+        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26
       ) RETURNING *`,
       [
         id,
@@ -197,6 +197,7 @@ export async function createTransaction(
         transactionDate,
         createdBy,
         branchId,
+        input.visitType ?? null,
       ],
     );
 

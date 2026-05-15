@@ -113,6 +113,12 @@ export async function createAppointment(request: FastifyRequest, reply: FastifyR
   if (input.approvedCharge && input.approvedCharge > 0) {
     void (async () => {
       try {
+        const apptType = appointment.appointmentType as string | undefined;
+        const visitType = apptType === 'online'
+          ? 'online'
+          : apptType === 'operative'
+          ? 'operative'
+          : 'consultation';
         await createBillingTransaction({
           idempotencyKey:        `appt-billing-${appointment.id}`,
           appointmentId:         appointment.id,
@@ -126,6 +132,7 @@ export async function createAppointment(request: FastifyRequest, reply: FastifyR
           splitClinicPercentage: appointment.doctorSplitClinic,
           paymentMethod:         input.paymentMethod,
           currencyCode:          'EGP',
+          visitType,
         });
       } catch (err) {
         console.error('[appt] auto-billing creation failed', (err as Error).message);

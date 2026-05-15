@@ -189,6 +189,9 @@ export async function nextPatientHandler(request: FastifyRequest, reply: Fastify
   // Fire-and-forget billing — idempotency key prevents double billing
   const { completed } = result;
   if (completed.approvedCharge > 0) {
+    const apptType = completed.appointmentType ?? '';
+    const visitType: 'consultation' | 'operative' | 'online' =
+      apptType === 'online' ? 'online' : apptType === 'operative' ? 'operative' : 'consultation';
     createBillingTransaction({
       idempotencyKey:        `appt-next-${completed.appointmentId}`,
       appointmentId:         completed.appointmentId,
@@ -199,6 +202,7 @@ export async function nextPatientHandler(request: FastifyRequest, reply: Fastify
       approvedCharge:        completed.approvedCharge,
       splitDoctorPercentage: completed.splitDoctorPercentage,
       splitClinicPercentage: completed.splitClinicPercentage,
+      visitType,
     }).catch((err: unknown) => {
       request.log.error({ err, appointmentId }, 'billing transaction failed — will retry via idempotency');
     });

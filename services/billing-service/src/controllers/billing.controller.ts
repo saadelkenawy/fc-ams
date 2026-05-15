@@ -23,6 +23,7 @@ const createTxSchema = z.object({
   splitClinicPercentage: z.number().min(0).max(100),
   paymentMethod: z.string().optional(),
   currencyCode: z.enum(CURRENCY).default('EGP'),
+  visitType: z.enum(['consultation', 'operative', 'online']).optional(),
 }).refine(
   (d) => d.splitDoctorPercentage + d.splitClinicPercentage === 100,
   { message: 'splitDoctorPercentage + splitClinicPercentage must equal 100' },

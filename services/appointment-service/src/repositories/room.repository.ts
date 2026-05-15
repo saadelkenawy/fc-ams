@@ -60,6 +60,7 @@ export interface NextPatientResult {
     specialtyId: number | null;
     durationMins: number;
     sessionStart: string | null;
+    appointmentType: string | null;
   };
   next: {
     queueId: string;
@@ -433,7 +434,7 @@ export async function nextPatient(
     // 1. Lock and fetch the appointment being completed
     const { rows: apptRows } = await client.query(
       `SELECT a.id, a.patient_id, a.doctor_id, a.patient_source, a.approved_charge,
-              a.specialty_id, a.status,
+              a.specialty_id, a.status, a.appointment_type,
               d.consultation_split_doctor, d.consultation_split_clinic
        FROM appointments a
        JOIN doctors d ON d.id = a.doctor_id
@@ -510,6 +511,7 @@ export async function nextPatient(
         specialtyId: appt.specialty_id as number | null,
         durationMins,
         sessionStart,
+        appointmentType: (appt.appointment_type as string | null) ?? null,
       },
       next,
     };

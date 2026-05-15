@@ -44,6 +44,7 @@ export interface CreateBillingTransactionInput {
   splitClinicPercentage: number;
   paymentMethod?: string;
   currencyCode?: string;
+  visitType?: 'consultation' | 'operative' | 'online';
 }
 
 export async function createBillingTransaction(input: CreateBillingTransactionInput): Promise<void> {
@@ -60,6 +61,7 @@ export async function createBillingTransaction(input: CreateBillingTransactionIn
     splitClinicPercentage: input.splitClinicPercentage,
     paymentMethod:         input.paymentMethod ?? undefined,
     currencyCode:          input.currencyCode ?? 'EGP',
+    visitType:             input.visitType ?? undefined,
   });
 }
 
