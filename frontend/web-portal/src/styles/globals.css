@@ -7,12 +7,12 @@
   :root {
     --theme-primary-from: #B71C1C;
     --theme-primary-to:   #991B1B;
-    --gradient-logo:      linear-gradient(135deg,#1A0000 0%,#5C0F0F 18%,#B91C1C 42%,#DC2626 65%,#EF4444 85%,#FF2A4A 100%);
-    /* Featured KpiCard surface — crimson gradient. Sidebar bg is handled by bg-sidebar Tailwind class. */
-    --gradient-sidebar:   linear-gradient(180deg, #B71C1C 0%, #991B1B 50%, #7F1D1D 100%);
-    --gradient-hero:      linear-gradient(135deg,#FEF2F2 0%,#FFE4D6 35%,#FFFFFF 60%,#F5EFE5 100%);
+    --gradient-logo:      linear-gradient(135deg, #450A0A 0%, #7F1D1D 40%, #B71C1C 70%, #EF4444 100%);
+    /* Featured KpiCard surface — slate-navy per handoff. Sidebar bg uses bg-sidebar Tailwind class. */
+    --gradient-sidebar:   #0F172A;
+    --gradient-hero:      linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 35%, #FFFFFF 60%, #F8FAFC 100%);
     --gradient-glass:     linear-gradient(135deg,rgba(255,255,255,0.75) 0%,rgba(255,255,255,0.5) 100%);
-    --gradient-card-warm: linear-gradient(135deg,#FFFFFF 0%,#FEF2F2 100%);
+    --gradient-card-warm: linear-gradient(135deg, #FFFFFF 0%, #EFF6FF 100%);
 
     /* Surfaces */
     --color-bg:            #F9FAFB;
@@ -81,7 +81,7 @@
     --status-comp:  #6B7280;
     --status-canc:  #EF4444;
     --status-resch: #8B5CF6;
-    --status-inf:   #EC4899;
+    --status-inf:   #FDA4AF;
 
     /* Motion */
     --duration-fast:   150ms;

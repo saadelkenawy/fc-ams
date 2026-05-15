@@ -40,7 +40,7 @@ export const THEMES: Record<ThemeId, ThemeToken> = {
     primaryFrom:   '#B71C1C',
     primaryTo:     '#991B1B',
     gradientGlass: 'linear-gradient(135deg,rgba(255,255,255,0.75) 0%,rgba(255,255,255,0.5) 100%)',
-    gradientSidebar:'linear-gradient(180deg, #B71C1C 0%, #991B1B 50%, #7F1D1D 100%)',
+    gradientSidebar:'#0F172A',
   },
   dark: {
     id:            'dark',
@@ -60,7 +60,7 @@ export const THEMES: Record<ThemeId, ThemeToken> = {
     primaryFrom:   '#EF4444',
     primaryTo:     '#DC2626',
     gradientGlass: 'linear-gradient(135deg,rgba(30,41,59,0.92) 0%,rgba(15,23,42,0.85) 100%)',
-    gradientSidebar:'linear-gradient(180deg, #7F1D1D 0%, #450A0A 100%)',
+    gradientSidebar:'#0F172A',
   },
   teal: {
     id:            'teal',
