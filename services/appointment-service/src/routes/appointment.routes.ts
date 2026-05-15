@@ -127,6 +127,13 @@ export async function appointmentRoutes(app: FastifyInstance): Promise<void> {
     schema: { tags: ['appointments'], params: idParam },
   }, ctrl.softDeleteAppointmentHandler);
 
+  // PATCH /appointments/:id/billing-cascade-delete  (internal — called by billing-service on bulk delete)
+  // Only soft-deletes if appointment status is TBC / Ok! / Conf. — silently skips others
+  app.patch('/appointments/:id/billing-cascade-delete', {
+    preHandler: [requireRole('admin')],
+    schema: { tags: ['appointments'], params: idParam },
+  }, ctrl.billingCascadeDeleteHandler);
+
   // DELETE /appointments/:id  (hard delete — admin only, requires password + reason)
   app.delete('/appointments/:id', {
     preHandler: [requireRole('admin')],

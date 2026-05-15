@@ -267,6 +267,22 @@ const bulkEditPaymentMethodSchema = z.object({
   password:      z.string().min(1),
 });
 
+async function cascadeDeleteAppointments(appointmentIds: string[], authHeader: string): Promise<void> {
+  for (const apptId of appointmentIds) {
+    try {
+      const res = await fetch(`${APPOINTMENT_SERVICE_URL}/appointments/${apptId}/billing-cascade-delete`, {
+        method: 'PATCH',
+        headers: { authorization: authHeader },
+      });
+      if (!res.ok && res.status !== 404) {
+        console.warn(`[billing] cascade soft-delete appointment ${apptId} returned ${res.status}`);
+      }
+    } catch (err) {
+      console.error(`[billing] cascade soft-delete appointment ${apptId} failed`, (err as Error).message);
+    }
+  }
+}
+
 export async function bulkDeleteHandler(req: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { ids, reason, password } = bulkDeleteSchema.parse(req.body);
   const authHeader = req.headers.authorization as string;
@@ -278,7 +294,13 @@ export async function bulkDeleteHandler(req: FastifyRequest, reply: FastifyReply
   const user = req.user as JwtPayload;
   const ip = (req.headers['x-forwarded-for'] as string | undefined)?.split(',')[0].trim() ?? req.ip;
   const result = await repo.bulkDeleteTransactions(ids, reason, user.sub, user.branchId, ip);
-  void reply.send({ success: true, data: result });
+
+  // Best-effort cascade: soft-delete linked appointments in safe statuses
+  if (result.appointmentIds.length > 0) {
+    void cascadeDeleteAppointments(result.appointmentIds, authHeader);
+  }
+
+  void reply.send({ success: true, data: { deletedCount: result.deletedCount } });
 }
 
 export async function bulkEditPaymentMethodHandler(req: FastifyRequest, reply: FastifyReply): Promise<void> {

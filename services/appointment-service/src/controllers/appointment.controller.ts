@@ -238,3 +238,10 @@ export async function softDeleteAppointmentHandler(request: FastifyRequest, repl
   await repo.softDeleteAppointment(id, user.sub);
   void reply.status(204).send();
 }
+
+export async function billingCascadeDeleteHandler(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { id } = request.params as { id: string };
+  const user = request.user as JwtPayload;
+  const outcome = await repo.cascadeSoftDeleteFromBilling(id, user.sub);
+  void reply.status(204).send({ outcome });
+}

@@ -474,3 +474,22 @@ export async function softDeleteAppointment(id: string, deletedBy: string): Prom
     throw Object.assign(new Error('Appointment not found'), { code: 'APPOINTMENT_NOT_FOUND', statusCode: 404 });
   }
 }
+
+// ---------------------------------------------------------------------------
+// cascadeSoftDeleteFromBilling — only soft-deletes if status is safe (TBC/Ok!/Conf.)
+// Silently skips completed, cancelled, or already-deleted appointments.
+// ---------------------------------------------------------------------------
+const BILLING_CASCADE_SAFE = new Set(['TBC', 'Ok!', 'Conf.']);
+
+export async function cascadeSoftDeleteFromBilling(id: string, deletedBy: string): Promise<'deleted' | 'skipped'> {
+  const result = await pool.query(
+    `UPDATE appointments
+        SET deleted_at = NOW(), updated_by = $2
+      WHERE id = $1
+        AND deleted_at IS NULL
+        AND status = ANY($3::text[])
+     RETURNING id`,
+    [id, deletedBy, [...BILLING_CASCADE_SAFE]],
+  );
+  return result.rowCount! > 0 ? 'deleted' : 'skipped';
+}

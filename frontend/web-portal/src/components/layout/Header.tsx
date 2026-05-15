@@ -7,6 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { useLang } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { Button } from '@/components/ui/Button';
 import { usePatients } from '@/hooks/usePatients';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -310,16 +311,13 @@ interface HeaderProps {
 export function Header({ onMobileMenuToggle }: HeaderProps) {
   const { lang, toggle, t }     = useLang();
   const { user }                = useAuth();
-  const [dark, setDark]         = useState(false);
+  const { theme, setTheme }     = useTheme();
   const [density, setDensity]   = useState<Density>('comfortable');
   const [textSize, setTextSize] = useState<TextSize>('md');
   const [showDensity, setShowDensity] = useState(false);
 
   function toggleTheme() {
-    setDark((d) => {
-      document.documentElement.setAttribute('data-theme', d ? 'light' : 'dark');
-      return !d;
-    });
+    setTheme(theme === 'dark' ? 'light' : 'dark');
   }
 
   const applyDensity = useCallback((d: Density) => {
@@ -422,10 +420,10 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
         <Button
           variant="ghost" size="icon"
           onClick={toggleTheme}
-          aria-label={dark ? t('وضع النهار', 'Light mode') : t('وضع الليل', 'Dark mode')}
+          aria-label={theme === 'dark' ? t('وضع النهار', 'Light mode') : t('وضع الليل', 'Dark mode')}
           className="h-9 w-9"
         >
-          {dark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
+          {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
         </Button>
 
         {/* Notifications */}

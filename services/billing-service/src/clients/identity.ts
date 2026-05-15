@@ -2,7 +2,7 @@ const IDENTITY_URL = process.env.IDENTITY_SERVICE_URL ?? 'http://identity-servic
 
 export async function verifyUserPassword(authHeader: string, password: string): Promise<boolean> {
   try {
-    const res = await fetch(`${IDENTITY_URL}/auth/verify-password`, {
+    const res = await fetch(`${IDENTITY_URL}/api/v1/auth/verify-password`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: authHeader },
       body: JSON.stringify({ password }),

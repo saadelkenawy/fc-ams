@@ -624,7 +624,7 @@ export default function BillingPage() {
   const allSelected = selectableIds.length > 0 && selectableIds.every((id) => selectedIds.has(id));
   const someSelected = selectableIds.some((id) => selectedIds.has(id));
   const selectedTxs = filtered.filter((tx) => selectedIds.has(tx.id));
-  const hasReconciled = selectedTxs.some((tx) => tx.paymentStatus === 'reconciled');
+  const hasNonPending = selectedTxs.some((tx) => tx.paymentStatus !== 'pending');
 
   function toggleAll() {
     if (allSelected) {
@@ -750,9 +750,9 @@ export default function BillingPage() {
           <span className="text-sm font-medium text-gray-700 dark:text-gray-200 flex-1 min-w-max">
             {selectedIds.size} {t('معاملة محددة', 'transaction' + (selectedIds.size !== 1 ? 's' : '') + ' selected')}
           </span>
-          {hasReconciled && (
+          {hasNonPending && (
             <span className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-2.5 py-1 rounded-lg">
-              {t('التحديد يتضمن معاملات مطابقة، لا يمكن حذفها. أزلها للمتابعة.', 'Selection includes Reconciled transactions which cannot be deleted. Deselect them to proceed.')}
+              {t('يمكن حذف المعاملات المعلقة فقط. أزل غير المعلقة للمتابعة.', 'Only pending transactions can be deleted. Deselect non-pending ones to proceed.')}
             </span>
           )}
           <Button size="sm" variant="outline" onClick={() => setShowBulkEdit(true)}>
@@ -761,9 +761,9 @@ export default function BillingPage() {
           <Button
             size="sm"
             className="bg-red-600 hover:bg-red-700 text-white border-0 disabled:opacity-50"
-            disabled={hasReconciled}
-            onClick={() => !hasReconciled && setShowBulkDelete(true)}
-            title={hasReconciled ? t('تحتوي القائمة على معاملات مطابقة', 'Selection contains reconciled transactions') : undefined}
+            disabled={hasNonPending}
+            onClick={() => !hasNonPending && setShowBulkDelete(true)}
+            title={hasNonPending ? t('يمكن حذف المعاملات المعلقة فقط', 'Only pending transactions can be deleted') : undefined}
           >
             <Trash2 className="w-3.5 h-3.5 me-1.5 inline" />
             {t('حذف', 'Delete')}

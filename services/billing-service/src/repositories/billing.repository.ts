@@ -836,17 +836,25 @@ export async function bulkDeleteTransactions(
   performedBy: string,
   branchId: number,
   ipAddress?: string,
-): Promise<{ deletedCount: number }> {
+): Promise<{ deletedCount: number; appointmentIds: string[] }> {
   return withTransaction(async (client: PoolClient) => {
     const { rows: existing } = await client.query(
-      `SELECT id, payment_status FROM financial_transactions WHERE id = ANY($1::uuid[]) FOR UPDATE`,
+      `SELECT id, payment_status, appointment_id FROM financial_transactions WHERE id = ANY($1::uuid[]) FOR UPDATE`,
       [ids],
     );
 
-    const reconciled = (existing as Record<string, unknown>[]).filter((r) => r.payment_status === 'reconciled');
-    if (reconciled.length > 0) {
-      throw Object.assign(new Error('Cannot delete reconciled transactions'), { statusCode: 403, code: 'RECONCILED_TRANSACTIONS' });
+    const nonPending = (existing as Record<string, unknown>[]).filter((r) => r.payment_status !== 'pending');
+    if (nonPending.length > 0) {
+      const statuses = nonPending.map((r) => `${(r.id as string).slice(0, 8)} (${r.payment_status as string})`).join(', ');
+      throw Object.assign(
+        new Error(`Only pending transactions can be deleted. Non-pending: ${statuses}`),
+        { statusCode: 409, code: 'NON_PENDING_TRANSACTIONS' },
+      );
     }
+
+    const appointmentIds = (existing as Record<string, unknown>[])
+      .map((r) => r.appointment_id as string | null)
+      .filter((a): a is string => !!a);
 
     const { rows: snapshot } = await client.query(
       `SELECT * FROM financial_transactions WHERE id = ANY($1::uuid[])`,
@@ -867,7 +875,7 @@ export async function bulkDeleteTransactions(
       [performedBy, ids, JSON.stringify(snapshot), reason, ipAddress ?? null, branchId],
     );
 
-    return { deletedCount: rowCount ?? 0 };
+    return { deletedCount: rowCount ?? 0, appointmentIds };
   });
 }
 
