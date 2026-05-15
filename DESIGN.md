@@ -3,7 +3,7 @@ name: Fadl Clinic Management System
 description: Internal clinic management platform for Egyptian multi-specialty medical care
 colors:
   clinic-crimson: "#B71C1C"
-  deep-garnet: "#7B0000"
+  deep-garnet: "#991B1B"
   blush-tint: "#FEE2E2"
   sidebar-navy: "#0F172A"
   precision-blue: "#2563EB"
@@ -26,6 +26,36 @@ colors:
   status-red: "#EF4444"
   status-violet: "#8B5CF6"
   status-blue: "#3B82F6"
+  status-inf: "#EC4899"
+  # Rose-gold accent (warm secondary, used sparingly for highlights)
+  accent-50: "#FFF5F1"
+  accent-100: "#FFE4D6"
+  accent-200: "#FFC9AC"
+  accent-300: "#FFA37F"
+  accent-400: "#FF7E54"
+  accent-500: "#F0623E"
+  accent-600: "#D14E2C"
+  # Warm sand (premium surfaces)
+  sand-50: "#FAF7F2"
+  sand-100: "#F5EFE5"
+  sand-200: "#EBE0CD"
+  sand-300: "#DCC9A8"
+  sand-400: "#C8AC81"
+  # Mint (healthy/in-range indicators)
+  mint-50: "#F0FBF4"
+  mint-100: "#DCF4E2"
+  mint-500: "#34D399"
+gradients:
+  # Logo heart — black-to-bright-red
+  gradient-logo: "linear-gradient(135deg, #1A0000 0%, #5C0F0F 18%, #B91C1C 42%, #DC2626 65%, #EF4444 85%, #FF2A4A 100%)"
+  # KpiCard featured surface — crimson gradient. NOT the sidebar background (sidebar uses bg-sidebar Tailwind token = #0F172A always).
+  gradient-sidebar: "linear-gradient(180deg, #B71C1C 0%, #991B1B 50%, #7F1D1D 100%)"
+  # Login page + marketing — warm crimson/rose atmospheric wash
+  gradient-hero: "linear-gradient(135deg, #FEF2F2 0%, #FFE4D6 35%, #FFFFFF 60%, #F5EFE5 100%)"
+  # Glassmorphism panels (schedule floating panel only)
+  gradient-glass: "linear-gradient(135deg, rgba(255,255,255,0.75) 0%, rgba(255,255,255,0.5) 100%)"
+  # Warm card surface (featured cards, not hero)
+  gradient-card-warm: "linear-gradient(135deg, #FFFFFF 0%, #FEF2F2 100%)"
 typography:
   display:
     fontFamily: "Outfit, IBM Plex Arabic, system-ui, sans-serif"
@@ -175,15 +205,28 @@ A restrained palette anchored by clinic crimson, structured by navy, and animate
 - **Text Disabled** (`#9CA3AF`): Disabled states. Never used for interactive or informational text.
 - **Dark Page** (`#0A0A0A`), **Dark Elevated** (`#171717`), **Dark Card** (`#1F1F1F`), **Dark Input** (`#262626`): The four dark-mode surface tiers, stepped by 6-8 lightness points.
 
+### Extended Palette
+
+- **Rose-Gold Accent** (`#F0623E` / `accent-500`): Warm secondary highlight. Used sparingly for secondary metrics, warm "lift" on marketing surfaces. Never for interactive elements.
+- **Sand** (`#FAF7F2`–`#C8AC81`): Premium warm neutral surfaces — featured card backgrounds, separator fills.
+- **Mint** (`#34D399` / `mint-500`): Healthy/positive indicator — vitals in range, lab results normal. Always paired with a text label; never used as a standalone color signal.
+
 ### Status (Appointment Workflow)
 
-The seven appointment statuses have fixed colors. These are not decorative; they are the system's primary signaling language. Never repurpose them.
+The **eight** appointment statuses have fixed colors. These are not decorative; they are the system's primary signaling language. Never repurpose them.
 
-- **Queue Green** (`#10B981`): Active, confirmed, in-session, success states
-- **Alert Amber** (`#F59E0B`): TBC, pending, needs attention
-- **Cancel Red** (`#EF4444`): Cancelled, error, destructive actions (distinct from Clinic Crimson; more orange-red)
-- **Rescheduled Violet** (`#8B5CF6`): Rescheduled appointments
-- **Info Blue** (`#3B82F6`): Confirmed appointments (Ok! status), informational system messages
+| Code | Label | Color | Hex |
+|---|---|---|---|
+| `TBC` | To Be Confirmed / انتظار | Amber | `#F59E0B` |
+| `Ok!` | Acknowledged / موافق | Blue | `#3B82F6` |
+| `Conf.` | Confirmed / مؤكد | Emerald | `#10B981` |
+| `Comp.` | Complete / مكتمل | Gray | `#6B7280` |
+| `Canc.` | Cancelled / ملغي | Red | `#EF4444` |
+| `Resch.` | Rescheduled / معاد | Violet | `#8B5CF6` |
+| `Inf.` | Informed / مُبلَّغ | Pink | `#EC4899` |
+| `Ref.` | Refunded / مسترد | Violet | `#8B5CF6` ⚠ same as `Resch.` — visual collision |
+
+> **Known collision:** `Resch.` and `Ref.` both use `variant: 'purple'` (`bg-violet-100 text-violet-700`). They are visually indistinguishable. Resolution options: assign `Ref.` to indigo (`#6366F1`) or slate (`#64748B`). No code change made yet — update `Badge.tsx` `STATUS_CONFIG` and `BADGE_VARIANTS` together when resolved.
 
 **The Status Color Rule.** Status colors convey meaning, not decoration. Using Queue Green on a non-status element is prohibited. If a badge or dot is green, it means "active or successful." If amber, it means "attention required." The vocabulary earns its authority through consistency.
 
@@ -208,6 +251,37 @@ The seven appointment statuses have fixed colors. These are not decorative; they
 **The No-Ambiguity Rule.** Never use Body weight (400) for interactive labels or actionable text. Buttons and active links use 500 minimum, section headings use 600 or 700. A user should never look at a word and wonder whether it's a label or a value.
 
 **The Bilingual Symmetry Rule.** Every typographic decision is validated in both English and Arabic. Outfit and IBM Plex Arabic are paired for the same reason: matched optical weight at display sizes. When switching locale, the font shifts, the layout mirrors, the rhythm holds. If a component breaks in RTL, it is broken.
+
+### Semantic Typography Classes (`.fc-*`)
+
+Use these CSS classes (defined in `globals.css`) instead of composing font properties inline:
+
+| Class | Size / Weight / lh | Use |
+|---|---|---|
+| `.fc-display-xl` | Outfit 700 / 48px / 1.05 | Login hero, marketing hero |
+| `.fc-display-lg` | Outfit 700 / 36px / 1.1 | Page-level display number |
+| `.fc-display-md` | Outfit 600 / 30px / 1.15 | Section display |
+| `.fc-heading-lg` / `.fc-h1` | Outfit 600 / 24px / 1.3 | Card/modal title |
+| `.fc-heading-md` / `.fc-h2` | Outfit 600 / 20px / 1.35 | Subsection heading |
+| `.fc-heading-sm` / `.fc-h3` | Manrope 500 / 18px / 1.4 | Widget title |
+| `.fc-body-lg` | Manrope 400 / 16px / 1.6 | Primary body text |
+| `.fc-body` | Manrope 400 / 14px / 1.5 | Secondary body text |
+| `.fc-body-sm` | Manrope 400 / 13px / 1.5 | Caption |
+| `.fc-label` | Manrope 500 / 12px / 1.4 | Form labels, badge text |
+| `.fc-overline` | Manrope 600 / 11px / 1.2 | Uppercase eyebrow / column header |
+| `.fc-num-lg` | Geist Mono 600 / 32px | KPI values (tabular-nums) |
+| `.fc-num-md` | Geist Mono 500 / 18px | Inline numbers (tabular-nums) |
+| `.fc-mono` | Geist Mono | IDs, times, currencies (tabular-nums) |
+
+### Density Modes
+
+Set `data-density` on `<html>` to switch the whole UI density:
+
+| Attribute | Row H | Button H | Input H | Card Pad | Field Gap | Default role |
+|---|---|---|---|---|---|---|
+| `compact` | 36px | 32px | 36px | 12px | 8px | Receptionist |
+| `comfortable` | 52px | 40px | 44px | 20px | 16px | Admin / Doctor |
+| `spacious` | 64px | 48px | 52px | 24px | 24px | Patient portal |
 
 ## 4. Elevation
 

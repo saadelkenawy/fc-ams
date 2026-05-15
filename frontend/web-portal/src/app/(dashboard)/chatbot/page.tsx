@@ -150,10 +150,10 @@ function SuggestionPills({ suggestions, onSelect, disabled }: {
             disabled
               ? 'border-gray-200 text-gray-400 cursor-not-allowed dark:border-neutral-700 dark:text-gray-600'
               : [
-                  'border-blue-600 text-blue-600',
-                  'hover:bg-blue-600 hover:text-white',
-                  'dark:border-blue-500 dark:text-blue-400',
-                  'dark:hover:bg-blue-600 dark:hover:text-white dark:hover:border-blue-600',
+                  'border-primary-600 text-primary-600',
+                  'hover:bg-primary-600 hover:text-white',
+                  'dark:border-primary-400 dark:text-primary-400',
+                  'dark:hover:bg-primary-600 dark:hover:text-white dark:hover:border-primary-600',
                 ],
           )}
         >

@@ -3,9 +3,10 @@
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-type Color = 'blue' | 'green' | 'amber' | 'violet' | 'red';
+type Color = 'primary' | 'blue' | 'green' | 'amber' | 'violet' | 'red';
 
 const COLOR_MAP: Record<Color, { icon: string; badge: string; trend: string }> = {
+  primary:{ icon: 'bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400', badge: 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300', trend: 'text-primary-600' },
   blue:   { icon: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400',   badge: 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300',   trend: 'text-blue-600' },
   green:  { icon: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400', badge: 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300', trend: 'text-emerald-600' },
   amber:  { icon: 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400',  badge: 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300',   trend: 'text-amber-600' },
@@ -23,7 +24,7 @@ interface StatCardProps {
   className?: string;
 }
 
-export function StatCard({ title, value, icon, description, color = 'blue', trend, className }: StatCardProps) {
+export function StatCard({ title, value, icon, description, color = 'primary', trend, className }: StatCardProps) {
   const c = COLOR_MAP[color];
   return (
     <div className={cn(

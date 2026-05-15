@@ -36,6 +36,15 @@ const config: Config = {
           500: '#0ea5e9',
           600: '#0284c7',
         },
+        rosegold: {
+          50:  '#FFF5F1',
+          100: '#FFE4D6',
+          200: '#FFC9AC',
+          300: '#FFA37F',
+          400: '#FF7E54',
+          500: '#F0623E',
+          600: '#D14E2C',
+        },
         sand: {
           50:  '#FAF7F2',
           100: '#F5EFE5',
@@ -68,9 +77,9 @@ const config: Config = {
         '3': '0 4px 6px rgba(15,23,42,0.10), 0 10px 24px rgba(15,23,42,0.06)',
         '4': '0 4px 16px rgba(0,0,0,0.08), 0 8px 24px rgba(15,23,42,0.06)',
         '5': '0 8px 32px rgba(0,0,0,0.12), 0 16px 48px rgba(15,23,42,0.08)',
-        'glow-primary': '0 0 0 4px rgba(183,28,28,0.12)',
-        'glow-success': '0 0 0 4px rgba(16,185,129,0.12)',
-        'glow-warning': '0 0 0 4px rgba(245,158,11,0.12)',
+        'glow-primary': '0 0 0 4px rgba(183,28,28,0.18)',
+        'glow-success': '0 0 0 4px rgba(16,185,129,0.18)',
+        'glow-warning': '0 0 0 4px rgba(245,158,11,0.18)',
       },
       transitionTimingFunction: {
         spring: 'cubic-bezier(0.34,1.56,0.64,1)',

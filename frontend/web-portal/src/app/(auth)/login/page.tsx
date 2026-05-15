@@ -256,7 +256,7 @@ export default function LoginPage() {
           {/* Mobile logo */}
           <div className="flex justify-center mb-8 lg:hidden">
             <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg"
-              style={{ background: `linear-gradient(135deg, var(--theme-primary-from, #2563EB), var(--theme-primary-to, #1D4ED8))` }}>
+              style={{ background: `linear-gradient(135deg, var(--theme-primary-from, #B71C1C), var(--theme-primary-to, #991B1B))` }}>
               <HeartPulse className="w-7 h-7 text-white" />
             </div>
           </div>
@@ -265,7 +265,7 @@ export default function LoginPage() {
           <div className="hidden lg:flex justify-center mb-8">
             <div
               className="w-12 h-12 rounded-xl flex items-center justify-center shadow-md"
-              style={{ background: `linear-gradient(135deg, var(--theme-primary-from, #2563EB), var(--theme-primary-to, #1D4ED8))` }}
+              style={{ background: `linear-gradient(135deg, var(--theme-primary-from, #B71C1C), var(--theme-primary-to, #991B1B))` }}
             >
               <HeartPulse className="w-6 h-6 text-white" />
             </div>
@@ -415,7 +415,7 @@ export default function LoginPage() {
                 'flex items-center justify-center gap-2',
               )}
               style={{
-                background: `linear-gradient(135deg, var(--theme-primary-from, #2563EB), var(--theme-primary-to, #1D4ED8))`,
+                background: `linear-gradient(135deg, var(--theme-primary-from, #B71C1C), var(--theme-primary-to, #991B1B))`,
               }}
             >
               {isSubmitting ? (

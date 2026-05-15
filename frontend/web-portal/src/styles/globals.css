@@ -7,11 +7,12 @@
   :root {
     --theme-primary-from: #B71C1C;
     --theme-primary-to:   #991B1B;
-    --gradient-logo:      linear-gradient(135deg,#450A0A 0%,#7F1D1D 40%,#B71C1C 70%,#EF4444 100%);
-    --gradient-sidebar:   #0f172a;
-    --gradient-hero:      linear-gradient(135deg,#eff6ff 0%,#dbeafe 35%,#FFFFFF 60%,#f8fafc 100%);
+    --gradient-logo:      linear-gradient(135deg,#1A0000 0%,#5C0F0F 18%,#B91C1C 42%,#DC2626 65%,#EF4444 85%,#FF2A4A 100%);
+    /* Featured KpiCard surface — crimson gradient. Sidebar bg is handled by bg-sidebar Tailwind class. */
+    --gradient-sidebar:   linear-gradient(180deg, #B71C1C 0%, #991B1B 50%, #7F1D1D 100%);
+    --gradient-hero:      linear-gradient(135deg,#FEF2F2 0%,#FFE4D6 35%,#FFFFFF 60%,#F5EFE5 100%);
     --gradient-glass:     linear-gradient(135deg,rgba(255,255,255,0.75) 0%,rgba(255,255,255,0.5) 100%);
-    --gradient-card-warm: linear-gradient(135deg,#FFFFFF 0%,#eff6ff 100%);
+    --gradient-card-warm: linear-gradient(135deg,#FFFFFF 0%,#FEF2F2 100%);
 
     /* Surfaces */
     --color-bg:            #F9FAFB;
@@ -33,6 +34,34 @@
     --color-danger:  #EF4444;
     --color-info:    #3B82F6;
 
+    /* Brand role aliases */
+    --brand:        #B71C1C;
+    --brand-hover:  #991B1B;
+    --brand-active: #7F1D1D;
+    --brand-bg:     #FEF2F2;
+    --brand-border: #FECACA;
+
+    /* Rose-gold accent scale */
+    --color-accent-50:  #FFF5F1;
+    --color-accent-100: #FFE4D6;
+    --color-accent-200: #FFC9AC;
+    --color-accent-300: #FFA37F;
+    --color-accent-400: #FF7E54;
+    --color-accent-500: #F0623E;
+    --color-accent-600: #D14E2C;
+
+    /* Warm sand */
+    --color-sand-50:  #FAF7F2;
+    --color-sand-100: #F5EFE5;
+    --color-sand-200: #EBE0CD;
+    --color-sand-300: #DCC9A8;
+    --color-sand-400: #C8AC81;
+
+    /* Mint (healthy/positive) */
+    --color-mint-50:  #F0FBF4;
+    --color-mint-100: #DCF4E2;
+    --color-mint-500: #34D399;
+
     /* Appointment status */
     --status-tbc:   #F59E0B;
     --status-ok:    #3B82F6;
@@ -40,7 +69,7 @@
     --status-comp:  #6B7280;
     --status-canc:  #EF4444;
     --status-resch: #8B5CF6;
-    --status-inf:   #FDA4AF;
+    --status-inf:   #EC4899;
 
     /* Motion */
     --duration-fast:   150ms;
@@ -63,6 +92,11 @@
     --color-text-tertiary: #9CA3AF;
     --color-text-disabled: #6B7280;
     --gradient-glass:      linear-gradient(135deg,rgba(31,31,31,0.85) 0%,rgba(23,23,23,0.7) 100%);
+    /* Crimson primary stays legible on #0A0A0A by shifting to lighter tones */
+    --color-primary-600:   #EF4444;
+    --color-primary-500:   #F87171;
+    --brand:               var(--color-primary-500);
+    --brand-hover:         var(--color-primary-600);
   }
 
   /* Density modes */
@@ -177,6 +211,25 @@
   .pill-tab-bar {
     @apply flex items-center gap-1 p-1 bg-white dark:bg-neutral-800 rounded-full shadow-1 border border-gray-100 dark:border-neutral-700;
   }
+
+  /* ── Semantic typography (.fc-*) ─────────────────────────────────── */
+  .fc-display-xl { font: 700 48px/1.05 var(--font-outfit, system-ui); letter-spacing: -0.025em; }
+  .fc-display-lg { font: 700 36px/1.1  var(--font-outfit, system-ui); letter-spacing: -0.02em; }
+  .fc-display-md { font: 600 30px/1.15 var(--font-outfit, system-ui); letter-spacing: -0.015em; }
+  .fc-h1,
+  .fc-heading-lg { font: 600 24px/1.3  var(--font-outfit, system-ui); letter-spacing: -0.01em; }
+  .fc-h2,
+  .fc-heading-md { font: 600 20px/1.35 var(--font-outfit, system-ui); }
+  .fc-h3,
+  .fc-heading-sm { font: 500 18px/1.4  var(--font-manrope, system-ui); }
+  .fc-body-lg    { font: 400 16px/1.6  var(--font-manrope, system-ui); }
+  .fc-body       { font: 400 14px/1.5  var(--font-manrope, system-ui); }
+  .fc-body-sm    { font: 400 13px/1.5  var(--font-manrope, system-ui); }
+  .fc-label      { font: 500 12px/1.4  var(--font-manrope, system-ui); letter-spacing: 0.02em; }
+  .fc-overline   { font: 600 11px/1.2  var(--font-manrope, system-ui); letter-spacing: 0.08em; text-transform: uppercase; }
+  .fc-num-lg     { font: 600 32px/1.1  var(--font-geist-mono, ui-monospace); font-variant-numeric: tabular-nums; }
+  .fc-num-md     { font: 500 18px/1.3  var(--font-geist-mono, ui-monospace); font-variant-numeric: tabular-nums; }
+  .fc-mono       { font-family: var(--font-geist-mono, ui-monospace); font-variant-numeric: tabular-nums; }
 }
 
 /* ── Keyframe animations ────────────────────────────────────────────────── */

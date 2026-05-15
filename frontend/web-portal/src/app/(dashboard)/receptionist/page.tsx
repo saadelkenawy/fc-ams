@@ -663,7 +663,7 @@ export default function ReceptionistPage() {
                               ? 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300'
                               : a.appointmentType === 'online'
                               ? 'bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300'
-                              : 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
+                              : 'bg-gray-100 dark:bg-neutral-700 text-gray-600 dark:text-gray-300'
                           }`}>
                             {a.appointmentType === 'walk_in'
                               ? t('حضور مباشر', 'Walk-in')
