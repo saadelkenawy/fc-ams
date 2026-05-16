@@ -98,7 +98,7 @@ export default function AlertsPage() {
     <div className="space-y-5 max-w-7xl mx-auto">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h2 className="text-xl font-bold font-display text-gray-900 dark:text-gray-100">
+          <h2 className="text-2xl font-bold font-display text-gray-900 dark:text-gray-100">
             {t('تنبيهات المشتريات', 'Procurement Alerts')}
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">

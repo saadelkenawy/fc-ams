@@ -503,7 +503,7 @@ export default function AppointmentsPage() {
   return (
     <div className="space-y-5 max-w-7xl mx-auto animate-fade-in">
       <div className="flex items-center justify-between gap-4">
-        <h2 className="text-xl font-bold font-display text-gray-900 dark:text-gray-100 animate-slide-down">
+        <h2 className="text-2xl font-bold font-display text-gray-900 dark:text-gray-100 animate-slide-down">
           {t('المواعيد', 'Appointments')}
         </h2>
         <Button size="sm" onClick={() => setAddOpen(true)} className="gap-1.5 animate-slide-down" style={{ animationDelay: '40ms' }}>

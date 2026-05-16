@@ -511,7 +511,7 @@ export default function ChatbotPage() {
             <Bot className="w-5 h-5 text-primary-600 dark:text-primary-400" />
           </div>
           <div>
-            <h2 className="text-xl font-bold font-display text-gray-900 dark:text-gray-100">
+            <h2 className="text-2xl font-bold font-display text-gray-900 dark:text-gray-100">
               {t('المساعد الذكي', 'AI Assistant')}
             </h2>
             <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1.5">

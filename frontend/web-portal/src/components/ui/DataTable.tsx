@@ -69,7 +69,7 @@ export function DataTable<T>({
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-gray-100 dark:border-neutral-700 bg-surface dark:bg-neutral-900/40">
+          <tr className="border-b border-gray-100 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
             {columns.map((col) => (
               <th
                 key={col.key}

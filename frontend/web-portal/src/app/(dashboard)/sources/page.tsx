@@ -479,7 +479,7 @@ export default function SourcesPage() {
       {/* Page header */}
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold font-display text-gray-900 dark:text-gray-100">
+          <h2 className="text-2xl font-bold font-display text-gray-900 dark:text-gray-100">
             {t('مصادر المرضى', 'Patient Sources')}
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
@@ -575,7 +575,7 @@ export default function SourcesPage() {
                       [t('الفترة', 'Period'), ''],
                       ['', ''],
                     ].map(([label], i) => (
-                      <th key={i} className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">
+                      <th key={i} className="text-start px-5 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">
                         {label}
                       </th>
                     ))}

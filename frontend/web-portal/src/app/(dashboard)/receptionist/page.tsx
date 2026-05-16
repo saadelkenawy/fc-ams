@@ -538,7 +538,7 @@ export default function ReceptionistPage() {
 
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
-        <h2 className="text-xl font-bold font-display text-gray-900 dark:text-gray-100">
+        <h2 className="text-2xl font-bold font-display text-gray-900 dark:text-gray-100">
           {t('الإدخال السريع', 'Quick Entry')}
         </h2>
         <div className="flex gap-2">

@@ -140,7 +140,7 @@ export default function DoctorsPage() {
     <div className="space-y-5 max-w-7xl mx-auto animate-fade-in">
       <div className="flex items-center justify-between gap-4">
         <div className="animate-slide-down">
-          <h2 className="text-xl font-bold font-display text-gray-900 dark:text-gray-100">{t('الأطباء', 'Doctors')}</h2>
+          <h2 className="text-2xl font-bold font-display text-gray-900 dark:text-gray-100">{t('الأطباء', 'Doctors')}</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 flex items-center gap-1">
             <span>{activeCount}</span>
             <span>{t('طبيب نشط', 'active doctors')}</span>

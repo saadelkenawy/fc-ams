@@ -117,7 +117,7 @@ export default function PatientDetailPage() {
           <ArrowLeft className={cn('w-5 h-5', lang === 'ar' && 'rotate-180')} />
         </button>
         <div className="flex-1">
-          <h2 className="text-xl font-bold font-display text-gray-900 dark:text-gray-100">{displayName}</h2>
+          <h2 className="text-2xl font-bold font-display text-gray-900 dark:text-gray-100">{displayName}</h2>
           <p className="text-xs text-gray-400 dark:text-gray-300 font-mono mt-0.5" dir="ltr">{patient.patientId}</p>
         </div>
         <Button

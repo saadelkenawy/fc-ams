@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Search, Filter, UserPlus, Users, UserCheck, TrendingUp } from 'lucide-react';
+import { Search, Filter, UserPlus, Users, UserCheck, TrendingUp, Globe } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/Card';
 import { StatCard } from '@/components/ui/StatCard';
 import { Button } from '@/components/ui/Button';
@@ -139,7 +139,7 @@ export default function PatientsPage() {
     <div className="space-y-5 max-w-7xl mx-auto animate-fade-in">
       <div className="flex items-center justify-between gap-4">
         <div className="animate-slide-down">
-          <h2 className="text-xl font-bold font-display text-gray-900 dark:text-gray-100">{t('المرضى', 'Patients')}</h2>
+          <h2 className="text-2xl font-bold font-display text-gray-900 dark:text-gray-100">{t('المرضى', 'Patients')}</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 flex items-center gap-1">
             <span>{total}</span>
             <span>{t('مريض مسجل', 'registered patients')}</span>
@@ -153,7 +153,7 @@ export default function PatientsPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title={t('إجمالي المرضى', 'Total Patients')}
           value={total || '—'}
@@ -166,7 +166,14 @@ export default function PatientsPage() {
           value={isLoading ? '…' : newCount}
           icon={<UserCheck className="w-5 h-5" />}
           color="emerald"
-          description={t('مريض جديد', 'new patients')}
+          description={t('في هذه الصفحة', 'on this page')}
+        />
+        <StatCard
+          title={t('مصادر خارجية', 'External Sources')}
+          value={isLoading ? '…' : patients.filter((p) => p.sourceFirstVisit && p.sourceFirstVisit !== '').length}
+          icon={<Globe className="w-5 h-5" />}
+          color="amber"
+          description={t('في هذه الصفحة', 'on this page')}
         />
         <StatCard
           title={t('مرضى VEZ', 'VEZ Source')}

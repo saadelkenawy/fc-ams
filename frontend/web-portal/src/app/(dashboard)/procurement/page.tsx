@@ -1,44 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { Package, Store, FileText, Bell, AlertTriangle, TrendingDown, CheckCircle, Clock } from 'lucide-react';
+import { Package, Store, FileText, Bell, AlertTriangle, CheckCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { StatCard } from '@/components/ui/StatCard';
 import { Badge } from '@/components/ui/Badge';
 import { useProcurementOverview, useAlerts } from '@/hooks/useProcurement';
 import { useLang } from '@/contexts/LanguageContext';
-
-interface StatCardProps {
-  label: string;
-  value: number | string;
-  icon: React.ComponentType<{ className?: string }>;
-  href: string;
-  accent?: 'blue' | 'green' | 'amber' | 'red' | 'purple';
-}
-
-function StatCard({ label, value, icon: Icon, href, accent = 'blue' }: StatCardProps) {
-  const colors: Record<string, string> = {
-    blue:   'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400',
-    green:  'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400',
-    amber:  'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400',
-    red:    'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400',
-    purple: 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400',
-  };
-  return (
-    <Link href={href}>
-      <Card className="hover:shadow-md transition-shadow cursor-pointer">
-        <CardContent className="p-5 flex items-center gap-4">
-          <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${colors[accent]}`}>
-            <Icon className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-2xl font-bold font-mono tabular-nums text-gray-900 dark:text-gray-100">{value}</p>
-            <p className="text-sm text-gray-500 dark:text-gray-400">{label}</p>
-          </div>
-        </CardContent>
-      </Card>
-    </Link>
-  );
-}
 
 const ALERT_TYPE_LABELS: Record<string, { ar: string; en: string }> = {
   EXPIRY_ALERT:      { ar: 'انتهاء صلاحية',   en: 'Expiry' },
@@ -59,10 +27,10 @@ export default function ProcurementPage() {
   const recentAlerts = alertsData?.data ?? [];
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-5 max-w-7xl mx-auto animate-fade-in">
       {/* Header */}
-      <div>
-        <h2 className="text-xl font-bold font-display text-gray-900 dark:text-gray-100">
+      <div className="animate-slide-down">
+        <h2 className="text-2xl font-bold font-display text-gray-900 dark:text-gray-100">
           {t('المشتريات الطبية', 'Medical Procurement')}
         </h2>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
@@ -71,51 +39,74 @@ export default function ProcurementPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {isLoading ? (
-          Array.from({ length: 4 }).map((_, i) => (
-            <Card key={i}><CardContent className="p-5"><div className="animate-pulse bg-gray-200 dark:bg-neutral-700 rounded h-16" /></CardContent></Card>
-          ))
-        ) : (
-          <>
-            <StatCard label={t('عناصر الكتالوج', 'Catalog Items')}  value={overview?.totalItems ?? 0}    icon={Package}   href="/procurement/catalog"  accent="blue" />
-            <StatCard label={t('الموردون المعتمدون', 'Approved Vendors')} value={overview?.totalVendors ?? 0} icon={Store}     href="/procurement/vendors"  accent="green" />
-            <StatCard label={t('إيصالات الاستلام', 'Total Receipts')}  value={overview?.totalReceipts ?? 0} icon={FileText}  href="/procurement/receipts" accent="purple" />
-            <StatCard label={t('تنبيهات غير مقروءة', 'Unread Alerts')}  value={overview?.unreadAlerts ?? 0}  icon={Bell}      href="/procurement/alerts"   accent={overview?.unreadAlerts ? 'red' : 'blue'} />
-          </>
-        )}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          title={t('عناصر الكتالوج', 'Catalog Items')}
+          value={isLoading ? '…' : (overview?.totalItems ?? 0)}
+          icon={<Package className="w-5 h-5" />}
+          color="blue"
+          description={t('مادة طبية مسجلة', 'registered items')}
+        />
+        <StatCard
+          title={t('عناصر منخفضة', 'Low Stock')}
+          value={isLoading ? '…' : (overview?.lowStockItems ?? 0)}
+          icon={<AlertTriangle className="w-5 h-5" />}
+          color="rose"
+          description={t('تحتاج إعادة طلب', 'need reordering')}
+        />
+        <StatCard
+          title={t('إيصالات الاستلام', 'Total Receipts')}
+          value={isLoading ? '…' : (overview?.totalReceipts ?? 0)}
+          icon={<FileText className="w-5 h-5" />}
+          color="violet"
+          description={t('إيصال مسجل', 'logged receipts')}
+        />
+        <StatCard
+          title={t('الموردون المعتمدون', 'Approved Vendors')}
+          value={isLoading ? '…' : (overview?.totalVendors ?? 0)}
+          icon={<Store className="w-5 h-5" />}
+          color="emerald"
+          description={t('مورد معتمد', 'approved vendors')}
+        />
       </div>
 
-      {/* Secondary stats row */}
+      {/* Pending / discrepancy secondary stats */}
       {!isLoading && overview && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 gap-4">
           <Card>
             <CardContent className="p-4 flex items-center gap-3">
-              <Clock className="w-5 h-5 text-amber-500 flex-shrink-0" />
+              <FileText className="w-4 h-4 text-violet-500 flex-shrink-0" />
               <div>
                 <p className="text-lg font-bold font-mono tabular-nums text-gray-900 dark:text-gray-100">{overview.pendingReceipts}</p>
-                <p className="text-xs text-gray-500">{t('إيصالات معلقة', 'Pending receipts')}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{t('إيصالات معلقة', 'Pending receipts')}</p>
               </div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4 flex items-center gap-3">
-              <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0" />
+              <AlertTriangle className="w-4 h-4 text-rose-500 flex-shrink-0" />
               <div>
                 <p className="text-lg font-bold font-mono tabular-nums text-gray-900 dark:text-gray-100">{overview.discrepancyReceipts}</p>
-                <p className="text-xs text-gray-500">{t('إيصالات بتناقض', 'Discrepancy receipts')}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{t('إيصالات بتناقض', 'Discrepancy receipts')}</p>
               </div>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="p-4 flex items-center gap-3">
-              <TrendingDown className="w-5 h-5 text-orange-500 flex-shrink-0" />
-              <div>
-                <p className="text-lg font-bold font-mono tabular-nums text-gray-900 dark:text-gray-100">{overview.lowStockItems}</p>
-                <p className="text-xs text-gray-500">{t('عناصر منخفضة المخزون', 'Low stock items')}</p>
-              </div>
-            </CardContent>
-          </Card>
+        </div>
+      )}
+
+      {/* Low-stock alert banner */}
+      {!isLoading && overview && overview.lowStockItems > 0 && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40 animate-fade-in">
+          <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+          <p className="text-sm text-amber-800 dark:text-amber-300 flex-1">
+            {t(
+              `${overview.lowStockItems} عنصر بمخزون منخفض يحتاج إعادة طلب`,
+              `${overview.lowStockItems} item${overview.lowStockItems !== 1 ? 's' : ''} are low on stock and need reordering`
+            )}
+          </p>
+          <Link href="/procurement/alerts" className="text-xs font-medium text-amber-700 dark:text-amber-400 hover:underline whitespace-nowrap">
+            {t('عرض التنبيهات', 'View alerts')}
+          </Link>
         </div>
       )}
 

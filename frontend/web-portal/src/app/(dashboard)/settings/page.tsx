@@ -757,7 +757,7 @@ export default function SettingsPage() {
   return (
     <div className="space-y-5 max-w-5xl mx-auto">
       <div>
-        <h2 className="text-xl font-bold font-display text-gray-900 dark:text-gray-100">{t('الإعدادات', 'Settings')}</h2>
+        <h2 className="text-2xl font-bold font-display text-gray-900 dark:text-gray-100">{t('الإعدادات', 'Settings')}</h2>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{t('إعدادات النظام والعيادة', 'System and clinic configuration')}</p>
       </div>
 

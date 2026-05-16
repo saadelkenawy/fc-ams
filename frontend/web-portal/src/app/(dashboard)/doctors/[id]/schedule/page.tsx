@@ -490,7 +490,7 @@ export default function DoctorSchedulePage() {
           <ArrowLeft className={cn('w-5 h-5', lang === 'ar' && 'rotate-180')} />
         </button>
         <div className="flex-1">
-          <h2 className="text-xl font-bold font-display text-gray-900 dark:text-gray-100">
+          <h2 className="text-2xl font-bold font-display text-gray-900 dark:text-gray-100">
             {t('إدارة الجدول', 'Schedule Management')}
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 font-mono">{doctorId.slice(-12).toUpperCase()}</p>

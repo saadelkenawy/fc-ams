@@ -78,7 +78,7 @@ export default function IntegrationsPage() {
   return (
     <div className="space-y-5 max-w-6xl mx-auto animate-fade-in">
       <div className="flex items-center justify-between gap-4">
-        <h2 className="text-xl font-bold font-display text-gray-900 dark:text-gray-100">
+        <h2 className="text-2xl font-bold font-display text-gray-900 dark:text-gray-100">
           {t('تكاملات خارجية', 'External Integrations')}
         </h2>
         <Button

@@ -151,7 +151,7 @@ export default function AnalyticsPage() {
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold font-display text-gray-900 dark:text-gray-100">{t('التحليلات', 'Analytics')}</h2>
+          <h2 className="text-2xl font-bold font-display text-gray-900 dark:text-gray-100">{t('التحليلات', 'Analytics')}</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
             {new Date().toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-US', { month: 'long', year: 'numeric' })}
           </p>

@@ -152,7 +152,7 @@ export default function VendorsPage() {
     <div className="space-y-5 max-w-7xl mx-auto">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h2 className="text-xl font-bold font-display text-gray-900 dark:text-gray-100">{t('دليل الموردين', 'Vendor Directory')}</h2>
+          <h2 className="text-2xl font-bold font-display text-gray-900 dark:text-gray-100">{t('دليل الموردين', 'Vendor Directory')}</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{t('الموردون المصريون المعتمدون', 'Egyptian approved medical suppliers')}</p>
         </div>
         <div className="flex items-center gap-3">
