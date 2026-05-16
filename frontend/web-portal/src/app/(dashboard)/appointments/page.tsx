@@ -473,23 +473,28 @@ export default function AppointmentsPage() {
 
   const isToday = date === todayStr();
 
-  // Week strip helpers
+  // Week strip helpers — use 3-arg Date constructor to avoid timezone parsing ambiguity
   const weekDays = useMemo(() => {
-    const d = new Date(date + 'T00:00:00');
+    const [y, mo, dd] = date.split('-').map(Number);
+    const d = new Date(y, mo - 1, dd);
     const dow = d.getDay(); // 0=Sun…6=Sat
-    const monday = new Date(d);
-    monday.setDate(d.getDate() - ((dow + 6) % 7)); // offset to Monday
+    const monOffset = (dow + 6) % 7; // days since Monday
     return Array.from({ length: 7 }, (_, i) => {
-      const day = new Date(monday);
-      day.setDate(monday.getDate() + i);
-      return day.toISOString().split('T')[0];
+      const day = new Date(y, mo - 1, dd - monOffset + i);
+      const dy = day.getFullYear();
+      const dm = String(day.getMonth() + 1).padStart(2, '0');
+      const dk = String(day.getDate()).padStart(2, '0');
+      return `${dy}-${dm}-${dk}`;
     });
   }, [date]);
 
   function shiftWeek(dir: 1 | -1) {
-    const d = new Date(date + 'T00:00:00');
-    d.setDate(d.getDate() + dir * 7);
-    setDate(d.toISOString().split('T')[0]);
+    const [y, mo, dd] = date.split('-').map(Number);
+    const d = new Date(y, mo - 1, dd + dir * 7);
+    const dy = d.getFullYear();
+    const dm = String(d.getMonth() + 1).padStart(2, '0');
+    const dk = String(d.getDate()).padStart(2, '0');
+    setDate(`${dy}-${dm}-${dk}`);
   }
 
   const DAY_SHORT_EN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
