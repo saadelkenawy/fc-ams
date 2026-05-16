@@ -93,23 +93,46 @@
   }
 
   [data-theme="dark"] {
-    --color-bg:            #0A0A0A;
-    --color-bg-elevated:   #171717;
-    --color-bg-card:       #1F1F1F;
-    --color-bg-input:      #262626;
-    --color-border:        #262626;
-    --color-border-strong: #404040;
-    --color-text-primary:  #F9FAFB;
-    --color-text-secondary:#D1D5DB;
-    --color-text-tertiary: #9CA3AF;
-    --color-text-disabled: #6B7280;
-    --gradient-glass:      linear-gradient(135deg,rgba(31,31,31,0.85) 0%,rgba(23,23,23,0.7) 100%);
-    /* Crimson primary stays legible on #0A0A0A by shifting to lighter tones */
-    --color-primary-600:   #EF4444;
-    --color-primary-500:   #F87171;
-    --brand:               var(--color-primary-500);
-    --brand-hover:         var(--color-primary-600);
+    --color-bg:            #0A0A14;
+    --color-bg-elevated:   #141420;
+    --color-bg-card:       #141420;
+    --color-bg-input:      #1A1A28;
+    --color-border:        #1E1E30;
+    --color-border-strong: #252535;
+    --color-text-primary:  #F1F5F9;
+    --color-text-secondary:#CBD5E1;
+    --color-text-tertiary: #94A3B8;
+    --color-text-disabled: #64748B;
+    --gradient-glass:      linear-gradient(135deg,rgba(20,20,32,0.92) 0%,rgba(10,10,20,0.85) 100%);
+    --gradient-sidebar:    #0F172A;
+    /* Crimson stays same in dark — sufficient contrast on #0A0A14 */
+    --color-primary-400:   #F87171;
   }
+
+  /* Dark mode class-level overrides (from design system index.html) */
+  [data-theme="dark"] body            { background: #0A0A14; color: #F1F5F9; }
+  [data-theme="dark"] .bg-white       { background: #141420 !important; color: inherit; }
+  [data-theme="dark"] .bg-gray-50     { background: #0F0F1C !important; }
+  [data-theme="dark"] .bg-gray-50\/50,
+  [data-theme="dark"] .bg-gray-50\/30 { background: rgba(15,15,28,0.5) !important; }
+  [data-theme="dark"] .bg-gray-100    { background: #1E1E2E !important; }
+  [data-theme="dark"] .border-gray-100{ border-color: #1E1E30 !important; }
+  [data-theme="dark"] .border-gray-200{ border-color: #252535 !important; }
+  [data-theme="dark"] .text-gray-900  { color: #F1F5F9 !important; }
+  [data-theme="dark"] .text-gray-800  { color: #E2E8F0 !important; }
+  [data-theme="dark"] .text-gray-700  { color: #CBD5E1 !important; }
+  [data-theme="dark"] .text-gray-600  { color: #94A3B8 !important; }
+  [data-theme="dark"] .text-gray-500  { color: #64748B !important; }
+  [data-theme="dark"] .text-gray-400  { color: #475569 !important; }
+  [data-theme="dark"] input,
+  [data-theme="dark"] textarea,
+  [data-theme="dark"] select          { background: #1A1A28 !important; color: #F1F5F9 !important; border-color: #252535 !important; }
+  [data-theme="dark"] .hover\:bg-blue-50\/40:hover { background: rgba(30,30,60,0.4) !important; }
+
+  /* Sidebar logo card */
+  .logo-card                          { background: #ffffff; }
+  [data-theme="dark"] .logo-card      { background: #0d0d1a !important; border: 1px solid rgba(255,255,255,0.08) !important; box-shadow: none !important; }
+  [data-theme="dark"] .logo-img       { filter: invert(1) hue-rotate(180deg); opacity: 0.95; }
 
   /* Density modes */
   [data-density="compact"]    { --row-height:36px; --btn-height:32px; --input-height:36px; --card-padding:12px; --field-gap:8px; }

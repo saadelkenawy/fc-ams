@@ -1,4 +1,4 @@
-import { Outfit, Manrope, IBM_Plex_Sans_Arabic, Tajawal } from 'next/font/google';
+import { Outfit, Manrope, IBM_Plex_Sans_Arabic, Tajawal, Geist_Mono } from 'next/font/google';
 
 export const outfit = Outfit({
   subsets: ['latin'],
@@ -28,9 +28,16 @@ export const tajawal = Tajawal({
   display: 'swap',
 });
 
+export const geistMono = Geist_Mono({
+  subsets: ['latin'],
+  variable: '--font-geist-mono',
+  display: 'swap',
+});
+
 export const fontVariables = [
   outfit.variable,
   manrope.variable,
   ibmPlexArabic.variable,
   tajawal.variable,
+  geistMono.variable,
 ].join(' ');

@@ -741,7 +741,7 @@ export default function BillingPage() {
         <StatCard title={t('إجمالي الإيرادات المدفوعة', 'Total Revenue (Paid)')} value={formatCurrency(kpiRevenue, 'EGP', locale)}  icon={<TrendingUp className="w-5 h-5" />}  color="blue" />
         <StatCard title={t('إجمالي الفواتير', 'Total Invoices')}                 value={kpiTotal}                                    icon={<ReceiptText className="w-5 h-5" />} color="violet" />
         <StatCard title={t('المبلغ المعلق', 'Pending Amount')}                   value={formatCurrency(kpiPending, 'EGP', locale)}   icon={<Clock className="w-5 h-5" />}       color="amber" />
-        <StatCard title={t('المبلغ المسترد', 'Refunded Amount')}                 value={formatCurrency(kpiRefunded, 'EGP', locale)}  icon={<RotateCcw className="w-5 h-5" />}   color="red" />
+        <StatCard title={t('المبلغ المسترد', 'Refunded Amount')}                 value={formatCurrency(kpiRefunded, 'EGP', locale)}  icon={<RotateCcw className="w-5 h-5" />}   color="rose" />
       </div>
 
       {/* Bulk action bar */}

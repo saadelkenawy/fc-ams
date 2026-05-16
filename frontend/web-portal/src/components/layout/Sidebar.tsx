@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, Users, CalendarDays, Stethoscope, Receipt,
@@ -153,24 +154,27 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
       )}
       style={isMobile ? undefined : { width }}
     >
-      {/* Logo */}
-      <div className={cn(
-        'flex items-center gap-3 border-b border-white/10 py-6',
-        collapsed ? 'justify-center px-2' : 'px-5',
-      )}>
-        <div className="w-9 h-9 rounded-xl bg-primary-600 flex items-center justify-center flex-shrink-0">
-          <HeartPulse className="w-5 h-5 text-white" />
+      {/* Logo card — white card on slate sidebar */}
+      <div className={cn('py-4', collapsed ? 'px-2' : 'px-4')}>
+        <div className={cn(
+          'logo-card bg-white rounded-xl flex items-center gap-2.5 transition-all duration-200',
+          collapsed ? 'justify-center p-2' : 'p-3',
+        )}>
+          {collapsed ? (
+            <HeartPulse className="w-6 h-6 text-primary-600 flex-shrink-0" />
+          ) : (
+            <>
+              <Image
+                src="/images/logo.png"
+                alt="Fadl Clinic"
+                width={100}
+                height={32}
+                className="logo-img h-8 w-auto object-contain"
+                priority
+              />
+            </>
+          )}
         </div>
-        {!collapsed && (
-          <div className="min-w-0">
-            <p className="text-white font-semibold text-sm font-display leading-tight truncate">
-              {t('فضل كلينك', 'Fadl Clinic')}
-            </p>
-            <p className="text-slate-400 text-xs truncate">
-              {t('نظام الإدارة', 'Management System')}
-            </p>
-          </div>
-        )}
       </div>
 
       {/* Nav */}

@@ -236,8 +236,8 @@ function QuickSearch() {
           onFocus={() => { if (dq.trim().length >= 2) setOpen(true); }}
           placeholder={t('بحث سريع...', 'Quick search...')}
           className={cn(
-            'w-full h-8 text-xs bg-gray-50 dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg',
-            'focus:outline-none focus:ring-1 focus:ring-primary-600 focus:border-primary-400',
+            'w-full h-8 text-xs bg-white/80 dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-full',
+            'focus:outline-none focus:ring-2 focus:ring-primary-600 focus:ring-offset-1 focus:border-primary-400',
             'text-gray-800 dark:text-gray-100 placeholder:text-gray-400 transition-colors',
             'ps-8 pe-7',
           )}
@@ -347,7 +347,7 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
   const userName = lang === 'ar' ? user?.nameAr : user?.nameEn;
 
   return (
-    <header className="h-14 bg-white dark:bg-neutral-900 border-b border-gray-100 dark:border-neutral-800 flex items-center px-4 gap-3 flex-shrink-0 transition-colors duration-200">
+    <header className="sticky top-0 z-20 h-14 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border-b border-gray-200/70 dark:border-neutral-800 flex items-center px-4 gap-3 flex-shrink-0 transition-colors duration-200">
       {/* Hamburger — mobile only */}
       <button
         onClick={onMobileMenuToggle}

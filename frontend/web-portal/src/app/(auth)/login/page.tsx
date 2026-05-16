@@ -1,19 +1,19 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
-  HeartPulse, Eye, EyeOff, Globe, Mail, Lock,
-  ShieldCheck, Zap, BarChart3, Sun, Moon, Waves, Contrast,
+  Eye, EyeOff, Globe, Mail, Lock,
+  ShieldCheck, LineChart, Globe2, Moon, Sun,
+  UserRound, Stethoscope, Shield, Info, HeartPulse, ArrowRight, ArrowLeft,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLang } from '@/contexts/LanguageContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { THEMES, THEME_ORDER } from '@/lib/theme.config';
 import { cn } from '@/lib/utils';
 import { identityApi } from '@/lib/api';
 
@@ -24,57 +24,34 @@ const schema = z.object({
 });
 type FormValues = z.infer<typeof schema>;
 
-const HERO_IMAGES = [
-  '/images/medical-clinic.jpg',
-  '/images/medical-team.jpg',
-  '/images/medical-abstract.jpg',
+type Role = 'receptionist' | 'doctor' | 'admin';
+
+const ROLE_OPTIONS: { key: Role; labelAr: string; labelEn: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  { key: 'receptionist', labelAr: 'الاستقبال', labelEn: 'Receptionist', icon: UserRound },
+  { key: 'doctor',       labelAr: 'طبيب',      labelEn: 'Doctor',       icon: Stethoscope },
+  { key: 'admin',        labelAr: 'إدارة',     labelEn: 'Admin',        icon: Shield },
 ];
 
-const FEATURE_PILLS = [
-  { icon: ShieldCheck, labelAr: 'آمن ومشفر',    labelEn: 'Secure & Encrypted' },
-  { icon: Zap,         labelAr: 'سريع وموثوق',   labelEn: 'Fast & Reliable' },
-  { icon: BarChart3,   labelAr: 'تقارير متقدمة', labelEn: 'Advanced Reports' },
+const FEATURE_CHIPS = [
+  { icon: ShieldCheck, labelAr: 'أمان متوافق',   labelEn: 'HIPAA-ready security' },
+  { icon: LineChart,   labelAr: 'تحليلات لحظية', labelEn: 'Real-time analytics'  },
+  { icon: Globe2,      labelAr: 'دعم عربي كامل', labelEn: 'Full RTL Arabic'      },
 ];
-
-const THEME_ICONS = {
-  light:          Sun,
-  dark:           Moon,
-  teal:           Waves,
-  'high-contrast': Contrast,
-};
 
 export default function LoginPage() {
-  const { login }                   = useAuth();
-  const { lang, toggle, t }         = useLang();
-  const { theme, setTheme }         = useTheme();
-  const router                      = useRouter();
-  const [showPass, setShowPass]           = useState(false);
-  const [error, setError]                 = useState('');
-  const [mounted, setMounted]             = useState(false);
-  const [heroIdx, setHeroIdx]             = useState(0);
-  const [shakeKey, setShakeKey]           = useState(0);
-  const [themePanelOpen, setThemePanelOpen] = useState(false);
+  const { login }           = useAuth();
+  const { lang, toggle, t } = useLang();
+  const { theme, setTheme } = useTheme();
+  const router              = useRouter();
+
+  const [showPass, setShowPass]     = useState(false);
+  const [error, setError]           = useState('');
+  const [mounted, setMounted]       = useState(false);
+  const [shakeKey, setShakeKey]     = useState(0);
+  const [role, setRole]             = useState<Role>('receptionist');
   const [forgotClicked, setForgotClicked] = useState(false);
-  const themePanelRef               = useRef<HTMLDivElement>(null);
 
   useEffect(() => { setMounted(true); }, []);
-
-  // Cycle hero image every 12 s
-  useEffect(() => {
-    const id = setInterval(() => setHeroIdx((i) => (i + 1) % HERO_IMAGES.length), 12_000);
-    return () => clearInterval(id);
-  }, []);
-
-  // Close theme panel on outside click
-  useEffect(() => {
-    function handler(e: MouseEvent) {
-      if (themePanelRef.current && !themePanelRef.current.contains(e.target as Node)) {
-        setThemePanelOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -95,369 +72,356 @@ export default function LoginPage() {
     }
   }
 
-  const ThemeIcon = THEME_ICONS[theme];
-
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+    <div className="min-h-screen flex" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
 
-      {/* ── Hero panel ─────────────────────────────────────────────────────── */}
-      <div className="relative hidden lg:flex lg:w-[58%] min-h-screen flex-col overflow-hidden bg-[#120404]">
-
-        {/* Ken Burns image — crossfade via opacity on index change */}
-        {HERO_IMAGES.map((src, i) => (
-          <div
-            key={src}
-            className="absolute inset-0 transition-opacity duration-[2000ms] ease-in-out"
-            style={{ opacity: i === heroIdx ? 1 : 0 }}
-          >
-            <Image
-              src={src}
-              alt=""
-              fill
-              priority={i === 0}
-              className="object-cover animate-ken-burns"
-              sizes="58vw"
-            />
-          </div>
-        ))}
-
-        {/* Gradient overlay — mesh animation */}
+      {/* ── Left visual panel ─────────────────────────────────────────────── */}
+      <div
+        className="hidden lg:flex flex-col flex-1 relative overflow-hidden text-white p-12"
+        style={{ background: 'linear-gradient(135deg, #0F172A 0%, #1E1B2E 40%, #450A0A 100%)' }}
+      >
+        {/* Grid + radial glows */}
         <div
-          className="absolute inset-0 animate-mesh"
+          className="absolute inset-0 pointer-events-none"
           style={{
-            background: 'linear-gradient(135deg,rgba(15,4,4,0.85) 0%,rgba(183,28,28,0.35) 40%,rgba(15,4,4,0.78) 100%)',
+            backgroundImage:
+              `radial-gradient(circle at 25% 15%, rgba(183,28,28,0.25), transparent 50%),
+               radial-gradient(circle at 75% 90%, rgba(14,165,233,0.15), transparent 50%),
+               linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+               linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)`,
+            backgroundSize: 'auto, auto, 32px 32px, 32px 32px',
           }}
         />
 
-        {/* Soft particle glow spots */}
-        <div className="absolute top-1/4 start-1/4 w-72 h-72 rounded-full bg-rose-900/10 blur-3xl pointer-events-none" />
-        <div className="absolute bottom-1/3 end-1/4 w-56 h-56 rounded-full bg-red-900/8 blur-3xl pointer-events-none" />
-
-        {/* Content */}
-        <div className="relative z-10 flex flex-col items-center justify-center flex-1 px-14 text-center">
-          {/* Logo */}
-          <div className="w-20 h-20 rounded-3xl bg-white/10 backdrop-blur border border-white/20 flex items-center justify-center mb-6 shadow-2xl animate-float">
-            <HeartPulse className="w-10 h-10 text-white drop-shadow" />
+        {/* Logo card */}
+        <div className="relative z-10 flex items-center gap-3">
+          <div className="bg-white rounded-xl px-3 py-2 shadow-lg">
+            <Image src="/images/logo.png" alt="Fadl Clinic" width={80} height={28} className="h-7 w-auto object-contain" priority />
           </div>
+        </div>
 
-          <h1 className="text-5xl font-black text-white font-display mb-3 tracking-tight drop-shadow-lg leading-tight">
-            {t('فضل كلينك', 'Fadl Clinic')}
+        {/* Headline */}
+        <div className="relative z-10 mt-12 max-w-md">
+          <h1 className="text-[44px] leading-[1.05] font-display font-bold tracking-tight">
+            {t('القلب الهادئ', 'The calm, capable heart')}
+            <br />
+            <span className="text-primary-400">{t('الذي تستحقه عيادتك.', 'of every clinic.')}</span>
           </h1>
-
-          <p className="text-white/75 text-xl font-medium mb-3 drop-shadow">
-            {t('نظام إدارة العيادة المتكامل', 'Integrated Clinic Management System')}
-          </p>
-          <p className="text-white/50 text-sm mb-10 max-w-xs leading-relaxed">
+          <p className="mt-5 text-slate-300 text-sm leading-relaxed">
             {t(
-              'منصة سحابية متكاملة لإدارة المرضى، المواعيد، والتسويات المالية بكفاءة عالية',
-              'A unified cloud platform for patients, appointments, and financial settlements.',
+              'منصة واحدة للمرضى والمواعيد والزيارات والمالية — ثنائية اللغة عربي وإنجليزي، مبنية بالطريقة التي تعمل بها عيادات مصر فعلاً.',
+              'One platform for patients, appointments, encounters & finance — bilingual Arabic & English, built for the way Egyptian clinics actually work.',
             )}
           </p>
+        </div>
 
-          {/* Trust badges */}
-          <div className="flex flex-wrap justify-center gap-3">
-            {FEATURE_PILLS.map(({ icon: Icon, labelAr, labelEn }) => (
-              <div
-                key={labelEn}
-                className="flex items-center gap-2 bg-white/10 backdrop-blur border border-white/20 rounded-full px-4 py-2 text-white text-sm font-medium hover:bg-white/15 transition-colors"
-              >
-                <Icon className="w-4 h-4 text-white/70 flex-shrink-0" />
-                {t(labelAr, labelEn)}
-              </div>
-            ))}
+        {/* Hero image card with floating stat badges */}
+        <div className="relative z-10 mt-10 mb-8 rounded-2xl overflow-hidden shadow-xl ring-1 ring-white/10">
+          <Image
+            src="/images/medical-clinic.jpg"
+            alt="Fadl Clinic"
+            width={800}
+            height={360}
+            className="block w-full object-cover"
+            style={{ height: '360px', objectPosition: 'center' }}
+          />
+
+          {/* Top-end stat badge */}
+          <div className="absolute top-4 end-4 flex items-center gap-2.5 bg-white/95 backdrop-blur-sm rounded-2xl px-3 py-2 shadow-lg">
+            <div className="w-8 h-8 rounded-full bg-primary-50 flex items-center justify-center">
+              <HeartPulse className="w-4 h-4 text-primary-600" />
+            </div>
+            <div>
+              <p className="font-display font-bold text-gray-900 text-sm tabular-nums">1,548</p>
+              <p className="text-[10px] text-gray-500 -mt-0.5">{t('مريض نعتني به', 'Patients cared for')}</p>
+            </div>
           </div>
 
-          {/* Image dot indicator */}
-          <div className="flex gap-2 mt-10">
-            {HERO_IMAGES.map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setHeroIdx(i)}
-                className={cn(
-                  'h-1.5 rounded-full transition-all duration-500',
-                  i === heroIdx ? 'w-6 bg-white' : 'w-1.5 bg-white/30 hover:bg-white/50',
-                )}
-              />
-            ))}
+          {/* Bottom-start stat badge */}
+          <div className="absolute bottom-16 start-4 flex items-center gap-2.5 bg-white/95 backdrop-blur-sm rounded-2xl px-3 py-2 shadow-lg">
+            <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center">
+              <Stethoscope className="w-4 h-4 text-emerald-600" />
+            </div>
+            <div>
+              <p className="font-display font-bold text-gray-900 text-sm tabular-nums">27</p>
+              <p className="text-[10px] text-gray-500 -mt-0.5">{t('طبيب نشط', 'Active doctors')}</p>
+            </div>
+          </div>
+
+          {/* Bottom caption */}
+          <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/85 via-black/40 to-transparent pointer-events-none">
+            <div className="flex items-end justify-between gap-3">
+              <div>
+                <p className="font-display font-bold text-white text-lg">{t('تجربة المريض أولاً', 'A patient-first experience')}</p>
+                <p className="text-white/70 text-xs mt-0.5">{t('ثنائية اللغة. سهلة الوصول. هادئة بحكم التصميم.', 'Bilingual, accessible, calm by design.')}</p>
+              </div>
+              <div className="flex items-center gap-1 mb-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-white/40" />
+                <span className="w-4 h-1.5 rounded-full bg-white" />
+                <span className="w-1.5 h-1.5 rounded-full bg-white/40" />
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="relative z-10 pb-6 text-center">
-          <p className="text-white/30 text-xs">{t('© ٢٠٢٦ فضل كلينك', '© 2026 Fadl Clinic')}</p>
-        </div>
-      </div>
-
-      {/* ── Form panel ─────────────────────────────────────────────────────── */}
-      <div
-        className={cn(
-          'flex-1 lg:w-[42%] flex flex-col items-center justify-center px-8 py-12 min-h-screen relative',
-          'transition-all duration-700 ease-out',
-          mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6',
-        )}
-        style={{ backgroundColor: 'var(--color-bg)', color: 'var(--color-text-primary)' }}
-      >
-
-        {/* Top-right controls: lang + theme */}
-        <div className="absolute top-5 end-5 flex items-center gap-2">
-          {/* Language toggle */}
-          <button
-            onClick={toggle}
-            className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border transition-all hover:scale-105"
-            style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-tertiary)' }}
-          >
-            <Globe className="w-3.5 h-3.5" />
-            {t('English', 'عربي')}
-          </button>
-
-          {/* Theme picker */}
-          <div className="relative" ref={themePanelRef}>
-            <button
-              onClick={() => setThemePanelOpen((o) => !o)}
-              className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border transition-all hover:scale-105"
-              style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-tertiary)' }}
-              title={t('تغيير المظهر', 'Change theme')}
+        {/* Feature chips */}
+        <div className="relative z-10 flex items-center gap-2 flex-wrap mt-auto">
+          {FEATURE_CHIPS.map(({ icon: Icon, labelAr, labelEn }) => (
+            <span
+              key={labelEn}
+              className="inline-flex items-center gap-2 px-3 h-9 rounded-full border border-white/10 text-xs text-white/90 backdrop-blur-sm"
+              style={{ background: 'rgba(255,255,255,0.08)' }}
             >
-              <ThemeIcon className="w-3.5 h-3.5" />
-            </button>
-            {themePanelOpen && (
-              <div
-                className="absolute end-0 top-10 z-50 rounded-xl border shadow-xl p-2 w-44 animate-slide-down"
-                style={{ backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)' }}
-              >
-                {THEME_ORDER.map((tid) => {
-                  const TIcon = THEME_ICONS[tid];
-                  const tk = THEMES[tid];
-                  return (
-                    <button
-                      key={tid}
-                      onClick={() => { setTheme(tid); setThemePanelOpen(false); }}
-                      className={cn(
-                        'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all',
-                        tid === theme
-                          ? 'font-semibold'
-                          : 'hover:opacity-80',
-                      )}
-                      style={{
-                        backgroundColor: tid === theme ? 'var(--color-bg-elevated)' : 'transparent',
-                        color: 'var(--color-text-primary)',
-                      }}
-                    >
-                      <TIcon className="w-4 h-4 flex-shrink-0" />
-                      {lang === 'ar' ? tk.labelAr : tk.labelEn}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="w-full max-w-sm">
-          {/* Mobile logo */}
-          <div className="flex justify-center mb-8 lg:hidden">
-            <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg"
-              style={{ background: `linear-gradient(135deg, var(--theme-primary-from, #B71C1C), var(--theme-primary-to, #991B1B))` }}>
-              <HeartPulse className="w-7 h-7 text-white" />
-            </div>
-          </div>
-
-          {/* Desktop small logo */}
-          <div className="hidden lg:flex justify-center mb-8">
-            <div
-              className="w-12 h-12 rounded-xl flex items-center justify-center shadow-md"
-              style={{ background: `linear-gradient(135deg, var(--theme-primary-from, #B71C1C), var(--theme-primary-to, #991B1B))` }}
-            >
-              <HeartPulse className="w-6 h-6 text-white" />
-            </div>
-          </div>
-
-          {/* Heading */}
-          <div className="text-center mb-8">
-            <h2 className="text-2xl font-bold font-display" style={{ color: 'var(--color-text-primary)' }}>
-              {t('مرحباً بعودتك 👋', 'Welcome back 👋')}
-            </h2>
-            <p className="text-sm mt-1.5" style={{ color: 'var(--color-text-tertiary)' }}>
-              {t('سجل دخولك للمتابعة', 'Sign in to your account to continue')}
-            </p>
-          </div>
-
-          {/* Form */}
-          <form
-            key={shakeKey}
-            onSubmit={(e) => void handleSubmit(onSubmit)(e)}
-            className={cn('space-y-5', error && 'animate-shake')}
-            noValidate
-          >
-            {/* Email */}
-            <div className="space-y-1.5">
-              <label htmlFor="email" className="text-sm font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-                {t('البريد الإلكتروني', 'Email address')}
-              </label>
-              <div className="relative">
-                <Mail className="absolute start-3.5 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--color-text-disabled)' }} />
-                <input
-                  id="email"
-                  type="email"
-                  autoComplete="email"
-                  placeholder="admin@fadlclinic.com"
-                  className={cn(
-                    'w-full h-12 rounded-xl border ps-10 pe-4 text-sm',
-                    'focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200',
-                    errors.email ? 'border-red-400 focus:ring-red-400' : 'focus:ring-[var(--theme-primary-from)]',
-                  )}
-                  style={{
-                    backgroundColor: 'var(--color-bg-input)',
-                    borderColor: errors.email ? undefined : 'var(--color-border)',
-                    color: 'var(--color-text-primary)',
-                  }}
-                  {...register('email')}
-                />
-              </div>
-              {errors.email && (
-                <p className="text-xs text-red-500 flex items-center gap-1 mt-1">
-                  <span>⚠</span> {errors.email.message}
-                </p>
-              )}
-            </div>
-
-            {/* Password */}
-            <div className="space-y-1.5">
-              <label htmlFor="password" className="text-sm font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-                {t('كلمة المرور', 'Password')}
-              </label>
-              <div className="relative">
-                <Lock className="absolute start-3.5 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--color-text-disabled)' }} />
-                <input
-                  id="password"
-                  type={showPass ? 'text' : 'password'}
-                  autoComplete="current-password"
-                  placeholder="••••••••"
-                  className={cn(
-                    'w-full h-12 rounded-xl border ps-10 pe-11 text-sm',
-                    'focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200',
-                    errors.password ? 'border-red-400 focus:ring-red-400' : 'focus:ring-[var(--theme-primary-from)]',
-                  )}
-                  style={{
-                    backgroundColor: 'var(--color-bg-input)',
-                    borderColor: errors.password ? undefined : 'var(--color-border)',
-                    color: 'var(--color-text-primary)',
-                  }}
-                  {...register('password')}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPass((s) => !s)}
-                  className="absolute inset-y-0 end-3 flex items-center transition-colors hover:opacity-70"
-                  style={{ color: 'var(--color-text-disabled)' }}
-                >
-                  {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-              {errors.password && (
-                <p className="text-xs text-red-500 flex items-center gap-1 mt-1">
-                  <span>⚠</span> {errors.password.message}
-                </p>
-              )}
-            </div>
-
-            {/* Remember + Forgot */}
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2 text-sm cursor-pointer select-none" style={{ color: 'var(--color-text-tertiary)' }}>
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 rounded"
-                  {...register('remember')}
-                />
-                {t('تذكرني', 'Remember me')}
-              </label>
-              <button
-                type="button"
-                className="text-sm font-medium transition-colors hover:underline"
-                style={{ color: 'var(--theme-primary-from, #B71C1C)' }}
-                onClick={() => setForgotClicked((v) => !v)}
-              >
-                {t('نسيت كلمة المرور؟', 'Forgot password?')}
-              </button>
-            </div>
-
-            {/* Admin-only reset notice */}
-            {forgotClicked && (
-              <div className="rounded-xl border px-4 py-3 text-sm flex items-start gap-2.5"
-                style={{ backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}>
-                <span className="text-base flex-shrink-0">ℹ️</span>
-                <span>
-                  {t(
-                    'إعادة تعيين كلمة المرور تتم عبر مسؤول النظام فقط. تواصل مع مدير العيادة للمساعدة.',
-                    'Password resets are managed by the system administrator only. Contact your clinic admin for assistance.',
-                  )}
-                </span>
-              </div>
-            )}
-
-            {/* Inline error */}
-            {error && (
-              <div className="rounded-xl px-4 py-3 text-sm border flex items-center gap-2 bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800 text-red-700 dark:text-red-400">
-                <span className="text-base">⚠️</span>
-                {error}
-              </div>
-            )}
-
-            {/* Submit */}
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className={cn(
-                'w-full h-12 rounded-xl text-white font-semibold text-sm',
-                'hover:scale-[1.02] active:scale-[0.98]',
-                'transition-all duration-150 shadow-md hover:shadow-lg',
-                'focus:outline-none focus:ring-2 focus:ring-offset-2',
-                'disabled:opacity-60 disabled:cursor-not-allowed disabled:scale-100',
-                'flex items-center justify-center gap-2',
-              )}
-              style={{
-                background: `linear-gradient(135deg, var(--theme-primary-from, #B71C1C), var(--theme-primary-to, #991B1B))`,
-              }}
-            >
-              {isSubmitting ? (
-                <>
-                  <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                  {t('جاري الدخول...', 'Signing in...')}
-                </>
-              ) : (
-                t('تسجيل الدخول', 'Sign in')
-              )}
-            </button>
-          </form>
-
-          {/* Demo credentials — styled chip */}
-          <div
-            className="mt-6 pt-5 border-t text-center"
-            style={{ borderColor: 'var(--color-border)' }}
-          >
-            <p className="text-xs mb-2" style={{ color: 'var(--color-text-disabled)' }}>
-              {t('حساب تجريبي', 'Demo account')}
-            </p>
-            <div
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-mono"
-              style={{
-                backgroundColor: 'var(--color-bg-elevated)',
-                borderColor: 'var(--color-border)',
-                color: 'var(--color-text-tertiary)',
-              }}
-            >
-              <span dir="ltr">admin@fadlclinic.com</span>
-              <span style={{ color: 'var(--color-border-strong)' }}>·</span>
-              <span dir="ltr">Admin@123</span>
-            </div>
-          </div>
+              <span className="w-5 h-5 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.10)' }}>
+                <Icon className="w-3 h-3 text-primary-400" />
+              </span>
+              {t(labelAr, labelEn)}
+            </span>
+          ))}
         </div>
 
         {/* Footer */}
-        <p className="mt-auto pt-8 text-xs text-center" style={{ color: 'var(--color-text-disabled)' }}>
-          {t('فضل كلينك © ٢٠٢٦، جميع الحقوق محفوظة', '© 2026 Fadl Clinic. All rights reserved.')}
-          {' · '}
-          <span className="font-mono" dir="ltr">v1.0.0</span>
-        </p>
+        <div className="relative z-10 mt-8 pt-5 border-t border-white/10 flex items-center justify-between text-[11px] text-white/40">
+          <span>{t('© ٢٠٢٦ فضل كلينك. جميع الحقوق محفوظة.', '© 2026 Fadl Clinic. All rights reserved.')}</span>
+          <span className="font-mono">v1.0.0</span>
+        </div>
+      </div>
+
+      {/* ── Right form panel ──────────────────────────────────────────────── */}
+      <div className="flex-1 flex flex-col bg-white">
+        <header className="flex items-center justify-end gap-2 p-6">
+          {/* Mobile logo */}
+          <Image src="/images/logo.png" alt="Fadl Clinic" width={80} height={28} className="h-7 w-auto object-contain me-auto lg:hidden" priority />
+
+          {/* Language toggle */}
+          <button
+            onClick={toggle}
+            className="h-10 px-3.5 rounded-full bg-white border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition flex items-center gap-2 focus-visible:ring-2 focus-visible:ring-primary-600 focus-visible:ring-offset-2 focus:outline-none"
+          >
+            <Globe className="w-4 h-4" />
+            {lang === 'ar' ? 'English' : 'عربي'}
+          </button>
+
+          {/* Theme toggle */}
+          <button
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            className="h-10 w-10 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-50 transition focus-visible:ring-2 focus-visible:ring-primary-600 focus-visible:ring-offset-2 focus:outline-none"
+            aria-label={theme === 'dark' ? t('وضع النهار', 'Light mode') : t('وضع الليل', 'Dark mode')}
+          >
+            {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
+          </button>
+        </header>
+
+        <main className="flex-1 flex items-center justify-center p-6">
+          <div
+            className={cn(
+              'w-full max-w-md transition-all duration-700 ease-out',
+              mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6',
+            )}
+          >
+            <h1 className="text-3xl font-display font-bold mb-2 text-gray-900">
+              {t('مرحباً بعودتك', 'Welcome back')}
+            </h1>
+            <p className="text-gray-500 text-sm mb-8">
+              {t('سجّل دخولك للوصول إلى حسابك.', 'Sign in to your account to continue.')}
+            </p>
+
+            <form
+              key={shakeKey}
+              onSubmit={(e) => void handleSubmit(onSubmit)(e)}
+              className={cn('space-y-4', error && 'animate-shake')}
+              noValidate
+            >
+              {/* Email */}
+              <div className="space-y-1.5">
+                <label htmlFor="email" className="text-sm font-medium text-gray-700">
+                  {t('البريد الإلكتروني', 'Email address')}
+                </label>
+                <div className="relative">
+                  <Mail className="absolute start-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  <input
+                    id="email"
+                    type="email"
+                    autoComplete="email"
+                    placeholder="admin@fadlclinic.com"
+                    className={cn(
+                      'w-full h-11 rounded-lg border ps-10 pe-4 text-sm bg-white text-gray-900',
+                      'focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent transition-all duration-200',
+                      errors.email ? 'border-red-400' : 'border-gray-200',
+                    )}
+                    {...register('email')}
+                  />
+                </div>
+                {errors.email && (
+                  <p className="text-xs text-red-500 flex items-center gap-1 mt-1">
+                    <Info className="w-3 h-3" /> {errors.email.message}
+                  </p>
+                )}
+              </div>
+
+              {/* Password */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label htmlFor="password" className="text-sm font-medium text-gray-700">
+                    {t('كلمة المرور', 'Password')}
+                  </label>
+                  <button
+                    type="button"
+                    className="text-xs font-semibold text-primary-700 hover:text-primary-600 transition-colors"
+                    onClick={() => setForgotClicked((v) => !v)}
+                  >
+                    {t('نسيتها؟', 'Forgot?')}
+                  </button>
+                </div>
+                <div className="relative">
+                  <Lock className="absolute start-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  <input
+                    id="password"
+                    type={showPass ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    placeholder="••••••••"
+                    className={cn(
+                      'w-full h-11 rounded-lg border ps-10 pe-11 text-sm bg-white text-gray-900',
+                      'focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent transition-all duration-200',
+                      errors.password ? 'border-red-400' : 'border-gray-200',
+                    )}
+                    {...register('password')}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPass((s) => !s)}
+                    className="absolute inset-y-0 end-3 flex items-center text-gray-400 hover:text-gray-700 transition-colors"
+                  >
+                    {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                {errors.password && (
+                  <p className="text-xs text-red-500 flex items-center gap-1 mt-1">
+                    <Info className="w-3 h-3" /> {errors.password.message}
+                  </p>
+                )}
+              </div>
+
+              {/* Remember me */}
+              <label className="flex items-center gap-2.5 text-sm text-gray-700 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-600"
+                  {...register('remember')}
+                />
+                {t('تذكّرني على هذا الجهاز', 'Remember me on this device')}
+              </label>
+
+              {/* Role chip selector */}
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
+                  {t('ادخل بدور', 'Sign in as')}
+                </p>
+                <div className="grid grid-cols-3 gap-2">
+                  {ROLE_OPTIONS.map(({ key, labelAr, labelEn, icon: Icon }) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setRole(key)}
+                      className={cn(
+                        'flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl border text-xs font-medium transition-all duration-150 focus-visible:ring-2 focus-visible:ring-primary-600 focus:outline-none',
+                        role === key
+                          ? 'border-primary-600 bg-primary-50 text-primary-700 shadow-glow-primary'
+                          : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300',
+                      )}
+                    >
+                      <Icon className="w-4 h-4" />
+                      {lang === 'ar' ? labelAr : labelEn}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Forgot password notice */}
+              {forgotClicked && (
+                <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm flex items-start gap-2.5 text-gray-600">
+                  <Info className="w-4 h-4 flex-shrink-0 mt-0.5 text-gray-400" />
+                  <span>
+                    {t(
+                      'إعادة تعيين كلمة المرور تتم عبر مسؤول النظام فقط. تواصل مع مدير العيادة للمساعدة.',
+                      'Password resets are managed by the system administrator only. Contact your clinic admin for assistance.',
+                    )}
+                  </span>
+                </div>
+              )}
+
+              {/* Error */}
+              {error && (
+                <div className="rounded-xl px-4 py-3 text-sm border flex items-center gap-2 bg-red-50 border-red-200 text-red-700">
+                  <Info className="w-4 h-4 flex-shrink-0" />
+                  {error}
+                </div>
+              )}
+
+              {/* Submit */}
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className={cn(
+                  'w-full h-12 rounded-xl text-white font-semibold text-sm',
+                  'bg-primary-600 hover:bg-primary-700 active:bg-primary-800',
+                  'transition-all duration-150 shadow-md hover:shadow-lg',
+                  'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-600 focus-visible:ring-offset-2',
+                  'disabled:opacity-60 disabled:cursor-not-allowed',
+                  'flex items-center justify-center gap-2',
+                )}
+              >
+                {isSubmitting ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                    {t('جارٍ الدخول...', 'Signing in...')}
+                  </>
+                ) : (
+                  <>
+                    {t('تسجيل الدخول', 'Sign in')}
+                    {lang === 'ar' ? <ArrowLeft className="w-4 h-4" /> : <ArrowRight className="w-4 h-4" />}
+                  </>
+                )}
+              </button>
+
+              {/* Divider */}
+              <div className="relative my-1">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-200" />
+                </div>
+                <div className="relative flex justify-center">
+                  <span className="bg-white px-3 text-[10px] font-semibold tracking-widest uppercase text-gray-400">
+                    {t('أو', 'OR')}
+                  </span>
+                </div>
+              </div>
+
+              {/* Demo account chip */}
+              <div className="rounded-xl border border-primary-200 bg-primary-50/40 p-4">
+                <p className="text-xs font-semibold text-primary-700 flex items-center gap-1.5 mb-2">
+                  <Info className="w-3.5 h-3.5" />
+                  {t('حساب تجريبي', 'Demo account')}
+                </p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-mono text-xs px-2 py-1 rounded-md bg-white border border-gray-200 text-gray-700" dir="ltr">
+                    admin@fadlclinic.com
+                  </span>
+                  <span className="font-mono text-xs px-2 py-1 rounded-md bg-white border border-gray-200 text-gray-700" dir="ltr">
+                    Admin@123
+                  </span>
+                </div>
+              </div>
+            </form>
+          </div>
+        </main>
+
+        <footer className="pb-6 text-center">
+          <p className="text-xs text-gray-400">
+            {t('فضل كلينك © ٢٠٢٦، جميع الحقوق محفوظة', '© 2026 Fadl Clinic. All rights reserved.')}
+            {' · '}
+            <span className="font-mono" dir="ltr">v1.0.0</span>
+          </p>
+        </footer>
       </div>
     </div>
   );
