@@ -296,7 +296,7 @@ function DoctorDetailPanel({ doctor, lang, t, onEdit, onToggle, onDelete }: {
       <Card>
         <CardContent className="pt-5">
           <div className="flex items-start gap-3 mb-4">
-            <div className="w-14 h-14 rounded-2xl bg-primary-600 flex items-center justify-center text-xl font-bold text-white flex-shrink-0">
+            <div className="w-20 h-20 rounded-2xl bg-primary-600 flex items-center justify-center text-3xl font-bold text-white flex-shrink-0">
               {(lang === 'ar' ? (doctor.nameAr ?? doctor.nameEn) : doctor.nameEn).charAt(0)}
             </div>
             <div className="flex-1 min-w-0">

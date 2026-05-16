@@ -136,7 +136,7 @@ export default function PatientDetailPage() {
       {/* Avatar + quick stats */}
       <div className="flex items-center gap-5 p-5 bg-white dark:bg-neutral-800 rounded-2xl border border-gray-100 dark:border-neutral-700 shadow-sm">
         <div
-          className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-bold text-white flex-shrink-0"
+          className="w-20 h-20 rounded-2xl flex items-center justify-center text-3xl font-bold text-white flex-shrink-0"
           style={{ background: 'var(--gradient-sidebar)' }}
         >
           {displayName.charAt(0)}
@@ -551,19 +551,19 @@ function VisitHistoryTab({
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
-                  <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">
+                  <th className="text-start px-5 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">
                     {t('التاريخ', 'Date')}
                   </th>
-                  <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">
+                  <th className="text-start px-5 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">
                     {t('الطبيب', 'Doctor')}
                   </th>
-                  <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">
+                  <th className="text-start px-5 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">
                     {t('النوع', 'Type')}
                   </th>
-                  <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">
+                  <th className="text-start px-5 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">
                     {t('الحالة', 'Status')}
                   </th>
-                  <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">
+                  <th className="text-start px-5 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">
                     {t('الرسوم', 'Fee')}
                   </th>
                 </tr>

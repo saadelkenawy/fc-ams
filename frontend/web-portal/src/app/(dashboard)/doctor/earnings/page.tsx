@@ -201,6 +201,50 @@ export default function DoctorEarningsPage() {
             </Card>
           </div>
 
+          {/* Settlement Summary */}
+          {(() => {
+            const settledAmt = transactions
+              .filter((tx) => tx.paymentStatus === 'paid' || tx.paymentStatus === 'reconciled')
+              .reduce((sum, tx) => sum + tx.doctorShare, 0);
+            const pendingAmt = Math.max(0, (settlement?.netPayable ?? 0) - settledAmt);
+            const pct = settlement?.netPayable ? (settledAmt / settlement.netPayable) * 100 : 0;
+            const sessions = (settlement?.totalConsultations ?? 0) + (settlement?.totalProcedures ?? 0);
+            return (
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle>{t('ملخص التسوية', 'Settlement Summary')}</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {[
+                      { labelAr: 'الجلسات',       labelEn: 'Sessions',      value: String(sessions) },
+                      { labelAr: 'الإجمالي',       labelEn: 'Gross',         value: formatCurrency(settlement?.grossRevenue ?? 0, 'EGP', locale) },
+                      { labelAr: 'المُسوَّى',      labelEn: 'Settled',       value: formatCurrency(settledAmt, 'EGP', locale) },
+                      { labelAr: 'المعلق',         labelEn: 'Pending',       value: formatCurrency(pendingAmt, 'EGP', locale) },
+                    ].map(({ labelAr, labelEn, value }) => (
+                      <div key={labelEn} className="text-center p-3 rounded-xl bg-gray-50 dark:bg-neutral-900/40">
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">{t(labelAr, labelEn)}</p>
+                        <p className="text-sm font-semibold font-mono tabular-nums text-gray-900 dark:text-gray-100">{value}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div>
+                    <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1.5">
+                      <span>{t('نسبة التسوية', 'Settlement ratio')}</span>
+                      <span className="font-medium text-emerald-600 dark:text-emerald-400">{Math.round(pct)}%</span>
+                    </div>
+                    <div className="h-2.5 bg-gray-100 dark:bg-neutral-700 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-emerald-500 rounded-full transition-all duration-700"
+                        style={{ width: `${Math.min(pct, 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })()}
+
           {/* Transactions Table */}
           <Card>
             <CardHeader className="pb-3">
@@ -219,13 +263,13 @@ export default function DoctorEarningsPage() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
-                        <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('التاريخ', 'Date')}</th>
-                        <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('المريض', 'Patient')}</th>
-                        <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('المصدر', 'Source')}</th>
-                        <th className="text-end px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الرسوم', 'Charge')}</th>
-                        <th className="text-end px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('حصتي', 'My Share')}</th>
-                        <th className="text-end px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('رسوم المصدر', 'Source Fee')}</th>
-                        <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الحالة', 'Status')}</th>
+                        <th className="text-start px-5 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">{t('التاريخ', 'Date')}</th>
+                        <th className="text-start px-5 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">{t('المريض', 'Patient')}</th>
+                        <th className="text-start px-5 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">{t('المصدر', 'Source')}</th>
+                        <th className="text-end px-5 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">{t('الرسوم', 'Charge')}</th>
+                        <th className="text-end px-5 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">{t('حصتي', 'My Share')}</th>
+                        <th className="text-end px-5 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">{t('رسوم المصدر', 'Source Fee')}</th>
+                        <th className="text-start px-5 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">{t('الحالة', 'Status')}</th>
                       </tr>
                     </thead>
                     <tbody>
