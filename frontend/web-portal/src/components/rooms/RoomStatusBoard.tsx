@@ -55,7 +55,7 @@ function SessionProgress({ done, total, color }: { done: number; total: number; 
           style={{ transform: `scaleX(${pct / 100})` }}
         />
       </div>
-      <span className="text-[10px] text-slate-500 tabular-nums w-8 text-end">{done}/{total}</span>
+      <span className="text-[10px] font-mono tabular-nums text-slate-500 w-8 text-end">{done}/{total}</span>
     </div>
   );
 }

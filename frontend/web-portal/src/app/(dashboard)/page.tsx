@@ -106,7 +106,7 @@ export default function DashboardPage() {
           title={t('المرضى', 'Total Patients')}
           value={totalPatients || '—'}
           icon={<Users className="w-5 h-5" />}
-          color="green"
+          color="emerald"
           description={t('مريض مسجل', 'registered patients')}
         />
         <StatCard

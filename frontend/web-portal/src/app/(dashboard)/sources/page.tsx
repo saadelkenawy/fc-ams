@@ -504,7 +504,7 @@ export default function SourcesPage() {
           title={t('مصادر نشطة', 'Active')}
           value={String(activeCount)}
           icon={<CheckCircle className="w-5 h-5" />}
-          color="green"
+          color="emerald"
         />
         <StatCard
           title={t('لها رسوم', 'With Fees')}

@@ -272,29 +272,29 @@ export default function SettlementsPage() {
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
           <div className="rounded-xl border border-gray-100 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-3">
             <div className="flex items-center gap-1 mb-1"><Banknote className="w-3 h-3 text-gray-400" /><p className="text-xs text-gray-400">{t('رسوم الجلسات', 'Session Fees')}</p></div>
-            <p className="text-base font-bold tabular-nums text-gray-900 dark:text-gray-100">{fmt(totalSessionFees)}</p>
+            <p className="text-base font-bold font-mono tabular-nums text-gray-900 dark:text-gray-100">{fmt(totalSessionFees)}</p>
           </div>
           <div className="rounded-xl border border-orange-100 dark:border-orange-900/30 bg-orange-50 dark:bg-orange-900/10 p-3">
             <div className="flex items-center gap-1 mb-1"><Share2 className="w-3 h-3 text-orange-500" /><p className="text-xs text-orange-600 dark:text-orange-400">{t('الوسيط', 'Mediator')}</p></div>
-            <p className="text-base font-bold tabular-nums text-orange-700 dark:text-orange-300">{fmt(totalMediator)}</p>
+            <p className="text-base font-bold font-mono tabular-nums text-orange-700 dark:text-orange-300">{fmt(totalMediator)}</p>
             {totalSessionFees > 0 && <p className="text-xs text-orange-400 mt-0.5">{((totalMediator / totalSessionFees) * 100).toFixed(1)}%</p>}
           </div>
           <div className="rounded-xl border border-violet-100 dark:border-violet-900/30 bg-violet-50 dark:bg-violet-900/10 p-3">
             <div className="flex items-center gap-1 mb-1"><FlaskConical className="w-3 h-3 text-violet-500" /><p className="text-xs text-violet-600 dark:text-violet-400">{t('خدمات إضافية', 'Extra Services')}</p></div>
-            <p className="text-base font-bold tabular-nums text-violet-700 dark:text-violet-300">{fmt(totalExtraServices)}</p>
+            <p className="text-base font-bold font-mono tabular-nums text-violet-700 dark:text-violet-300">{fmt(totalExtraServices)}</p>
           </div>
           <div className="rounded-xl border border-gray-200 dark:border-neutral-600 bg-gray-50 dark:bg-neutral-700/40 p-3">
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{t('صافي المجمع', 'Net Pool')}</p>
-            <p className="text-base font-bold tabular-nums text-gray-800 dark:text-gray-100">{fmt(totalNetPool)}</p>
+            <p className="text-base font-bold font-mono tabular-nums text-gray-800 dark:text-gray-100">{fmt(totalNetPool)}</p>
           </div>
           <div className="rounded-xl border border-blue-100 dark:border-blue-900/30 bg-blue-50 dark:bg-blue-900/10 p-3">
             <div className="flex items-center gap-1 mb-1"><Stethoscope className="w-3 h-3 text-blue-500" /><p className="text-xs text-blue-600 dark:text-blue-400">{t("مستحق الأطباء", "Doctors'")}</p></div>
-            <p className="text-base font-bold tabular-nums text-blue-700 dark:text-blue-300">{fmt(totalDoctors)}</p>
+            <p className="text-base font-bold font-mono tabular-nums text-blue-700 dark:text-blue-300">{fmt(totalDoctors)}</p>
             {totalNetPool > 0 && <p className="text-xs text-blue-400 mt-0.5">{((totalDoctors / totalNetPool) * 100).toFixed(1)}%</p>}
           </div>
           <div className="rounded-xl border border-emerald-100 dark:border-emerald-900/30 bg-emerald-50 dark:bg-emerald-900/10 p-3">
             <div className="flex items-center gap-1 mb-1"><Building2 className="w-3 h-3 text-emerald-500" /><p className="text-xs text-emerald-600 dark:text-emerald-400">{t('صافي العيادة', 'Clinic Net')}</p></div>
-            <p className="text-base font-bold tabular-nums text-emerald-700 dark:text-emerald-300">{fmt(totalClinic)}</p>
+            <p className="text-base font-bold font-mono tabular-nums text-emerald-700 dark:text-emerald-300">{fmt(totalClinic)}</p>
             {totalNetPool > 0 && <p className="text-xs text-emerald-400 mt-0.5">{((totalClinic / totalNetPool) * 100).toFixed(1)}%</p>}
           </div>
         </div>
@@ -468,7 +468,7 @@ export default function SettlementsPage() {
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="text-end">
-                        <p className="text-sm font-bold tabular-nums text-emerald-700 dark:text-emerald-400">{fmt(rec.amount)}</p>
+                        <p className="text-sm font-bold font-mono tabular-nums text-emerald-700 dark:text-emerald-400">{fmt(rec.amount)}</p>
                         <p className="text-xs text-gray-400">{new Date(rec.createdAt).toLocaleDateString()}</p>
                       </div>
                       {!rec.reversedAt && (
@@ -516,7 +516,7 @@ export default function SettlementsPage() {
               </div>
               <div className="flex justify-between border-t border-gray-200 dark:border-neutral-700 pt-2 mt-2">
                 <span className="text-gray-500">{t('مستحق الطبيب', "Doctor's share")}</span>
-                <span className="font-bold text-emerald-700 dark:text-emerald-400 text-base tabular-nums">{fmt(settleTarget.doctorShare)}</span>
+                <span className="font-bold font-mono tabular-nums text-emerald-700 dark:text-emerald-400 text-base">{fmt(settleTarget.doctorShare)}</span>
               </div>
             </div>
             <div className="space-y-3">

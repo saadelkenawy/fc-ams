@@ -161,7 +161,7 @@ export default function DoctorEarningsPage() {
               title={t('حصتي', 'Doctor Share')}
               value={formatCurrency(settlement?.doctorShare ?? 0, 'EGP', locale)}
               icon={<Wallet className="w-5 h-5" />}
-              color="green"
+              color="emerald"
             />
             <StatCard
               title={t('رسوم المصادر', 'Source Fees')}

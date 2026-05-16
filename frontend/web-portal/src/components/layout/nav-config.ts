@@ -18,42 +18,44 @@ export interface NavGroup {
 const NAV: Record<UserRole, NavGroup[]> = {
   admin: [
     {
+      groupAr: 'نظرة عامة',
+      groupEn: 'Overview',
       items: [
         { key: 'dashboard',    href: '/',             labelAr: 'الرئيسية',        labelEn: 'Dashboard',    icon: 'LayoutDashboard' },
-        { key: 'patients',     href: '/patients',     labelAr: 'المرضى',          labelEn: 'Patients',     icon: 'Users' },
         { key: 'appointments', href: '/appointments', labelAr: 'المواعيد',        labelEn: 'Appointments', icon: 'CalendarDays' },
+        { key: 'queue',        href: '/rooms',        labelAr: 'الطابور',         labelEn: 'Queue',        icon: 'List' },
+      ],
+    },
+    {
+      groupAr: 'السريرية',
+      groupEn: 'Clinical',
+      items: [
+        { key: 'patients',     href: '/patients',     labelAr: 'المرضى',          labelEn: 'Patients',     icon: 'Users' },
         { key: 'doctors',      href: '/doctors',      labelAr: 'الأطباء',         labelEn: 'Doctors',      icon: 'Stethoscope' },
-        { key: 'rooms',        href: '/rooms',        labelAr: 'الغرف',           labelEn: 'Rooms',        icon: 'DoorOpen' },
+        { key: 'encounters',   href: '/encounters',   labelAr: 'الحالات السريرية', labelEn: 'Encounters',   icon: 'FileHeart' },
+        { key: 'procedures',   href: '/procedures',   labelAr: 'الإجراءات',       labelEn: 'Procedures',   icon: 'Clipboard' },
       ],
     },
     {
       groupAr: 'المالية',
       groupEn: 'Finance',
       items: [
-        { key: 'billing',      href: '/billing',      labelAr: 'الفواتير',        labelEn: 'Billing',      icon: 'Receipt' },
-        { key: 'settlements',  href: '/billing/settlements', labelAr: 'التسويات', labelEn: 'Settlements',  icon: 'Banknote' },
+        { key: 'billing',        href: '/billing',             labelAr: 'الفواتير',    labelEn: 'Billing',         icon: 'Receipt' },
+        { key: 'settlements',    href: '/billing/settlements', labelAr: 'التسويات',    labelEn: 'Settlements',     icon: 'Banknote' },
+        { key: 'reports',        href: '/reports',             labelAr: 'التقارير',    labelEn: 'Reports',         icon: 'FileText' },
       ],
     },
     {
-      groupAr: 'التحليلات',
-      groupEn: 'Analytics',
-      items: [
-        { key: 'analytics',    href: '/analytics',    labelAr: 'الإحصائيات',      labelEn: 'Analytics',    icon: 'BarChart3' },
-        { key: 'reports',      href: '/reports',          labelAr: 'التقارير',   labelEn: 'Reports',      icon: 'FileText' },
-      ],
-    },
-    {
-      groupAr: 'الإعدادات',
+      groupAr: 'النظام',
       groupEn: 'System',
       items: [
-        { key: 'procedures',   href: '/procedures',   labelAr: 'الإجراءات',       labelEn: 'Procedures',   icon: 'Clipboard' },
-        { key: 'procurement',  href: '/procurement',  labelAr: 'المشتريات الطبية', labelEn: 'Procurement',  icon: 'Package' },
-        { key: 'sources',      href: '/sources',      labelAr: 'مصادر المرضى',    labelEn: 'Sources',      icon: 'Share2' },
-        { key: 'encounters',   href: '/encounters',   labelAr: 'الحالات السريرية', labelEn: 'Encounters',   icon: 'FileHeart' },
-        { key: 'chatbot',       href: '/chatbot',       labelAr: 'المساعد الذكي',    labelEn: 'AI Assistant',  icon: 'Bot' },
-        { key: 'integrations', href: '/integrations', labelAr: 'التكاملات الخارجية', labelEn: 'Integrations', icon: 'Plug' },
-        { key: 'room-settings', href: '/settings/rooms', labelAr: 'إعدادات الغرف',   labelEn: 'Room Settings', icon: 'DoorOpen' },
-        { key: 'settings',     href: '/settings',     labelAr: 'الإعدادات',        labelEn: 'Settings',      icon: 'Settings' },
+        { key: 'analytics',    href: '/analytics',    labelAr: 'الإحصائيات',        labelEn: 'Analytics',     icon: 'BarChart3' },
+        { key: 'procurement',  href: '/procurement',  labelAr: 'المشتريات الطبية',   labelEn: 'Procurement',   icon: 'Package' },
+        { key: 'sources',      href: '/sources',      labelAr: 'مصادر المرضى',       labelEn: 'Sources',       icon: 'Share2' },
+        { key: 'chatbot',      href: '/chatbot',      labelAr: 'المساعد الذكي',      labelEn: 'AI Assistant',  icon: 'Bot' },
+        { key: 'integrations', href: '/integrations', labelAr: 'التكاملات الخارجية', labelEn: 'Integrations',  icon: 'Plug' },
+        { key: 'room-settings', href: '/rooms',       labelAr: 'إعدادات الغرف',      labelEn: 'Room Settings', icon: 'DoorOpen' },
+        { key: 'settings',     href: '/settings',     labelAr: 'الإعدادات',          labelEn: 'Settings',      icon: 'Settings' },
       ],
     },
   ],

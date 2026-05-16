@@ -31,7 +31,7 @@ function StatCard({ label, value, icon: Icon, href, accent = 'blue' }: StatCardP
             <Icon className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 tabular-nums">{value}</p>
+            <p className="text-2xl font-bold font-mono tabular-nums text-gray-900 dark:text-gray-100">{value}</p>
             <p className="text-sm text-gray-500 dark:text-gray-400">{label}</p>
           </div>
         </CardContent>
@@ -93,7 +93,7 @@ export default function ProcurementPage() {
             <CardContent className="p-4 flex items-center gap-3">
               <Clock className="w-5 h-5 text-amber-500 flex-shrink-0" />
               <div>
-                <p className="text-lg font-bold tabular-nums text-gray-900 dark:text-gray-100">{overview.pendingReceipts}</p>
+                <p className="text-lg font-bold font-mono tabular-nums text-gray-900 dark:text-gray-100">{overview.pendingReceipts}</p>
                 <p className="text-xs text-gray-500">{t('إيصالات معلقة', 'Pending receipts')}</p>
               </div>
             </CardContent>
@@ -102,7 +102,7 @@ export default function ProcurementPage() {
             <CardContent className="p-4 flex items-center gap-3">
               <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0" />
               <div>
-                <p className="text-lg font-bold tabular-nums text-gray-900 dark:text-gray-100">{overview.discrepancyReceipts}</p>
+                <p className="text-lg font-bold font-mono tabular-nums text-gray-900 dark:text-gray-100">{overview.discrepancyReceipts}</p>
                 <p className="text-xs text-gray-500">{t('إيصالات بتناقض', 'Discrepancy receipts')}</p>
               </div>
             </CardContent>
@@ -111,7 +111,7 @@ export default function ProcurementPage() {
             <CardContent className="p-4 flex items-center gap-3">
               <TrendingDown className="w-5 h-5 text-orange-500 flex-shrink-0" />
               <div>
-                <p className="text-lg font-bold tabular-nums text-gray-900 dark:text-gray-100">{overview.lowStockItems}</p>
+                <p className="text-lg font-bold font-mono tabular-nums text-gray-900 dark:text-gray-100">{overview.lowStockItems}</p>
                 <p className="text-xs text-gray-500">{t('عناصر منخفضة المخزون', 'Low stock items')}</p>
               </div>
             </CardContent>

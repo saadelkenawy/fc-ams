@@ -259,8 +259,8 @@ function SourcesReport({ lang, locale }: { lang: string; locale: string }) {
                         <span className="font-medium text-gray-700 dark:text-gray-300">{src}</span>
                       </div>
                       <div className="flex gap-4">
-                        <span className="tabular-nums text-gray-500">{formatNumber(stats.count, locale)} {lang === 'ar' ? 'معاملة' : 'txns'}</span>
-                        <span className="tabular-nums font-semibold text-gray-900 dark:text-gray-100">{pct.toFixed(1)}%</span>
+                        <span className="font-mono tabular-nums text-gray-500">{formatNumber(stats.count, locale)} {lang === 'ar' ? 'معاملة' : 'txns'}</span>
+                        <span className="font-mono tabular-nums font-semibold text-gray-900 dark:text-gray-100">{pct.toFixed(1)}%</span>
                       </div>
                     </div>
                     <div className="h-2 bg-gray-100 dark:bg-neutral-700 rounded-full overflow-hidden">

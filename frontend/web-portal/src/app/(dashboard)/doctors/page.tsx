@@ -37,6 +37,7 @@ export default function DoctorsPage() {
   const [addOpen, setAddOpen]         = useState(false);
   const [editDoctor, setEditDoctor]   = useState<Doctor | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Doctor | null>(null);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'online'>('all');
 
   const { data, isLoading, isError } = useDoctors({ limit: 500 });
   const specialtyMap   = useSpecialtyMap();
@@ -44,9 +45,13 @@ export default function DoctorsPage() {
   const deleteDoctor   = useDeleteDoctor();
 
   const allDoctors   = data?.data ?? [];
-  const filtered     = allDoctors.filter((d) =>
-    (lang === 'ar' ? (d.nameAr ?? d.nameEn) : d.nameEn).toLowerCase().includes(query.toLowerCase()),
-  );
+  const filtered     = allDoctors.filter((d) => {
+    const nameMatch = (lang === 'ar' ? (d.nameAr ?? d.nameEn) : d.nameEn).toLowerCase().includes(query.toLowerCase());
+    if (!nameMatch) return false;
+    if (statusFilter === 'active') return d.isActive;
+    if (statusFilter === 'online') return d.isOnlineDoctor;
+    return true;
+  });
   const activeCount  = allDoctors.filter((d) => d.isActive).length;
   const inactiveCount = allDoctors.filter((d) => !d.isActive).length;
   const onlineCount  = allDoctors.filter((d) => d.isOnlineDoctor).length;
@@ -159,7 +164,7 @@ export default function DoctorsPage() {
           title={t('نشط', 'Active')}
           value={isLoading ? '…' : activeCount}
           icon={<Users className="w-5 h-5" />}
-          color="green"
+          color="emerald"
           description={t('طبيب نشط', 'active doctors')}
         />
         <StatCard
@@ -181,14 +186,29 @@ export default function DoctorsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className={selected ? 'lg:col-span-2' : 'lg:col-span-3'}>
           <Card>
-            <div className="p-5 border-b border-gray-100 dark:border-neutral-700">
-              <Input
-                placeholder={t('بحث بالاسم...', 'Search by name...')}
-                icon={<Search className="w-4 h-4" />}
-                value={query}
-                onChange={(e) => handleSearch(e.target.value)}
-                lang={lang}
-              />
+            <div className="flex items-center gap-3 p-5 border-b border-gray-100 dark:border-neutral-700 flex-wrap">
+              <div className="flex-1 min-w-48">
+                <Input
+                  placeholder={t('بحث بالاسم...', 'Search by name...')}
+                  icon={<Search className="w-4 h-4" />}
+                  value={query}
+                  onChange={(e) => handleSearch(e.target.value)}
+                  lang={lang}
+                />
+              </div>
+              {(['all', 'active', 'online'] as const).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => { setStatusFilter(f); setPage(1); }}
+                  className={`h-9 px-3.5 rounded-full text-xs font-medium border transition-all whitespace-nowrap ${
+                    statusFilter === f
+                      ? 'bg-primary-50 dark:bg-primary-900/20 border-primary-200 dark:border-primary-700 text-primary-700 dark:text-primary-400'
+                      : 'bg-white dark:bg-neutral-800 border-gray-200 dark:border-neutral-700 text-gray-600 dark:text-gray-300 hover:border-gray-300 dark:hover:border-neutral-600'
+                  }`}
+                >
+                  {f === 'all' ? t('الكل', 'All') : f === 'active' ? t('نشط', 'Active') : t('أونلاين', 'Online')}
+                </button>
+              ))}
             </div>
             <CardContent className="p-0">
               <DataTable

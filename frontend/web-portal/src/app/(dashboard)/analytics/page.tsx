@@ -201,7 +201,7 @@ export default function AnalyticsPage() {
               title={t('إجمالي المواعيد', 'Total Appointments')}
               value={formatNumber(currentAppts, locale)}
               icon={<Calendar className="w-5 h-5" />}
-              color="green"
+              color="emerald"
               trend={apptGrowth !== 0 ? { value: Math.abs(apptGrowth), up: apptGrowth > 0 } : undefined}
             />
             <StatCard
@@ -334,7 +334,7 @@ export default function AnalyticsPage() {
                     <td className="px-5 py-3.5 font-mono tabular-nums text-gray-700 dark:text-gray-300">
                       {formatCurrency(s.revenue, 'EGP', locale)}
                     </td>
-                    <td className="px-5 py-3.5 tabular-nums text-gray-600 dark:text-gray-400 hidden md:table-cell">
+                    <td className="px-5 py-3.5 font-mono tabular-nums text-gray-600 dark:text-gray-400 hidden md:table-cell">
                       {formatNumber(s.appointments, locale)}
                     </td>
                     <td className="px-5 py-3.5">

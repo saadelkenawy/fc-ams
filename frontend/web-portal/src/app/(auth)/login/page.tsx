@@ -96,7 +96,7 @@ export default function LoginPage() {
         {/* Logo card */}
         <div className="relative z-10 flex items-center gap-3">
           <div className="bg-white rounded-xl px-3 py-2 shadow-lg">
-            <Image src="/images/logo.png" alt="Fadl Clinic" width={80} height={28} className="h-7 w-auto object-contain" priority />
+            <Image src="/images/logo-wordmark.png" alt="Fadl Clinic" width={127} height={28} className="h-7 w-auto object-contain" priority />
           </div>
         </div>
 
@@ -118,7 +118,7 @@ export default function LoginPage() {
         {/* Hero image card with floating stat badges */}
         <div className="relative z-10 mt-10 mb-8 rounded-2xl overflow-hidden shadow-xl ring-1 ring-white/10">
           <Image
-            src="/images/medical-clinic.jpg"
+            src="/images/login-hero.jpg"
             alt="Fadl Clinic"
             width={800}
             height={360}
@@ -191,7 +191,7 @@ export default function LoginPage() {
       <div className="flex-1 flex flex-col bg-white">
         <header className="flex items-center justify-end gap-2 p-6">
           {/* Mobile logo */}
-          <Image src="/images/logo.png" alt="Fadl Clinic" width={80} height={28} className="h-7 w-auto object-contain me-auto lg:hidden" priority />
+          <Image src="/images/logo-wordmark.png" alt="Fadl Clinic" width={127} height={28} className="h-7 w-auto object-contain me-auto lg:hidden" priority />
 
           {/* Language toggle */}
           <button

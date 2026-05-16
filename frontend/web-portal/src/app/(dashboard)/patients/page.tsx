@@ -77,6 +77,8 @@ export default function PatientsPage() {
     });
   }
 
+  const [activeFilter, setActiveFilter] = useState<'all' | 'future'>('all');
+
   const columns: Column<Patient>[] = [
     {
       key: 'patient',
@@ -144,15 +146,6 @@ export default function PatientsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2 animate-slide-down" style={{ animationDelay: '40ms' }}>
-          <Button
-            variant={futureOnly ? 'primary' : 'outline'}
-            size="sm"
-            onClick={handleFutureToggle}
-            className={futureOnly ? 'gap-1.5' : 'gap-1.5'}
-          >
-            <span className="text-xs">◈</span>
-            {t('المصادر المستقبلية', 'Future Sources')}
-          </Button>
           <Button size="sm" onClick={() => setAddOpen(true)} className="gap-1.5">
             <UserPlus className="w-4 h-4" />
             {t('مريض جديد', 'New Patient')}
@@ -172,7 +165,7 @@ export default function PatientsPage() {
           title={t('هذا الشهر', 'This Month')}
           value={isLoading ? '…' : newCount}
           icon={<UserCheck className="w-5 h-5" />}
-          color="green"
+          color="emerald"
           description={t('مريض جديد', 'new patients')}
         />
         <StatCard
@@ -185,14 +178,37 @@ export default function PatientsPage() {
       </div>
 
       <Card className="animate-slide-up">
-        <div className="p-5 border-b border-gray-100 dark:border-neutral-700">
-          <Input
-            placeholder={t('بحث بالاسم، الموبايل، أو الرقم القومي...', 'Search by name, mobile, or national ID...')}
-            icon={<Search className="w-4 h-4" />}
-            value={query}
-            onChange={(e) => handleSearch(e.target.value)}
-            lang={lang}
-          />
+        <div className="flex items-center gap-3 p-5 border-b border-gray-100 dark:border-neutral-700 flex-wrap">
+          <div className="flex-1 min-w-48">
+            <Input
+              placeholder={t('بحث بالاسم، الموبايل، أو الرقم القومي...', 'Search by name, mobile, or national ID...')}
+              icon={<Search className="w-4 h-4" />}
+              value={query}
+              onChange={(e) => handleSearch(e.target.value)}
+              lang={lang}
+            />
+          </div>
+          <button
+            onClick={() => { setActiveFilter('all'); if (futureOnly) handleFutureToggle(); }}
+            className={`h-9 px-3.5 rounded-full text-xs font-medium border transition-all whitespace-nowrap ${
+              activeFilter === 'all'
+                ? 'bg-primary-50 dark:bg-primary-900/20 border-primary-200 dark:border-primary-700 text-primary-700 dark:text-primary-400'
+                : 'bg-white dark:bg-neutral-800 border-gray-200 dark:border-neutral-700 text-gray-600 dark:text-gray-300 hover:border-gray-300 dark:hover:border-neutral-600'
+            }`}
+          >
+            {t('الكل', 'All')}
+          </button>
+          <button
+            onClick={() => { setActiveFilter('future'); if (!futureOnly) handleFutureToggle(); }}
+            className={`h-9 px-3.5 rounded-full text-xs font-medium border transition-all whitespace-nowrap ${
+              activeFilter === 'future'
+                ? 'bg-primary-50 dark:bg-primary-900/20 border-primary-200 dark:border-primary-700 text-primary-700 dark:text-primary-400'
+                : 'bg-white dark:bg-neutral-800 border-gray-200 dark:border-neutral-700 text-gray-600 dark:text-gray-300 hover:border-gray-300 dark:hover:border-neutral-600'
+            }`}
+          >
+            <span className="text-xs me-1">◈</span>
+            {t('المستقبلية', 'Future')}
+          </button>
         </div>
         <CardContent className="p-0">
           <DataTable

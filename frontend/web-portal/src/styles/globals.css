@@ -129,6 +129,14 @@
   [data-theme="dark"] select          { background: #1A1A28 !important; color: #F1F5F9 !important; border-color: #252535 !important; }
   [data-theme="dark"] .hover\:bg-blue-50\/40:hover { background: rgba(30,30,60,0.4) !important; }
 
+  /* Glass header in dark mode — scoped to dashboard sticky header, not login panel */
+  [data-theme="dark"] header.sticky      { background: rgba(10,10,20,0.85) !important; border-color: #1E1E30 !important; }
+  [data-theme="dark"] .rounded-full.bg-white\/80,
+  [data-theme="dark"] .rounded-full.bg-white { background: #1A1A28 !important; border-color: #252535 !important; }
+  [data-theme="dark"] .hover\:bg-gray-50:hover { background: #1A1A2A !important; }
+  [data-theme="dark"] button.bg-white,
+  [data-theme="dark"] a.bg-white         { background: #1E1E30 !important; border-color: #2E2E45 !important; color: #CBD5E1 !important; }
+
   /* Sidebar logo card */
   .logo-card                          { background: #ffffff; }
   [data-theme="dark"] .logo-card      { background: #0d0d1a !important; border: 1px solid rgba(255,255,255,0.08) !important; box-shadow: none !important; }

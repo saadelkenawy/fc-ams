@@ -155,26 +155,29 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
       style={isMobile ? undefined : { width }}
     >
       {/* Logo card — white card on slate sidebar */}
-      <div className={cn('py-4', collapsed ? 'px-2' : 'px-4')}>
+      <div className={cn('pt-5 pb-4 border-b border-white/10', collapsed ? 'px-2' : 'px-4')}>
         <div className={cn(
-          'logo-card bg-white rounded-xl flex items-center gap-2.5 transition-all duration-200',
-          collapsed ? 'justify-center p-2' : 'p-3',
+          'logo-card bg-white rounded-xl flex items-center justify-center transition-all duration-200 shadow-2',
+          collapsed ? 'p-2' : 'w-full px-4 py-2.5',
         )}>
           {collapsed ? (
             <HeartPulse className="w-6 h-6 text-primary-600 flex-shrink-0" />
           ) : (
-            <>
-              <Image
-                src="/images/logo.png"
-                alt="Fadl Clinic"
-                width={100}
-                height={32}
-                className="logo-img h-8 w-auto object-contain"
-                priority
-              />
-            </>
+            <Image
+              src="/images/logo-wordmark.png"
+              alt="Fadl Clinic"
+              width={145}
+              height={28}
+              className="logo-img h-7 w-auto object-contain"
+              priority
+            />
           )}
         </div>
+        {!collapsed && (
+          <p className="text-slate-400 text-[11px] text-center mt-2.5 font-medium tracking-wide uppercase">
+            {lang === 'ar' ? 'نظام الإدارة' : 'Management System'}
+          </p>
+        )}
       </div>
 
       {/* Nav */}

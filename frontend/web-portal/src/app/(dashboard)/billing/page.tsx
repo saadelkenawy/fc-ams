@@ -329,7 +329,7 @@ function BulkDeleteModal({ selected, onClose, onDeleted, lang, t, locale }: Bulk
                 type="text"
                 value={typed}
                 onChange={(e) => setTyped(e.target.value)}
-                className="w-full h-10 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-gray-900 dark:text-gray-100 px-3 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                className="w-full h-10 rounded-lg border border-red-300 dark:border-red-700 bg-white dark:bg-neutral-900 text-gray-900 dark:text-gray-100 px-3 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
                 placeholder="DELETE"
               />
             </div>

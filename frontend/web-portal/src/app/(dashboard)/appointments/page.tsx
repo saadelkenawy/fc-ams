@@ -473,6 +473,28 @@ export default function AppointmentsPage() {
 
   const isToday = date === todayStr();
 
+  // Week strip helpers
+  const weekDays = useMemo(() => {
+    const d = new Date(date + 'T00:00:00');
+    const dow = d.getDay(); // 0=Sun…6=Sat
+    const monday = new Date(d);
+    monday.setDate(d.getDate() - ((dow + 6) % 7)); // offset to Monday
+    return Array.from({ length: 7 }, (_, i) => {
+      const day = new Date(monday);
+      day.setDate(monday.getDate() + i);
+      return day.toISOString().split('T')[0];
+    });
+  }, [date]);
+
+  function shiftWeek(dir: 1 | -1) {
+    const d = new Date(date + 'T00:00:00');
+    d.setDate(d.getDate() + dir * 7);
+    setDate(d.toISOString().split('T')[0]);
+  }
+
+  const DAY_SHORT_EN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const DAY_SHORT_AR = ['إثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة', 'سبت', 'أحد'];
+
   return (
     <div className="space-y-5 max-w-7xl mx-auto animate-fade-in">
       <div className="flex items-center justify-between gap-4">
@@ -485,30 +507,59 @@ export default function AppointmentsPage() {
         </Button>
       </div>
 
-      {/* Date nav + doctor filter + status tabs */}
+      {/* Week strip */}
+      <Card className="p-4">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => shiftWeek(lang === 'ar' ? 1 : -1)}
+            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-700 text-gray-500 dark:text-gray-400 transition-colors flex-shrink-0"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <div className="grid grid-cols-7 gap-1.5 flex-1">
+            {weekDays.map((dayStr, i) => {
+              const isActive = dayStr === date;
+              const dayNum = parseInt(dayStr.split('-')[2], 10);
+              return (
+                <button
+                  key={dayStr}
+                  onClick={() => setDate(dayStr)}
+                  className={cn(
+                    'p-2.5 rounded-xl flex flex-col items-center gap-0.5 transition-all text-center',
+                    isActive
+                      ? 'bg-primary-600 text-white shadow-glow-primary'
+                      : 'bg-gray-50 dark:bg-neutral-800 hover:bg-gray-100 dark:hover:bg-neutral-700 text-gray-700 dark:text-gray-300',
+                  )}
+                >
+                  <span className={`text-[10px] uppercase tracking-wider font-semibold ${isActive ? 'text-white/80' : 'text-gray-400 dark:text-gray-500'}`}>
+                    {lang === 'ar' ? DAY_SHORT_AR[i] : DAY_SHORT_EN[i]}
+                  </span>
+                  <span className="text-base font-bold font-mono leading-none">{dayNum}</span>
+                </button>
+              );
+            })}
+          </div>
+          <button
+            onClick={() => shiftWeek(lang === 'ar' ? -1 : 1)}
+            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-700 text-gray-500 dark:text-gray-400 transition-colors flex-shrink-0"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+          {!isToday && (
+            <button
+              onClick={() => setDate(todayStr())}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400 hover:bg-primary-100 transition-colors border border-primary-100 dark:border-primary-800 flex-shrink-0"
+            >
+              <CalendarDays className="w-3.5 h-3.5" />
+              {t('اليوم', 'Today')}
+            </button>
+          )}
+        </div>
+      </Card>
+
+      {/* Doctor filter + patient search + advanced */}
       <div className="flex flex-col gap-3">
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 flex-wrap">
-          {/* Date navigation */}
-          <div className="flex items-center gap-2">
-            <button onClick={() => shiftDate(-1)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-700 text-gray-500 dark:text-gray-300 transition-colors">
-              {lang === 'ar' ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-            </button>
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="h-9 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-gray-900 dark:text-gray-100 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600"
-            />
-            <button onClick={() => shiftDate(1)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-700 text-gray-500 dark:text-gray-300 transition-colors">
-              {lang === 'ar' ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-            </button>
-            {!isToday && (
-              <button onClick={() => setDate(todayStr())} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400 hover:bg-primary-100 dark:hover:bg-primary-900/30 transition-colors border border-primary-100 dark:border-primary-800">
-                <CalendarDays className="w-3.5 h-3.5" />{t('اليوم', 'Today')}
-              </button>
-            )}
-          </div>
-
           {/* Doctor filter */}
           <select
             value={doctorId}
