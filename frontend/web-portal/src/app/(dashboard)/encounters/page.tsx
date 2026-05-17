@@ -13,6 +13,7 @@ import { useDoctorMap } from '@/hooks/useDoctors';
 import { useLang } from '@/contexts/LanguageContext';
 import { ehrApi } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
+import { EncounterDetailModal } from '@/components/encounters/EncounterDetailModal';
 
 const STATUS_TABS = ['all', 'draft', 'in_progress', 'completed', 'signed_off'] as const;
 type StatusFilter = typeof STATUS_TABS[number];
@@ -74,6 +75,7 @@ export default function EncountersPage() {
   const [dateTo, setDateTo] = useState('');
   const [page, setPage] = useState(1);
   const [showNewModal, setShowNewModal] = useState(false);
+  const [selectedEnc, setSelectedEnc]   = useState<Encounter | null>(null);
 
   const [form, setForm] = useState<NewEncounterForm>({
     patientId:      '',
@@ -233,7 +235,11 @@ export default function EncountersPage() {
                     </tr>
                   )
                 : encounters.map((enc: Encounter) => (
-                    <tr key={enc.id} className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors">
+                    <tr
+                      key={enc.id}
+                      onClick={() => setSelectedEnc(enc)}
+                      className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors cursor-pointer"
+                    >
                       <td className="px-5 py-3.5 text-gray-700 dark:text-gray-300">
                         {formatDate(enc.encounterDate, locale)}
                       </td>
@@ -407,6 +413,15 @@ export default function EncountersPage() {
           </div>
         </div>
       )}
+
+      {/* Encounter Detail Modal */}
+      <EncounterDetailModal
+        open={!!selectedEnc}
+        encounter={selectedEnc}
+        patientName={selectedEnc ? (() => { const p = patientMap.get(selectedEnc.patientId); return p ? (lang === 'ar' ? (p.nameAr ?? p.nameEn) : p.nameEn) : undefined; })() : undefined}
+        doctorName={selectedEnc ? (() => { const d = doctorMap.get(selectedEnc.doctorId); return d ? (lang === 'ar' ? (d.nameAr ?? d.nameEn) : d.nameEn) : undefined; })() : undefined}
+        onClose={() => setSelectedEnc(null)}
+      />
     </div>
   );
 }
