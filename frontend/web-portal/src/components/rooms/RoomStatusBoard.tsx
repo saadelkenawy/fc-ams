@@ -13,33 +13,45 @@ import type { RoomDetail, PatientQueueEntry } from '@fadl/types';
 // ── Status config ─────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG = {
-  occupied:  {
-    label: { en: 'Occupied',  ar: 'مشغولة'   },
-    ring: 'ring-1 ring-emerald-500/30 bg-emerald-500/[0.04]',
-    badge: 'text-emerald-400 bg-emerald-500/15',
-    dot: 'bg-emerald-400 shadow-[0_0_6px_#10b981]',
-    progress: 'bg-emerald-500',
+  occupied: {
+    label:    { en: 'Occupied',  ar: 'مشغولة'   },
+    card:     'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900/40',
+    badge:    'text-red-700 dark:text-red-400',
+    dot:      'bg-red-500',
+    dotPulse: true,
+    progress: 'bg-red-500',
   },
-  reserved:  {
-    label: { en: 'Reserved',  ar: 'محجوزة'   },
-    ring: 'ring-1 ring-amber-500/30 bg-amber-500/[0.04]',
-    badge: 'text-amber-400 bg-amber-500/15',
-    dot: 'bg-amber-400 shadow-[0_0_6px_#f59e0b]',
+  reserved: {
+    label:    { en: 'Reserved',  ar: 'محجوزة'   },
+    card:     'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/40',
+    badge:    'text-amber-700 dark:text-amber-400',
+    dot:      'bg-amber-500',
+    dotPulse: false,
     progress: 'bg-amber-500',
   },
   available: {
-    label: { en: 'Available', ar: 'متاحة'    },
-    ring: 'ring-1 ring-white/10 bg-white/[0.03]',
-    badge: 'text-slate-400 bg-slate-500/15',
-    dot: 'bg-slate-600',
-    progress: 'bg-slate-500',
+    label:    { en: 'Available', ar: 'متاحة'    },
+    card:     'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/40',
+    badge:    'text-emerald-700 dark:text-emerald-400',
+    dot:      'bg-emerald-500',
+    dotPulse: false,
+    progress: 'bg-emerald-500',
   },
-  inactive:  {
-    label: { en: 'Inactive',  ar: 'غير نشطة' },
-    ring: 'ring-1 ring-red-500/20 bg-red-500/[0.03]',
-    badge: 'text-red-400 bg-red-500/15',
-    dot: 'bg-red-400',
-    progress: 'bg-red-500',
+  cleaning: {
+    label:    { en: 'Cleaning',  ar: 'تنظيف'   },
+    card:     'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/40',
+    badge:    'text-amber-700 dark:text-amber-400',
+    dot:      'bg-amber-400',
+    dotPulse: false,
+    progress: 'bg-amber-400',
+  },
+  inactive: {
+    label:    { en: 'Inactive',  ar: 'غير نشطة' },
+    card:     'bg-gray-50 dark:bg-neutral-800/30 border-gray-200 dark:border-neutral-700',
+    badge:    'text-gray-400 dark:text-gray-500',
+    dot:      'bg-gray-400',
+    dotPulse: false,
+    progress: 'bg-gray-400',
   },
 } as const;
 
@@ -49,13 +61,13 @@ function SessionProgress({ done, total, color }: { done: number; total: number; 
   const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0;
   return (
     <div className="flex items-center gap-2">
-      <div className="flex-1 h-1 rounded-full bg-white/10 overflow-hidden">
+      <div className="flex-1 h-1 rounded-full bg-gray-200 dark:bg-neutral-700 overflow-hidden">
         <div
           className={cn('h-full w-full origin-left transition-transform duration-700', color)}
           style={{ transform: `scaleX(${pct / 100})` }}
         />
       </div>
-      <span className="text-[10px] font-mono tabular-nums text-slate-500 w-8 text-end">{done}/{total}</span>
+      <span className="text-[10px] font-mono tabular-nums text-gray-500 w-8 text-end">{done}/{total}</span>
     </div>
   );
 }
@@ -70,18 +82,20 @@ function QueuePill({ entry, isCurrent }: { entry: PatientQueueEntry; isCurrent: 
     <div className={cn(
       'flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-all',
       isCurrent
-        ? 'bg-emerald-500/15 border border-emerald-500/25 text-emerald-300'
-        : 'bg-white/5 text-slate-400',
+        ? 'bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/40 text-emerald-700 dark:text-emerald-300'
+        : 'bg-gray-100 dark:bg-neutral-800 text-gray-500 dark:text-gray-400',
     )}>
       <span className={cn(
         'w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0',
-        isCurrent ? 'bg-emerald-500 text-black' : 'bg-white/10 text-slate-300',
+        isCurrent
+          ? 'bg-emerald-500 text-white'
+          : 'bg-gray-200 dark:bg-neutral-700 text-gray-600 dark:text-gray-300',
       )}>
         {entry.position}
       </span>
       <span className="truncate flex-1">{label}</span>
       {!isCurrent && entry.estimatedWaitMinutes != null && (
-        <span className="text-[10px] text-slate-500 flex-shrink-0">~{entry.estimatedWaitMinutes}m</span>
+        <span className="text-[10px] text-gray-400 flex-shrink-0">~{entry.estimatedWaitMinutes}m</span>
       )}
     </div>
   );
@@ -107,22 +121,22 @@ function NextPatientModal({
       await nextPatient.mutateAsync({ roomCode: room.roomCode, appointmentId: currentEntry.appointmentId });
       onClose();
     } catch {
-      // error is surfaced via isPending state; modal stays open
+      // error surfaced via isError below
     }
   }
 
   return (
     <Modal open onClose={onClose} title={`Next Patient: ${room.roomCode}`}>
       <div className="flex flex-col gap-4">
-        <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-3.5 text-sm space-y-1.5 text-emerald-300">
+        <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/30 p-3.5 text-sm space-y-1.5 text-emerald-700 dark:text-emerald-300">
           <p>✓ Current session will be marked complete</p>
           <p>✓ Billing record will be created automatically</p>
           {nextEntry
             ? <p>✓ Patient #{nextEntry.position} will be called next</p>
-            : <p className="text-slate-400">No more patients waiting; queue will be empty</p>}
+            : <p className="text-gray-500">No more patients waiting; queue will be empty</p>}
         </div>
         {nextPatient.isError && (
-          <p className="text-xs text-red-400">
+          <p className="text-xs text-red-600 dark:text-red-400">
             {(nextPatient.error as { response?: { data?: { error?: { message?: string } } } })
               ?.response?.data?.error?.message ?? 'Operation failed. Please retry.'}
           </p>
@@ -164,11 +178,11 @@ function RoomCard({
   onAssign: (r: RoomDetail) => void;
   onRelease: (r: RoomDetail) => void;
 }) {
-  const { lang } = useLang();
+  const { lang, t } = useLang();
   const [expanded, setExpanded] = useState(false);
   const [showNextModal, setShowNextModal] = useState(false);
 
-  const cfg = STATUS_CONFIG[room.status];
+  const cfg = STATUS_CONFIG[room.status] ?? STATUS_CONFIG.inactive;
   const canExpand = room.status !== 'inactive';
   const hasDoctor = !!room.assignedDoctor?.id;
 
@@ -181,15 +195,15 @@ function RoomCard({
   const waitingEntries = queue.filter((q) => q.status === 'waiting').slice(0, 3);
   const nextWaiting    = waitingEntries[0] ?? null;
 
-  const done = room.appointmentsToday - room.appointmentsRemaining;
+  const done       = room.appointmentsToday - room.appointmentsRemaining;
   const doctorName = room.assignedDoctor?.nameEn ?? (hasDoctor ? 'Unknown Doctor' : null);
-  const isActive = room.status === 'occupied' || room.status === 'reserved';
+  const isActive   = room.status === 'occupied' || room.status === 'reserved';
 
   return (
     <>
       <div className={cn(
-        'relative flex flex-col rounded-2xl transition-all duration-200 overflow-hidden',
-        cfg.ring,
+        'relative flex flex-col rounded-xl border transition-all duration-200 overflow-hidden hover:shadow-md',
+        cfg.card,
         room.status === 'inactive' && 'opacity-60',
       )}>
 
@@ -201,28 +215,38 @@ function RoomCard({
         >
           {/* Room code + status */}
           <div className="flex items-start justify-between gap-2">
-            <span className="text-2xl font-bold text-white tracking-tight leading-none">{room.roomCode}</span>
-            <span className={cn('flex items-center gap-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0', cfg.badge)}>
-              <span className={cn('w-1.5 h-1.5 rounded-full flex-shrink-0', cfg.dot)} />
-              {lang === 'ar' ? cfg.label.ar : cfg.label.en}
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="w-9 h-9 rounded-lg bg-white dark:bg-neutral-900 border border-gray-200 dark:border-neutral-700 flex items-center justify-center font-bold text-gray-900 dark:text-gray-100 shadow-sm flex-shrink-0 text-sm">
+                {room.roomCode}
+              </span>
+              <div>
+                <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm leading-tight">
+                  {room.roomName}{room.floor != null ? ` · Floor ${room.floor}` : ''}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  {doctorName ?? t('لا يوجد طبيب', 'No doctor assigned')}
+                </p>
+              </div>
+            </div>
+
+            {/* Status badge */}
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <span className={cn(
+                'w-2 h-2 rounded-full flex-shrink-0',
+                cfg.dot,
+                cfg.dotPulse && 'animate-pulse',
+              )} />
+              <span className={cn('text-xs font-semibold', cfg.badge)}>
+                {lang === 'ar' ? cfg.label.ar : cfg.label.en}
+              </span>
+            </div>
           </div>
 
-          {/* Room subtitle */}
-          <p className="text-xs text-slate-500 -mt-1">
-            {room.roomName}{room.floor != null ? ` · Floor ${room.floor}` : ''}
-          </p>
-
-          {/* Doctor */}
-          {doctorName ? (
-            <div>
-              <p className="text-sm font-medium text-white truncate">{doctorName}</p>
-              {room.assignedDoctor?.specialtyNameEn && (
-                <p className="text-xs text-slate-400 mt-0.5">{room.assignedDoctor.specialtyNameEn}</p>
-              )}
-            </div>
-          ) : (
-            <p className="text-sm text-slate-500 italic">No doctor assigned</p>
+          {/* Doctor specialty */}
+          {room.assignedDoctor?.specialtyNameEn && (
+            <p className="text-xs text-gray-400 dark:text-gray-500 -mt-1">
+              {room.assignedDoctor.specialtyNameEn}
+            </p>
           )}
 
           {/* Progress bar */}
@@ -230,7 +254,12 @@ function RoomCard({
             <SessionProgress done={done} total={room.appointmentsToday} color={cfg.progress} />
           )}
           {isActive && room.appointmentsToday === 0 && (
-            <p className="text-xs text-slate-500">{room.appointmentsRemaining} patients remaining</p>
+            <p className="text-xs text-gray-500">{room.appointmentsRemaining} patients remaining</p>
+          )}
+
+          {/* Occupied patient pill */}
+          {room.status === 'occupied' && currentEntry == null && isActive && (
+            <p className="text-xs text-gray-400 italic">{t('لا توجد جلسة نشطة', 'No active session')}</p>
           )}
         </button>
 
@@ -242,24 +271,26 @@ function RoomCard({
           )}
           aria-hidden={!expanded}
         >
-          <div className="border-t border-white/10 px-5 pt-3.5 pb-5 flex flex-col gap-3">
+          <div className="border-t border-gray-200 dark:border-neutral-700 px-5 pt-3.5 pb-5 flex flex-col gap-3">
 
             {/* Queue list */}
             {isActive && (
               <div className="flex flex-col gap-1.5">
-                <p className="text-[10px] uppercase tracking-widest text-slate-600 font-medium mb-0.5">Queue</p>
+                <p className="text-[10px] uppercase tracking-widest text-gray-400 dark:text-gray-500 font-medium mb-0.5">
+                  {t('قائمة الانتظار', 'Queue')}
+                </p>
                 {currentEntry
                   ? <QueuePill entry={currentEntry} isCurrent />
-                  : <p className="text-xs text-slate-500 italic">No active session</p>
+                  : <p className="text-xs text-gray-400 italic">{t('لا توجد جلسة نشطة', 'No active session')}</p>
                 }
                 {waitingEntries.length > 0
                   ? waitingEntries.map((e) => <QueuePill key={e.id} entry={e} isCurrent={false} />)
                   : currentEntry === null && (
-                    <p className="text-xs text-slate-500 italic">No patients waiting</p>
+                    <p className="text-xs text-gray-400 italic">{t('لا يوجد مرضى في الانتظار', 'No patients waiting')}</p>
                   )
                 }
                 {room.appointmentsRemaining > waitingEntries.length + (currentEntry ? 1 : 0) && (
-                  <p className="text-[10px] text-slate-500 ps-2">
+                  <p className="text-[10px] text-gray-400 ps-2">
                     +{room.appointmentsRemaining - waitingEntries.length - (currentEntry ? 1 : 0)} more waiting
                   </p>
                 )}
@@ -274,7 +305,7 @@ function RoomCard({
                   onClick={() => setShowNextModal(true)}
                   className="w-full text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white"
                 >
-                  Next Patient →
+                  {t('المريض التالي ←', 'Next Patient →')}
                 </Button>
               )}
               {room.status === 'available' && room.isActive && (
@@ -284,7 +315,7 @@ function RoomCard({
                   onClick={() => onAssign(room)}
                   className="w-full text-xs"
                 >
-                  Assign Doctor
+                  {t('تعيين طبيب', 'Assign Doctor')}
                 </Button>
               )}
               {isActive && (
@@ -292,9 +323,9 @@ function RoomCard({
                   size="sm"
                   variant="outline"
                   onClick={() => onRelease(room)}
-                  className="w-full text-xs text-red-400 border-red-400/30 hover:bg-red-400/10"
+                  className="w-full text-xs text-red-600 dark:text-red-400 border-red-300 dark:border-red-700 hover:bg-red-50 dark:hover:bg-red-950/20"
                 >
-                  Release Room
+                  {t('تحرير الغرفة', 'Release Room')}
                 </Button>
               )}
             </div>
@@ -306,7 +337,7 @@ function RoomCard({
           <button
             type="button"
             onClick={() => setExpanded((v) => !v)}
-            className="absolute bottom-2.5 end-2.5 w-5 h-5 flex items-center justify-center text-slate-600 hover:text-slate-400 transition-colors"
+            className="absolute bottom-2.5 end-2.5 w-5 h-5 flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
             aria-label={expanded ? 'Collapse' : 'Expand'}
           >
             <svg
@@ -347,6 +378,9 @@ function AssignDoctorModal({ room, onClose }: { room: RoomDetail; onClose: () =>
   const doctors = doctorsResp?.data ?? [];
   const assign = useAssignRoom();
 
+  const inputCls = 'w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:border-primary-500';
+  const labelCls = 'block text-xs text-gray-500 dark:text-gray-400 mb-1';
+
   async function handleAssign() {
     if (!doctorId) { setError('Please select a doctor'); return; }
     setError('');
@@ -364,15 +398,17 @@ function AssignDoctorModal({ room, onClose }: { room: RoomDetail; onClose: () =>
     <Modal open onClose={onClose} title={`Assign Doctor to ${room.roomCode}`}>
       <div className="flex flex-col gap-4">
         <div>
-          <label className="block text-xs text-slate-400 mb-1">Room</label>
-          <div className="px-3 py-2 rounded-lg bg-white/5 text-white text-sm">{room.roomCode}: {room.roomName}</div>
+          <label className={labelCls}>Room</label>
+          <div className="px-3 py-2 rounded-lg bg-gray-50 dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 text-gray-900 dark:text-gray-100 text-sm">
+            {room.roomCode}: {room.roomName}
+          </div>
         </div>
         <div>
-          <label className="block text-xs text-slate-400 mb-1">Doctor</label>
+          <label className={labelCls}>Doctor</label>
           <select
             value={doctorId}
             onChange={(e) => setDoctorId(e.target.value)}
-            className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-primary-500"
+            className={inputCls}
           >
             <option value="">Select doctor…</option>
             {doctors.filter((d) => d.isActive).map((d) => (
@@ -383,17 +419,17 @@ function AssignDoctorModal({ room, onClose }: { room: RoomDetail; onClose: () =>
         <div className="grid grid-cols-3 gap-3">
           {([['Date', 'date', date, setDate], ['From', 'time', fromTime, setFromTime], ['Until', 'time', untilTime, setUntilTime]] as const).map(([lbl, type, val, set]) => (
             <div key={lbl}>
-              <label className="block text-xs text-slate-400 mb-1">{lbl}</label>
+              <label className={labelCls}>{lbl}</label>
               <input
                 type={type}
                 value={val}
                 onChange={(e) => set(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-primary-500"
+                className={inputCls}
               />
             </div>
           ))}
         </div>
-        {error && <p className="text-xs text-red-400">{error}</p>}
+        {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
         <div className="flex gap-2 pt-2">
           <Button variant="outline" onClick={onClose} className="flex-1">Cancel</Button>
           <Button onClick={() => { void handleAssign(); }} disabled={assign.isPending} className="flex-1">
@@ -412,7 +448,7 @@ function ReleaseConfirmModal({ room, onClose }: { room: RoomDetail; onClose: () 
   return (
     <Modal open onClose={onClose} title={`Release ${room.roomCode}`}>
       <div className="flex flex-col gap-4">
-        <p className="text-sm text-slate-300">
+        <p className="text-sm text-gray-700 dark:text-gray-300">
           Release <strong>{room.roomCode}</strong>? The room will become available immediately.
         </p>
         <div className="flex gap-2">
@@ -420,7 +456,7 @@ function ReleaseConfirmModal({ room, onClose }: { room: RoomDetail; onClose: () 
           <Button
             onClick={() => { void release.mutateAsync({ roomCode: room.roomCode }).then(onClose); }}
             disabled={release.isPending}
-            className="flex-1 bg-red-600 hover:bg-red-500"
+            className="flex-1 bg-red-600 hover:bg-red-500 text-white"
           >
             {release.isPending ? 'Releasing…' : 'Release Room'}
           </Button>
@@ -430,11 +466,11 @@ function ReleaseConfirmModal({ room, onClose }: { room: RoomDetail; onClose: () 
   );
 }
 
-// ── Room status dots (sidebar) ────────────────────────────────────────────────
+// ── Room status dots (sidebar widget) ────────────────────────────────────────
 
 export function RoomDots({ date }: { date?: string }) {
   const { data: rooms = [] } = useRooms(date);
-  const colors = { occupied: '#10b981', reserved: '#f59e0b', available: '#64748b', inactive: '#ef4444' };
+  const colors = { occupied: '#ef4444', reserved: '#f59e0b', available: '#10b981', cleaning: '#f59e0b', inactive: '#9ca3af' };
   return (
     <div className="flex items-center gap-1">
       {rooms.map((r) => (
@@ -442,7 +478,7 @@ export function RoomDots({ date }: { date?: string }) {
           key={r.roomCode}
           title={`${r.roomCode} · ${r.status}`}
           className="w-2 h-2 rounded-full"
-          style={{ background: colors[r.status] }}
+          style={{ background: colors[r.status as keyof typeof colors] ?? '#9ca3af' }}
         />
       ))}
     </div>
@@ -463,7 +499,7 @@ export function RoomStatusBoard({ date }: { date?: string }) {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="h-44 rounded-2xl bg-white/5 animate-pulse" />
+          <div key={i} className="h-44 rounded-xl bg-gray-100 dark:bg-neutral-800 animate-pulse" />
         ))}
       </div>
     );

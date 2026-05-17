@@ -2,10 +2,11 @@
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Plug, CheckCircle2, AlertCircle, Clock, RefreshCw } from 'lucide-react';
+import { Plug, CheckCircle2, AlertCircle, Clock, RefreshCw, Activity } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { StatCard } from '@/components/ui/StatCard';
 import { useLang } from '@/contexts/LanguageContext';
 import { integrationApi } from '@/lib/api';
 
@@ -75,12 +76,22 @@ export default function IntegrationsPage() {
 
   const platforms = ['vizita', 'ekshf', 'clinido', 'instapay'];
 
+  const processedCount = (events ?? []).filter((e) => e.status === 'processed').length;
+  const failedCount    = (events ?? []).filter((e) => e.status === 'failed').length;
+  const pendingCount   = (events ?? []).filter((e) => e.status === 'pending').length;
+  const totalCount     = (events ?? []).length;
+
   return (
     <div className="space-y-5 max-w-6xl mx-auto animate-fade-in">
       <div className="flex items-center justify-between gap-4">
-        <h2 className="text-2xl font-bold font-display text-gray-900 dark:text-gray-100">
-          {t('تكاملات خارجية', 'External Integrations')}
-        </h2>
+        <div>
+          <h2 className="text-2xl font-bold font-display text-gray-900 dark:text-gray-100">
+            {t('تكاملات خارجية', 'External Integrations')}
+          </h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+            {t('ربط فضل كلينك بأنظمتك وتطبيقاتك الأخرى', 'Connect Fadl Clinic with your systems and apps')}
+          </p>
+        </div>
         <Button
           size="sm"
           variant="outline"
@@ -91,6 +102,38 @@ export default function IntegrationsPage() {
           <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? 'animate-spin' : ''}`} />
           {t('تحديث', 'Refresh')}
         </Button>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          title={t('جميع الأحداث', 'All Events')}
+          value={totalCount}
+          color="blue"
+          icon={<Activity className="w-5 h-5" />}
+          description={t('حدث', 'events')}
+        />
+        <StatCard
+          title={t('ناجح', 'Processed')}
+          value={processedCount}
+          color="emerald"
+          icon={<CheckCircle2 className="w-5 h-5" />}
+          description={t('معالج', 'completed')}
+        />
+        <StatCard
+          title={t('فشل', 'Failed')}
+          value={failedCount}
+          color="rose"
+          icon={<AlertCircle className="w-5 h-5" />}
+          description={t('يحتاج مراجعة', 'need review')}
+        />
+        <StatCard
+          title={t('معلق', 'Pending')}
+          value={pendingCount}
+          color="amber"
+          icon={<Clock className="w-5 h-5" />}
+          description={t('قيد المعالجة', 'in progress')}
+        />
       </div>
 
       {/* Platform summary cards */}

@@ -1,13 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { Search, Filter, Plus, Pencil, Trash2, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Search, Filter, Plus, Pencil, Trash2, ToggleLeft, ToggleRight, ClipboardList, CheckCircle, DollarSign, Clock } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { StatCard } from '@/components/ui/StatCard';
 import {
   useProcedures,
   useCreateProcedure,
@@ -182,12 +183,23 @@ export default function ProceduresPage() {
     limit,
   });
 
+  const { data: allData }       = useProcedures({ limit: 1 });
+  const { data: activeData }    = useProcedures({ isActive: true, limit: 1 });
+
   const createProcedure = useCreateProcedure();
   const updateProcedure = useUpdateProcedure();
   const deleteProcedure = useDeleteProcedure();
 
-  const procedures = data?.data ?? [];
-  const total      = data?.total ?? 0;
+  const procedures    = data?.data ?? [];
+  const total         = data?.total ?? 0;
+  const totalAll      = allData?.total ?? total;
+  const activeTotal   = activeData?.total ?? 0;
+  const avgPrice      = procedures.length > 0
+    ? Math.round(procedures.reduce((s, p) => s + p.basePrice, 0) / procedures.length)
+    : 0;
+  const avgDuration   = procedures.length > 0
+    ? Math.round(procedures.reduce((s, p) => s + p.durationMinutes, 0) / procedures.length)
+    : 0;
 
   function openAddModal() {
     setEditTarget(null);
@@ -287,6 +299,38 @@ export default function ProceduresPage() {
             {t('إجراء جديد', 'New Procedure')}
           </Button>
         </div>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          title={t('الإجمالي', 'Total')}
+          value={totalAll}
+          color="blue"
+          icon={<ClipboardList className="w-5 h-5" />}
+          description={t('إجراء', 'procedures')}
+        />
+        <StatCard
+          title={t('نشط', 'Active')}
+          value={activeTotal}
+          color="emerald"
+          icon={<CheckCircle className="w-5 h-5" />}
+          description={t('متاح', 'available')}
+        />
+        <StatCard
+          title={t('متوسط السعر', 'Avg. Price')}
+          value={`EGP ${avgPrice.toLocaleString()}`}
+          color="amber"
+          icon={<DollarSign className="w-5 h-5" />}
+          description={t('لكل إجراء', 'per procedure')}
+        />
+        <StatCard
+          title={t('متوسط المدة', 'Avg. Duration')}
+          value={`${avgDuration}m`}
+          color="violet"
+          icon={<Clock className="w-5 h-5" />}
+          description={t('دقيقة', 'minutes')}
+        />
       </div>
 
       {/* Filter row */}
