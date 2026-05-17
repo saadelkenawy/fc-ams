@@ -185,7 +185,7 @@ const DENSITIES: { key: Density; labelAr: string; labelEn: string }[] = [
 const TEXT_SIZES = ['sm', 'md', 'lg', 'xl'] as const;
 type TextSize = typeof TEXT_SIZES[number];
 
-function QuickSearch() {
+function QuickSearch({ onOpenGlobal }: { onOpenGlobal?: () => void }) {
   const { lang, t } = useLang();
   const router = useRouter();
   const [value, setValue] = useState('');
@@ -239,9 +239,19 @@ function QuickSearch() {
             'w-full h-8 text-xs bg-white/80 dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-full',
             'focus:outline-none focus:ring-2 focus:ring-primary-600 focus:ring-offset-1 focus:border-primary-400',
             'text-gray-800 dark:text-gray-100 placeholder:text-gray-400 transition-colors',
-            'ps-8 pe-7',
+            'ps-8 pe-16',
           )}
         />
+        {/* Cmd+K badge — opens global overlay */}
+        {!value && onOpenGlobal && (
+          <button
+            onClick={onOpenGlobal}
+            className="absolute top-1/2 -translate-y-1/2 end-2 flex items-center gap-0.5"
+            tabIndex={-1}
+          >
+            <kbd className="px-1 py-0.5 rounded text-[9px] font-mono text-gray-400 bg-gray-100 dark:bg-neutral-700 border border-gray-200 dark:border-neutral-600 leading-none">⌘K</kbd>
+          </button>
+        )}
         {value && (
           <button
             onClick={() => { setValue(''); setOpen(false); }}
@@ -306,9 +316,10 @@ function QuickSearch() {
 
 interface HeaderProps {
   onMobileMenuToggle: () => void;
+  onSearchOpen?: () => void;
 }
 
-export function Header({ onMobileMenuToggle }: HeaderProps) {
+export function Header({ onMobileMenuToggle, onSearchOpen }: HeaderProps) {
   const { lang, toggle, t }     = useLang();
   const { user }                = useAuth();
   const { theme, setTheme }     = useTheme();
@@ -357,7 +368,7 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
         <Menu className="w-5 h-5" />
       </button>
 
-      <QuickSearch />
+      <QuickSearch onOpenGlobal={onSearchOpen} />
 
       <div className="flex items-center gap-1 ms-auto">
         {/* Zoom controls — hidden below sm to preserve header space */}

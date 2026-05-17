@@ -383,9 +383,9 @@ function DoctorDetailPanel({ doctor, lang, t, onEdit, onToggle, onDelete }: {
           <Calendar className="w-4 h-4" />
           {t('الجدول', 'Schedule')}
         </Button>
-        <Button size="sm" className="flex-1">
+        <Button size="sm" className="flex-1" onClick={() => router.push(`/doctors/${doctor.id}`)}>
           <TrendingUp className="w-4 h-4" />
-          {t('التسوية', 'Settlement')}
+          {t('الملف الكامل', 'Full Profile')}
         </Button>
       </div>
     </div>

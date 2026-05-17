@@ -205,9 +205,10 @@ export default function DoctorEarningsPage() {
           {(() => {
             const settledAmt = transactions
               .filter((tx) => tx.paymentStatus === 'paid' || tx.paymentStatus === 'reconciled')
-              .reduce((sum, tx) => sum + tx.doctorShare, 0);
-            const pendingAmt = Math.max(0, (settlement?.netPayable ?? 0) - settledAmt);
-            const pct = settlement?.netPayable ? (settledAmt / settlement.netPayable) * 100 : 0;
+              .reduce((sum, tx) => sum + tx.approvedCharge, 0);
+            const gross = settlement?.grossRevenue ?? 0;
+            const pendingAmt = Math.max(0, gross - settledAmt);
+            const pct = gross ? (settledAmt / gross) * 100 : 0;
             const sessions = (settlement?.totalConsultations ?? 0) + (settlement?.totalProcedures ?? 0);
             return (
               <Card>

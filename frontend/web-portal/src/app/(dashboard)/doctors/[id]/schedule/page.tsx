@@ -484,7 +484,7 @@ export default function DoctorSchedulePage() {
       {/* Header */}
       <div className="flex items-center gap-4 animate-slide-down">
         <button
-          onClick={() => router.push('/doctors')}
+          onClick={() => router.push(`/doctors/${doctorId}`)}
           className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
         >
           <ArrowLeft className={cn('w-5 h-5', lang === 'ar' && 'rotate-180')} />

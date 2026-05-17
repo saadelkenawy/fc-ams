@@ -4,12 +4,25 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
+import { GlobalSearchOverlay } from '@/components/layout/GlobalSearchOverlay';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
   const router = useRouter();
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [mobileOpen, setMobileOpen]   = useState(false);
+  const [searchOpen, setSearchOpen]   = useState(false);
+
+  useEffect(() => {
+    function handler(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setSearchOpen((o) => !o);
+      }
+    }
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, []);
 
   useEffect(() => {
     if (!isLoading && !user) router.replace('/login');
@@ -46,11 +59,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <Sidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
 
       <div className="flex flex-col flex-1 min-w-0">
-        <Header onMobileMenuToggle={() => setMobileOpen((o) => !o)} />
+        <Header onMobileMenuToggle={() => setMobileOpen((o) => !o)} onSearchOpen={() => setSearchOpen(true)} />
         <main className="flex-1 p-4 lg:p-6 overflow-auto animate-fade-in">
           {children}
         </main>
       </div>
+
+      <GlobalSearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
     </div>
   );
 }
