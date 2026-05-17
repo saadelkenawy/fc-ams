@@ -18,6 +18,7 @@ import { useTransactions, useUpdateTransactionStatus, useBulkDeleteTransactions,
 import { useDoctorMap } from '@/hooks/useDoctors';
 import { usePatientMap } from '@/hooks/usePatients';
 import { cn } from '@/lib/utils';
+import { InvoiceDetailModal } from '@/components/billing/InvoiceDetailModal';
 import type { PaymentStatus, FinancialTransaction } from '@fadl/types';
 
 // Simplified status set per spec — verified/approved removed from UI options
@@ -570,6 +571,7 @@ export default function BillingPage() {
   const [selectedIds, setSelectedIds]       = useState<Set<string>>(new Set());
   const [showBulkDelete, setShowBulkDelete] = useState(false);
   const [showBulkEdit, setShowBulkEdit]     = useState(false);
+  const [detailTx, setDetailTx]             = useState<FinancialTransaction | null>(null);
 
   // Auto-open secure delete modal and scroll to highlighted row
   useEffect(() => {
@@ -903,6 +905,7 @@ export default function BillingPage() {
                       <th className="text-end px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('حصة العيادة', 'Clinic')}</th>
                       <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الحالة', 'Status')}</th>
                       <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الدفع', 'Payment')}</th>
+                      <th className="w-10" />
                     </tr>
                   </thead>
                   <tbody>
@@ -976,6 +979,15 @@ export default function BillingPage() {
                           <td className="px-5 py-3.5 text-gray-500 dark:text-gray-300 text-xs capitalize">
                             {tx.paymentMethod?.replace('_', ' ') ?? '—'}
                           </td>
+                          <td className="px-3 py-3.5">
+                            <button
+                              onClick={() => setDetailTx(tx)}
+                              className="p-1.5 rounded-lg text-gray-400 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
+                              title={t('عرض الفاتورة', 'View invoice')}
+                            >
+                              <FileText className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
                         </tr>
                       );
                     })}
@@ -1037,6 +1049,15 @@ export default function BillingPage() {
           }}
         />
       )}
+
+      {/* Invoice detail modal */}
+      <InvoiceDetailModal
+        open={!!detailTx}
+        transaction={detailTx}
+        patientName={detailTx ? (() => { const p = patientMap.get(detailTx.patientId); return p ? (lang === 'ar' ? (p.nameAr ?? p.nameEn) : p.nameEn) : undefined; })() : undefined}
+        doctorName={detailTx?.doctorId ? (() => { const d = doctorMap.get(detailTx.doctorId!); return d ? (lang === 'ar' ? (d.nameAr ?? d.nameEn) : d.nameEn) : undefined; })() : undefined}
+        onClose={() => setDetailTx(null)}
+      />
     </div>
   );
 }
