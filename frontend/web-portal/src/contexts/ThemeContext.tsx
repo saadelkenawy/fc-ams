@@ -45,6 +45,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const valid = THEMES[stored] ? stored : 'light';
     setThemeState(valid);
     applyTheme(valid);
+
+    const storedSize = localStorage.getItem('fadl_text_size');
+    if (storedSize && ['sm', 'md', 'lg', 'xl'].includes(storedSize)) {
+      document.documentElement.dataset.textSize = storedSize;
+    }
   }, []);
 
   function setTheme(id: ThemeId) {

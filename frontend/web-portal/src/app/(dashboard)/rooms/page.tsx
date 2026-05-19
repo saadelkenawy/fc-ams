@@ -14,7 +14,7 @@ export default function RoomsPage() {
 
   const occupied  = rooms.filter(r => r.status === 'occupied').length;
   const available = rooms.filter(r => r.status === 'available').length;
-  const cleaning  = rooms.filter(r => r.status === 'cleaning').length;
+  const cleaning  = rooms.filter(r => r.status === 'inactive').length;
 
   return (
     <div className="flex flex-col gap-6">

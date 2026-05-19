@@ -1,6 +1,6 @@
 'use client';
 
-import { X, Printer, Download, CreditCard, HeartPulse } from 'lucide-react';
+import { X, Printer, Download, CreditCard } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { useLang } from '@/contexts/LanguageContext';
@@ -61,6 +61,12 @@ export function InvoiceDetailModal({ open, transaction: tx, patientName, doctorN
 
   if (!open || !tx) return null;
 
+  function handlePrint() {
+    document.body.classList.add('printing-invoice');
+    window.print();
+    document.body.classList.remove('printing-invoice');
+  }
+
   /* line items derived from transaction fields */
   const visitKey  = tx.visitType ?? 'consultation';
   const visitDesc = lang === 'ar'
@@ -105,11 +111,11 @@ export function InvoiceDetailModal({ open, transaction: tx, patientName, doctorN
             {t('تفاصيل الفاتورة', 'Invoice Details')}
           </h3>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => window.print()}>
+            <Button variant="outline" size="sm" onClick={handlePrint}>
               <Printer className="w-4 h-4" />
               {t('طباعة', 'Print')}
             </Button>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={handlePrint}>
               <Download className="w-4 h-4" />
               PDF
             </Button>
@@ -123,18 +129,21 @@ export function InvoiceDetailModal({ open, transaction: tx, patientName, doctorN
         </div>
 
         {/* scrollable body */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="invoice-print-body flex-1 overflow-y-auto p-6">
 
           {/* clinic + invoice header */}
           <div className="flex items-start justify-between mb-6">
             <div>
-              <div className="flex items-center gap-2 mb-1">
-                <div className="w-8 h-8 rounded-lg bg-primary-600 flex items-center justify-center flex-shrink-0">
-                  <HeartPulse className="w-4 h-4 text-white" />
-                </div>
-                <p className="font-display font-bold text-gray-900 dark:text-gray-100">
-                  {t('فضل كلينك', 'Fadl Clinic')}
-                </p>
+              <div className="mb-1">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/images/logo-wordmark.png"
+                  alt="Fadl Clinic"
+                  className="h-9 object-contain"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).style.display = 'none';
+                  }}
+                />
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400">
                 {t('شارع التحرير، القاهرة', '12 El-Tahrir St., Cairo')}

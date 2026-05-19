@@ -641,7 +641,7 @@ export function AddAppointmentModal({
       onClose={onClose}
       title={isEdit ? t('تعديل الموعد', 'Edit Appointment') : t('موعد جديد', 'New Appointment')}
       subtitle={isEdit ? t('تحديث بيانات الموعد', 'Update appointment details') : t('احجز موعدًا لمريض مع الطبيب', 'Schedule a patient visit')}
-      maxWidth="xl"
+      maxWidth="3xl"
       stretch
       footer={
         <>
@@ -662,9 +662,9 @@ export function AddAppointmentModal({
         </>
       }
     >
-      <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+      <form onSubmit={handleSubmit} noValidate>
 
-        {/* Error banner */}
+        {/* Error banner — full width */}
         {(mutation.isError || Object.keys(errors).length > 0) && (() => {
           const errObj = mutation.error as { response?: { data?: { error?: { code?: string; message?: string } } } };
           const code   = errObj?.response?.data?.error?.code;
@@ -689,7 +689,7 @@ export function AddAppointmentModal({
           }
 
           return (
-            <div className="flex items-start gap-3 p-4 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 rounded-xl">
+            <div className="flex items-start gap-3 p-4 mb-5 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 rounded-xl">
               <AlertCircle className="w-5 h-5 shrink-0 text-red-500 mt-0.5" />
               <div className="text-sm text-red-700 dark:text-red-400 flex-1">
                 <p className="font-semibold mb-1">{title}</p>
@@ -699,144 +699,172 @@ export function AddAppointmentModal({
           );
         })()}
 
-        {/* Step 1 — Patient */}
-        <StepSection step={1} title={t('المريض', 'Patient')} badge="bg-emerald-600">
-          <PatientPicker lang={lang} t={t} value={patient} onChange={setPatient} disabled={isEdit} />
-          {errors.patient && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{errors.patient}</p>}
-        </StepSection>
+        {/* Two-column layout */}
+        <div className="grid grid-cols-[1fr_288px] gap-6">
 
-        {/* Step 2 — Doctor */}
-        <StepSection step={2} title={t('الطبيب', 'Doctor')} badge="bg-blue-600">
-          <DoctorPicker lang={lang} t={t} value={doctor} onChange={setDoctor} specialties={specialties} />
-          {errors.doctor && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{errors.doctor}</p>}
-        </StepSection>
+          {/* ── LEFT: who + when + type ── */}
+          <div className="space-y-5">
 
-        {/* Step 3 — Schedule */}
-        <StepSection step={3} title={t('الجدول', 'Schedule')} badge="bg-indigo-600">
-          <div className="grid grid-cols-3 gap-2">
-            <div className="col-span-1 space-y-1">
-              <label className="field-label">{t('التاريخ', 'Date')}</label>
-              <input
-                type="date"
-                className={cn(inputCls, errors.date && 'border-red-400 focus:ring-red-400')}
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-              />
-              {errors.date && <p className="text-xs text-red-500">{errors.date}</p>}
-            </div>
-            <div className="space-y-1">
-              <label className="field-label">{t('الوقت', 'Time')}</label>
-              <div className="relative">
-                <Clock className="absolute inset-y-0 start-3 my-auto w-3.5 h-3.5 text-gray-400 pointer-events-none" />
-                <input type="time" className={cn(inputCls, 'ps-8')} value={time} step={60 * 5} onChange={(e) => { timeManuallyEdited.current = true; setTime(e.target.value); }} />
+            {/* Step 1 — Patient */}
+            <StepSection step={1} title={t('المريض', 'Patient')} badge="bg-emerald-600">
+              <PatientPicker lang={lang} t={t} value={patient} onChange={setPatient} disabled={isEdit} />
+              {errors.patient && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{errors.patient}</p>}
+            </StepSection>
+
+            {/* Step 2 — Doctor */}
+            <StepSection step={2} title={t('الطبيب', 'Doctor')} badge="bg-blue-600">
+              <DoctorPicker lang={lang} t={t} value={doctor} onChange={setDoctor} specialties={specialties} />
+              {errors.doctor && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{errors.doctor}</p>}
+            </StepSection>
+
+            {/* Step 3 — Schedule */}
+            <StepSection step={3} title={t('الجدول', 'Schedule')} badge="bg-indigo-600">
+              <div className="grid grid-cols-3 gap-2">
+                <div className="space-y-1">
+                  <label className="field-label">{t('التاريخ', 'Date')}</label>
+                  <input
+                    type="date"
+                    className={cn(inputCls, errors.date && 'border-red-400 focus:ring-red-400')}
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                  />
+                  {errors.date && <p className="text-xs text-red-500">{errors.date}</p>}
+                </div>
+                <div className="space-y-1">
+                  <label className="field-label">{t('الوقت', 'Time')}</label>
+                  <div className="relative">
+                    <Clock className="absolute inset-y-0 start-3 my-auto w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                    <input type="time" className={cn(inputCls, 'ps-8')} value={time} step={60 * 5}
+                      onChange={(e) => { timeManuallyEdited.current = true; setTime(e.target.value); }} />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="field-label">{t('المدة', 'Duration')}</label>
+                  <select className={cn(inputCls, 'cursor-pointer')} value={duration}
+                    onChange={(e) => { durationManuallyEdited.current = true; setDuration(Number(e.target.value)); }}>
+                    {[10, 15, 20, 30, 45, 60, 90].map((m) => (
+                      <option key={m} value={m}>{m} {t('د', 'min')}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
-            </div>
-            <div className="space-y-1">
-              <label className="field-label">{t('المدة', 'Duration')}</label>
-              <select className={cn(inputCls, 'cursor-pointer')} value={duration} onChange={(e) => { durationManuallyEdited.current = true; setDuration(Number(e.target.value)); }}>
-                {[10, 15, 20, 30, 45, 60, 90].map((m) => (
-                  <option key={m} value={m}>{m} {t('د', 'min')}</option>
-                ))}
-              </select>
-            </div>
+            </StepSection>
+
+            {/* Step 4 — Type + Source */}
+            <StepSection step={4} title={t('التفاصيل', 'Details')} badge="bg-primary-600">
+              <div className="space-y-3">
+
+                {/* Appointment type */}
+                <div className="space-y-1.5">
+                  <label className="field-label">{t('نوع الموعد', 'Appointment Type')}</label>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {APPT_TYPES.map(({ value: v, labelAr, labelEn, Icon }) => {
+                      const active = apptType === v;
+                      return (
+                        <button key={v} type="button" onClick={() => setApptType(v as typeof apptType)}
+                          className={cn(
+                            'flex flex-col items-center gap-1 py-2.5 rounded-xl border text-xs font-semibold transition-all',
+                            active
+                              ? 'bg-primary-600 text-white border-primary-600 shadow-sm'
+                              : 'bg-white dark:bg-neutral-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-neutral-700 hover:border-primary-400 hover:text-primary-600 dark:hover:text-primary-400',
+                          )}>
+                          <Icon className="w-4 h-4" />
+                          {lang === 'ar' ? labelAr : labelEn}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Patient source */}
+                <div className="space-y-1.5">
+                  <label className="field-label">{t('مصدر المريض', 'Patient Source')}</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {PATIENT_SOURCES.map((s) => {
+                      const active = source === s.code;
+                      return (
+                        <button key={s.code} type="button"
+                          onClick={() => setSource(s.code as Parameters<typeof setSource>[0])}
+                          className={cn(
+                            'px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-all',
+                            active
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                              : 'bg-white dark:bg-neutral-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-neutral-700 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-400',
+                          )}>
+                          {lang === 'ar' ? s.labelAr : s.code}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+              </div>
+            </StepSection>
+
           </div>
-        </StepSection>
 
-        {/* Step 4 — Details */}
-        <StepSection step={4} title={t('التفاصيل', 'Details')} badge="bg-primary-600">
-          <div className="space-y-3">
+          {/* ── RIGHT SIDEBAR: fee + payment + notes + summary ── */}
+          <div className="space-y-4">
 
-            {/* Appointment type */}
-            <div className="space-y-1.5">
-              <label className="field-label">{t('نوع الموعد', 'Appointment Type')}</label>
-              <div className="grid grid-cols-3 gap-1.5">
-                {APPT_TYPES.map(({ value: v, labelAr, labelEn, Icon }) => {
-                  const active = apptType === v;
-                  return (
-                    <button
-                      key={v}
-                      type="button"
-                      onClick={() => setApptType(v as typeof apptType)}
-                      className={cn(
-                        'flex flex-col items-center gap-1 py-2.5 rounded-xl border text-xs font-semibold transition-all',
-                        active
-                          ? 'bg-primary-600 text-white border-primary-600 shadow-sm'
-                          : 'bg-white dark:bg-neutral-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-neutral-700 hover:border-primary-400 hover:text-primary-600 dark:hover:text-primary-400',
-                      )}
-                    >
-                      <Icon className="w-4 h-4" />
-                      {lang === 'ar' ? labelAr : labelEn}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+            {/* Session fee */}
+            <div className="rounded-xl border border-gray-100 dark:border-neutral-800 bg-gray-50 dark:bg-neutral-900 p-4 space-y-3">
+              <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">
+                {t('الرسوم', 'Fees')}
+              </p>
 
-            {/* Patient source */}
-            <div className="space-y-1.5">
-              <label className="field-label">{t('مصدر المريض', 'Patient Source')}</label>
-              <div className="flex flex-wrap gap-1.5">
-                {PATIENT_SOURCES.map((s) => {
-                  const active = source === s.code;
-                  return (
-                    <button
-                      key={s.code}
-                      type="button"
-                      onClick={() => setSource(s.code as Parameters<typeof setSource>[0])}
-                      className={cn(
-                        'px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-all',
-                        active
-                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                          : 'bg-white dark:bg-neutral-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-neutral-700 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-400',
-                      )}
-                    >
-                      {lang === 'ar' ? s.labelAr : s.code}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Session fee + Notes */}
-            <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
                 <label className={cn('field-label', errors.charge && 'text-red-500')}>
                   {t('التعرفة', 'Session Fee')}
                   <span className="text-red-500 ms-0.5">*</span>
                 </label>
                 <div className="relative flex">
-                  <span className="inline-flex items-center px-3 rounded-s-xl border border-e-0 border-gray-200 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-700 text-xs font-bold text-gray-500 dark:text-gray-400 select-none">
+                  <span className="inline-flex items-center px-3 rounded-s-xl border border-e-0 border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-xs font-bold text-gray-500 dark:text-gray-400 select-none">
                     EGP
                   </span>
                   <input
-                    type="number"
-                    min="0"
-                    step="50"
+                    type="number" min="0" step="50"
                     className={cn('flex-1 h-10 rounded-e-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 text-sm font-semibold tabular-nums text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-600 transition-shadow [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none', errors.charge && 'border-red-400 focus:ring-red-400')}
-                    placeholder="0"
-                    value={charge}
-                    onChange={(e) => setCharge(e.target.value)}
-                    dir="ltr"
+                    placeholder="0" value={charge} onChange={(e) => setCharge(e.target.value)} dir="ltr"
                   />
                 </div>
                 {errors.charge && <p className="text-xs text-red-500 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{errors.charge}</p>}
               </div>
-              <div className="space-y-1">
-                <label className="field-label">
-                  {t('ملاحظات', 'Notes')}
-                </label>
-                <input
-                  className={inputCls}
-                  placeholder={t('أدخل ملاحظات الموعد...', 'Enter appointment notes...')}
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                />
+
+              {/* Extra service */}
+              <div className="space-y-2 pt-1 border-t border-gray-100 dark:border-neutral-800">
+                <p className="flex items-center gap-1.5 text-[10px] font-bold text-violet-500 dark:text-violet-400 uppercase tracking-widest pt-1">
+                  <FlaskConical className="w-3 h-3" />
+                  {t('خدمة إضافية', 'Extra Service')}
+                </p>
+                <div className="space-y-2">
+                  <select
+                    className={cn(inputCls, 'cursor-pointer border-violet-100 dark:border-violet-900/40 focus:ring-violet-500 text-xs')}
+                    value={procedureId} onChange={(e) => setProcedureId(e.target.value)}
+                  >
+                    <option value="">{t('لا شيء', 'None')}</option>
+                    {procedures.map((p) => (
+                      <option key={p.id} value={p.id}>{lang === 'ar' ? (p.nameAr ?? p.nameEn) : p.nameEn}</option>
+                    ))}
+                  </select>
+                  {procedureId && (
+                    <div className="relative flex">
+                      <span className="inline-flex items-center px-2.5 rounded-s-xl border border-e-0 border-violet-200 dark:border-violet-800 text-[10px] font-bold text-violet-500 select-none">
+                        EGP
+                      </span>
+                      <input
+                        type="number" min="0" step="10"
+                        className="flex-1 h-10 rounded-e-xl border border-violet-200 dark:border-violet-800 bg-white dark:bg-neutral-800 px-3 text-sm font-semibold tabular-nums text-violet-700 dark:text-violet-300 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-shadow [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                        placeholder="0" value={procCost} onChange={(e) => setProcCost(e.target.value)} dir="ltr"
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
-            {/* Payment method — mandatory */}
-            <div className="space-y-1.5">
-              <label className={cn('field-label', errors.paymentMethod && 'text-red-500')}>
+            {/* Payment method */}
+            <div className="rounded-xl border border-gray-100 dark:border-neutral-800 bg-gray-50 dark:bg-neutral-900 p-4 space-y-2.5">
+              <label className={cn('text-[10px] font-bold uppercase tracking-widest block', errors.paymentMethod ? 'text-red-500' : 'text-gray-500 dark:text-gray-400')}>
                 {t('طريقة الدفع', 'Payment Method')}
                 <span className="text-red-500 ms-0.5">*</span>
               </label>
@@ -844,10 +872,7 @@ export function AddAppointmentModal({
                 {PAYMENT_METHODS.map(({ value: v, labelAr, labelEn, Icon }) => {
                   const active = paymentMethod === v;
                   return (
-                    <button
-                      key={v}
-                      type="button"
-                      onClick={() => setPaymentMethod(v)}
+                    <button key={v} type="button" onClick={() => setPaymentMethod(v)}
                       className={cn(
                         'flex flex-col items-center gap-1 py-2.5 rounded-xl border text-xs font-semibold transition-all',
                         active
@@ -855,8 +880,7 @@ export function AddAppointmentModal({
                           : errors.paymentMethod
                           ? 'bg-white dark:bg-neutral-800 text-red-400 border-red-300 dark:border-red-700 hover:border-teal-400'
                           : 'bg-white dark:bg-neutral-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-neutral-700 hover:border-teal-400 hover:text-teal-600 dark:hover:text-teal-400',
-                      )}
-                    >
+                      )}>
                       <Icon className="w-4 h-4" />
                       {lang === 'ar' ? labelAr : labelEn}
                     </button>
@@ -870,100 +894,84 @@ export function AddAppointmentModal({
               )}
             </div>
 
-          </div>
-        </StepSection>
-
-        {/* Extra service (optional) */}
-        <div className="rounded-xl border border-violet-100 dark:border-violet-900/40 bg-violet-50/50 dark:bg-violet-900/10 p-3.5 space-y-2.5">
-          <p className="flex items-center gap-2 text-xs font-bold text-violet-600 dark:text-violet-400 uppercase tracking-wider">
-            <FlaskConical className="w-3.5 h-3.5" />
-            {t('خدمة إضافية (اختياري)', 'Extra Service (optional)')}
-          </p>
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-1">
-              <label className="field-label">{t('الإجراء', 'Procedure')}</label>
-              <select
-                className={cn(inputCls, 'cursor-pointer border-violet-200 dark:border-violet-800 focus:ring-violet-500')}
-                value={procedureId}
-                onChange={(e) => setProcedureId(e.target.value)}
-              >
-                <option value="">{t('لا شيء', 'None')}</option>
-                {procedures.map((p) => (
-                  <option key={p.id} value={p.id}>{lang === 'ar' ? (p.nameAr ?? p.nameEn) : p.nameEn}</option>
-                ))}
-              </select>
+            {/* Notes */}
+            <div className="rounded-xl border border-gray-100 dark:border-neutral-800 bg-gray-50 dark:bg-neutral-900 p-4 space-y-2">
+              <label className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest block">
+                {t('ملاحظات', 'Notes')}
+              </label>
+              <textarea
+                rows={3}
+                className="w-full rounded-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-600 transition-shadow resize-none"
+                placeholder={t('ملاحظات اختيارية...', 'Optional notes...')}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+              />
             </div>
-            <div className="space-y-1">
-              <label className="field-label">{t('التكلفة (EGP)', 'Cost (EGP)')}</label>
-              <div className="relative flex">
-                <span className={cn('inline-flex items-center px-2.5 rounded-s-xl border border-e-0 border-violet-200 dark:border-violet-800 text-[10px] font-bold text-violet-500 select-none', !procedureId && 'opacity-40')}>
-                  EGP
-                </span>
-                <input
-                  type="number"
-                  min="0"
-                  step="10"
-                  className={cn('flex-1 h-10 rounded-e-xl border border-violet-200 dark:border-violet-800 bg-white dark:bg-neutral-800 px-3 text-sm font-semibold tabular-nums text-violet-700 dark:text-violet-300 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-shadow [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none', !procedureId && 'opacity-40 cursor-not-allowed bg-gray-50 dark:bg-neutral-900')}
-                  placeholder="0"
-                  value={procCost}
-                  disabled={!procedureId}
-                  onChange={(e) => setProcCost(e.target.value)}
-                  dir="ltr"
-                />
+
+            {/* Booking summary */}
+            {patient && doctor ? (
+              <div className="rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-100 dark:border-blue-900/40 p-4 space-y-3">
+                <p className="text-[10px] font-bold text-blue-500 dark:text-blue-400 uppercase tracking-widest">
+                  {t('ملخص الحجز', 'Booking Summary')}
+                </p>
+
+                {/* Patient row */}
+                <div className="flex items-center gap-2">
+                  <span className="w-7 h-7 rounded-full bg-emerald-500 flex items-center justify-center text-white text-[10px] font-bold shrink-0">
+                    {(lang === 'ar' ? (patient.nameAr ?? patient.nameEn) : patient.nameEn).charAt(0).toUpperCase()}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">
+                      {lang === 'ar' ? (patient.nameAr ?? patient.nameEn) : patient.nameEn}
+                    </p>
+                    <p className="text-[10px] text-gray-400 font-mono" dir="ltr">{patient.mobile}</p>
+                  </div>
+                </div>
+
+                <ChevronRight className="w-3 h-3 text-gray-300 ms-2" />
+
+                {/* Doctor row */}
+                <div className="flex items-center gap-2">
+                  <span className="w-7 h-7 rounded-full bg-blue-500 flex items-center justify-center text-white text-[10px] font-bold shrink-0">
+                    {(lang === 'ar' ? (doctor.nameAr ?? doctor.nameEn) : doctor.nameEn).charAt(0).toUpperCase()}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">
+                      {lang === 'ar' ? (doctor.nameAr ?? doctor.nameEn) : doctor.nameEn}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Date + time */}
+                <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400 font-mono pt-1 border-t border-blue-100 dark:border-blue-900/40">
+                  <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{date}</span>
+                  <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{time}</span>
+                </div>
+
+                {/* Fee */}
+                {(charge || (procedureId && procCost)) && (
+                  <div className="flex items-center justify-between pt-1 border-t border-blue-100 dark:border-blue-900/40">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">{t('الإجمالي', 'Total')}</span>
+                    <span className="font-mono font-bold text-sm text-primary-700 dark:text-primary-400">
+                      {(Number(charge || 0) + Number(procCost || 0)).toLocaleString()} EGP
+                    </span>
+                  </div>
+                )}
+
+                {paymentMethod && (
+                  <span className="inline-flex text-xs font-medium px-2.5 py-1 rounded-full bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300">
+                    {paymentMethod.charAt(0).toUpperCase() + paymentMethod.slice(1)}
+                  </span>
+                )}
               </div>
-            </div>
-          </div>
-        </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-gray-200 dark:border-neutral-700 p-4 text-center text-xs text-gray-400 dark:text-gray-500">
+                {t('حدد مريضاً وطبيباً لعرض الملخص', 'Select a patient and doctor to see summary')}
+              </div>
+            )}
 
-        {/* Booking summary */}
-        {patient && doctor && (
-          <div className="rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-100 dark:border-blue-900/40 px-4 py-3.5">
-            <p className="text-[10px] font-bold text-blue-500 dark:text-blue-400 uppercase tracking-widest mb-2">
-              {t('ملخص الحجز', 'Booking Summary')}
-            </p>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm">
-              <span className="flex items-center gap-1.5">
-                <span className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center text-white text-[9px] font-bold shrink-0">
-                  {(lang === 'ar' ? (patient.nameAr ?? patient.nameEn) : patient.nameEn).charAt(0).toUpperCase()}
-                </span>
-                <span className="font-semibold text-gray-900 dark:text-gray-100">
-                  {lang === 'ar' ? (patient.nameAr ?? patient.nameEn) : patient.nameEn}
-                </span>
-              </span>
-              <ChevronRight className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-              <span className="flex items-center gap-1.5">
-                <span className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-white text-[9px] font-bold shrink-0">
-                  {(lang === 'ar' ? (doctor.nameAr ?? doctor.nameEn) : doctor.nameEn).charAt(0).toUpperCase()}
-                </span>
-                <span className="font-semibold text-gray-900 dark:text-gray-100">
-                  {lang === 'ar' ? (doctor.nameAr ?? doctor.nameEn) : doctor.nameEn}
-                </span>
-              </span>
-              <span className="text-gray-300 dark:text-neutral-600">•</span>
-              <span className="flex items-center gap-1 text-gray-500 dark:text-gray-400 font-mono text-xs">
-                <Calendar className="w-3.5 h-3.5" />{date}
-              </span>
-              <span className="flex items-center gap-1 text-gray-500 dark:text-gray-400 font-mono text-xs">
-                <Clock className="w-3.5 h-3.5" />{time}
-              </span>
-              {paymentMethod && (
-                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300">
-                  {paymentMethod.charAt(0).toUpperCase() + paymentMethod.slice(1)}
-                </span>
-              )}
-              {charge && (
-                <span className="ms-auto font-mono font-bold text-primary-700 dark:text-primary-400">
-                  {Number(charge).toLocaleString()} EGP
-                </span>
-              )}
-              {procedureId && procCost && (
-                <span className="font-mono text-violet-600 dark:text-violet-400 text-xs">
-                  + {Number(procCost).toLocaleString()} EGP {t('خدمة', 'svc')}
-                </span>
-              )}
-            </div>
-          </div>
-        )}
+          </div>{/* end right sidebar */}
+        </div>{/* end two-col grid */}
 
       </form>
     </Modal>

@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { identityApi } from '@/lib/api';
 import {
   Building2, Users, Activity, Check, Loader2, Key, RefreshCw, X,
   UserPlus, Edit2, ShieldOff, ShieldCheck, RotateCcw, Search, Trash2,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -13,6 +14,8 @@ import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
 import { useLang } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
+import type { ThemeId } from '@/lib/theme.config';
 
 function getUser() {
   if (typeof window === 'undefined') return {} as Record<string, string>;
@@ -43,9 +46,10 @@ interface PlatformUser {
 }
 
 const TABS = [
-  { key: 'clinic',  labelAr: 'معلومات العيادة', labelEn: 'Clinic Info',  icon: Building2 },
-  { key: 'users',   labelAr: 'المستخدمون',       labelEn: 'Users',         icon: Users },
-  { key: 'system',  labelAr: 'النظام',            labelEn: 'System',        icon: Activity },
+  { key: 'clinic',        labelAr: 'معلومات العيادة',   labelEn: 'Clinic Info',   icon: Building2 },
+  { key: 'users',         labelAr: 'المستخدمون',         labelEn: 'Users',          icon: Users },
+  { key: 'system',        labelAr: 'النظام',              labelEn: 'System',         icon: Activity },
+  { key: 'accessibility', labelAr: 'إمكانية الوصول',     labelEn: 'Accessibility',  icon: SlidersHorizontal },
 ] as const;
 
 type TabKey = typeof TABS[number]['key'];
@@ -733,6 +737,107 @@ function SystemTab({ t, lang }: { t: (ar: string, en: string) => string; lang: '
   );
 }
 
+/* ──────────────── Accessibility Tab ──────────────── */
+const TEXT_SIZES = [
+  { key: 'sm' as const, labelAr: 'صغير',      labelEn: 'Small' },
+  { key: 'md' as const, labelAr: 'متوسط',     labelEn: 'Medium' },
+  { key: 'lg' as const, labelAr: 'كبير',       labelEn: 'Large' },
+  { key: 'xl' as const, labelAr: 'كبير جداً', labelEn: 'Extra Large' },
+] as const;
+type TextSizeKey = typeof TEXT_SIZES[number]['key'];
+
+const HC_THEMES: { id: ThemeId; labelAr: string; labelEn: string }[] = [
+  { id: 'light',          labelAr: 'فاتح',          labelEn: 'Light' },
+  { id: 'dark',           labelAr: 'داكن',           labelEn: 'Dark' },
+  { id: 'teal',           labelAr: 'تيل طبي',        labelEn: 'Medical Teal' },
+  { id: 'high-contrast',  labelAr: 'تباين عالٍ',     labelEn: 'High Contrast' },
+];
+
+function AccessibilityTab({ t, lang }: { t: (ar: string, en: string) => string; lang: string }) {
+  const { theme, setTheme } = useTheme();
+  const [textSize, setTextSizeState] = useState<TextSizeKey>('md');
+
+  useEffect(() => {
+    const stored = localStorage.getItem('fadl_text_size') as TextSizeKey | null;
+    const valid: TextSizeKey = (['sm', 'md', 'lg', 'xl'] as TextSizeKey[]).includes(stored as TextSizeKey) ? (stored as TextSizeKey) : 'md';
+    setTextSizeState(valid);
+  }, []);
+
+  function applyTextSize(size: TextSizeKey) {
+    setTextSizeState(size);
+    document.documentElement.dataset.textSize = size;
+    localStorage.setItem('fadl_text_size', size);
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Text size */}
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('حجم النص', 'Text Size')}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {t('اختر حجم النص المناسب لراحة القراءة', 'Choose a text size comfortable for reading')}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {TEXT_SIZES.map((s) => (
+              <button
+                key={s.key}
+                type="button"
+                onClick={() => applyTextSize(s.key)}
+                className={[
+                  'px-4 py-2 rounded-full text-sm font-medium transition-all duration-150 border cursor-pointer',
+                  textSize === s.key
+                    ? 'bg-primary-600 text-white border-primary-600'
+                    : 'bg-white dark:bg-neutral-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-neutral-700 hover:border-primary-400',
+                ].join(' ')}
+              >
+                {lang === 'ar' ? s.labelAr : s.labelEn}
+              </button>
+            ))}
+          </div>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            {t('معاينة: ', 'Preview: ')}
+            <span className="font-medium text-gray-800 dark:text-gray-200">
+              {t('نص العينة — فضل كلينك لإدارة العيادات', 'Sample text — Fadl Clinic Management System')}
+            </span>
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Theme / high contrast */}
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('مظهر النظام', 'Appearance')}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {t('وضع التباين العالي مناسب لذوي ضعف البصر والمسنين', 'High Contrast mode is recommended for users with visual impairment or elderly users')}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {HC_THEMES.map((th) => (
+              <button
+                key={th.id}
+                type="button"
+                onClick={() => setTheme(th.id)}
+                className={[
+                  'px-4 py-2 rounded-full text-sm font-medium transition-all duration-150 border cursor-pointer',
+                  theme === th.id
+                    ? 'bg-primary-600 text-white border-primary-600'
+                    : 'bg-white dark:bg-neutral-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-neutral-700 hover:border-primary-400',
+                ].join(' ')}
+              >
+                {lang === 'ar' ? th.labelAr : th.labelEn}
+              </button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 /* ──────────────── Main Page ──────────────── */
 export default function SettingsPage() {
   const { lang, t } = useLang();
@@ -761,7 +866,7 @@ export default function SettingsPage() {
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{t('إعدادات النظام والعيادة', 'System and clinic configuration')}</p>
       </div>
 
-      <div className="flex gap-1 bg-gray-100 dark:bg-neutral-800 rounded-xl p-1 w-fit">
+      <div className="flex flex-wrap gap-1 bg-gray-100 dark:bg-neutral-800 rounded-full p-1 w-fit">
         {TABS.map((tab) => {
           const Icon = tab.icon;
           return (
@@ -769,7 +874,7 @@ export default function SettingsPage() {
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
               className={[
-                'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-150',
+                'flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-150 cursor-pointer',
                 activeTab === tab.key
                   ? 'bg-white dark:bg-neutral-700 text-gray-900 dark:text-gray-100 shadow-sm'
                   : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300',
@@ -782,9 +887,10 @@ export default function SettingsPage() {
         })}
       </div>
 
-      {activeTab === 'clinic' && <ClinicInfoTab t={t} lang={lang} />}
-      {activeTab === 'users'  && <UsersTab      t={t} lang={lang} />}
-      {activeTab === 'system' && <SystemTab     t={t} lang={lang} />}
+      {activeTab === 'clinic'        && <ClinicInfoTab    t={t} lang={lang} />}
+      {activeTab === 'users'         && <UsersTab         t={t} lang={lang} />}
+      {activeTab === 'system'        && <SystemTab        t={t} lang={lang} />}
+      {activeTab === 'accessibility' && <AccessibilityTab t={t} lang={lang} />}
     </div>
   );
 }

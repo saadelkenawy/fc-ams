@@ -51,6 +51,7 @@ export interface SettlementParams {
   to: string;
   page?: number;
   limit?: number;
+  unsettledOnly?: boolean;
 }
 
 export interface ExtraServiceItem {

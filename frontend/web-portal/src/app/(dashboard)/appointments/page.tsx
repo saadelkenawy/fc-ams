@@ -2,11 +2,15 @@
 
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { CalendarPlus, ChevronLeft, ChevronRight, CalendarDays, MoreVertical, Pencil, Trash2, Check, X, Search, SlidersHorizontal, ShieldAlert, Loader2 } from 'lucide-react';
+import {
+  CalendarPlus, ChevronLeft, ChevronRight,
+  MoreVertical, Pencil, Trash2, Check, X,
+  Search, SlidersHorizontal, ShieldAlert, Loader2,
+  LayoutList, Clock,
+} from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Badge, AppointmentStatusBadge } from '@/components/ui/Badge';
+import { AppointmentStatusBadge } from '@/components/ui/Badge';
 import { useLang } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatTime, cn } from '@/lib/utils';
@@ -18,7 +22,8 @@ import { AddAppointmentModal } from '@/components/appointments/AddAppointmentMod
 import { appointmentApi } from '@/lib/api';
 import type { Appointment, AppointmentStatus, Patient, Doctor } from '@fadl/types';
 
-// Allowed forward transitions shown in the UI
+// ── State machine ──────────────────────────────────────────────────────────
+
 const TRANSITIONS: Record<AppointmentStatus, AppointmentStatus[]> = {
   'TBC':    ['Ok!', 'Canc.', 'Ref.'],
   'Ok!':    ['Comp.', 'Canc.', 'Ref.'],
@@ -31,36 +36,58 @@ const TRANSITIONS: Record<AppointmentStatus, AppointmentStatus[]> = {
 };
 
 const STATUS_LABELS: Record<AppointmentStatus, { ar: string; en: string }> = {
-  'TBC':    { ar: 'انتظار',  en: 'TBC' },
-  'Ok!':    { ar: 'موافق',   en: 'Confirmed' },
-  'Conf.':  { ar: 'مؤكد',    en: 'Checked-in' },
-  'Comp.':  { ar: 'مكتمل',   en: 'Complete' },
-  'Canc.':  { ar: 'ملغي',    en: 'Cancelled' },
-  'Resch.': { ar: 'معاد جدولة', en: 'Rescheduled' },
-  'Inf.':   { ar: 'مُبلَّغ',  en: 'Informed' },
-  'Ref.':   { ar: 'مسترد',   en: 'Refunded' },
+  'TBC':    { ar: 'انتظار',      en: 'TBC'          },
+  'Ok!':    { ar: 'موافق',       en: 'Confirmed'    },
+  'Conf.':  { ar: 'مؤكد',        en: 'Checked-in'   },
+  'Comp.':  { ar: 'مكتمل',       en: 'Complete'     },
+  'Canc.':  { ar: 'ملغي',        en: 'Cancelled'    },
+  'Resch.': { ar: 'معاد جدولة',  en: 'Rescheduled'  },
+  'Inf.':   { ar: 'مُبلَّغ',      en: 'Informed'     },
+  'Ref.':   { ar: 'مسترد',       en: 'Refunded'     },
 };
 
-const STATUS_TABS: { status: AppointmentStatus | 'all'; labelAr: string; labelEn: string }[] = [
-  { status: 'all',   labelAr: 'الكل',   labelEn: 'All'       },
-  { status: 'TBC',   labelAr: 'انتظار', labelEn: 'TBC'       },
-  { status: 'Ok!',   labelAr: 'موافق',  labelEn: 'Ok!'       },
-  { status: 'Conf.', labelAr: 'مؤكد',   labelEn: 'Confirmed' },
-  { status: 'Comp.', labelAr: 'مكتمل',  labelEn: 'Complete'  },
-  { status: 'Canc.', labelAr: 'ملغي',   labelEn: 'Cancelled' },
-];
+// ── Status filter chips ────────────────────────────────────────────────────
+
+const STATUS_FILTERS = [
+  { k: 'all',    labelAr: 'الكل',    labelEn: 'All',       color: '#475569' },
+  { k: 'TBC',    labelAr: 'انتظار',  labelEn: 'Pending',   color: '#F59E0B' },
+  { k: 'Ok!',    labelAr: 'موافق',   labelEn: 'Ok!',       color: '#3B82F6' },
+  { k: 'Conf.',  labelAr: 'مؤكد',    labelEn: 'Confirmed', color: '#10B981' },
+  { k: 'Comp.',  labelAr: 'مكتمل',   labelEn: 'Complete',  color: '#6366F1' },
+  { k: 'Canc.',  labelAr: 'ملغي',    labelEn: 'Cancelled', color: '#EF4444' },
+] as const;
+
+type StatusFilterKey = (typeof STATUS_FILTERS)[number]['k'];
+
+const STATUS_COLORS: Record<string, string> = {
+  'TBC':    '#F59E0B',
+  'Ok!':    '#3B82F6',
+  'Conf.':  '#10B981',
+  'Comp.':  '#6366F1',
+  'Canc.':  '#EF4444',
+  'Resch.': '#8B5CF6',
+  'Inf.':   '#94A3B8',
+  'Ref.':   '#94A3B8',
+};
+
+// ── Helpers ────────────────────────────────────────────────────────────────
 
 function todayStr() {
   const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, '0');
-  const d = String(now.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
 
 function formatName(str: string): string {
   return str.split(' ').map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
 }
+
+function parseTimeMinutes(timeStr: string): number {
+  const t = formatTime(timeStr);
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + (m || 0);
+}
+
+// ── Skeleton ───────────────────────────────────────────────────────────────
 
 function SkeletonRow() {
   return (
@@ -92,7 +119,7 @@ function ActionMenu({ appointment, lang, t, userRole, onStatusChange, onEdit, on
   const allTransitions = TRANSITIONS[appointment.status] ?? [];
   const visibleTransitions = userRole === 'admin' ? allTransitions : allTransitions.filter((s) => s !== 'Ref.');
   const canChange = visibleTransitions.length > 0;
-  const isTerminal = appointment.status === 'Comp.' || appointment.status === 'Canc.' || appointment.status === 'Resch.' || appointment.status === 'Ref.';
+  const isTerminal = ['Comp.', 'Canc.', 'Resch.', 'Ref.'].includes(appointment.status);
   const canEdit = !isTerminal && (userRole === 'admin' || userRole === 'receptionist');
   const canDelete = userRole === 'admin';
 
@@ -115,7 +142,6 @@ function ActionMenu({ appointment, lang, t, userRole, onStatusChange, onEdit, on
           <Pencil className="w-3.5 h-3.5" />
         </button>
       )}
-
       {(canChange || canDelete || userRole === 'receptionist') && (
         <div ref={ref} className="relative">
           <button
@@ -161,7 +187,7 @@ function ActionMenu({ appointment, lang, t, userRole, onStatusChange, onEdit, on
   );
 }
 
-// ── Bulk delete modal ─────────────────────────────────────────────────────
+// ── Bulk delete modal ──────────────────────────────────────────────────────
 
 interface BulkDeleteModalProps {
   ids: string[];
@@ -189,7 +215,7 @@ function BulkDeleteModal({ ids, lang, t, onClose, onDeleted }: BulkDeleteModalPr
       try {
         await appointmentApi.delete(`/appointments/${id}`, { data: { password, reason } });
       } catch {
-        // continue deleting the rest; errors ignored per-item
+        // continue
       }
       done++;
       setProgress(Math.round((done / ids.length) * 100));
@@ -218,12 +244,9 @@ function BulkDeleteModal({ ids, lang, t, onClose, onDeleted }: BulkDeleteModalPr
             <X className="w-5 h-5" />
           </button>
         </div>
-
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-              {t('كلمة المرور', 'Password')}
-            </label>
+            <label className="text-xs font-medium text-gray-700 dark:text-gray-300">{t('كلمة المرور', 'Password')}</label>
             <input
               type="password"
               value={password}
@@ -234,9 +257,7 @@ function BulkDeleteModal({ ids, lang, t, onClose, onDeleted }: BulkDeleteModalPr
             />
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-              {t('سبب الحذف', 'Reason for deletion')}
-            </label>
+            <label className="text-xs font-medium text-gray-700 dark:text-gray-300">{t('سبب الحذف', 'Reason for deletion')}</label>
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
@@ -246,7 +267,6 @@ function BulkDeleteModal({ ids, lang, t, onClose, onDeleted }: BulkDeleteModalPr
             />
             <p className="text-[10px] text-gray-400">{reason.length}/10 {t('حرف كحد أدنى', 'chars min')}</p>
           </div>
-
           {loading && (
             <div className="space-y-1">
               <div className="h-1.5 rounded-full bg-gray-100 dark:bg-neutral-700 overflow-hidden">
@@ -255,9 +275,7 @@ function BulkDeleteModal({ ids, lang, t, onClose, onDeleted }: BulkDeleteModalPr
               <p className="text-xs text-gray-400 text-center">{progress}%</p>
             </div>
           )}
-
           {error && <p className="text-xs text-red-500">{error}</p>}
-
           <div className="flex gap-2 pt-1">
             <button
               type="submit"
@@ -316,12 +334,10 @@ function StatusModal({ appointment, lang, t, onClose, onDone, userRole }: Status
             <X className="w-5 h-5" />
           </button>
         </div>
-
         <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
           {t('الحالة الحالية:', 'Current status:')}
           {' '}<AppointmentStatusBadge status={appointment.status} lang={lang} />
         </p>
-
         <div className="space-y-2">
           {allowed.map((s) => (
             <button
@@ -338,13 +354,11 @@ function StatusModal({ appointment, lang, t, onClose, onDone, userRole }: Status
             </button>
           ))}
         </div>
-
         {mutation.isError && (
           <p className="text-xs text-red-500 mt-3">
             {t('فشل تغيير الحالة. تأكد من التسلسل الصحيح.', 'Status change failed. Check valid transition.')}
           </p>
         )}
-
         <div className="flex gap-2 mt-5">
           <Button
             className="flex-1"
@@ -362,27 +376,32 @@ function StatusModal({ appointment, lang, t, onClose, onDone, userRole }: Status
 
 // ── Main page ──────────────────────────────────────────────────────────────
 
+const DAY_SHORT_EN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const DAY_SHORT_AR = ['إثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة', 'سبت', 'أحد'];
+const HOURS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17];
+
 export default function AppointmentsPage() {
   const { lang, t } = useLang();
   const { user } = useAuth();
   const router = useRouter();
   const qc = useQueryClient();
-  const [activeTab,  setActiveTab]  = useState<AppointmentStatus | 'all'>('all');
-  const [date,       setDate]       = useState(todayStr);
-  const [doctorId,   setDoctorId]   = useState<string>('');
-  const [addOpen,    setAddOpen]    = useState(false);
-  const [statusAppt, setStatusAppt] = useState<Appointment | null>(null);
-  const [editAppt,   setEditAppt]   = useState<Appointment | null>(null);
-  const [editPatientState, setEditPatientState] = useState<Patient | null>(null);
-  const [editDoctorState,  setEditDoctorState]  = useState<Doctor | null>(null);
-  const [selectedIds,      setSelectedIds]      = useState<Set<string>>(new Set());
-  const [bulkDeleteOpen,   setBulkDeleteOpen]   = useState(false);
 
-  // Advanced filters (client-side)
-  const [showAdvanced, setShowAdvanced] = useState(false);
-  const [patientSearch, setPatientSearch] = useState('');
-  const [typeFilter,    setTypeFilter]    = useState('');
-  const [sourceFilter,  setSourceFilter]  = useState('');
+  const [activeTab,      setActiveTab]      = useState<StatusFilterKey>('all');
+  const [date,           setDate]           = useState(todayStr);
+  const [doctorId,       setDoctorId]       = useState<string>('');
+  const [view,           setView]           = useState<'list' | 'timeline'>('list');
+  const [addOpen,        setAddOpen]        = useState(false);
+  const [statusAppt,     setStatusAppt]     = useState<Appointment | null>(null);
+  const [editAppt,       setEditAppt]       = useState<Appointment | null>(null);
+  const [editPatientSt,  setEditPatientSt]  = useState<Patient | null>(null);
+  const [editDoctorSt,   setEditDoctorSt]   = useState<Doctor | null>(null);
+  const [selectedIds,    setSelectedIds]    = useState<Set<string>>(new Set());
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [showAdvanced,   setShowAdvanced]   = useState(false);
+  const [patientSearch,  setPatientSearch]  = useState('');
+  const [typeFilter,     setTypeFilter]     = useState('');
+  const [sourceFilter,   setSourceFilter]   = useState('');
+
   const debouncedPatient = useDebounce(patientSearch, 250);
 
   const { data, isLoading, isError, refetch } = useAppointments({
@@ -390,16 +409,18 @@ export default function AppointmentsPage() {
     limit:    100,
     doctorId: doctorId || undefined,
   });
-  const appointments = data?.data ?? [];
-  const doctorMap    = useDoctorMap();
-  const specialtyMap = useSpecialtyMap();
-  const patientMap   = usePatientMap();
+  const appointments  = data?.data ?? [];
+  const doctorMap     = useDoctorMap();
+  const specialtyMap  = useSpecialtyMap();
+  const patientMap    = usePatientMap();
   const { data: doctorList } = useDoctors({ isActive: true, limit: 200 });
 
   const hasActiveFilters = !!(patientSearch || typeFilter || sourceFilter);
 
   const filtered = useMemo(() => {
-    let list = activeTab === 'all' ? appointments : appointments.filter((a) => a.status === activeTab);
+    let list = activeTab === 'all'
+      ? appointments
+      : appointments.filter((a) => a.status === activeTab);
     if (debouncedPatient.trim()) {
       const q = debouncedPatient.toLowerCase();
       list = list.filter((a) => {
@@ -419,15 +440,35 @@ export default function AppointmentsPage() {
     return m;
   }, [appointments]);
 
-  // Unique sources in current day's data
-  const availableSources = useMemo(() => [...new Set(appointments.map((a) => a.patientSource).filter(Boolean))].sort(), [appointments]);
+  const availableSources = useMemo(
+    () => [...new Set(appointments.map((a) => a.patientSource).filter(Boolean))].sort(),
+    [appointments],
+  );
 
-  const visible = filtered;
+  // KPI counters
+  const kpiConfirmed  = (statusCounts['Conf.'] ?? 0) + (statusCounts['Ok!'] ?? 0);
+  const kpiPending    = statusCounts['TBC']   ?? 0;
+  const kpiCancelled  = statusCounts['Canc.'] ?? 0;
+  const kpiCompleted  = statusCounts['Comp.'] ?? 0;
+  const attendancePct = appointments.length > 0
+    ? Math.round(((kpiConfirmed + kpiCompleted) / appointments.length) * 100)
+    : 0;
 
-  function shiftDate(days: number) {
-    const d = new Date(date);
-    d.setDate(d.getDate() + days);
-    setDate(d.toISOString().split('T')[0]);
+  // Week strip
+  const weekDays = useMemo(() => {
+    const [y, mo, dd] = date.split('-').map(Number);
+    const d = new Date(y, mo - 1, dd);
+    const monOffset = (d.getDay() + 6) % 7;
+    return Array.from({ length: 7 }, (_, i) => {
+      const day = new Date(y, mo - 1, dd - monOffset + i);
+      return `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
+    });
+  }, [date]);
+
+  function shiftWeek(dir: 1 | -1) {
+    const [y, mo, dd] = date.split('-').map(Number);
+    const d = new Date(y, mo - 1, dd + dir * 7);
+    setDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
   }
 
   function invalidate() {
@@ -436,8 +477,8 @@ export default function AppointmentsPage() {
 
   function handleEdit(a: Appointment) {
     setEditAppt(a);
-    setEditPatientState(patientMap.get(a.patientId) ?? null);
-    setEditDoctorState(a.doctorId ? (doctorMap.get(a.doctorId) ?? null) : null);
+    setEditPatientSt(patientMap.get(a.patientId) ?? null);
+    setEditDoctorSt(a.doctorId ? (doctorMap.get(a.doctorId) ?? null) : null);
   }
 
   function handleDelete(a: Appointment) {
@@ -446,21 +487,18 @@ export default function AppointmentsPage() {
 
   function closeEdit() {
     setEditAppt(null);
-    setEditPatientState(null);
-    setEditDoctorState(null);
+    setEditPatientSt(null);
+    setEditDoctorSt(null);
   }
 
   const isAdmin = user?.role === 'admin';
-  const allVisibleIds = visible.map((a) => a.id);
+  const isToday = date === todayStr();
+  const allVisibleIds = filtered.map((a) => a.id);
   const allSelected = allVisibleIds.length > 0 && allVisibleIds.every((id) => selectedIds.has(id));
   const someSelected = !allSelected && allVisibleIds.some((id) => selectedIds.has(id));
 
   function toggleAll() {
-    if (allSelected) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(allVisibleIds));
-    }
+    setSelectedIds(allSelected ? new Set() : new Set(allVisibleIds));
   }
 
   function toggleOne(id: string) {
@@ -471,100 +509,106 @@ export default function AppointmentsPage() {
     });
   }
 
-  const isToday = date === todayStr();
-
-  // Week strip helpers — use 3-arg Date constructor to avoid timezone parsing ambiguity
-  const weekDays = useMemo(() => {
+  // Date label for subtitle
+  const dateLabel = useMemo(() => {
     const [y, mo, dd] = date.split('-').map(Number);
     const d = new Date(y, mo - 1, dd);
-    const dow = d.getDay(); // 0=Sun…6=Sat
-    const monOffset = (dow + 6) % 7; // days since Monday
-    return Array.from({ length: 7 }, (_, i) => {
-      const day = new Date(y, mo - 1, dd - monOffset + i);
-      const dy = day.getFullYear();
-      const dm = String(day.getMonth() + 1).padStart(2, '0');
-      const dk = String(day.getDate()).padStart(2, '0');
-      return `${dy}-${dm}-${dk}`;
-    });
-  }, [date]);
-
-  function shiftWeek(dir: 1 | -1) {
-    const [y, mo, dd] = date.split('-').map(Number);
-    const d = new Date(y, mo - 1, dd + dir * 7);
-    const dy = d.getFullYear();
-    const dm = String(d.getMonth() + 1).padStart(2, '0');
-    const dk = String(d.getDate()).padStart(2, '0');
-    setDate(`${dy}-${dm}-${dk}`);
-  }
-
-  const DAY_SHORT_EN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  const DAY_SHORT_AR = ['إثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة', 'سبت', 'أحد'];
+    return lang === 'ar'
+      ? d.toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+      : d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  }, [date, lang]);
 
   return (
-    <div className="space-y-5 max-w-7xl mx-auto animate-fade-in">
-      <div className="flex items-center justify-between gap-4">
-        <h2 className="text-2xl font-bold font-display text-gray-900 dark:text-gray-100 animate-slide-down">
-          {t('المواعيد', 'Appointments')}
-        </h2>
-        <Button size="sm" onClick={() => setAddOpen(true)} className="gap-1.5 animate-slide-down" style={{ animationDelay: '40ms' }}>
-          <CalendarPlus className="w-4 h-4" />
-          {t('موعد جديد', 'New Appointment')}
-        </Button>
+    <div className="fc-page">
+      {/* Page header */}
+      <div className="fc-page-head">
+        <div>
+          <h2 className="fc-page-title">{t('المواعيد', 'Appointments')}</h2>
+          <p className="fc-page-sub">
+            {dateLabel} · {filtered.length}{appointments.length !== filtered.length ? `/${appointments.length}` : ''} {t('موعد', 'appointments')}
+          </p>
+        </div>
+        <div className="fc-page-actions">
+          <button className="fc-btn fc-btn-primary fc-btn-sm" onClick={() => setAddOpen(true)}>
+            <CalendarPlus className="w-4 h-4" />
+            {t('موعد جديد', 'New Appointment')}
+          </button>
+        </div>
       </div>
 
-      {/* Week strip */}
-      <Card className="p-4">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => shiftWeek(lang === 'ar' ? 1 : -1)}
-            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-700 text-gray-500 dark:text-gray-400 transition-colors flex-shrink-0"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <div className="grid grid-cols-7 gap-1.5 flex-1">
-            {weekDays.map((dayStr, i) => {
-              const isActive = dayStr === date;
-              const dayNum = parseInt(dayStr.split('-')[2], 10);
-              return (
-                <button
-                  key={dayStr}
-                  onClick={() => setDate(dayStr)}
-                  className={cn(
-                    'p-2.5 rounded-xl flex flex-col items-center gap-0.5 transition-all text-center',
-                    isActive
-                      ? 'bg-primary-600 text-white shadow-glow-primary'
-                      : 'bg-gray-50 dark:bg-neutral-800 hover:bg-gray-100 dark:hover:bg-neutral-700 text-gray-700 dark:text-gray-300',
-                  )}
-                >
-                  <span className={`text-[10px] uppercase tracking-wider font-semibold ${isActive ? 'text-white/80' : 'text-gray-400 dark:text-gray-500'}`}>
-                    {lang === 'ar' ? DAY_SHORT_AR[i] : DAY_SHORT_EN[i]}
-                  </span>
-                  <span className="text-base font-bold font-mono leading-none">{dayNum}</span>
-                </button>
-              );
-            })}
-          </div>
-          <button
-            onClick={() => shiftWeek(lang === 'ar' ? -1 : 1)}
-            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-700 text-gray-500 dark:text-gray-400 transition-colors flex-shrink-0"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
-          {!isToday && (
-            <button
-              onClick={() => setDate(todayStr())}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400 hover:bg-primary-100 transition-colors border border-primary-100 dark:border-primary-800 flex-shrink-0"
-            >
-              <CalendarDays className="w-3.5 h-3.5" />
-              {t('اليوم', 'Today')}
-            </button>
-          )}
+      {/* KPI strip */}
+      <div className="fc-apt-kpi-row">
+        <div className="fc-apt-kpi">
+          <div className="fc-apt-kpi-bar" style={{ background: '#3B82F6' }} />
+          <div className="fc-apt-kpi-num">{appointments.length}</div>
+          <div className="fc-apt-kpi-lab">{t('إجمالي اليوم', 'Total today')}</div>
         </div>
-      </Card>
+        <div className="fc-apt-kpi">
+          <div className="fc-apt-kpi-bar" style={{ background: '#10B981' }} />
+          <div className="fc-apt-kpi-num">{kpiConfirmed}</div>
+          <div className="fc-apt-kpi-lab">{t('مؤكد', 'Confirmed')}</div>
+        </div>
+        <div className="fc-apt-kpi">
+          <div className="fc-apt-kpi-bar" style={{ background: '#F59E0B' }} />
+          <div className="fc-apt-kpi-num">{kpiPending}</div>
+          <div className="fc-apt-kpi-lab">{t('انتظار', 'Pending')}</div>
+        </div>
+        <div className="fc-apt-kpi">
+          <div className="fc-apt-kpi-bar" style={{ background: '#EF4444' }} />
+          <div className="fc-apt-kpi-num">{kpiCancelled}</div>
+          <div className="fc-apt-kpi-lab">{t('ملغي', 'Cancelled')}</div>
+        </div>
+        <div className="fc-apt-kpi">
+          <div className="fc-apt-kpi-bar" style={{ background: '#8B5CF6' }} />
+          <div className="fc-apt-kpi-num">{attendancePct}%</div>
+          <div className="fc-apt-kpi-lab">{t('الحضور', 'Attendance')}</div>
+        </div>
+      </div>
 
-      {/* Doctor filter + patient search + advanced */}
-      <div className="flex flex-col gap-3">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3 flex-wrap">
+      {/* Day picker */}
+      <div className="fc-apt-daypicker">
+        <button
+          className="fc-apt-daynav"
+          onClick={() => shiftWeek(lang === 'ar' ? 1 : -1)}
+          aria-label={t('الأسبوع السابق', 'Previous week')}
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+        {weekDays.map((dayStr, i) => {
+          const isActive = dayStr === date;
+          const dayNum = parseInt(dayStr.split('-')[2], 10);
+          return (
+            <button
+              key={dayStr}
+              className={`fc-apt-day${isActive ? ' is-on' : ''}`}
+              onClick={() => setDate(dayStr)}
+            >
+              <span className="fc-apt-day-name">{lang === 'ar' ? DAY_SHORT_AR[i] : DAY_SHORT_EN[i]}</span>
+              <span className="fc-apt-day-num">{dayNum}</span>
+            </button>
+          );
+        })}
+        <button
+          className="fc-apt-daynav"
+          onClick={() => shiftWeek(lang === 'ar' ? -1 : 1)}
+          aria-label={t('الأسبوع التالي', 'Next week')}
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
+        {!isToday && (
+          <button
+            onClick={() => setDate(todayStr())}
+            className="fc-btn fc-btn-outline fc-btn-sm"
+            style={{ marginInlineStart: 4 }}
+          >
+            {t('اليوم', 'Today')}
+          </button>
+        )}
+      </div>
+
+      {/* Toolbar: doctor select + patient search + advanced + view toggle */}
+      <div className="fc-apt-toolbar">
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', flex: 1 }}>
           {/* Doctor filter */}
           <select
             value={doctorId}
@@ -578,17 +622,16 @@ export default function AppointmentsPage() {
           </select>
 
           {/* Patient search */}
-          <div className="relative flex-1 min-w-40">
-            <Search className="absolute inset-y-0 start-3 my-auto w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+          <div className="fc-dr-search" style={{ flex: 1, minWidth: '160px' }}>
+            <span className="fc-dr-search-icon"><Search className="w-3.5 h-3.5" /></span>
             <input
               type="text"
               value={patientSearch}
               onChange={(e) => setPatientSearch(e.target.value)}
               placeholder={t('بحث باسم المريض...', 'Search patient...')}
-              className="w-full h-9 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 ps-8 pe-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600"
             />
             {patientSearch && (
-              <button onClick={() => setPatientSearch('')} className="absolute inset-y-0 end-2 my-auto text-gray-300 hover:text-gray-500">
+              <button className="fc-dr-search-clear" onClick={() => setPatientSearch('')}>
                 <X className="w-3.5 h-3.5" />
               </button>
             )}
@@ -619,74 +662,83 @@ export default function AppointmentsPage() {
           )}
         </div>
 
-        {/* Advanced filter panel */}
-        {showAdvanced && (
-          <div className="rounded-xl border border-gray-200 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-800/60 px-4 py-3 flex flex-wrap gap-4 items-end">
-            <div className="space-y-1">
-              <p className="text-xs font-medium text-gray-500">{t('نوع الموعد', 'Appointment Type')}</p>
-              <select
-                value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value)}
-                className="h-9 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-gray-700 dark:text-gray-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600"
-              >
-                <option value="">{t('الكل', 'All types')}</option>
-                <option value="in_person">{t('حضوري', 'In Person')}</option>
-                <option value="online">{t('أونلاين', 'Online')}</option>
-                <option value="walk_in">{t('بدون موعد', 'Walk-in')}</option>
-              </select>
-            </div>
-            <div className="space-y-1">
-              <p className="text-xs font-medium text-gray-500">{t('مصدر المريض', 'Patient Source')}</p>
-              <select
-                value={sourceFilter}
-                onChange={(e) => setSourceFilter(e.target.value)}
-                className="h-9 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-gray-700 dark:text-gray-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600"
-              >
-                <option value="">{t('الكل', 'All sources')}</option>
-                {availableSources.map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </div>
-            <button
-              onClick={() => { setPatientSearch(''); setTypeFilter(''); setSourceFilter(''); }}
-              className="h-9 px-3 text-xs text-gray-400 hover:text-gray-600 border border-gray-200 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 hover:bg-gray-50 flex items-center gap-1"
-            >
-              <X className="w-3 h-3" />{t('مسح الفلاتر', 'Clear filters')}
-            </button>
-          </div>
-        )}
-
-        {/* Status tabs */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="pill-tab-bar overflow-x-auto">
-            {STATUS_TABS.map((tab) => {
-              const count = tab.status === 'all' ? appointments.length : (statusCounts[tab.status] ?? 0);
-              return (
-                <button
-                  key={tab.status}
-                  onClick={() => setActiveTab(tab.status)}
-                  className={`pill-tab whitespace-nowrap flex items-center gap-1.5 ${activeTab === tab.status ? 'active' : ''}`}
-                >
-                  {lang === 'ar' ? tab.labelAr : tab.labelEn}
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none ${
-                      activeTab === tab.status ? 'bg-white/25 text-white' : 'bg-gray-100 dark:bg-neutral-700 text-gray-600 dark:text-gray-300'
-                    }`}>
-                      {count}
-                    </span>
-                </button>
-              );
-            })}
-          </div>
-          {hasActiveFilters && (
-            <span className="text-xs text-gray-400">
-              {visible.length} / {appointments.length} {t('موعد', 'appts')}
-            </span>
-          )}
+        {/* View toggle */}
+        <div className="fc-apt-view-toggle">
+          <button className={`fc-apt-view${view === 'list' ? ' is-on' : ''}`} onClick={() => setView('list')}>
+            <LayoutList className="w-3.5 h-3.5" />
+            {t('قائمة', 'List')}
+          </button>
+          <button className={`fc-apt-view${view === 'timeline' ? ' is-on' : ''}`} onClick={() => setView('timeline')}>
+            <Clock className="w-3.5 h-3.5" />
+            {t('جدول', 'Timeline')}
+          </button>
         </div>
+      </div>
+
+      {/* Advanced filter panel */}
+      {showAdvanced && (
+        <div className="rounded-xl border border-gray-200 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-800/60 px-4 py-3 flex flex-wrap gap-4 items-end">
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-gray-500">{t('نوع الموعد', 'Appointment Type')}</p>
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="h-9 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-gray-700 dark:text-gray-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600"
+            >
+              <option value="">{t('الكل', 'All types')}</option>
+              <option value="in_person">{t('حضوري', 'In Person')}</option>
+              <option value="online">{t('أونلاين', 'Online')}</option>
+              <option value="walk_in">{t('بدون موعد', 'Walk-in')}</option>
+            </select>
+          </div>
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-gray-500">{t('مصدر المريض', 'Patient Source')}</p>
+            <select
+              value={sourceFilter}
+              onChange={(e) => setSourceFilter(e.target.value)}
+              className="h-9 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-gray-700 dark:text-gray-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600"
+            >
+              <option value="">{t('الكل', 'All sources')}</option>
+              {availableSources.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          <button
+            onClick={() => { setPatientSearch(''); setTypeFilter(''); setSourceFilter(''); }}
+            className="h-9 px-3 text-xs text-gray-400 hover:text-gray-600 border border-gray-200 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 hover:bg-gray-50 flex items-center gap-1"
+          >
+            <X className="w-3 h-3" />{t('مسح الفلاتر', 'Clear filters')}
+          </button>
+        </div>
+      )}
+
+      {/* Status filter chips */}
+      <div className="fc-apt-filter-strip">
+        {STATUS_FILTERS.map((f) => {
+          const count = f.k === 'all' ? appointments.length : (statusCounts[f.k] ?? 0);
+          const isOn  = activeTab === f.k;
+          return (
+            <button
+              key={f.k}
+              className={`fc-apt-filter${isOn ? ' is-on' : ''}`}
+              onClick={() => setActiveTab(f.k)}
+              style={isOn ? { background: f.color + '22', color: f.color, borderColor: f.color + '44' } : undefined}
+            >
+              <span className="fc-apt-filter-dot" style={{ background: f.color }} />
+              {lang === 'ar' ? f.labelAr : f.labelEn}
+              <span className="fc-apt-filter-count">{count}</span>
+            </button>
+          );
+        })}
+        {hasActiveFilters && (
+          <span className="text-xs text-gray-400 self-center ms-1">
+            {filtered.length}/{appointments.length} {t('موعد', 'appts')}
+          </span>
+        )}
       </div>
 
       {/* Selection action bar */}
       {isAdmin && selectedIds.size > 0 && (
-        <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 animate-fade-in">
+        <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
           <span className="text-sm font-medium text-red-700 dark:text-red-300">
             {t(`${selectedIds.size} موعد محدد`, `${selectedIds.size} selected`)}
           </span>
@@ -706,22 +758,25 @@ export default function AppointmentsPage() {
         </div>
       )}
 
-      <Card>
-        <CardContent className="p-0">
+      {/* ── List view ── */}
+      {view === 'list' && (
+        <div className="fc-card">
           {isLoading && (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
-                  {isAdmin && <th className="w-10 px-3 py-3" />}
-                  {[t('الوقت','Time'), t('المريض','Patient'), t('الطبيب','Doctor'), t('التخصص','Specialty'), t('المصدر','Source'), t('الحالة','Status'), t('الغرفة','Room'), t('الرسوم','Charge'), ''].map((h, i) => (
-                    <th key={i} className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} />)}
-              </tbody>
-            </table>
+            <div className="fc-table-wrap">
+              <table className="fc-table">
+                <thead>
+                  <tr>
+                    {isAdmin && <th style={{ width: '40px' }} />}
+                    {[t('الوقت','Time'), t('المريض','Patient'), t('الطبيب','Doctor'), t('التخصص','Specialty'), t('المصدر','Source'), t('الحالة','Status'), t('الغرفة','Room'), t('الرسوم','Charge'), ''].map((h, i) => (
+                      <th key={i}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} />)}
+                </tbody>
+              </table>
+            </div>
           )}
           {isError && (
             <div className="py-12 text-center text-red-500 dark:text-red-400 text-sm">
@@ -732,12 +787,12 @@ export default function AppointmentsPage() {
             </div>
           )}
           {!isLoading && !isError && (
-            <div className="min-h-[400px]">
-              <table className="w-full text-sm">
-                <thead className="sticky top-0 z-10 bg-white dark:bg-neutral-800 shadow-sm">
-                  <tr className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
+            <div className="fc-table-wrap">
+              <table className="fc-table">
+                <thead>
+                  <tr>
                     {isAdmin && (
-                      <th className="w-10 px-3 py-3">
+                      <th style={{ width: '40px' }}>
                         <input
                           type="checkbox"
                           checked={allSelected}
@@ -747,19 +802,19 @@ export default function AppointmentsPage() {
                         />
                       </th>
                     )}
-                    <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الوقت', 'Time')}</th>
-                    <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('المريض', 'Patient')}</th>
-                    <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الطبيب', 'Doctor')}</th>
-                    <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('التخصص', 'Specialty')}</th>
-                    <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('المصدر', 'Source')}</th>
-                    <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الحالة', 'Status')}</th>
-                    <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الغرفة', 'Room')}</th>
-                    <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الرسوم', 'Charge')}</th>
-                    <th className="px-3 py-3" />
+                    <th>{t('الوقت', 'Time')}</th>
+                    <th>{t('المريض', 'Patient')}</th>
+                    <th>{t('الطبيب', 'Doctor')}</th>
+                    <th>{t('التخصص', 'Specialty')}</th>
+                    <th>{t('المصدر', 'Source')}</th>
+                    <th>{t('الحالة', 'Status')}</th>
+                    <th>{t('الغرفة', 'Room')}</th>
+                    <th>{t('الرسوم', 'Charge')}</th>
+                    <th />
                   </tr>
                 </thead>
                 <tbody>
-                  {visible.map((a) => {
+                  {filtered.map((a) => {
                     const doctor    = a.doctorId ? doctorMap.get(a.doctorId) : null;
                     const specialty = a.specialtyId ? specialtyMap.get(a.specialtyId) : null;
                     const patient   = patientMap.get(a.patientId);
@@ -768,12 +823,9 @@ export default function AppointmentsPage() {
                       : a.patientId.slice(-8).toUpperCase();
                     const isSelected = selectedIds.has(a.id);
                     return (
-                      <tr key={a.id} className={cn(
-                        'border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors',
-                        isSelected && 'bg-red-50/60 dark:bg-red-900/10',
-                      )}>
+                      <tr key={a.id} className={isSelected ? 'is-selected' : undefined}>
                         {isAdmin && (
-                          <td className="w-10 px-3 py-3.5">
+                          <td>
                             <input
                               type="checkbox"
                               checked={isSelected}
@@ -783,49 +835,65 @@ export default function AppointmentsPage() {
                             />
                           </td>
                         )}
-                        <td className="px-5 py-3.5 font-mono text-gray-600 dark:text-gray-300 text-xs" dir="ltr">{formatTime(a.startTime)}</td>
-                        <td className="px-5 py-3.5 font-medium text-gray-900 dark:text-gray-100 max-w-[180px] truncate" title={patName}>
-                          {patName}
+                        <td>
+                          <div className="fc-time" dir="ltr">{formatTime(a.startTime)}</div>
                         </td>
-                        <td className="px-5 py-3.5 text-gray-600 dark:text-gray-300">
-                          {doctor ? (lang === 'ar' ? (doctor.nameAr ?? doctor.nameEn) : doctor.nameEn) : '—'}
+                        <td>
+                          <div className="fc-pat">
+                            <div>
+                              <div className="fc-pat-name">{patName}</div>
+                            </div>
+                          </div>
                         </td>
-                        <td className="px-5 py-3.5 text-gray-600 dark:text-gray-300">
-                          {specialty ? (lang === 'ar' ? specialty.nameAr : specialty.nameEn) : '—'}
+                        <td>
+                          <div className="fc-doc">
+                            <span className="fc-doc-name">
+                              {doctor ? (lang === 'ar' ? (doctor.nameAr ?? doctor.nameEn) : doctor.nameEn) : '—'}
+                            </span>
+                          </div>
                         </td>
-                        <td className="px-5 py-3.5">
+                        <td>
+                          <span style={{ font: '500 12px/1 var(--font-body)', color: 'var(--color-gray-500)' }}>
+                            {specialty ? (lang === 'ar' ? specialty.nameAr : specialty.nameEn) : '—'}
+                          </span>
+                        </td>
+                        <td>
                           {a.patientSource
-                            ? <span className="text-xs bg-gray-100 dark:bg-neutral-700 text-gray-600 dark:text-gray-300 px-1.5 py-0.5 rounded font-mono">{a.patientSource}</span>
-                            : <span className="text-gray-300">—</span>}
+                            ? <span className="fc-src">{a.patientSource}</span>
+                            : <span style={{ color: 'var(--color-gray-300)' }}>—</span>}
                         </td>
-                        <td className="px-5 py-3.5">
+                        <td>
                           <AppointmentStatusBadge status={a.status} lang={lang} />
                         </td>
-                        <td className="px-5 py-3.5">
+                        <td>
                           {a.roomCode
-                            ? <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">{a.roomCode}</span>
-                            : <span className="text-gray-300 dark:text-gray-600">—</span>}
+                            ? <span className="fc-apt-room">{a.roomCode}</span>
+                            : <span style={{ color: 'var(--color-gray-300)' }}>—</span>}
                         </td>
-                        <td className="px-5 py-3.5 font-mono text-gray-700 dark:text-gray-200 tabular-nums">
-                          {a.approvedCharge != null ? `${a.approvedCharge} ${t('ج', 'EGP')}` : '—'}
+                        <td>
+                          <span style={{ font: '600 13px/1 var(--font-mono)', color: 'var(--color-gray-700)', fontVariantNumeric: 'tabular-nums' }} dir="ltr">
+                            {a.approvedCharge != null ? `${a.approvedCharge} ${t('ج', 'EGP')}` : '—'}
+                          </span>
                         </td>
-                        <td className="px-3 py-3.5">
-                          <ActionMenu
-                            appointment={a}
-                            lang={lang}
-                            t={t}
-                            userRole={user?.role ?? ''}
-                            onStatusChange={setStatusAppt}
-                            onEdit={handleEdit}
-                            onDelete={handleDelete}
-                          />
+                        <td>
+                          <div className="fc-row-actions">
+                            <ActionMenu
+                              appointment={a}
+                              lang={lang}
+                              t={t}
+                              userRole={user?.role ?? ''}
+                              onStatusChange={setStatusAppt}
+                              onEdit={handleEdit}
+                              onDelete={handleDelete}
+                            />
+                          </div>
                         </td>
                       </tr>
                     );
                   })}
-                  {visible.length === 0 && (
+                  {filtered.length === 0 && (
                     <tr>
-                      <td colSpan={isAdmin ? 10 : 9} className="px-5 py-12 text-center text-gray-400 dark:text-gray-300">
+                      <td colSpan={isAdmin ? 10 : 9} style={{ padding: '48px 20px', textAlign: 'center', color: 'var(--color-gray-400)' }}>
                         {hasActiveFilters
                           ? t('لا توجد نتائج تطابق الفلتر', 'No appointments match the filter')
                           : t('لا توجد مواعيد مجدولة بعد', 'No appointments scheduled yet.')}
@@ -836,10 +904,64 @@ export default function AppointmentsPage() {
               </table>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      )}
 
-      {/* Create new appointment */}
+      {/* ── Timeline view ── */}
+      {view === 'timeline' && (
+        <div className="fc-card" style={{ padding: '16px' }}>
+          {isLoading ? (
+            <div style={{ height: '400px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-gray-400)' }}>
+              <Loader2 className="w-6 h-6 animate-spin" />
+            </div>
+          ) : (
+            <div className="fc-apt-timeline">
+              {HOURS.map((h, i) => (
+                <div key={h} className="fc-apt-tl-hour" style={{ top: i * 80 }}>
+                  <span className="fc-apt-tl-label" dir="ltr">{h}:00</span>
+                </div>
+              ))}
+              {filtered.map((a) => {
+                const totalMin = parseTimeMinutes(a.startTime);
+                const startH   = Math.floor(totalMin / 60);
+                const startM   = totalMin % 60;
+                const top      = Math.max(0, (startH - HOURS[0]) * 80 + (startM / 60) * 80);
+                const height   = Math.max(24, (30 / 60) * 80 - 4);
+                const doctor   = a.doctorId ? doctorMap.get(a.doctorId) : null;
+                const patient  = patientMap.get(a.patientId);
+                const patName  = patient
+                  ? formatName(lang === 'ar' ? (patient.nameAr ?? patient.nameEn) : patient.nameEn)
+                  : a.patientId.slice(-8).toUpperCase();
+                const borderColor = STATUS_COLORS[a.status] ?? '#94A3B8';
+                return (
+                  <div
+                    key={a.id}
+                    className="fc-apt-tl-block"
+                    style={{ top, height, borderLeftColor: borderColor }}
+                    onClick={() => setStatusAppt(a)}
+                  >
+                    <div className="fc-apt-tl-time" dir="ltr">{formatTime(a.startTime)}</div>
+                    <div>
+                      <div className="fc-apt-tl-name">{patName}</div>
+                      <div className="fc-apt-tl-sub">
+                        {doctor ? (lang === 'ar' ? (doctor.nameAr ?? doctor.nameEn) : doctor.nameEn) : '—'}
+                        {a.roomCode ? ` · ${a.roomCode}` : ''}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              {filtered.length === 0 && !isLoading && (
+                <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', color: 'var(--color-gray-400)', fontSize: '14px' }}>
+                  {t('لا توجد مواعيد', 'No appointments')}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Modals ── */}
       <AddAppointmentModal
         open={addOpen}
         onClose={() => setAddOpen(false)}
@@ -847,15 +969,14 @@ export default function AppointmentsPage() {
         onCreated={() => { setAddOpen(false); void refetch(); }}
       />
 
-      {/* Edit existing appointment */}
       <AddAppointmentModal
         open={!!editAppt}
         onClose={closeEdit}
         defaultDate={date}
         onCreated={() => { closeEdit(); void refetch(); }}
         editAppointment={editAppt ?? undefined}
-        editPatient={editPatientState}
-        editDoctor={editDoctorState}
+        editPatient={editPatientSt}
+        editDoctor={editDoctorSt}
       />
 
       {statusAppt && (

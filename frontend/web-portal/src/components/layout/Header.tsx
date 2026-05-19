@@ -327,6 +327,13 @@ export function Header({ onMobileMenuToggle, onSearchOpen }: HeaderProps) {
   const [textSize, setTextSize] = useState<TextSize>('md');
   const [showDensity, setShowDensity] = useState(false);
 
+  useEffect(() => {
+    const stored = localStorage.getItem('fadl_text_size') as TextSize | null;
+    if (stored && (TEXT_SIZES as readonly string[]).includes(stored)) {
+      setTextSize(stored);
+    }
+  }, []);
+
   function toggleTheme() {
     setTheme(theme === 'dark' ? 'light' : 'dark');
   }
@@ -342,6 +349,7 @@ export function Header({ onMobileMenuToggle, onSearchOpen }: HeaderProps) {
     if (idx > 0) {
       const next = TEXT_SIZES[idx - 1];
       document.documentElement.setAttribute('data-text-size', next);
+      localStorage.setItem('fadl_text_size', next);
       setTextSize(next);
     }
   }
@@ -351,6 +359,7 @@ export function Header({ onMobileMenuToggle, onSearchOpen }: HeaderProps) {
     if (idx < TEXT_SIZES.length - 1) {
       const next = TEXT_SIZES[idx + 1];
       document.documentElement.setAttribute('data-text-size', next);
+      localStorage.setItem('fadl_text_size', next);
       setTextSize(next);
     }
   }

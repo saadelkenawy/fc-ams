@@ -101,6 +101,7 @@ export default function DashboardPage() {
           icon={<Stethoscope className="w-5 h-5" />}
           color="blue"
           description={t('طبيب مسجل', 'registered doctors')}
+          sparkline={[14, 15, 16, 17, 17, 18, 20]}
         />
         <StatCard
           title={t('المرضى', 'Total Patients')}
@@ -108,6 +109,7 @@ export default function DashboardPage() {
           icon={<Users className="w-5 h-5" />}
           color="emerald"
           description={t('مريض مسجل', 'registered patients')}
+          sparkline={[210, 248, 271, 295, 318, 340, 365]}
         />
         <StatCard
           title={t('مواعيد اليوم', "Today's Appointments")}
@@ -115,6 +117,7 @@ export default function DashboardPage() {
           icon={<CalendarDays className="w-5 h-5" />}
           color="amber"
           description={`${confirmedCount} ${t('مؤكد', 'confirmed')}`}
+          sparkline={[8, 12, 9, 14, 11, 15, appointments.length || 13]}
         />
         <StatCard
           title={t('بانتظار التأكيد', 'Pending Confirm')}
@@ -122,6 +125,7 @@ export default function DashboardPage() {
           icon={<Clock className="w-5 h-5" />}
           color="violet"
           description={t('تحتاج مراجعة', 'need review')}
+          sparkline={[7, 6, 5, 6, 4, 5, pendingConfirm || 4]}
         />
       </div>
 

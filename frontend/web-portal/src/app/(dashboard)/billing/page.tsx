@@ -2,19 +2,18 @@
 
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Download, Filter, Search, Clock, TrendingUp, Loader2, ReceiptText, Check, X, Trash2, ShieldAlert, RotateCcw, FileSpreadsheet, FileText, Square, CheckSquare, Minus } from 'lucide-react';
+import { Download, Filter, Search, Clock, TrendingUp, Loader2, Check, X, Trash2, ShieldAlert, RotateCcw, FileSpreadsheet, FileText, FileDown, Square, CheckSquare, Minus, BarChart3, ChevronRight } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { analyticsApi, appointmentApi } from '@/lib/api';
+import { analyticsApi, appointmentApi, billingApi } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
-import { StatCard } from '@/components/ui/StatCard';
 import { Pagination } from '@/components/ui/Pagination';
 import { useLang } from '@/contexts/LanguageContext';
 import { useToast } from '@/components/ui/Toast';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { useTransactions, useUpdateTransactionStatus, useBulkDeleteTransactions, useBulkEditPaymentMethod } from '@/hooks/useBilling';
+import { useTransactions, useUpdateTransactionStatus, useBulkDeleteTransactions, useBulkEditPaymentMethod, useSettlements, useReconcileDoctor } from '@/hooks/useBilling';
 import { useDoctorMap } from '@/hooks/useDoctors';
 import { usePatientMap } from '@/hooks/usePatients';
 import { cn } from '@/lib/utils';
@@ -547,6 +546,134 @@ function BulkEditModal({ selected, onClose, onEdited, lang, t }: BulkEditModalPr
   );
 }
 
+// ── Reconcile Modal ────────────────────────────────────────────────────────
+
+interface ReconcileModalProps {
+  doctorId: string;
+  doctorName: string;
+  from: string;
+  to: string;
+  totalConsultations: number;
+  netPayable: number;
+  onClose: () => void;
+  onDone: () => void;
+}
+
+function ReconcileModal({ doctorId, doctorName, from, to, totalConsultations, netPayable, onClose, onDone }: ReconcileModalProps) {
+  const { lang, t } = useLang();
+  const { toast } = useToast();
+  const { mutateAsync, isLoading } = useReconcileDoctor();
+  const [paymentMethod, setPaymentMethod] = useState('cash');
+  const [paymentReference, setPaymentReference] = useState('');
+  const [notes, setNotes] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
+  async function handleConfirm() {
+    setError('');
+    if (!password) { setError(t('كلمة المرور مطلوبة', 'Password is required')); return; }
+    try {
+      await mutateAsync({ doctorId, from, to, paymentMethod, paymentReference: paymentReference || undefined, notes: notes || undefined, password });
+      toast(t('تمت التسوية بنجاح', 'Settlement completed successfully'), 'success');
+      onDone();
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message;
+      setError(msg ?? t('فشلت التسوية. تحقق من كلمة المرور.', 'Settlement failed. Check your password.'));
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="w-full max-w-md mx-4 bg-white dark:bg-neutral-800 rounded-2xl shadow-2xl p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-11 h-11 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center flex-shrink-0">
+            <Check className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100">{t('تسوية الطبيب', 'Settle Doctor')}</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{doctorName}</p>
+          </div>
+        </div>
+
+        <div className="bg-gray-50 dark:bg-neutral-700/50 rounded-xl p-4 mb-4 grid grid-cols-2 gap-3 text-sm">
+          <div>
+            <p className="text-xs text-gray-400 mb-0.5">{t('الفترة', 'Period')}</p>
+            <p className="font-medium text-gray-800 dark:text-gray-200">{from} → {to}</p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-400 mb-0.5">{t('الاستشارات', 'Consultations')}</p>
+            <p className="font-medium text-gray-800 dark:text-gray-200">{totalConsultations}</p>
+          </div>
+          <div className="col-span-2">
+            <p className="text-xs text-gray-400 mb-0.5">{t('المستحق للطبيب', 'Net Payable')}</p>
+            <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(netPayable)}</p>
+          </div>
+        </div>
+
+        <div className="space-y-3 mb-4">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">{t('طريقة الدفع', 'Payment Method')}</label>
+            <select
+              value={paymentMethod}
+              onChange={(e) => setPaymentMethod(e.target.value)}
+              className="w-full h-10 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-gray-900 dark:text-gray-100 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            >
+              <option value="cash">{t('نقداً', 'Cash')}</option>
+              <option value="bank">{t('تحويل بنكي', 'Bank Transfer')}</option>
+              <option value="cheque">{t('شيك', 'Cheque')}</option>
+              <option value="transfer">InstaPay / {t('تحويل', 'Transfer')}</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">{t('رقم المرجع (اختياري)', 'Reference # (optional)')}</label>
+            <input
+              type="text"
+              value={paymentReference}
+              onChange={(e) => setPaymentReference(e.target.value)}
+              className="w-full h-10 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-gray-900 dark:text-gray-100 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              placeholder={t('رقم الشيك / رقم التحويل', 'Cheque # / transfer ref')}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">{t('ملاحظات (اختياري)', 'Notes (optional)')}</label>
+            <input
+              type="text"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className="w-full h-10 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-gray-900 dark:text-gray-100 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">{t('كلمة مرورك', 'Your password')}</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full h-10 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-gray-900 dark:text-gray-100 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              placeholder="••••••••"
+              autoFocus
+            />
+          </div>
+        </div>
+
+        {error && <p className="text-red-500 text-xs mb-3">{error}</p>}
+
+        <div className="flex gap-2">
+          <Button variant="ghost" className="flex-1" onClick={onClose}>{t('إلغاء', 'Cancel')}</Button>
+          <Button
+            variant="primary"
+            className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+            onClick={() => void handleConfirm()}
+            disabled={isLoading}
+          >
+            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : t('تأكيد التسوية', 'Confirm Settlement')}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function BillingPage() {
@@ -572,6 +699,12 @@ export default function BillingPage() {
   const [showBulkDelete, setShowBulkDelete] = useState(false);
   const [showBulkEdit, setShowBulkEdit]     = useState(false);
   const [detailTx, setDetailTx]             = useState<FinancialTransaction | null>(null);
+
+  // Doctor Settlements section state
+  const today = new Date().toISOString().split('T')[0];
+  const [settlFrom, setSettlFrom] = useState(today);
+  const [settlTo, setSettlTo]     = useState(today);
+  const [reconcileTarget, setReconcileTarget] = useState<{ doctorId: string; doctorName: string; totalConsultations: number; netPayable: number } | null>(null);
 
   // Auto-open secure delete modal and scroll to highlighted row
   useEffect(() => {
@@ -602,6 +735,10 @@ export default function BillingPage() {
   const doctorMap    = useDoctorMap();
   const patientMap   = usePatientMap();
 
+  const { data: settlData, isLoading: settlLoading, refetch: refetchSettlements } = useSettlements({
+    from: settlFrom, to: settlTo, unsettledOnly: true,
+  });
+
   const filtered = useMemo(() => transactions.filter((tx) => {
     if (methodFilter && tx.paymentMethod !== methodFilter) return false;
     if (!query) return true;
@@ -618,6 +755,23 @@ export default function BillingPage() {
   const kpiTotal     = filtered.length;
   const kpiPending   = useMemo(() => filtered.filter((tx) => tx.paymentStatus === 'pending').reduce((s, tx) => s + tx.approvedCharge, 0), [filtered]);
   const kpiRefunded  = useMemo(() => filtered.filter((tx) => tx.paymentStatus === 'refunded').reduce((s, tx) => s + tx.approvedCharge, 0), [filtered]);
+
+  const CIRC = 301.59;
+  const methodTotals = useMemo(() => {
+    const totals = { cash: 0, visa: 0, instapay: 0 };
+    let total = 0;
+    filtered.forEach((tx) => {
+      const m = tx.paymentMethod ?? '';
+      if (m === 'cash') totals.cash += tx.approvedCharge;
+      else if (m === 'visa') totals.visa += tx.approvedCharge;
+      else if (m === 'instapay') totals.instapay += tx.approvedCharge;
+      total += tx.approvedCharge;
+    });
+    return { totals, total };
+  }, [filtered]);
+  const visaPct     = methodTotals.total > 0 ? methodTotals.totals.visa / methodTotals.total : 0;
+  const cashPct     = methodTotals.total > 0 ? methodTotals.totals.cash / methodTotals.total : 0;
+  const instapayPct = methodTotals.total > 0 ? methodTotals.totals.instapay / methodTotals.total : 0;
 
   const hasActiveFilters = statusFilter !== 'all' || methodFilter || dateFrom || dateTo || query;
 
@@ -669,11 +823,63 @@ export default function BillingPage() {
   }
 
   async function downloadPdf(endpoint: string, filename: string) {
-    const res = await analyticsApi.get(endpoint, { responseType: 'blob' });
-    const url = URL.createObjectURL(res.data as Blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = filename; a.click();
-    URL.revokeObjectURL(url);
+    setExportLoading(true);
+    try {
+      const res = await analyticsApi.get(endpoint, { responseType: 'blob', timeout: 30_000 });
+      const url = URL.createObjectURL(res.data as Blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename; a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast(t('فشل تحميل ملف PDF. تحقق من خدمة التقارير.', 'PDF download failed. Check the reports service.'), 'error');
+    } finally {
+      setExportLoading(false);
+    }
+  }
+
+  async function downloadRowPdf(txId: string, shortId: string) {
+    try {
+      const res = await analyticsApi.get(`/reports/invoice/${txId}`, { responseType: 'blob', timeout: 30_000 });
+      const url = URL.createObjectURL(res.data as Blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `invoice-${shortId}.pdf`; a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast(t('فشل تحميل الفاتورة', 'Invoice download failed'), 'error');
+    }
+  }
+
+  async function exportAllXlsx() {
+    setExportLoading(true);
+    try {
+      const res = await billingApi.get('/transactions', { params: { limit: 9999 }, timeout: 30_000 });
+      const allTxns: FinancialTransaction[] = (res.data as { data?: FinancialTransaction[] }).data ?? [];
+      if (!allTxns.length) { toast(t('لا توجد بيانات للتصدير', 'No data to export'), 'error'); return; }
+      const rows = allTxns.map((tx) => {
+        const doc = tx.doctorId ? doctorMap.get(tx.doctorId) : null;
+        const pat = patientMap.get(tx.patientId);
+        return {
+          Date:           tx.transactionDate?.slice(0, 10) ?? '',
+          Patient:        pat ? (pat.nameEn ?? pat.nameAr ?? '') : tx.patientId.slice(0, 8),
+          Doctor:         doc ? (doc.nameEn ?? doc.nameAr ?? '') : (tx.doctorId?.slice(0, 8) ?? ''),
+          Source:         tx.patientSource,
+          Charge:         tx.approvedCharge,
+          'Dr. Share':    tx.doctorShare,
+          'Clinic Share': tx.clinicShare,
+          Status:         tx.paymentStatus,
+          Payment:        tx.paymentMethod ?? '',
+        };
+      });
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'All Transactions');
+      const today = new Date().toISOString().split('T')[0];
+      XLSX.writeFile(wb, `billing_all_${today}.xlsx`);
+    } catch {
+      toast(t('فشل التصدير', 'Export failed'), 'error');
+    } finally {
+      setExportLoading(false);
+    }
   }
 
   function exportXlsx() {
@@ -711,39 +917,130 @@ export default function BillingPage() {
   function handleSearch(q: string) { setQuery(q); setPage(1); }
 
   return (
-    <div className="space-y-5 max-w-7xl mx-auto">
-      <div className="flex items-center justify-between gap-4">
+    <div className="fc-page">
+      <div className="fc-page-head">
         <div>
-          <h2 className="text-2xl font-bold font-display text-gray-900 dark:text-gray-100">{t('الفواتير والمالية', 'Billing & Finance')}</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-300 mt-0.5">{t('السجل المحاسبي غير القابل للتعديل', 'Immutable financial ledger')}</p>
+          <h2 className="fc-page-title">{t('الفواتير والمالية', 'Billing & Finance')}</h2>
+          <p className="fc-page-sub">{t('السجل المحاسبي غير القابل للتعديل', 'Immutable financial ledger')}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="fc-page-actions">
           <Button
             variant="outline" size="sm"
             disabled={exportLoading || !filtered.length}
             onClick={() => exportXlsx()}
-            title={t('تصدير إلى Excel', 'Export to Excel')}
+            title={t('تصدير العرض الحالي إلى Excel', 'Export current view to Excel')}
           >
             {exportLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileSpreadsheet className="w-4 h-4" />}
             {t('Excel', 'Excel')}
           </Button>
-          <Button variant="outline" size="sm" onClick={() => void downloadPdf('/reports/settlement', 'settlement-report.pdf')}>
-            <FileText className="w-4 h-4" />
+          <Button
+            variant="outline" size="sm"
+            disabled={exportLoading}
+            onClick={() => void exportAllXlsx()}
+            title={t('تصدير كل المعاملات إلى Excel', 'Export all transactions to Excel')}
+          >
+            {exportLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileSpreadsheet className="w-4 h-4" />}
+            {t('Excel الكل', 'All Excel')}
+          </Button>
+          <Button variant="outline" size="sm" disabled={exportLoading} onClick={() => void downloadPdf('/reports/settlement', 'settlement-report.pdf')}>
+            {exportLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
             {t('تقرير PDF', 'Settlement PDF')}
           </Button>
-          <Button variant="outline" size="sm" onClick={() => void downloadPdf('/reports/financial-summary', `billing_export_${new Date().toISOString().split('T')[0]}.pdf`)}>
-            <Download className="w-4 h-4" />
-            {t('ملخص مالي', 'Summary PDF')}
+          <Button variant="outline" size="sm" disabled={exportLoading} onClick={() => void downloadPdf('/reports/financial-summary', `billing_all_${new Date().toISOString().split('T')[0]}.pdf`)}>
+            {exportLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+            {t('ملخص PDF', 'Summary PDF')}
           </Button>
         </div>
       </div>
 
-      {/* KPI banner */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title={t('إجمالي الإيرادات المدفوعة', 'Total Revenue (Paid)')} value={formatCurrency(kpiRevenue, 'EGP', locale)}  icon={<TrendingUp className="w-5 h-5" />}  color="blue" />
-        <StatCard title={t('إجمالي الفواتير', 'Total Invoices')}                 value={kpiTotal}                                    icon={<ReceiptText className="w-5 h-5" />} color="violet" />
-        <StatCard title={t('المبلغ المعلق', 'Pending Amount')}                   value={formatCurrency(kpiPending, 'EGP', locale)}   icon={<Clock className="w-5 h-5" />}       color="amber" />
-        <StatCard title={t('المبلغ المسترد', 'Refunded Amount')}                 value={formatCurrency(kpiRefunded, 'EGP', locale)}  icon={<RotateCcw className="w-5 h-5" />}   color="rose" />
+      {/* KPI row — DS fc-bill-* */}
+      <div className="fc-bill-kpi-row">
+        {/* Revenue hero tile */}
+        <div className="fc-bill-revenue">
+          <div className="fc-bill-revenue-eyebrow">
+            <TrendingUp className="w-3.5 h-3.5" /> {t('إجمالي الإيرادات المدفوعة', 'Total Revenue (Paid)')}
+          </div>
+          <div className="fc-bill-revenue-val">
+            EGP {Math.floor(kpiRevenue).toLocaleString()}<span>.00</span>
+          </div>
+          <div className="fc-bill-revenue-trend">
+            <span className="fc-kpi-delta is-up">
+              <TrendingUp className="w-3 h-3" strokeWidth={2.4} /> {kpiTotal}
+            </span>
+            <span className="fc-bill-revenue-vs">
+              {t('فاتورة', 'invoices')} · {t('معلق', 'pending')} {formatCurrency(kpiPending, 'EGP', locale)}
+            </span>
+          </div>
+          <svg viewBox="0 0 320 60" width="100%" height="60" className="fc-bill-revenue-chart">
+            {[4,5,6,4,7,5,8,6,5,7,6,8,9,7,6,8,5,9,7,6,8,7,9,6,8,9,7,5,8,10].map((v, i) => (
+              <rect key={i} x={i * 10.6} y={60 - v * 5.5} width="8" height={v * 5.5} rx="2"
+                fill={i === 29 ? 'white' : 'rgba(255,255,255,0.30)'} />
+            ))}
+          </svg>
+        </div>
+
+        {/* Payment split tile */}
+        <div className="fc-bill-split">
+          <div className="fc-bill-split-head">
+            <BarChart3 className="w-3.5 h-3.5" />
+            <span>{t('طرق الدفع', 'Payment methods')}</span>
+            <span className="fc-bill-split-total">{formatCurrency(kpiRevenue, 'EGP', locale)}</span>
+          </div>
+          <div className="fc-bill-split-body">
+            <svg viewBox="0 0 120 120" width="120" height="120">
+              <g transform="translate(60,60)">
+                <circle r="48" fill="none" stroke="#F3F4F6" strokeWidth="16" />
+                <circle r="48" fill="none" stroke="#3B82F6" strokeWidth="16"
+                  strokeDasharray={`${visaPct * CIRC} ${CIRC}`}
+                  transform="rotate(-90)" />
+                <circle r="48" fill="none" stroke="#10B981" strokeWidth="16"
+                  strokeDasharray={`${cashPct * CIRC} ${CIRC}`}
+                  strokeDashoffset={`${-(visaPct * CIRC)}`}
+                  transform="rotate(-90)" />
+                <circle r="48" fill="none" stroke="#8B5CF6" strokeWidth="16"
+                  strokeDasharray={`${instapayPct * CIRC} ${CIRC}`}
+                  strokeDashoffset={`${-((visaPct + cashPct) * CIRC)}`}
+                  transform="rotate(-90)" />
+                <text textAnchor="middle" dy="3" fontFamily="Outfit" fontWeight="700" fontSize="20" fill="currentColor">{kpiTotal}</text>
+                <text textAnchor="middle" dy="18" fontFamily="Manrope" fontWeight="500" fontSize="9" fill="#94A3B8">
+                  {lang === 'ar' ? 'فاتورة' : 'INVOICES'}
+                </text>
+              </g>
+            </svg>
+            <div className="fc-bill-split-legend">
+              <div className="fc-bill-leg-row">
+                <span className="fc-bill-leg-dot" style={{ background: '#3B82F6' }} />
+                {t('كارت', 'Card')}
+                <span className="fc-bill-leg-val">{Math.round(visaPct * 100)}%</span>
+              </div>
+              <div className="fc-bill-leg-row">
+                <span className="fc-bill-leg-dot" style={{ background: '#10B981' }} />
+                {t('كاش', 'Cash')}
+                <span className="fc-bill-leg-val">{Math.round(cashPct * 100)}%</span>
+              </div>
+              <div className="fc-bill-leg-row">
+                <span className="fc-bill-leg-dot" style={{ background: '#8B5CF6' }} />
+                Instapay
+                <span className="fc-bill-leg-val">{Math.round(instapayPct * 100)}%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Outstanding tile */}
+        <div className="fc-bill-outstanding">
+          <div className="fc-bill-out-head">
+            <Clock className="w-3.5 h-3.5" /> {t('المبالغ المعلقة', 'Outstanding')}
+          </div>
+          <div className="fc-bill-out-val">{formatCurrency(kpiPending, 'EGP', locale)}</div>
+          <div className="fc-bill-out-sub">
+            {filtered.filter((tx) => tx.paymentStatus === 'pending').length} {t('فاتورة غير مدفوعة', 'unpaid invoices')}
+            {kpiRefunded > 0 && <> · {formatCurrency(kpiRefunded, 'EGP', locale)} {t('مسترد', 'refunded')}</>}
+          </div>
+          <button className="fc-bill-out-cta" onClick={() => handleStatusFilter('pending')}>
+            {t('عرض المعلق', 'View pending')} <ChevronRight className="w-3 h-3" strokeWidth={2.4} />
+          </button>
+        </div>
       </div>
 
       {/* Bulk action bar */}
@@ -980,13 +1277,22 @@ export default function BillingPage() {
                             {tx.paymentMethod?.replace('_', ' ') ?? '—'}
                           </td>
                           <td className="px-3 py-3.5">
-                            <button
-                              onClick={() => setDetailTx(tx)}
-                              className="p-1.5 rounded-lg text-gray-400 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
-                              title={t('عرض الفاتورة', 'View invoice')}
-                            >
-                              <FileText className="w-3.5 h-3.5" />
-                            </button>
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => setDetailTx(tx)}
+                                className="p-1.5 rounded-lg text-gray-400 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
+                                title={t('عرض الفاتورة', 'View invoice')}
+                              >
+                                <FileText className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => void downloadRowPdf(tx.id, tx.id.slice(-8).toUpperCase())}
+                                className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors"
+                                title={t('تحميل PDF', 'Download PDF')}
+                              >
+                                <FileDown className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -1008,6 +1314,95 @@ export default function BillingPage() {
             />
           </CardContent>
         </Card>
+
+        {/* Doctor Settlements */}
+        <Card className="mt-6">
+          <CardContent className="p-6">
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-5">
+              <div>
+                <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">{t('تسوية الأطباء', 'Doctor Settlements')}</h2>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{t('الاستشارات غير المسوّاة فقط', 'Unsettled consultations only')}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={settlFrom}
+                  onChange={(e) => setSettlFrom(e.target.value)}
+                  className="h-9 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-gray-900 dark:text-gray-100 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+                <span className="text-gray-400 text-sm">→</span>
+                <input
+                  type="date"
+                  value={settlTo}
+                  onChange={(e) => setSettlTo(e.target.value)}
+                  className="h-9 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-gray-900 dark:text-gray-100 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+            </div>
+
+            {settlLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+              </div>
+            ) : !settlData?.data?.length ? (
+              <div className="text-center py-12 text-gray-400 dark:text-gray-500 text-sm">
+                {t('لا توجد استشارات غير مسوّاة في هذه الفترة', 'No unsettled consultations in this period.')}
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-xl border border-gray-100 dark:border-neutral-700">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 dark:bg-neutral-800 border-b border-gray-100 dark:border-neutral-700">
+                      <th className="px-4 py-3 text-start text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{t('الطبيب', 'Doctor')}</th>
+                      <th className="px-4 py-3 text-start text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{t('الاستشارات', 'Consultations')}</th>
+                      <th className="px-4 py-3 text-start text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{t('إجمالي الرسوم', 'Total Charge')}</th>
+                      <th className="px-4 py-3 text-start text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{t('نصيب الطبيب', 'Dr. Share')}</th>
+                      <th className="px-4 py-3 text-start text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{t('المستحق', 'Net Payable')}</th>
+                      <th className="px-4 py-3" />
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50 dark:divide-neutral-700/50">
+                    {settlData.data.map((s) => {
+                      const doc = doctorMap.get(s.doctorId);
+                      const name = doc ? (lang === 'ar' ? (doc.nameAr ?? doc.nameEn) : doc.nameEn) : s.doctorId.slice(-8);
+                      return (
+                        <tr key={s.doctorId} className="hover:bg-gray-50/50 dark:hover:bg-neutral-800/30 transition-colors">
+                          <td className="px-4 py-3.5 font-medium text-gray-900 dark:text-gray-100">{name}</td>
+                          <td className="px-4 py-3.5 text-gray-600 dark:text-gray-300">{s.totalConsultations}</td>
+                          <td className="px-4 py-3.5 text-gray-600 dark:text-gray-300">{formatCurrency(s.totalSessionFees ?? 0)}</td>
+                          <td className="px-4 py-3.5 text-gray-600 dark:text-gray-300">{formatCurrency(s.doctorShare)}</td>
+                          <td className="px-4 py-3.5 font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(s.netPayable)}</td>
+                          <td className="px-4 py-3.5 text-end">
+                            <button
+                              onClick={() => setReconcileTarget({ doctorId: s.doctorId, doctorName: name, totalConsultations: s.totalConsultations, netPayable: s.netPayable })}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 text-xs font-medium hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                              {t('تسوية', 'Settle')}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {reconcileTarget && (
+          <ReconcileModal
+            doctorId={reconcileTarget.doctorId}
+            doctorName={reconcileTarget.doctorName}
+            from={settlFrom}
+            to={settlTo}
+            totalConsultations={reconcileTarget.totalConsultations}
+            netPayable={reconcileTarget.netPayable}
+            onClose={() => setReconcileTarget(null)}
+            onDone={() => { setReconcileTarget(null); void refetchSettlements(); }}
+          />
+        )}
 
       {showDeleteModal && deleteApptId && (
         <SecureDeleteModal

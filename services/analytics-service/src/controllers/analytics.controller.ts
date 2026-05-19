@@ -1,7 +1,7 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { billingClient, patientClient, appointmentClient, doctorClient } from '../clients/internal';
-import { buildPdf } from '../utils/pdf';
+import { buildPdf, buildInvoicePdf } from '../utils/pdf';
 import type { PdfColumn } from '../utils/pdf';
 
 const monthsSchema = z.object({
@@ -339,6 +339,7 @@ export async function getSettlementReport(req: FastifyRequest, reply: FastifyRep
   if (query.dateTo)    params.dateTo   = query.dateTo;
   if (query.doctorId)  params.doctorId = query.doctorId;
   params.limit = '500';
+  params.status = 'paid';
 
   let txns: TxDetail[] = [];
   try {
@@ -376,7 +377,7 @@ export async function getSettlementReport(req: FastifyRequest, reply: FastifyRep
     status:      String(t.status ?? ''),
   }));
 
-  const stream = buildPdf({
+  const buffer = await buildPdf({
     title:    `Settlement Report — ${query.doctorName ?? query.doctorId ?? 'All Doctors'}`,
     subtitle: `Period: ${query.dateFrom ?? 'All time'} → ${query.dateTo ?? 'Today'} | ${txns.length} transactions`,
     columns,
@@ -391,7 +392,7 @@ export async function getSettlementReport(req: FastifyRequest, reply: FastifyRep
 
   void reply.type('application/pdf')
     .header('Content-Disposition', `attachment; filename="settlement-${Date.now()}.pdf"`)
-    .send(stream);
+    .send(buffer);
 }
 
 // ── Monthly Financial Summary Report ──────────────────────────────────────
@@ -441,7 +442,7 @@ export async function getFinancialSummaryReport(req: FastifyRequest, reply: Fast
   const totalDoctor  = sorted.reduce((s, [, e]) => s + e.doctorShare, 0);
   const totalClinic  = sorted.reduce((s, [, e]) => s + e.clinicShare, 0);
 
-  const stream = buildPdf({
+  const buffer = await buildPdf({
     title:    'Monthly Financial Summary',
     subtitle: `Last ${months} months | Generated ${new Date().toLocaleDateString('en')}`,
     columns,
@@ -456,7 +457,7 @@ export async function getFinancialSummaryReport(req: FastifyRequest, reply: Fast
 
   void reply.type('application/pdf')
     .header('Content-Disposition', `attachment; filename="financial-summary-${Date.now()}.pdf"`)
-    .send(stream);
+    .send(buffer);
 }
 
 // ── Specialty Breakdown ────────────────────────────────────────────────────
@@ -527,6 +528,102 @@ export async function getSpecialtyBreakdown(_req: FastifyRequest, reply: Fastify
     .sort((a, b) => b.revenue - a.revenue);
 
   void reply.send({ success: true, data });
+}
+
+// ── Single-Transaction Invoice PDF ──────────────────────────────────────────
+
+interface TxDetail2 {
+  id: string;
+  transactionDate?: string;
+  patientId?: string;
+  doctorId?: string;
+  approvedCharge?: string | number;
+  sourceFeeAmount?: string | number;
+  vatRate?: number;
+  paymentMethod?: string;
+  paymentStatus?: string;
+  visitType?: string;
+  isRefund?: boolean;
+  refundReason?: string;
+  patientSource?: string;
+}
+
+interface PersonRecord { nameEn?: string; nameAr?: string; }
+
+export async function getInvoicePdf(
+  req: FastifyRequest<{ Params: { txId: string } }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const { txId } = req.params;
+
+  let tx: TxDetail2 | null = null;
+  try {
+    const res = await billingClient.get<TxDetail2 | { data?: TxDetail2 }>(`/transactions/${txId}`);
+    const body = res.data;
+    tx = (body && 'id' in body) ? body as TxDetail2 : ((body as { data?: TxDetail2 }).data ?? null);
+  } catch {
+    void reply.status(404).send({ error: 'Transaction not found' });
+    return;
+  }
+
+  if (!tx) {
+    void reply.status(404).send({ error: 'Transaction not found' });
+    return;
+  }
+
+  let patientName = `Patient #${String(tx.patientId ?? '').slice(-8).toUpperCase()}`;
+  let doctorName  = 'Fadl Clinic';
+
+  if (tx.patientId) {
+    try {
+      const pr = await patientClient.get<PersonRecord | { data?: PersonRecord }>(`/patients/${tx.patientId}`);
+      const pd = (pr.data && 'nameEn' in pr.data) ? pr.data as PersonRecord : ((pr.data as { data?: PersonRecord }).data ?? null);
+      if (pd) patientName = pd.nameEn ?? pd.nameAr ?? patientName;
+    } catch { /* non-critical */ }
+  }
+
+  if (tx.doctorId) {
+    try {
+      const dr = await doctorClient.get<PersonRecord | { data?: PersonRecord }>(`/doctors/${tx.doctorId}`);
+      const dd = (dr.data && 'nameEn' in dr.data) ? dr.data as PersonRecord : ((dr.data as { data?: PersonRecord }).data ?? null);
+      if (dd) doctorName = dd.nameEn ?? dd.nameAr ?? doctorName;
+    } catch { /* non-critical */ }
+  }
+
+  const VISIT_LABEL: Record<string, string> = {
+    consultation: 'Consultation & Examination',
+    operative:    'Operative Procedure',
+    online:       'Online Teleconsult',
+  };
+  const PAY_LABEL: Record<string, string> = {
+    cash:          'Cash',
+    instapay:      'InstaPay',
+    bank_transfer: 'Bank Transfer',
+    vfc_wallet:    'VFC Wallet',
+    mobile_wallet: 'Mobile Wallet',
+  };
+
+  const charge    = toNum(tx.approvedCharge);
+  const sourceFee = toNum(tx.sourceFeeAmount);
+
+  const buffer = await buildInvoicePdf({
+    invoiceId:     `INV-${String(tx.id).slice(-8).toUpperCase()}`,
+    date:          tx.transactionDate?.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
+    patientName,
+    doctorName,
+    visitType:     VISIT_LABEL[tx.visitType ?? ''] ?? 'Consultation & Examination',
+    charge,
+    sourceFee,
+    vatRate:       tx.vatRate ?? 0.14,
+    paymentMethod: PAY_LABEL[tx.paymentMethod ?? ''] ?? (tx.paymentMethod ?? 'Cash'),
+    status:        tx.paymentStatus ?? 'paid',
+    isRefund:      tx.isRefund ?? false,
+    refundReason:  tx.refundReason,
+  });
+
+  void reply.type('application/pdf')
+    .header('Content-Disposition', `attachment; filename="invoice-${String(tx.id).slice(-8).toUpperCase()}.pdf"`)
+    .send(buffer);
 }
 
 // ── No-Show Rate by Day of Week ─────────────────────────────────────────────

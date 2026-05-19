@@ -2,16 +2,11 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Calendar, TrendingUp, Stethoscope, PowerOff, Power, Users, Wifi } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
-import { Input } from '@/components/ui/Input';
-import { StatCard } from '@/components/ui/StatCard';
-import { DataTable, type Column } from '@/components/ui/DataTable';
-import { ActionButtons } from '@/components/ui/ActionButtons';
+import {
+  Search, X, Stethoscope, Users, PowerOff, Wifi,
+  Calendar, Pencil, Trash2, Power, ChevronRight,
+} from 'lucide-react';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { Pagination } from '@/components/ui/Pagination';
 import { useLang } from '@/contexts/LanguageContext';
 import { useDoctors, useSpecialtyMap, useToggleDoctorActive, useDeleteDoctor } from '@/hooks/useDoctors';
 import { AddDoctorModal } from '@/components/doctors/AddDoctorModal';
@@ -19,235 +14,343 @@ import { EditDoctorModal } from '@/components/doctors/EditDoctorModal';
 import { useToast } from '@/components/ui/Toast';
 import type { Doctor } from '@fadl/types';
 
-const PAYMENT_LABELS: Record<string, { ar: string; en: string }> = {
-  cash:          { ar: 'كاش',          en: 'Cash' },
-  instapay:      { ar: 'انستاباي',     en: 'InstaPay' },
-  bank_transfer: { ar: 'تحويل بنكي',   en: 'Bank Transfer' },
-  vfc_wallet:    { ar: 'محفظة VFC',    en: 'VFC Wallet' },
-  mobile_wallet: { ar: 'محفظة موبايل', en: 'Mobile Wallet' },
-};
+/* ── Status config (maps isActive / isOnlineDoctor) ─────────────────────── */
+const STATUS_MAP = {
+  online:   { dot: '#10B981', bg: 'rgba(16,185,129,0.15)',  fg: '#10B981', label: { en: 'Online',  ar: 'أونلاين' } },
+  active:   { dot: '#3B82F6', bg: 'rgba(59,130,246,0.15)',  fg: '#3B82F6', label: { en: 'Active',  ar: 'نشط'    } },
+  inactive: { dot: '#94A3B8', bg: 'rgba(148,163,184,0.15)', fg: '#94A3B8', label: { en: 'On hold', ar: 'غير نشط' } },
+} as const;
+
+type StatusKey = keyof typeof STATUS_MAP;
+
+function doctorStatus(d: Doctor): StatusKey {
+  if (!d.isActive) return 'inactive';
+  if (d.isOnlineDoctor) return 'online';
+  return 'active';
+}
+
+/* ── Avatar colours ──────────────────────────────────────────────────────── */
+const AVATAR_GRADIENTS = [
+  'linear-gradient(135deg,#B71C1C,#7F1D1D)',
+  'linear-gradient(135deg,#1D4ED8,#1E40AF)',
+  'linear-gradient(135deg,#047857,#065F46)',
+  'linear-gradient(135deg,#6D28D9,#5B21B6)',
+  'linear-gradient(135deg,#B45309,#92400E)',
+  'linear-gradient(135deg,#0369A1,#075985)',
+];
+
+/* ── Small sparkline for KPI tiles (64×24) ───────────────────────────────── */
+function Sparkline({ data, color }: { data: number[]; color: string }) {
+  if (data.length < 2) return null;
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+  const W = 64; const H = 24;
+  const pts = data.map((v, i) => `${(i / (data.length - 1)) * W},${H - ((v - min) / range) * H}`).join(' ');
+  const last = data[data.length - 1];
+  const lx = W; const ly = H - ((last - min) / range) * H;
+  return (
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ overflow: 'visible', flexShrink: 0, display: 'block' }}>
+      <polyline points={pts} fill="none" stroke={color} strokeWidth={1.8} strokeLinejoin="round" strokeLinecap="round" />
+      <circle cx={lx} cy={ly} r={2.5} fill={color} />
+    </svg>
+  );
+}
+
+/* ── Page ─────────────────────────────────────────────────────────────────── */
+type FilterKey = 'all' | 'online' | 'active' | 'inactive';
 
 export default function DoctorsPage() {
   const { lang, t } = useLang();
-  const { toast } = useToast();
+  const router      = useRouter();
+  const { toast }   = useToast();
+
   const [query, setQuery]             = useState('');
-  const [page, setPage]               = useState(1);
-  const [limit, setLimit]             = useState(10);
-  const [selected, setSelected]       = useState<string | null>(null);
+  const [filter, setFilter]           = useState<FilterKey>('all');
   const [addOpen, setAddOpen]         = useState(false);
   const [editDoctor, setEditDoctor]   = useState<Doctor | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Doctor | null>(null);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'online'>('all');
 
-  const { data, isLoading, isError } = useDoctors({ limit: 500 });
-  const specialtyMap   = useSpecialtyMap();
-  const toggleActive   = useToggleDoctorActive();
-  const deleteDoctor   = useDeleteDoctor();
+  const { data, isLoading } = useDoctors({ limit: 500 });
+  const specialtyMap        = useSpecialtyMap();
+  const toggleActive        = useToggleDoctorActive();
+  const deleteDoctor        = useDeleteDoctor();
 
-  const allDoctors   = data?.data ?? [];
-  const filtered     = allDoctors.filter((d) => {
-    const nameMatch = (lang === 'ar' ? (d.nameAr ?? d.nameEn) : d.nameEn).toLowerCase().includes(query.toLowerCase());
-    if (!nameMatch) return false;
-    if (statusFilter === 'active') return d.isActive;
-    if (statusFilter === 'online') return d.isOnlineDoctor;
+  const allDoctors    = data?.data ?? [];
+  const activeCount   = allDoctors.filter((d) => d.isActive).length;
+  const inactiveCount = allDoctors.filter((d) => !d.isActive).length;
+  const onlineCount   = allDoctors.filter((d) => d.isOnlineDoctor).length;
+
+  const filtered = allDoctors.filter((d) => {
+    const name = lang === 'ar' ? (d.nameAr ?? d.nameEn) : d.nameEn;
+    const spec  = specialtyMap.get(d.specialtyId);
+    const specName = spec ? (lang === 'ar' ? spec.nameAr : spec.nameEn) : '';
+    if (query && !name.toLowerCase().includes(query.toLowerCase()) && !specName.toLowerCase().includes(query.toLowerCase())) return false;
+    if (filter === 'online')   return d.isOnlineDoctor;
+    if (filter === 'active')   return d.isActive && !d.isOnlineDoctor;
+    if (filter === 'inactive') return !d.isActive;
     return true;
   });
-  const activeCount  = allDoctors.filter((d) => d.isActive).length;
-  const inactiveCount = allDoctors.filter((d) => !d.isActive).length;
-  const onlineCount  = allDoctors.filter((d) => d.isOnlineDoctor).length;
-  const pagedDoctors = filtered.slice((page - 1) * limit, page * limit);
-  const doctor      = allDoctors.find((d) => d.id === selected) ?? null;
 
-  function handleSearch(q: string) { setQuery(q); setPage(1); }
+  const filterConfig: { k: FilterKey; labelEn: string; labelAr: string; count: number }[] = [
+    { k: 'all',      labelEn: 'All',      labelAr: 'الكل',    count: allDoctors.length },
+    { k: 'online',   labelEn: 'Online',   labelAr: 'أونلاين', count: onlineCount },
+    { k: 'active',   labelEn: 'Active',   labelAr: 'نشط',     count: activeCount - onlineCount },
+    { k: 'inactive', labelEn: 'On hold',  labelAr: 'غير نشط', count: inactiveCount },
+  ];
 
-  function handleToggle(d: Doctor) {
+  function handleToggle(d: Doctor, e: React.MouseEvent) {
+    e.stopPropagation();
     toggleActive.mutate({ id: d.id, isActive: !d.isActive }, {
       onSuccess: () => toast(
         d.isActive ? t('تم تعطيل الطبيب', 'Doctor deactivated') : t('تم تفعيل الطبيب', 'Doctor activated'),
         'success',
       ),
-      onError: () => toast(t('تعذّر تحديث الحالة. حاول مرة أخرى.', "Couldn't update status. Try again."), 'error'),
+      onError: () => toast(t('تعذّر تحديث الحالة', "Couldn't update status"), 'error'),
     });
   }
 
   function handleDelete() {
     if (!deleteTarget) return;
     deleteDoctor.mutate(deleteTarget.id, {
-      onSuccess: () => {
-        toast(t('تم حذف الطبيب', 'Doctor deleted'), 'success');
-        if (selected === deleteTarget.id) setSelected(null);
-        setDeleteTarget(null);
-      },
-      onError: () => toast(t('تعذّر حذف الطبيب. حاول مرة أخرى.', "Couldn't delete doctor. Refresh and try again."), 'error'),
+      onSuccess: () => { toast(t('تم حذف الطبيب', 'Doctor deleted'), 'success'); setDeleteTarget(null); },
+      onError:   () => toast(t('تعذّر حذف الطبيب', "Couldn't delete doctor"), 'error'),
     });
   }
 
-  const columns: Column<Doctor>[] = [
-    {
-      key: 'doctor',
-      header: t('الطبيب', 'Doctor'),
-      render: (d) => (
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-primary-600 flex items-center justify-center text-sm font-bold flex-shrink-0 text-white">
-            {(lang === 'ar' ? (d.nameAr ?? d.nameEn) : d.nameEn).charAt(0)}
-          </div>
-          <div>
-            <p className="font-medium text-gray-900 dark:text-gray-100">{lang === 'ar' ? (d.nameAr ?? d.nameEn) : d.nameEn}</p>
-            <p className="text-xs text-gray-400 dark:text-gray-500 font-mono" dir="ltr">{d.mobile}</p>
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: 'specialty',
-      header: t('التخصص', 'Specialty'),
-      render: (d) => {
-        const spec = specialtyMap.get(d.specialtyId);
-        return (
-          <span className="text-gray-600 dark:text-gray-300">
-            {spec ? (lang === 'ar' ? spec.nameAr : spec.nameEn) : `#${d.specialtyId}`}
-            {d.isOnlineDoctor && (
-              <Badge variant="info" className="ms-2 text-[10px]">{t('أونلاين', 'Online')}</Badge>
-            )}
-          </span>
-        );
-      },
-    },
-    {
-      key: 'status',
-      header: t('الحالة', 'Status'),
-      render: (d) => (
-        <Badge variant={d.isActive ? 'success' : 'default'} dot>
-          {d.isActive ? t('نشط', 'Active') : t('غير نشط', 'Inactive')}
-        </Badge>
-      ),
-    },
-    {
-      key: 'actions',
-      header: '',
-      render: (d) => (
-        <ActionButtons
-          onEdit={() => setEditDoctor(d)}
-          onDelete={() => setDeleteTarget(d)}
-          editTitle={t('تعديل', 'Edit doctor')}
-          deleteTitle={t('حذف', 'Delete doctor')}
-        />
-      ),
-    },
-  ];
-
   return (
-    <div className="space-y-5 max-w-7xl mx-auto animate-fade-in">
-      <div className="flex items-center justify-between gap-4">
-        <div className="animate-slide-down">
-          <h2 className="text-2xl font-bold font-display text-gray-900 dark:text-gray-100">{t('الأطباء', 'Doctors')}</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 flex items-center gap-1">
-            <span>{activeCount}</span>
-            <span>{t('طبيب نشط', 'active doctors')}</span>
+    <div className="fc-page animate-fade-in">
+
+      {/* ── Page header ── */}
+      <div className="fc-page-head animate-slide-down">
+        <div>
+          <h2 className="fc-page-title">{t('الأطباء', 'Doctors')}</h2>
+          <p className="fc-page-sub">
+            {activeCount} {t('طبيب نشط', 'active doctors')}
+            {onlineCount > 0 && ` · ${onlineCount} ${t('أونلاين الآن', 'online now')}`}
           </p>
         </div>
-        <Button size="sm" onClick={() => setAddOpen(true)} className="gap-1.5 animate-slide-down" style={{ animationDelay: '40ms' }}>
-          <Stethoscope className="w-4 h-4" />
-          {t('إضافة طبيب', 'Add Doctor')}
-        </Button>
+        <div className="fc-page-actions">
+          <button className="fc-btn fc-btn-primary fc-btn-sm" onClick={() => setAddOpen(true)}>
+            <Stethoscope size={14} />
+            {t('إضافة طبيب', 'Add Doctor')}
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          title={t('إجمالي الأطباء', 'Total Doctors')}
-          value={isLoading ? '…' : allDoctors.length}
-          icon={<Stethoscope className="w-5 h-5" />}
-          color="blue"
-          description={t('طبيب مسجل', 'registered')}
-        />
-        <StatCard
-          title={t('نشط', 'Active')}
-          value={isLoading ? '…' : activeCount}
-          icon={<Users className="w-5 h-5" />}
-          color="emerald"
-          description={t('طبيب نشط', 'active doctors')}
-        />
-        <StatCard
-          title={t('غير نشط', 'Inactive')}
-          value={isLoading ? '…' : inactiveCount}
-          icon={<PowerOff className="w-5 h-5" />}
-          color="amber"
-          description={t('في الاحتياط', 'on hold')}
-        />
-        <StatCard
-          title={t('أونلاين', 'Online')}
-          value={isLoading ? '…' : onlineCount}
-          icon={<Wifi className="w-5 h-5" />}
-          color="violet"
-          description={t('طبيب أونلاين', 'online doctors')}
-        />
-      </div>
+      {/* ── KPI row (4 horizontal tiles) ── */}
+      <div className="fc-dr-kpi-row animate-slide-up">
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <div className={selected ? 'lg:col-span-2' : 'lg:col-span-3'}>
-          <Card>
-            <div className="flex items-center gap-3 p-5 border-b border-gray-100 dark:border-neutral-700 flex-wrap">
-              <div className="flex-1 min-w-48">
-                <Input
-                  placeholder={t('بحث بالاسم...', 'Search by name...')}
-                  icon={<Search className="w-4 h-4" />}
-                  value={query}
-                  onChange={(e) => handleSearch(e.target.value)}
-                  lang={lang}
-                />
-              </div>
-              {(['all', 'active', 'online'] as const).map((f) => (
-                <button
-                  key={f}
-                  onClick={() => { setStatusFilter(f); setPage(1); }}
-                  className={`h-9 px-3.5 rounded-full text-xs font-medium border transition-all whitespace-nowrap ${
-                    statusFilter === f
-                      ? 'bg-primary-50 dark:bg-primary-900/20 border-primary-200 dark:border-primary-700 text-primary-700 dark:text-primary-400'
-                      : 'bg-white dark:bg-neutral-800 border-gray-200 dark:border-neutral-700 text-gray-600 dark:text-gray-300 hover:border-gray-300 dark:hover:border-neutral-600'
-                  }`}
-                >
-                  {f === 'all' ? t('الكل', 'All') : f === 'active' ? t('نشط', 'Active') : t('أونلاين', 'Online')}
-                </button>
-              ))}
-            </div>
-            <CardContent className="p-0">
-              <DataTable
-                columns={columns}
-                data={pagedDoctors}
-                getRowKey={(d) => d.id}
-                onRowClick={(d) => setSelected(selected === d.id ? null : d.id)}
-                selectedKey={selected}
-                loading={isLoading}
-                error={isError}
-                emptyMessage={t('لا يوجد أطباء يطابق البحث', 'No doctors match that search.')}
-                onAddNew={() => setAddOpen(true)}
-                addNewLabel={t('إضافة طبيب', 'Add Doctor')}
-                errorMessage={t('تعذّر تحميل البيانات', 'Failed to load doctors')}
-              />
-              <Pagination
-                page={page}
-                total={filtered.length}
-                limit={limit}
-                onPageChange={setPage}
-                onLimitChange={(l) => { setLimit(l); setPage(1); }}
-                pageSizes={[10, 25, 50]}
-              />
-            </CardContent>
-          </Card>
+        {/* Total */}
+        <div className="fc-dr-kpi">
+          <div className="fc-dr-kpi-icon" style={{ background: '#FEE2E2', color: '#B71C1C' }}>
+            <Stethoscope size={18} />
+          </div>
+          <div className="fc-dr-kpi-meta">
+            <div className="fc-dr-kpi-value">{isLoading ? '…' : allDoctors.length}</div>
+            <div className="fc-dr-kpi-label">{t('إجمالي الأطباء', 'Total doctors')}</div>
+          </div>
+          <Sparkline data={[18, 20, 22, 23, 24, 26, allDoctors.length || 27]} color="#B71C1C" />
         </div>
 
-        {doctor && (
-          <DoctorDetailPanel
-            doctor={doctor}
-            lang={lang}
-            t={t}
-            onEdit={() => setEditDoctor(doctor)}
-            onToggle={() => handleToggle(doctor)}
-            onDelete={() => setDeleteTarget(doctor)}
-          />
-        )}
+        {/* Active */}
+        <div className="fc-dr-kpi">
+          <div className="fc-dr-kpi-icon" style={{ background: '#D1FAE5', color: '#047857' }}>
+            <Users size={18} />
+          </div>
+          <div className="fc-dr-kpi-meta">
+            <div className="fc-dr-kpi-value">{isLoading ? '…' : activeCount}</div>
+            <div className="fc-dr-kpi-label">{t('نشط', 'Active')}</div>
+          </div>
+          <Sparkline data={[12, 18, 20, 22, 24, 26, activeCount || 27]} color="#10B981" />
+        </div>
+
+        {/* Inactive */}
+        <div className="fc-dr-kpi">
+          <div className="fc-dr-kpi-icon" style={{ background: 'rgba(148,163,184,0.18)', color: '#94A3B8' }}>
+            <PowerOff size={18} />
+          </div>
+          <div className="fc-dr-kpi-meta">
+            <div className="fc-dr-kpi-value">{isLoading ? '…' : inactiveCount}</div>
+            <div className="fc-dr-kpi-label">{t('غير نشط', 'On hold')}</div>
+          </div>
+          {inactiveCount === 0
+            ? <span className="fc-dr-kpi-empty">{t('الكل نشط ✓', 'All active ✓')}</span>
+            : <Sparkline data={[2, 3, 2, 1, 2, 1, inactiveCount]} color="#94A3B8" />
+          }
+        </div>
+
+        {/* Online */}
+        <div className="fc-dr-kpi">
+          <div className="fc-dr-kpi-icon" style={{ background: '#DBEAFE', color: '#1E40AF' }}>
+            <Wifi size={18} />
+          </div>
+          <div className="fc-dr-kpi-meta">
+            <div className="fc-dr-kpi-value">
+              {isLoading ? '…' : onlineCount}
+              {onlineCount > 0 && (
+                <span className="fc-dr-kpi-live">
+                  <span className="fc-dr-kpi-live-dot" />
+                  LIVE
+                </span>
+              )}
+            </div>
+            <div className="fc-dr-kpi-label">{t('أونلاين الآن', 'Online now')}</div>
+          </div>
+          <Sparkline data={[3, 4, 3, 5, 6, 4, onlineCount || 5]} color="#3B82F6" />
+        </div>
       </div>
 
+      {/* ── Toolbar ── */}
+      <div className="fc-dr-toolbar animate-slide-up" style={{ animationDelay: '40ms' }}>
+        <div className="fc-dr-search">
+          <Search size={15} className="fc-dr-search-icon" />
+          <input
+            placeholder={t('بحث بالاسم أو التخصص…', 'Search by name or specialty…')}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          {query && (
+            <button className="fc-dr-search-clear" onClick={() => setQuery('')}>
+              <X size={13} />
+            </button>
+          )}
+        </div>
+
+        <div className="fc-dr-filters">
+          {filterConfig.map((f) => (
+            <button
+              key={f.k}
+              className={`fc-dr-filter${filter === f.k ? ' is-on' : ''}`}
+              onClick={() => setFilter(f.k)}
+            >
+              {lang === 'ar' ? f.labelAr : f.labelEn}
+              <span className="fc-dr-filter-count">{f.count}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Doctor card grid ── */}
+      {!isLoading && filtered.length > 0 && (
+        <div className="fc-dr-grid animate-slide-up" style={{ animationDelay: '80ms' }}>
+          {filtered.map((doc, idx) => {
+            const name   = lang === 'ar' ? (doc.nameAr ?? doc.nameEn) : doc.nameEn;
+            const spec   = specialtyMap.get(doc.specialtyId);
+            const specName = spec ? (lang === 'ar' ? spec.nameAr : spec.nameEn) : `#${doc.specialtyId}`;
+            const st     = STATUS_MAP[doctorStatus(doc)];
+            return (
+              <div
+                key={doc.id}
+                className="fc-dr-card"
+                onClick={() => router.push(`/doctors/${doc.id}`)}
+              >
+                {/* Avatar */}
+                <div
+                  className="fc-dr-avatar"
+                  style={{ background: AVATAR_GRADIENTS[idx % AVATAR_GRADIENTS.length] }}
+                  aria-label={name}
+                >
+                  {name.charAt(0).toUpperCase()}
+                </div>
+
+                {/* Info */}
+                <div className="fc-dr-info">
+                  <div className="fc-dr-name-row">
+                    <span className="fc-dr-name">{name}</span>
+                    <span className="fc-dr-status" style={{ background: st.bg, color: st.fg }}>
+                      <span className="fc-dr-status-dot" style={{ background: st.dot }} />
+                      {lang === 'ar' ? st.label.ar : st.label.en}
+                    </span>
+                  </div>
+                  <div className="fc-dr-spec">{specName}</div>
+                  <div className="fc-dr-meta">
+                    <span className="fc-dr-meta-item" style={{ fontFamily: 'var(--font-mono)', direction: 'ltr' }}>
+                      {doc.mobile}
+                    </span>
+                    {doc.isOnlineDoctor && (
+                      <span className="fc-dr-meta-item" style={{ color: '#1E40AF' }}>
+                        <Wifi size={10} />
+                        {t('أونلاين', 'Online')}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Hover actions */}
+                <div className="fc-dr-actions" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    className="fc-dr-act"
+                    title={t('الجدول', 'Schedule')}
+                    onClick={(e) => { e.stopPropagation(); router.push(`/doctors/${doc.id}/schedule`); }}
+                  >
+                    <Calendar size={13} />
+                  </button>
+                  <button
+                    className="fc-dr-act"
+                    title={doc.isActive ? t('تعطيل', 'Deactivate') : t('تفعيل', 'Activate')}
+                    onClick={(e) => handleToggle(doc, e)}
+                  >
+                    {doc.isActive ? <PowerOff size={13} /> : <Power size={13} />}
+                  </button>
+                  <button
+                    className="fc-dr-act"
+                    title={t('تعديل', 'Edit')}
+                    onClick={(e) => { e.stopPropagation(); setEditDoctor(doc); }}
+                  >
+                    <Pencil size={13} />
+                  </button>
+                  <button
+                    className="fc-dr-act fc-dr-act-warn"
+                    title={t('حذف', 'Delete')}
+                    onClick={(e) => { e.stopPropagation(); setDeleteTarget(doc); }}
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+
+                {/* View profile arrow — bottom-right */}
+                <ChevronRight
+                  size={14}
+                  style={{
+                    position: 'absolute', bottom: 14, right: 14,
+                    color: 'var(--color-gray-300)',
+                    transition: 'color .15s',
+                    pointerEvents: 'none',
+                  }}
+                />
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Loading skeleton */}
+      {isLoading && (
+        <div className="fc-dr-grid animate-slide-up" style={{ animationDelay: '80ms' }}>
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="fc-dr-card" style={{ pointerEvents: 'none' }}>
+              <div className="fc-dr-avatar" style={{ background: '#F3F4F6' }} />
+              <div className="fc-dr-info" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ height: 13, width: 140, background: '#F3F4F6', borderRadius: 9999 }} />
+                <div style={{ height: 11, width: 90,  background: '#F3F4F6', borderRadius: 9999 }} />
+                <div style={{ height: 10, width: 110, background: '#F3F4F6', borderRadius: 9999, marginTop: 4 }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Empty state */}
+      {!isLoading && filtered.length === 0 && (
+        <div className="fc-empty">
+          <Search size={32} strokeWidth={1.5} />
+          <h3>{t('لا يوجد أطباء', 'No doctors match')}</h3>
+          <p>{t('جرّب بحثاً مختلفاً أو امسح الفلتر', 'Try clearing the filter or adjusting your search.')}</p>
+        </div>
+      )}
+
+      {/* ── Modals ── */}
       <AddDoctorModal open={addOpen} onClose={() => setAddOpen(false)} onCreated={() => setAddOpen(false)} />
 
       {editDoctor && (
@@ -263,131 +366,13 @@ export default function DoctorsPage() {
         message={
           deleteTarget
             ? t(
-                `هل أنت متأكد من حذف د. ${deleteTarget.nameAr ?? deleteTarget.nameEn}؟ لا يمكن التراجع عن هذا الإجراء.`,
-                `Delete Dr. ${deleteTarget.nameEn}? Their profile and schedule will be removed permanently.`,
+                `هل أنت متأكد من حذف د. ${deleteTarget.nameAr ?? deleteTarget.nameEn}؟ لا يمكن التراجع.`,
+                `Delete Dr. ${deleteTarget.nameEn}? Their profile will be removed permanently.`,
               )
             : ''
         }
         confirmLabel={t('حذف', 'Delete')}
       />
-    </div>
-  );
-}
-
-function DoctorDetailPanel({ doctor, lang, t, onEdit, onToggle, onDelete }: {
-  doctor: Doctor;
-  lang: 'ar' | 'en';
-  t: (ar: string, en: string) => string;
-  onEdit: () => void;
-  onToggle: () => void;
-  onDelete: () => void;
-}) {
-  const router = useRouter();
-  const specialtyMap = useSpecialtyMap();
-  const spec = specialtyMap.get(doctor.specialtyId);
-  const splits = [
-    { labelAr: 'كشف عيادة',      labelEn: 'Consultation', split: doctor.revenueSplits.consultation },
-    { labelAr: 'إجراء عملي',      labelEn: 'Operative',    split: doctor.revenueSplits.operative },
-    { labelAr: 'استشارة أونلاين', labelEn: 'Online',       split: doctor.revenueSplits.online },
-  ];
-
-  return (
-    <div className="space-y-4 animate-fade-in">
-      <Card>
-        <CardContent className="pt-5">
-          <div className="flex items-start gap-3 mb-4">
-            <div className="w-20 h-20 rounded-2xl bg-primary-600 flex items-center justify-center text-3xl font-bold text-white flex-shrink-0">
-              {(lang === 'ar' ? (doctor.nameAr ?? doctor.nameEn) : doctor.nameEn).charAt(0)}
-            </div>
-            <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100">
-                {lang === 'ar' ? (doctor.nameAr ?? doctor.nameEn) : doctor.nameEn}
-              </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                {spec ? (lang === 'ar' ? spec.nameAr : spec.nameEn) : `#${doctor.specialtyId}`}
-              </p>
-            </div>
-            <Badge variant={doctor.isActive ? 'success' : 'default'} dot className="text-[10px] flex-shrink-0">
-              {doctor.isActive ? t('نشط', 'Active') : t('غير نشط', 'Inactive')}
-            </Badge>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" className="flex-1 gap-1.5" onClick={onEdit}>
-              {t('تعديل', 'Edit')}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className={`flex-1 gap-1.5 ${doctor.isActive ? 'text-amber-600 border-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/30' : 'text-green-600 border-green-300 hover:bg-green-50 dark:hover:bg-green-950/30'}`}
-              onClick={onToggle}
-            >
-              {doctor.isActive ? <PowerOff className="w-3.5 h-3.5" /> : <Power className="w-3.5 h-3.5" />}
-              {doctor.isActive ? t('تعطيل', 'Deactivate') : t('تفعيل', 'Activate')}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-danger border-danger-100 hover:bg-danger-50 dark:hover:bg-red-950/30"
-              onClick={onDelete}
-            >
-              {t('حذف', 'Del')}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader><CardTitle>{t('نسب الأرباح', 'Revenue Splits')}</CardTitle></CardHeader>
-        <CardContent className="space-y-3 pt-3">
-          {splits.map((s) => (
-            <div key={s.labelEn}>
-              <div className="flex justify-between text-xs mb-1.5">
-                <span className="text-gray-600 dark:text-gray-300">{lang === 'ar' ? s.labelAr : s.labelEn}</span>
-                <div className="flex gap-3">
-                  <span className="font-semibold text-primary-700 dark:text-primary-400">
-                    {t('طبيب', 'Dr')} {s.split.doctorPercentage}%
-                  </span>
-                  <span className="text-gray-400 dark:text-gray-500">
-                    {t('عيادة', 'Clinic')} {s.split.clinicPercentage}%
-                  </span>
-                </div>
-              </div>
-              <div className="h-2 bg-gray-100 dark:bg-neutral-700 rounded-full overflow-hidden">
-                <div
-                  className="h-full w-full bg-primary-600 origin-left transition-transform duration-500"
-                  style={{ transform: `scaleX(${s.split.doctorPercentage / 100})` }}
-                />
-              </div>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-
-      {doctor.paymentMethod && (
-        <Card>
-          <CardContent className="pt-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-500 dark:text-gray-400">{t('طريقة الدفع', 'Payment Method')}</span>
-              <Badge variant="outline">
-                {lang === 'ar'
-                  ? (PAYMENT_LABELS[doctor.paymentMethod]?.ar ?? doctor.paymentMethod)
-                  : (PAYMENT_LABELS[doctor.paymentMethod]?.en ?? doctor.paymentMethod)}
-              </Badge>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      <div className="flex gap-2">
-        <Button variant="secondary" size="sm" className="flex-1" onClick={() => router.push(`/doctors/${doctor.id}/schedule`)}>
-          <Calendar className="w-4 h-4" />
-          {t('الجدول', 'Schedule')}
-        </Button>
-        <Button size="sm" className="flex-1" onClick={() => router.push(`/doctors/${doctor.id}`)}>
-          <TrendingUp className="w-4 h-4" />
-          {t('الملف الكامل', 'Full Profile')}
-        </Button>
-      </div>
     </div>
   );
 }

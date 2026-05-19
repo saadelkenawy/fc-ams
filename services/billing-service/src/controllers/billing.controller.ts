@@ -61,6 +61,7 @@ const listSettlementsSchema = z.object({
   to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(100).default(20),
+  unsettledOnly: z.coerce.boolean().optional(),
 });
 
 export async function listTransactions(request: FastifyRequest, reply: FastifyReply): Promise<void> {

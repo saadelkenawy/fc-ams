@@ -386,10 +386,14 @@ export async function listDoctorSettlements(params: {
   to: string;
   page: number;
   limit: number;
+  unsettledOnly?: boolean;
 }): Promise<PaginatedResponse<Omit<DoctorSettlement, 'transactions'>>> {
   const page = params.page ?? 1;
   const limit = Math.min(params.limit ?? 20, 100);
   const offset = (page - 1) * limit;
+  const statusFilter = params.unsettledOnly
+    ? `ft.payment_status = 'paid'`
+    : `ft.payment_status IN ('paid', 'reconciled')`;
 
   return withRlsContext(async (client) => {
     const [{ rows: countRows }, { rows: dataRows }] = await Promise.all([
@@ -398,7 +402,7 @@ export async function listDoctorSettlements(params: {
          FROM financial_transactions ft
          WHERE ft.transaction_date BETWEEN $1 AND $2
            AND ft.doctor_id IS NOT NULL
-           AND ft.payment_status IN ('paid', 'reconciled')`,
+           AND ${statusFilter}`,
         [params.from, params.to],
       ),
       client.query(
@@ -411,15 +415,15 @@ export async function listDoctorSettlements(params: {
            COUNT(tes.id)::int                                               AS total_extra_services_count,
            SUM(ft.source_fee_amount)                                        AS total_source_fees,
            SUM(ft.gross_revenue)                                            AS gross_revenue,
-           SUM(ft.doctor_share)                                                                  AS doctor_share,
-           SUM(ft.clinic_share)                                                                  AS clinic_share,
-           COALESCE(SUM(ft.doctor_share) FILTER (WHERE ft.payment_status = 'paid'), 0)          AS net_payable,
-           BOOL_AND(ft.payment_status = 'reconciled')                                            AS all_reconciled
+           SUM(ft.doctor_share)                                             AS doctor_share,
+           SUM(ft.clinic_share)                                             AS clinic_share,
+           SUM(ft.doctor_share)                                             AS net_payable,
+           BOOL_AND(ft.payment_status = 'reconciled')                      AS all_reconciled
          FROM financial_transactions ft
          LEFT JOIN transaction_extra_services tes ON tes.transaction_id = ft.id
          WHERE ft.transaction_date BETWEEN $1 AND $2
            AND ft.doctor_id IS NOT NULL
-           AND ft.payment_status IN ('paid', 'reconciled')
+           AND ${statusFilter}
          GROUP BY ft.doctor_id
          ORDER BY gross_revenue DESC
          LIMIT $3 OFFSET $4`,

@@ -11,7 +11,7 @@ import { formatCurrency, formatNumber } from '@/lib/utils';
 import { useAnalyticsOverview, useMonthlyRevenue, useSourceBreakdown, useSpecialtyBreakdown, useNoShowByDay, useTopDoctors } from '@/hooks/useAnalytics';
 import type { MonthlyRevenue, SourceStat, SpecialtyStat, NoShowDay, DoctorStat } from '@/hooks/useAnalytics';
 
-const SOURCE_COLORS = ['#2563EB', '#7C3AED', '#0891B2', '#059669', '#D97706', '#6366F1'];
+const SOURCE_COLORS = ['#DC2626', '#F0623E', '#34D399', '#3B82F6', '#F59E0B', '#8B5CF6'];
 
 const PERIODS = ['week', 'month', 'quarter', 'year'] as const;
 type Period = typeof PERIODS[number];
@@ -34,31 +34,55 @@ interface ChartBar {
   appointments: number;
 }
 
-function BarChart({ data, locale }: { data: ChartBar[]; locale: string }) {
-  const maxRevenue = Math.max(...data.map((d) => d.revenue), 1);
+function AreaChart({ data, locale }: { data: ChartBar[]; locale: string }) {
+  if (!data.length) return null;
   const isAr = locale === 'ar-EG';
+  const W = 700;
+  const H = 160;
+  const n = data.length;
+  const maxR = Math.max(...data.map((d) => d.revenue), 1);
+
+  function cx(i: number) { return (i / Math.max(n - 1, 1)) * W; }
+  function cy(v: number) { return H - (v / maxR) * (H - 10); }
+
+  const linePts = data.map((d, i) => `${cx(i)},${cy(d.revenue)}`).join(' ');
+  const areaPath = [
+    `M${cx(0)},${cy(data[0].revenue)}`,
+    ...data.map((d, i) => `L${cx(i)},${cy(d.revenue)}`),
+    `L${cx(n - 1)},${H} L${cx(0)},${H} Z`,
+  ].join(' ');
+
+  const forecastY = cy(data[n - 1].revenue * 1.07);
+  const forecastX = cx(n - 1) + (W / Math.max(n - 1, 1)) * 0.55;
+
   return (
-    <div className="flex items-end gap-2 h-44 pt-4">
-      {data.map((d, i) => {
-        const heightPct = (d.revenue / maxRevenue) * 100;
-        const isLast = i === data.length - 1;
-        return (
-          <div key={d.month + i} className="flex-1 flex flex-col items-center gap-1 group">
-            <div className="relative w-full flex flex-col items-center">
-              <div className="absolute -top-10 left-1/2 -translate-x-1/2 hidden group-hover:flex bg-gray-900 text-white text-[10px] px-2 py-1 rounded-md whitespace-nowrap z-10 pointer-events-none">
-                {formatCurrency(d.revenue, 'EGP', locale)}
-              </div>
-              <div
-                className={`w-full rounded-t-md transition-all duration-300 ${isLast ? 'bg-primary-600' : 'bg-primary-200 dark:bg-primary-800 group-hover:bg-primary-400'}`}
-                style={{ height: `${(heightPct / 100) * 140}px` }}
-              />
-            </div>
-            <span className="text-[10px] text-gray-400 dark:text-gray-500">
-              {isAr ? d.monthAr : d.month}
-            </span>
-          </div>
-        );
-      })}
+    <div>
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} preserveAspectRatio="none" className="overflow-visible">
+        <defs>
+          <linearGradient id="rev-area-grad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#DC2626" stopOpacity="0.22" />
+            <stop offset="100%" stopColor="#DC2626" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {[0.25, 0.5, 0.75, 1].map((f) => (
+          <line key={f} x1="0" y1={f * H} x2={W} y2={f * H} stroke="#F3F4F6" strokeDasharray="3 5" className="dark:stroke-neutral-700" />
+        ))}
+        <path d={areaPath} fill="url(#rev-area-grad)" />
+        <polyline points={linePts} fill="none" stroke="#DC2626" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+        {data.map((d, i) => (
+          <circle key={i} cx={cx(i)} cy={cy(d.revenue)} r={i === n - 1 ? 5 : 3}
+            fill={i === n - 1 ? '#DC2626' : 'white'} stroke="#DC2626" strokeWidth="2" />
+        ))}
+        <line x1={cx(n - 1)} y1={cy(data[n - 1].revenue)} x2={forecastX} y2={forecastY}
+          stroke="#F0623E" strokeWidth="2" strokeDasharray="5 4" />
+      </svg>
+      <div className="flex justify-between mt-1">
+        {data.map((d) => (
+          <span key={d.month} className="text-[10px] text-gray-400 dark:text-gray-500">
+            {isAr ? d.monthAr : d.month}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }
@@ -157,13 +181,13 @@ export default function AnalyticsPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <div className="flex gap-1 bg-gray-100 dark:bg-neutral-800 rounded-lg p-1">
+          <div className="flex gap-1 bg-gray-100 dark:bg-neutral-800 rounded-full p-1">
             {PERIODS.map((p) => (
               <button
                 key={p}
                 type="button"
                 onClick={() => setPeriod(p)}
-                className={`px-3 py-1 text-xs font-medium rounded-md transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-600 ${
+                className={`px-3 py-1 text-xs font-medium rounded-full transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-600 ${
                   period === p
                     ? 'bg-white dark:bg-neutral-700 text-primary-700 dark:text-primary-300 shadow-sm'
                     : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
@@ -233,7 +257,7 @@ export default function AnalyticsPage() {
             {revenueLoading ? (
               <div className="h-44 animate-pulse bg-gray-100 dark:bg-neutral-700 rounded-lg" />
             ) : (
-              <BarChart data={chartData} locale={locale} />
+              <AreaChart data={chartData} locale={locale} />
             )}
             <div className="flex gap-6 mt-4 pt-4 border-t border-gray-50 dark:border-neutral-700">
               <div>

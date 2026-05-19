@@ -36,8 +36,9 @@ export default function SettlementsPage() {
   const locale = lang === 'ar' ? 'ar-EG' : 'en-US';
 
   const now = new Date();
-  const [from, setFrom] = useState(new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]);
-  const [to, setTo]     = useState(now.toISOString().split('T')[0]);
+  const today = now.toISOString().split('T')[0];
+  const [from, setFrom] = useState(today);
+  const [to, setTo]     = useState(today);
   const [expanded, setExpanded] = useState<string | null>(null);
 
   // Filters
@@ -69,7 +70,7 @@ export default function SettlementsPage() {
   const { mutateAsync: reverseSettle, isPending: reversing } = useReverseSettlement();
 
   // Data
-  const { data, isLoading, isError, refetch, isFetching } = useSettlements({ from, to, limit: 100 });
+  const { data, isLoading, isError, refetch, isFetching } = useSettlements({ from, to, limit: 100, unsettledOnly: true });
   const { data: recordsData, refetch: refetchRecords } = useSettlementRecords({ from, to, limit: 100 });
   const doctorMap  = useDoctorMap();
   const { data: doctorsData } = useDoctors({ isActive: true, limit: 200 });
@@ -141,6 +142,8 @@ export default function SettlementsPage() {
       notes: settleNotes || undefined,
       password: settlePassword,
     });
+    void refetch();
+    void refetchRecords();
     setSettleTarget(null);
     setSettleRef('');
     setSettleNotes('');

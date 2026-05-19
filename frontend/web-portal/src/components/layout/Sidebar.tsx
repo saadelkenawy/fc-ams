@@ -53,13 +53,14 @@ function NavLink({
       title={collapsed ? label : undefined}
       aria-current={active ? 'page' : undefined}
       className={cn(
-        'flex items-center gap-3 rounded-lg text-sm font-medium transition-colors duration-150',
+        'relative flex items-center gap-3 rounded-lg text-sm font-medium transition-colors duration-150 overflow-hidden',
         collapsed ? 'justify-center p-2.5' : 'px-3 py-2.5',
         active
-          ? 'bg-primary-600 text-white shadow-glow-primary'
+          ? 'bg-white/[.08] text-white'
           : 'text-slate-400 hover:text-white hover:bg-white/10',
       )}
     >
+      {active && <span className="absolute start-0 top-1 bottom-1 w-[3px] rounded-e-sm bg-primary-600" aria-hidden="true" />}
       <Icon className="w-4 h-4 flex-shrink-0" />
       {!collapsed && (
         <>

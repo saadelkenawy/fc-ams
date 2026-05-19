@@ -12,4 +12,5 @@ export async function analyticsRoutes(app: FastifyInstance): Promise<void> {
   app.get('/analytics/noshow-by-day', ctrl.getNoShowByDay);
   app.get('/reports/settlement',        ctrl.getSettlementReport);
   app.get('/reports/financial-summary', ctrl.getFinancialSummaryReport);
+  app.get('/reports/invoice/:txId',     ctrl.getInvoicePdf);
 }
