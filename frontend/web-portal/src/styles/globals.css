@@ -1071,6 +1071,98 @@ html { transition: background-color 350ms ease, color 350ms ease; }
 [dir="rtl"] .fc-bill-leg-val { margin-left: 0; margin-right: auto; }
 [dir="rtl"] .fc-bill-revenue::after { right: auto; left: -50px; }
 
+/* ============================================================
+   SHARED DATA TABLE  (fc-table-*)
+   Used by: Appointments list view
+   ============================================================ */
+.fc-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.fc-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: auto;
+}
+.fc-table thead tr {
+  background: #F8FAFC;
+  border-top: 1px solid var(--color-gray-100);
+  border-bottom: 1px solid var(--color-gray-100);
+}
+.fc-table th {
+  padding: 10px 16px;
+  font: 600 10px/1.2 var(--font-body);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-gray-500);
+  text-align: start;
+  white-space: nowrap;
+}
+.fc-table td {
+  padding: 10px 16px;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--color-gray-50);
+}
+.fc-table tbody tr { transition: background .12s var(--ease-out); }
+.fc-table tbody tr:hover { background: #FEF7F7; }
+.fc-table tbody tr:last-child td { border-bottom: none; }
+.fc-table tbody tr.is-selected { background: #FFF1F2; }
+.fc-table tbody tr.is-selected:hover { background: #FFE4E6; }
+
+/* ── Table cell content ── */
+.fc-time {
+  font: 700 13px/1 var(--font-mono);
+  color: var(--color-gray-900);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.fc-pat { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.fc-pat-name {
+  font: 600 13px/1.2 var(--font-body);
+  color: var(--color-gray-900);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
+}
+.fc-doc { display: flex; align-items: center; min-width: 0; }
+.fc-doc-name {
+  font: 500 12.5px/1.2 var(--font-body);
+  color: var(--color-gray-700);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
+}
+.fc-src {
+  display: inline-flex; align-items: center;
+  padding: 3px 8px;
+  background: #F1F5F9;
+  border-radius: 9999px;
+  font: 600 10px/1 var(--font-body);
+  color: var(--color-gray-600);
+  white-space: nowrap;
+}
+.fc-row-actions {
+  display: flex; align-items: center; gap: 2px;
+  justify-content: flex-end;
+  opacity: 0.35;
+  transition: opacity .15s var(--ease-out);
+}
+.fc-table tbody tr:hover .fc-row-actions { opacity: 1; }
+
+/* ── Table dark mode ── */
+[data-theme="dark"] .fc-table thead tr { background: #1A2236; border-color: #1F2738; }
+[data-theme="dark"] .fc-table th { color: #64748B; }
+[data-theme="dark"] .fc-table td { border-bottom-color: #1F2738; }
+[data-theme="dark"] .fc-table tbody tr:hover { background: rgba(127,29,29,0.15); }
+[data-theme="dark"] .fc-table tbody tr.is-selected { background: rgba(183,28,28,0.15); }
+[data-theme="dark"] .fc-table tbody tr.is-selected:hover { background: rgba(183,28,28,0.25); }
+[data-theme="dark"] .fc-time { color: #E5E7EB; }
+[data-theme="dark"] .fc-pat-name { color: #E5E7EB; }
+[data-theme="dark"] .fc-doc-name { color: #94A3B8; }
+[data-theme="dark"] .fc-src { background: #1A2236; color: #94A3B8; }
+
 /* ── Invoice print / PDF ────────────────────────────────────────────────── */
 @media print {
   /* Scope: only apply when user triggers invoice print */

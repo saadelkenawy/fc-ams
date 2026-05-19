@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef, type FormEvent } from 'react'
 import { createPortal } from 'react-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Calendar, Clock, Search, Stethoscope, AlertCircle, CalendarPlus,
+  Calendar, Clock, Search, Stethoscope, AlertCircle, AlertTriangle, CalendarPlus,
   FlaskConical, X, UserPlus, Building2, Globe, Zap, ChevronRight, Phone,
   Banknote, CreditCard, Smartphone, Pencil,
 } from 'lucide-react';
@@ -495,6 +495,14 @@ export function AddAppointmentModal({
       : {},
   );
 
+  // Check for existing appointment: same patient + same doctor + same date (create mode only)
+  const TERMINAL_STATUSES = ['Canc.', 'Ref.', 'Resch.'];
+  const duplicateAppt = !isEdit && patient && doctorAppts?.data
+    ? (doctorAppts.data.find(
+        (a) => a.patientId === patient.patientId && !TERMINAL_STATUSES.includes(a.status),
+      ) ?? null)
+    : null;
+
   // Auto-fill next available time slot + duration from the last appointment
   useEffect(() => {
     if (isEdit || !doctor || !date) return;
@@ -698,6 +706,22 @@ export function AddAppointmentModal({
             </div>
           );
         })()}
+
+        {/* Duplicate appointment warning — amber, non-blocking */}
+        {duplicateAppt && (
+          <div className="flex items-start gap-3 p-4 mb-5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-xl">
+            <AlertTriangle className="w-5 h-5 shrink-0 text-amber-500 mt-0.5" />
+            <div className="text-sm text-amber-800 dark:text-amber-300 flex-1">
+              <p className="font-semibold mb-1">{t('موعد مسبق موجود', 'Existing appointment detected')}</p>
+              <p className="text-amber-700 dark:text-amber-400/90 text-xs leading-relaxed">
+                {t(
+                  `هذا المريض لديه بالفعل موعد مع نفس الطبيب في هذا اليوم (${duplicateAppt.startTime?.slice(0, 5) ?? ''} — الحالة: ${duplicateAppt.status}). يمكنك المتابعة إذا كان ذلك مقصوداً.`,
+                  `This patient already has an appointment with this doctor today (${duplicateAppt.startTime?.slice(0, 5) ?? ''} — status: ${duplicateAppt.status}). You may still proceed if intentional.`,
+                )}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Two-column layout */}
         <div className="grid grid-cols-[1fr_288px] gap-6">
