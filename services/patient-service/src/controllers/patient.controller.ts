@@ -3,8 +3,20 @@ import { z } from 'zod';
 import * as repo from '../repositories/patient.repository';
 import type { CreatePatientInput, UpdatePatientInput, JwtPayload } from '@fadl/types';
 
+function normalizeEgyptianMobile(raw: string): string {
+  const d = raw.replace(/\D/g, '');
+  if (d.startsWith('20') && d.length === 12) return `+${d}`;
+  if (d.startsWith('0') && d.length === 11)  return `+20${d.slice(1)}`;
+  if (d.startsWith('1') && d.length === 10)  return `+20${d}`;
+  return raw;
+}
+
+const mobileField = z.string()
+  .transform(normalizeEgyptianMobile)
+  .pipe(z.string().regex(/^\+20\d{10}$/, 'Mobile must be Egyptian format (+20XXXXXXXXXX)'));
+
 const createSchema = z.object({
-  mobile: z.string().regex(/^\+20\d{10}$/, 'Mobile must be Egyptian format (+20XXXXXXXXXX)'),
+  mobile: mobileField,
   nameEn: z.string().min(2).max(200),
   nameAr: z.string().max(200).optional(),
   nationalId: z.string().length(14).optional(),

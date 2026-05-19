@@ -117,10 +117,8 @@ export function EditPatientModal({ open, onClose, patient }: EditPatientModalPro
     const e: Partial<Record<keyof FormData, string>> = {};
     if (!form.nameAr.trim() && !form.nameEn.trim()) e.nameAr = t('الاسم مطلوب', 'Name is required');
     if (!form.mobile.trim()) e.mobile = t('رقم الموبايل مطلوب', 'Mobile is required');
-    else {
-      const digits = form.mobile.replace(/\D/g, '');
-      if (digits.length < 10 || digits.length > 13) e.mobile = t('رقم غير صحيح', 'Invalid mobile number');
-    }
+    else if (!/^\+20\d{10}$/.test(mobileToE164(form.mobile)))
+      e.mobile = t('رقم غير صحيح (مثال: 01XXXXXXXXXX)', 'Invalid mobile (e.g. 01XXXXXXXXXX)');
     if (form.nationalId && form.nationalId.replace(/\D/g, '').length !== 14)
       e.nationalId = t('الرقم القومي 14 رقم', 'National ID must be 14 digits');
     setErrors(e);
@@ -153,9 +151,12 @@ export function EditPatientModal({ open, onClose, patient }: EditPatientModalPro
         onClose();
       },
       onError: (err: unknown) => {
-        const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-          ?? t('حدث خطأ', 'An error occurred');
-        toast(msg, 'error');
+        const raw = (err as { response?: { data?: { error?: { message?: string }; message?: string } } })?.response?.data;
+        let msg: string = raw?.error?.message ?? raw?.message ?? '';
+        if (msg.startsWith('[')) {
+          try { msg = (JSON.parse(msg) as Array<{ message: string }>).map((i) => i.message).join(', '); } catch { /* noop */ }
+        }
+        toast(msg || t('حدث خطأ', 'An error occurred'), 'error');
       },
     });
   }

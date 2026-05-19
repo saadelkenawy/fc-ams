@@ -108,10 +108,12 @@ export function AddPatientModal({ open, onClose, onCreated }: AddPatientModalPro
       setErrors({});
     },
     onError: (err: unknown) => {
-      const msg = (err as { response?: { data?: { message?: string; error?: string } } })?.response?.data?.message
-        ?? (err as { response?: { data?: { error?: string } } })?.response?.data?.error
-        ?? t('حدث خطأ. يرجى المحاولة مرة أخرى.', 'An error occurred. Please try again.');
-      toast(msg, 'error');
+      const raw = (err as { response?: { data?: { error?: { message?: string }; message?: string } } })?.response?.data;
+      let msg: string = raw?.error?.message ?? raw?.message ?? '';
+      if (msg.startsWith('[')) {
+        try { msg = (JSON.parse(msg) as Array<{ message: string }>).map((i) => i.message).join(', '); } catch { /* noop */ }
+      }
+      toast(msg || t('حدث خطأ. يرجى المحاولة مرة أخرى.', 'An error occurred. Please try again.'), 'error');
     },
   });
 
@@ -129,10 +131,8 @@ export function AddPatientModal({ open, onClose, onCreated }: AddPatientModalPro
     const name = form.nameAr || form.nameEn;
     if (!name.trim()) e.nameAr = t('الاسم مطلوب', 'Name is required');
     if (!form.mobile.trim()) e.mobile = t('رقم الموبايل مطلوب', 'Mobile is required');
-    else {
-      const digits = form.mobile.replace(/\D/g, '');
-      if (digits.length < 10 || digits.length > 13) e.mobile = t('رقم غير صحيح', 'Invalid mobile number');
-    }
+    else if (!/^\+20\d{10}$/.test(mobileToE164(form.mobile)))
+      e.mobile = t('رقم غير صحيح (مثال: 01XXXXXXXXXX)', 'Invalid mobile (e.g. 01XXXXXXXXXX)');
     if (form.nationalId && form.nationalId.replace(/\D/g, '').length !== 14)
       e.nationalId = t('الرقم القومي 14 رقم', 'National ID must be 14 digits');
     setErrors(e);
