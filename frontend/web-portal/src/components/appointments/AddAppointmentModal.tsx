@@ -6,7 +6,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Calendar, Clock, Search, Stethoscope, AlertCircle, AlertTriangle, CalendarPlus,
   FlaskConical, X, UserPlus, Building2, Globe, Zap, ChevronRight, Phone,
-  Banknote, CreditCard, Smartphone, Pencil,
+  Banknote, CreditCard, Smartphone, Pencil, Paperclip,
 } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
@@ -15,7 +15,7 @@ import { useDoctors, useSpecialties } from '@/hooks/useDoctors';
 import { usePatients } from '@/hooks/usePatients';
 import { useProcedures } from '@/hooks/useProcedures';
 import { useDebounce } from '@/hooks/useDebounce';
-import { appointmentApi, patientApi } from '@/lib/api';
+import { appointmentApi, patientApi, fileApi } from '@/lib/api';
 import { useAppointments } from '@/hooks/useAppointments';
 import { cn } from '@/lib/utils';
 import type { Appointment, Doctor, Patient, Specialty } from '@fadl/types';
@@ -484,9 +484,11 @@ export function AddAppointmentModal({
   const [procedureId,   setProcedureId]   = useState(editAppointment?.procedureId ?? '');
   const [procCost,      setProcCost]      = useState(editAppointment?.procedureCost != null ? String(editAppointment.procedureCost) : '');
   const [errors,        setErrors]        = useState<Record<string, string>>({});
+  const [attachment,    setAttachment]    = useState<File | null>(null);
 
   const timeManuallyEdited     = useRef(false);
   const durationManuallyEdited = useRef(false);
+  const fileInputRef           = useRef<HTMLInputElement>(null);
 
   // Query doctor's existing appointments for the selected date (create mode only)
   const { data: doctorAppts } = useAppointments(
@@ -564,6 +566,7 @@ export function AddAppointmentModal({
       setProcCost('');
     }
     setErrors({});
+    setAttachment(null);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, editAppointment?.id]);
 
@@ -577,6 +580,8 @@ export function AddAppointmentModal({
     mutationFn: async () => {
       if (!patient || !doctor) throw new Error('Missing required fields');
       if (!paymentMethod) throw new Error('Payment method required');
+
+      let appointmentId: string;
 
       if (isEdit && editAppointment) {
         // Edit mode — PATCH
@@ -595,6 +600,7 @@ export function AddAppointmentModal({
         if (charge)    body.approvedCharge = Number(charge);
         if (procCost)  body.procedureCost  = Number(procCost);
         await appointmentApi.patch(`/appointments/${editAppointment.id}`, body);
+        appointmentId = editAppointment.id;
       } else {
         // Create mode — POST
         const body: Record<string, unknown> = {
@@ -613,7 +619,25 @@ export function AddAppointmentModal({
         if (notes)       body.notes          = notes;
         if (procedureId) body.procedureId    = procedureId;
         if (procCost)    body.procedureCost  = Number(procCost);
-        await appointmentApi.post('/appointments', body);
+        const res = await appointmentApi.post<{ data: { id: string } }>('/appointments', body);
+        appointmentId = res.data.data.id;
+      }
+
+      // Upload attachment if provided (presigned PUT via file-service)
+      if (attachment) {
+        const initRes = await fileApi.post<{ data: { fileId: string; uploadUrl: string } }>('/files/initiate', {
+          originalName: attachment.name,
+          mimeType:     attachment.type,
+          sizeBytes:    attachment.size,
+          entityType:   'other',
+          entityId:     appointmentId,
+          description:  'Appointment attachment',
+        });
+        await fetch(initRes.data.data.uploadUrl, {
+          method:  'PUT',
+          body:    attachment,
+          headers: { 'Content-Type': attachment.type },
+        });
       }
     },
     onSuccess: () => {
@@ -649,7 +673,7 @@ export function AddAppointmentModal({
       onClose={onClose}
       title={isEdit ? t('تعديل الموعد', 'Edit Appointment') : t('موعد جديد', 'New Appointment')}
       subtitle={isEdit ? t('تحديث بيانات الموعد', 'Update appointment details') : t('احجز موعدًا لمريض مع الطبيب', 'Schedule a patient visit')}
-      maxWidth="3xl"
+      maxWidth="6xl"
       stretch
       footer={
         <>
@@ -723,23 +747,28 @@ export function AddAppointmentModal({
           </div>
         )}
 
-        {/* Two-column layout */}
-        <div className="grid grid-cols-[1fr_288px] gap-6">
+        {/* ── ROW 1: who — Patient + Doctor side by side ── */}
+        <div className="grid grid-cols-2 gap-5 mb-5">
 
-          {/* ── LEFT: who + when + type ── */}
+          {/* Step 1 — Patient */}
+          <StepSection step={1} title={t('المريض', 'Patient')} badge="bg-emerald-600">
+            <PatientPicker lang={lang} t={t} value={patient} onChange={setPatient} disabled={isEdit} />
+            {errors.patient && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{errors.patient}</p>}
+          </StepSection>
+
+          {/* Step 2 — Doctor */}
+          <StepSection step={2} title={t('الطبيب', 'Doctor')} badge="bg-blue-600">
+            <DoctorPicker lang={lang} t={t} value={doctor} onChange={setDoctor} specialties={specialties} />
+            {errors.doctor && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{errors.doctor}</p>}
+          </StepSection>
+
+        </div>
+
+        {/* ── ROW 2: when + details + fees ── */}
+        <div className="grid grid-cols-[1fr_1fr_288px] gap-5">
+
+          {/* ── COL 1: schedule + attachment ── */}
           <div className="space-y-5">
-
-            {/* Step 1 — Patient */}
-            <StepSection step={1} title={t('المريض', 'Patient')} badge="bg-emerald-600">
-              <PatientPicker lang={lang} t={t} value={patient} onChange={setPatient} disabled={isEdit} />
-              {errors.patient && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{errors.patient}</p>}
-            </StepSection>
-
-            {/* Step 2 — Doctor */}
-            <StepSection step={2} title={t('الطبيب', 'Doctor')} badge="bg-blue-600">
-              <DoctorPicker lang={lang} t={t} value={doctor} onChange={setDoctor} specialties={specialties} />
-              {errors.doctor && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{errors.doctor}</p>}
-            </StepSection>
 
             {/* Step 3 — Schedule */}
             <StepSection step={3} title={t('الجدول', 'Schedule')} badge="bg-indigo-600">
@@ -773,6 +802,51 @@ export function AddAppointmentModal({
                 </div>
               </div>
             </StepSection>
+
+            {/* Attachment — optional medical report */}
+            <div className="space-y-2.5">
+              <div className="flex items-center gap-2.5">
+                <span className="w-5 h-5 rounded-full bg-orange-400 text-white text-[10px] font-bold flex items-center justify-center shrink-0">5</span>
+                <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">{t('مرفقات', 'Attachment')}</span>
+                <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium">{t('اختياري', 'optional')}</span>
+                <div className="flex-1 h-px bg-gray-100 dark:bg-neutral-700" />
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png"
+                className="hidden"
+                onChange={(e) => setAttachment(e.target.files?.[0] ?? null)}
+              />
+              {attachment ? (
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-900">
+                  <Paperclip className="w-4 h-4 text-orange-500 shrink-0" />
+                  <span className="text-xs font-medium text-orange-800 dark:text-orange-300 truncate flex-1">{attachment.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => { setAttachment(null); if (fileInputRef.current) fileInputRef.current.value = ''; }}
+                    className="text-orange-400 hover:text-orange-600 dark:hover:text-orange-300 transition-colors"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full h-16 rounded-xl border-2 border-dashed border-gray-200 dark:border-neutral-700 hover:border-orange-400 dark:hover:border-orange-700 hover:bg-orange-50/50 dark:hover:bg-orange-950/20 transition-all flex flex-col items-center justify-center gap-1 group"
+                >
+                  <Paperclip className="w-4 h-4 text-gray-300 dark:text-gray-600 group-hover:text-orange-400 transition-colors" />
+                  <span className="text-xs text-gray-400 dark:text-gray-500 group-hover:text-orange-500 dark:group-hover:text-orange-400 transition-colors">{t('إرفاق تقرير طبي', 'Attach medical report')}</span>
+                  <span className="text-[10px] text-gray-300 dark:text-gray-600">PDF / JPG / PNG</span>
+                </button>
+              )}
+            </div>
+
+          </div>{/* end col 1 */}
+
+          {/* ── COL 2: type + source ── */}
+          <div className="space-y-5">
 
             {/* Step 4 — Type + Source */}
             <StepSection step={4} title={t('التفاصيل', 'Details')} badge="bg-primary-600">
@@ -825,9 +899,9 @@ export function AddAppointmentModal({
               </div>
             </StepSection>
 
-          </div>
+          </div>{/* end col 2 */}
 
-          {/* ── RIGHT SIDEBAR: fee + payment + notes + summary ── */}
+          {/* ── COL 3: fee + payment + notes + summary ── */}
           <div className="space-y-4">
 
             {/* Session fee */}
@@ -994,8 +1068,8 @@ export function AddAppointmentModal({
               </div>
             )}
 
-          </div>{/* end right sidebar */}
-        </div>{/* end two-col grid */}
+          </div>{/* end col 3 */}
+        </div>{/* end row 2 grid */}
 
       </form>
     </Modal>
