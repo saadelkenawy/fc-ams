@@ -464,3 +464,52 @@ export async function getSession(request: FastifyRequest, reply: FastifyReply): 
   const history = await repo.getSessionHistory(id, 100);
   void reply.send({ success: true, data: { session, messages: history } });
 }
+
+// ── Name transliteration ──────────────────────────────────────────────────────
+
+const translateNameSchema = z.object({
+  name: z.string().min(1).max(200),
+  from: z.enum(['ar', 'en']),
+});
+
+export async function translateName(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { name, from } = translateNameSchema.parse(request.body);
+
+  const prompt = from === 'ar'
+    ? `Transliterate this Arabic name into English (phonetic only). Return ONLY the transliterated name, nothing else.\nName: ${name}`
+    : `Transliterate this English name into Arabic (phonetic only). Return ONLY the Arabic transliteration, nothing else.\nName: ${name}`;
+
+  let transliterated: string;
+
+  if (config.OPENROUTER_API_KEY) {
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': `Bearer ${config.OPENROUTER_API_KEY}`,
+        'HTTP-Referer':  'https://fadl-clinic.app',
+        'X-Title':       'Fadl Clinic AI Assistant',
+      },
+      body: JSON.stringify({
+        model:      config.OPENROUTER_MODEL,
+        max_tokens: 60,
+        messages:   [{ role: 'user', content: prompt }],
+      }),
+    });
+    if (!res.ok) throw new Error(`OpenRouter error ${res.status}`);
+    const json = await res.json() as { choices: { message: { content: string } }[] };
+    transliterated = (json.choices[0]?.message?.content ?? '').trim();
+  } else if (anthropic) {
+    const r = await anthropic.messages.create({
+      model:      config.ANTHROPIC_MODEL,
+      max_tokens: 60,
+      messages:   [{ role: 'user', content: prompt }],
+    });
+    transliterated = ((r.content[0] as { text: string }).text ?? '').trim();
+  } else {
+    void reply.status(503).send({ success: false, error: { code: 'NO_AI', message: 'No AI provider configured' } });
+    return;
+  }
+
+  void reply.send({ success: true, data: { transliterated } });
+}
