@@ -131,6 +131,7 @@ export function EditPatientModal({ open, onClose, patient }: EditPatientModalPro
     e.preventDefault();
     if (!validate()) return;
     const body: Record<string, unknown> = {
+      version:          patient.version,
       mobile:           mobileToE164(form.mobile),
       nameEn:           form.nameEn || form.nameAr,
       preferredLanguage: form.preferredLanguage,
