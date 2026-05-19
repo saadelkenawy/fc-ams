@@ -1163,6 +1163,95 @@ html { transition: background-color 350ms ease, color 350ms ease; }
 [data-theme="dark"] .fc-doc-name { color: #94A3B8; }
 [data-theme="dark"] .fc-src { background: #1A2236; color: #94A3B8; }
 
+/* ============================================================
+   SHARED DISPLAY  (fc-kpi-delta · fc-statuspill · fc-act · fc-pill-count)
+   Used by: Billing, Settlements, and other data pages
+   ============================================================ */
+.fc-kpi-delta {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 7px; border-radius: 9999px;
+  font: 600 11px/1 var(--font-body);
+}
+.fc-kpi-delta.is-up   { background: #D1FAE5; color: #047857; }
+.fc-kpi-delta.is-down { background: #FEE2E2; color: #991B1B; }
+
+.fc-pill-count {
+  font: 600 11px/1 var(--font-mono); color: var(--color-gray-500);
+  background: var(--color-gray-100); padding: 5px 10px; border-radius: 9999px;
+}
+
+.fc-statuspill {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: 9999px;
+  font: 600 11px/1 var(--font-body); white-space: nowrap;
+}
+
+.fc-act {
+  height: 26px; display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--color-gray-200); border-radius: 7px;
+  background: white; cursor: pointer;
+  font: 600 11px/1 var(--font-body); color: var(--color-gray-500);
+  transition: all .12s var(--ease-out);
+}
+.fc-act:hover { color: var(--color-gray-900); border-color: var(--color-gray-300); background: var(--color-gray-50); }
+.fc-act:not(.fc-act-confirm):not(.fc-act-settle):not(.fc-act-reverse) { width: 26px; padding: 0; justify-content: center; }
+.fc-act-confirm { background: var(--color-primary-600); color: white; border-color: transparent; padding: 0 10px; }
+.fc-act-confirm:hover { background: var(--color-primary-700); color: white; }
+.fc-act-settle { background: #ECFDF5; color: #047857; border-color: #A7F3D0; padding: 0 10px; }
+.fc-act-settle:hover { background: #D1FAE5; border-color: #6EE7B7; }
+.fc-act-reverse { width: 26px; padding: 0; justify-content: center; }
+.fc-act-reverse:hover { background: #FEF2F2; border-color: #FCA5A5; color: #B91C1C; }
+
+/* ============================================================
+   SETTLEMENTS PAGE  (fc-stl-*)
+   ============================================================ */
+.fc-stl-hist-list { overflow: hidden; }
+.fc-stl-hist-item {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 20px;
+  transition: background .12s var(--ease-out);
+}
+.fc-stl-hist-item:hover { background: #FAFAFA; }
+.fc-stl-hist-item + .fc-stl-hist-item { border-top: 1px solid var(--color-gray-100); }
+.fc-stl-hist-bar { width: 4px; height: 44px; border-radius: 9999px; flex-shrink: 0; }
+.fc-stl-hist-body { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+.fc-stl-hist-text { min-width: 0; }
+.fc-stl-hist-name {
+  font: 600 14px/1.2 var(--font-body); color: var(--color-gray-900);
+}
+.fc-stl-hist-meta {
+  font: 500 12px/1.4 var(--font-body); color: var(--color-gray-400); margin-top: 2px;
+}
+.fc-stl-hist-amount { text-align: right; flex-shrink: 0; }
+.fc-stl-hist-amount-val {
+  font: 700 15px/1 var(--font-mono); color: #047857; font-variant-numeric: tabular-nums;
+}
+.fc-stl-hist-amount-date { font: 500 11px/1 var(--font-body); color: var(--color-gray-400); margin-top: 3px; }
+.fc-stl-hist-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.fc-stl-hist-item.is-reversed .fc-stl-hist-name { color: var(--color-gray-400); }
+.fc-stl-hist-item.is-reversed .fc-stl-hist-amount-val { color: var(--color-gray-400); text-decoration: line-through; }
+
+/* Dark */
+[data-theme="dark"] .fc-kpi-delta.is-up   { background: rgba(16,185,129,0.18); color: #6EE7B7; }
+[data-theme="dark"] .fc-kpi-delta.is-down { background: rgba(239,68,68,0.18); color: #FCA5A5; }
+[data-theme="dark"] .fc-pill-count { background: var(--dark-elev); color: var(--dark-text-2); }
+[data-theme="dark"] .fc-statuspill { box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04); }
+[data-theme="dark"] .fc-act { background: #131A2A; border-color: #2A3349; color: #94A3B8; }
+[data-theme="dark"] .fc-act:hover { background: var(--dark-card); border-color: var(--dark-border); color: var(--dark-text); }
+[data-theme="dark"] .fc-act-settle { background: rgba(4,120,87,0.18); color: #6EE7B7; border-color: rgba(110,231,183,0.25); }
+[data-theme="dark"] .fc-act-settle:hover { background: rgba(4,120,87,0.30); }
+[data-theme="dark"] .fc-act-reverse:hover { background: rgba(220,38,38,0.15); border-color: rgba(220,38,38,0.40); color: #FCA5A5; }
+[data-theme="dark"] .fc-stl-hist-item:hover { background: rgba(255,255,255,0.02); }
+[data-theme="dark"] .fc-stl-hist-item + .fc-stl-hist-item { border-top-color: var(--dark-border); }
+[data-theme="dark"] .fc-stl-hist-name { color: var(--dark-text); }
+[data-theme="dark"] .fc-stl-hist-meta { color: var(--dark-text-3); }
+[data-theme="dark"] .fc-stl-hist-amount-val { color: #6EE7B7; }
+[data-theme="dark"] .fc-stl-hist-item.is-reversed .fc-stl-hist-name { color: var(--dark-text-3); }
+[data-theme="dark"] .fc-stl-hist-item.is-reversed .fc-stl-hist-amount-val { color: var(--dark-text-3); }
+
+/* RTL */
+[dir="rtl"] .fc-stl-hist-amount { text-align: left; }
+
 /* ── Invoice print / PDF ────────────────────────────────────────────────── */
 @media print {
   /* Scope: only apply when user triggers invoice print */

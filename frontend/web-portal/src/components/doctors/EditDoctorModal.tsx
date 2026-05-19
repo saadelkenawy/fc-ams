@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, type FormEvent } from 'react';
-import { Stethoscope, Phone, BadgeDollarSign, CreditCard, AlertCircle, TrendingUp } from 'lucide-react';
+import { Stethoscope, Phone, BadgeDollarSign, CreditCard, AlertCircle, TrendingUp, Loader2 } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { useLang } from '@/contexts/LanguageContext';
@@ -9,6 +9,7 @@ import { useSpecialties, useUpdateDoctor } from '@/hooks/useDoctors';
 import { useToast } from '@/components/ui/Toast';
 import { cn } from '@/lib/utils';
 import type { Doctor } from '@fadl/types';
+import { useTranslateName } from '@/hooks/useTranslateName';
 
 const SPLIT_PRESETS = [
   { label: '50/50',        dr: 50,   cl: 50   },
@@ -92,6 +93,7 @@ export function EditDoctorModal({ open, onClose, doctor }: EditDoctorModalProps)
   const { toast } = useToast();
   const { data: specialties = [] } = useSpecialties();
   const mutation = useUpdateDoctor();
+  const { translate, translating } = useTranslateName();
 
   const [form, setForm] = useState<FormData>(toFormData(doctor));
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
@@ -216,12 +218,42 @@ export function EditDoctorModal({ open, onClose, doctor }: EditDoctorModalProps)
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="field-label">{t('الاسم بالعربي *', 'Name (Arabic) *')}</label>
-            <input className={cn(inputClass, errors.nameAr && 'border-red-400')} placeholder="د. اسم الطبيب" value={form.nameAr} onChange={(e) => set('nameAr', e.target.value)} dir="rtl" />
+            <div className="relative">
+              <input
+                className={cn(inputClass, errors.nameAr && 'border-red-400', translating === 'ar' && 'pe-8')}
+                placeholder="د. اسم الطبيب"
+                value={form.nameAr}
+                onChange={(e) => set('nameAr', e.target.value)}
+                onBlur={(e) => {
+                  const v = e.target.value.trim();
+                  if (lang === 'ar' && v && !form.nameEn.trim()) {
+                    void translate(v, 'ar').then((r) => { if (r) set('nameEn', r); });
+                  }
+                }}
+                dir="rtl"
+              />
+              {translating === 'ar' && <Loader2 className="absolute inset-y-0 end-2.5 my-auto w-4 h-4 text-primary-500 animate-spin pointer-events-none" />}
+            </div>
             {errors.nameAr && <p className="text-xs text-red-500 mt-1">{errors.nameAr}</p>}
           </div>
           <div>
             <label className="field-label">{t('الاسم بالإنجليزي', 'Name (English)')}</label>
-            <input className={inputClass} placeholder="Dr. Name" value={form.nameEn} onChange={(e) => set('nameEn', e.target.value)} dir="ltr" />
+            <div className="relative">
+              <input
+                className={cn(inputClass, translating === 'en' && 'pe-8')}
+                placeholder="Dr. Name"
+                value={form.nameEn}
+                onChange={(e) => set('nameEn', e.target.value)}
+                onBlur={(e) => {
+                  const v = e.target.value.trim();
+                  if (lang === 'en' && v && !form.nameAr.trim()) {
+                    void translate(v, 'en').then((r) => { if (r) set('nameAr', r); });
+                  }
+                }}
+                dir="ltr"
+              />
+              {translating === 'en' && <Loader2 className="absolute inset-y-0 end-2.5 my-auto w-4 h-4 text-primary-500 animate-spin pointer-events-none" />}
+            </div>
           </div>
         </div>
 

@@ -213,8 +213,8 @@ export function AddPatientModal({ open, onClose, onCreated }: AddPatientModalPro
                 onChange={(e) => set('nameEn', e.target.value)}
                 onBlur={(e) => {
                   const v = e.target.value.trim();
-                  if (lang === 'ar' && v && !form.nameEn.trim()) {
-                    void translate(v, 'ar').then((r) => { if (r) set('nameEn', r); });
+                  if (lang === 'en' && v && !form.nameAr.trim()) {
+                    void translate(v, 'en').then((r) => { if (r) set('nameAr', r); });
                   }
                 }}
                 dir="ltr"

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Search, Filter, Plus, Pencil, Trash2, ToggleLeft, ToggleRight, ClipboardList, CheckCircle, DollarSign, Clock } from 'lucide-react';
+import { Search, Filter, Plus, Pencil, Trash2, ToggleLeft, ToggleRight, ClipboardList, CheckCircle, DollarSign, Clock, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -19,6 +19,7 @@ import {
 } from '@/hooks/useProcedures';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useLang } from '@/contexts/LanguageContext';
+import { useTranslateName } from '@/hooks/useTranslateName';
 import { useToast } from '@/components/ui/Toast';
 import { formatCurrency } from '@/lib/utils';
 import { Pagination } from '@/components/ui/Pagination';
@@ -76,6 +77,9 @@ interface ProcedureFormProps {
 }
 
 function ProcedureForm({ value, onChange, t }: ProcedureFormProps) {
+  const { lang } = useLang();
+  const { translate, translating } = useTranslateName();
+
   function set<K extends keyof ProcedurePayload>(key: K, val: ProcedurePayload[K]) {
     onChange({ ...value, [key]: val });
   }
@@ -98,13 +102,38 @@ function ProcedureForm({ value, onChange, t }: ProcedureFormProps) {
           ))}
         </select>
       </div>
-      <div className="sm:col-span-2">
+      <div className="sm:col-span-2 relative">
         <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">{t('الاسم (إنجليزي)', 'Name (English)')} *</label>
-        <Input value={value.nameEn} onChange={(e) => set('nameEn', e.target.value)} placeholder="Procedure name in English" />
+        <Input
+          value={value.nameEn}
+          className={translating === 'en' ? 'pe-8' : ''}
+          onChange={(e) => set('nameEn', e.target.value)}
+          onBlur={(e) => {
+            const v = e.target.value.trim();
+            if (lang === 'en' && v && !(value.nameAr ?? '').trim()) {
+              void translate(v, 'en').then((r) => { if (r) onChange({ ...value, nameAr: r }); });
+            }
+          }}
+          placeholder="Procedure name in English"
+        />
+        {translating === 'en' && <Loader2 className="absolute bottom-3.5 end-2.5 w-4 h-4 text-primary-500 animate-spin pointer-events-none" />}
       </div>
-      <div className="sm:col-span-2">
+      <div className="sm:col-span-2 relative">
         <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">{t('الاسم (عربي)', 'Name (Arabic)')}</label>
-        <Input value={value.nameAr ?? ''} onChange={(e) => set('nameAr', e.target.value)} placeholder="اسم الإجراء بالعربي" dir="rtl" />
+        <Input
+          value={value.nameAr ?? ''}
+          className={translating === 'ar' ? 'pe-8' : ''}
+          onChange={(e) => set('nameAr', e.target.value)}
+          onBlur={(e) => {
+            const v = e.target.value.trim();
+            if (lang === 'ar' && v && !value.nameEn.trim()) {
+              void translate(v, 'ar').then((r) => { if (r) onChange({ ...value, nameEn: r }); });
+            }
+          }}
+          placeholder="اسم الإجراء بالعربي"
+          dir="rtl"
+        />
+        {translating === 'ar' && <Loader2 className="absolute bottom-3.5 end-2.5 w-4 h-4 text-primary-500 animate-spin pointer-events-none" />}
       </div>
       <div>
         <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">{t('السعر الأساسي (EGP)', 'Base Price (EGP)')} *</label>

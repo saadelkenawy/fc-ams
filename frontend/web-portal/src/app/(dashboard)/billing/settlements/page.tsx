@@ -1,14 +1,13 @@
 'use client';
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import {
   Banknote, RefreshCw, ReceiptText, ChevronDown, ChevronRight,
   Building2, Stethoscope, Share2, Loader2, FlaskConical, Check, X,
   Search, SlidersHorizontal, ChevronUp, ArrowUpDown,
   CheckCircle2, AlertTriangle, Lock, Plus, Trash2,
-  Eye, EyeOff, RotateCcw, User,
+  RotateCcw, User,
 } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { useLang } from '@/contexts/LanguageContext';
 import { formatCurrency } from '@/lib/utils';
@@ -30,6 +29,27 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
   cheque: 'Cheque / شيك',
   transfer: 'InstaPay / تحويل فوري',
 };
+
+// ── Tiny letter avatar ──────────────────────────────────────────────────────
+
+const AVATAR_HUES = [
+  '#DC2626','#3B82F6','#10B981','#8B5CF6','#F59E0B','#06B6D4','#EF4444','#6366F1',
+];
+function LetterAvatar({ name, size = 28 }: { name: string; size?: number }) {
+  const initials = name.split(' ').filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+  const hash = name.split('').reduce((h, c) => h + c.charCodeAt(0), 0);
+  const bg = AVATAR_HUES[hash % AVATAR_HUES.length];
+  return (
+    <span style={{
+      width: size, height: size, borderRadius: '50%', background: bg,
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+      color: 'white', fontWeight: 700, fontSize: size * 0.38, flexShrink: 0,
+      fontFamily: 'var(--font-display)',
+    }}>
+      {initials}
+    </span>
+  );
+}
 
 export default function SettlementsPage() {
   const { lang, t } = useLang();
@@ -53,20 +73,20 @@ export default function SettlementsPage() {
   const hasActiveFilters = !!(selectedDoctor || minNetPool || maxNetPool);
 
   // Settle dialog
-  const [settleTarget, setSettleTarget]         = useState<DoctorSettlement | null>(null);
-  const [settleMethod, setSettleMethod]         = useState<'cash' | 'bank' | 'cheque' | 'transfer'>('cash');
-  const [settleRef, setSettleRef]               = useState('');
-  const [settleNotes, setSettleNotes]           = useState('');
-  const [settlePassword, setSettlePassword]     = useState('');
+  const [settleTarget, setSettleTarget]           = useState<DoctorSettlement | null>(null);
+  const [settleMethod, setSettleMethod]           = useState<'cash' | 'bank' | 'cheque' | 'transfer'>('cash');
+  const [settleRef, setSettleRef]                 = useState('');
+  const [settleNotes, setSettleNotes]             = useState('');
+  const [settlePassword, setSettlePassword]       = useState('');
   const [settlePasswordErr, setSettlePasswordErr] = useState('');
   const { mutateAsync: reconcile, isPending: settling, error: settleErr } = useReconcileDoctor();
 
   // Reverse dialog
-  const [reverseTarget, setReverseTarget]           = useState<string | null>(null);
-  const [reverseReason, setReverseReason]           = useState('');
-  const [reversePassword, setReversePassword]       = useState('');
-  const [reversePasswordErr, setReversePasswordErr] = useState('');
-  const [reverseError, setReverseError]             = useState('');
+  const [reverseTarget, setReverseTarget]             = useState<string | null>(null);
+  const [reverseReason, setReverseReason]             = useState('');
+  const [reversePassword, setReversePassword]         = useState('');
+  const [reversePasswordErr, setReversePasswordErr]   = useState('');
+  const [reverseError, setReverseError]               = useState('');
   const { mutateAsync: reverseSettle, isPending: reversing } = useReverseSettlement();
 
   // Data
@@ -80,7 +100,7 @@ export default function SettlementsPage() {
 
   const fmt = useCallback((n: number) => formatCurrency(n, 'EGP', locale), [locale]);
 
-  // Client-side filter + sort for pending settlements
+  // Client-side filter + sort
   const settlements: DoctorSettlement[] = useMemo(() => {
     let list = rawSettlements.filter((s) => (s.netPayable ?? 0) > 0);
     if (selectedDoctor) {
@@ -117,6 +137,7 @@ export default function SettlementsPage() {
   const totalDoctors       = settlements.reduce((s, r) => s + r.doctorShare, 0);
   const totalClinic        = settlements.reduce((s, r) => s + r.clinicShare, 0);
   const totalNetPool       = settlements.reduce((s, r) => s + r.grossRevenue, 0);
+  const totalSessions      = settlements.reduce((s, r) => s + (r.totalConsultations ?? 0) + (r.totalProcedures ?? 0), 0);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir((d) => d === 'asc' ? 'desc' : 'asc');
@@ -135,8 +156,7 @@ export default function SettlementsPage() {
     setSettlePasswordErr('');
     await reconcile({
       doctorId: settleTarget.doctorId,
-      from,
-      to,
+      from, to,
       paymentMethod: settleMethod,
       paymentReference: settleRef || undefined,
       notes: settleNotes || undefined,
@@ -175,192 +195,301 @@ export default function SettlementsPage() {
     }
   };
 
+  // KPI donut arcs (doctor vs clinic share of net pool)
+  const C = 301.59;
+  const drArc = totalNetPool > 0 ? C * (totalDoctors / totalNetPool) : 0;
+  const clArc = totalNetPool > 0 ? C * (totalClinic  / totalNetPool) : 0;
+
+  // Hero bar chart — top 20 doctors by doctorShare
+  const barData = useMemo(() =>
+    [...settlements].sort((a, b) => b.doctorShare - a.doctorShare).slice(0, 20),
+    [settlements],
+  );
+  const maxBar = barData.reduce((m, s) => Math.max(m, s.doctorShare), 1);
+
+  // Doctor % of net pool (for legend)
+  const drPct = totalNetPool > 0 ? ((totalDoctors / totalNetPool) * 100).toFixed(0) : '—';
+  const clPct = totalNetPool > 0 ? ((totalClinic  / totalNetPool) * 100).toFixed(0) : '—';
+
+  const inputCls = 'text-sm border border-gray-200 dark:border-neutral-600 rounded-lg px-3 py-1.5 bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-600';
+
   return (
-    <div className="space-y-4 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
+    <div className="fc-page">
+
+      {/* ── Page header ───────────────────────────────────────────────────────── */}
+      <div className="fc-page-head">
         <div>
-          <h2 className="text-2xl font-bold font-display text-gray-900 dark:text-gray-100">
-            {t('التسويات المالية', 'Financial Settlements')}
-          </h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-            {t('وسيط من رسم الجلسة فقط؛ الخدمات الإضافية بالكامل للصافي', 'Mediator cut on session fee only; extra services added in full to net pool')}
+          <h2 className="fc-page-title">{t('التسويات المالية', 'Financial Settlements')}</h2>
+          <p className="fc-page-sub">
+            {t('وسيط من رسم الجلسة فقط؛ الخدمات الإضافية بالكامل للصافي',
+               'Mediator cut on session fee only; extra services go in full to net pool')}
           </p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-2">
-            <label htmlFor="settle-from-date" className="text-xs text-gray-500">{t('من', 'From')}</label>
-            <input id="settle-from-date" type="date" value={from} onChange={(e) => setFrom(e.target.value)}
-              className="text-sm border border-gray-200 dark:border-neutral-600 rounded-lg px-3 py-1.5 bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-600" />
+        <div className="fc-page-actions flex-wrap">
+          <div className="flex items-center gap-1.5">
+            <label className="text-xs text-gray-500">{t('من', 'From')}</label>
+            <input id="settle-from-date" type="date" value={from} onChange={(e) => setFrom(e.target.value)} className={inputCls} />
           </div>
-          <div className="flex items-center gap-2">
-            <label htmlFor="settle-to-date" className="text-xs text-gray-500">{t('إلى', 'To')}</label>
-            <input id="settle-to-date" type="date" value={to} onChange={(e) => setTo(e.target.value)}
-              className="text-sm border border-gray-200 dark:border-neutral-600 rounded-lg px-3 py-1.5 bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-600" />
+          <div className="flex items-center gap-1.5">
+            <label className="text-xs text-gray-500">{t('إلى', 'To')}</label>
+            <input id="settle-to-date" type="date" value={to} onChange={(e) => setTo(e.target.value)} className={inputCls} />
           </div>
-          <Button variant="outline" size="sm" onClick={() => { void refetch(); void refetchRecords(); }} disabled={isFetching}>
+          <button
+            className="fc-btn fc-btn-outline fc-btn-sm"
+            onClick={() => { void refetch(); void refetchRecords(); }}
+            disabled={isFetching}
+          >
             <RefreshCw className={cn('w-3.5 h-3.5', isFetching && 'animate-spin')} />
-          </Button>
+          </button>
         </div>
       </div>
 
-      {/* Search & Filter */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="relative flex-1 min-w-52">
-            <Search className="absolute start-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
-            <input type="text" value={doctorSearch}
-              onChange={(e) => { setDoctorSearch(e.target.value); setSelectedDoctor(''); }}
-              placeholder={t('بحث باسم الطبيب...', 'Search doctor name...')}
-              aria-label={t('بحث باسم الطبيب', 'Search by doctor name')}
-              className="w-full ps-8 pe-3 py-1.5 text-sm border border-gray-200 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-600"
-            />
-          </div>
-          <select value={selectedDoctor} onChange={(e) => { setSelectedDoctor(e.target.value); setDoctorSearch(''); }}
-            className="text-sm border border-gray-200 dark:border-neutral-600 rounded-lg px-3 py-1.5 bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-600">
-            <option value="">{t('كل الأطباء', 'All doctors')}</option>
-            {doctorList.map((d) => <option key={d.id} value={d.id}>{d.nameEn}</option>)}
-          </select>
-          <Button variant="outline" size="sm" onClick={() => setShowAdvanced((v) => !v)} className={cn(showAdvanced && 'ring-2 ring-primary-500')}>
-            <SlidersHorizontal className="w-3.5 h-3.5 me-1.5" />
-            {t('فلتر متقدم', 'Advanced')}
-            {hasActiveFilters && <span className="ms-1.5 w-2 h-2 rounded-full bg-primary-500 inline-block" />}
-          </Button>
-          {hasActiveFilters && (
-            <Button variant="ghost" size="sm" onClick={clearFilters} className="text-gray-400 hover:text-gray-600">
-              <X className="w-3.5 h-3.5 me-1" />{t('مسح الفلاتر', 'Clear filters')}
-            </Button>
-          )}
-        </div>
+      {/* ── KPI row ───────────────────────────────────────────────────────────── */}
+      {!isLoading && settlements.length > 0 && (
+        <div className="fc-bill-kpi-row">
 
-        {showAdvanced && (
-          <div className="rounded-xl border border-gray-200 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-800/60 px-4 py-3 flex flex-wrap gap-4 items-end">
-            <div className="space-y-1">
-              <p className="text-xs font-medium text-gray-500">{t('صافي المجمع: من', 'Net Pool: min')}</p>
-              <input type="number" min="0" step="100" value={minNetPool} onChange={(e) => setMinNetPool(e.target.value)} placeholder="0"
-                className="w-32 text-sm border border-gray-200 dark:border-neutral-600 rounded-lg px-3 py-1.5 bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-600 [appearance:textfield]" />
+          {/* Hero tile — total doctor payable */}
+          <div className="fc-bill-revenue">
+            <div className="fc-bill-revenue-eyebrow">
+              <Stethoscope size={14} /> {t('مستحق الأطباء', 'Doctor Payable')}
             </div>
-            <div className="space-y-1">
-              <p className="text-xs font-medium text-gray-500">{t('صافي المجمع: إلى', 'Net Pool: max')}</p>
-              <input type="number" min="0" step="100" value={maxNetPool} onChange={(e) => setMaxNetPool(e.target.value)} placeholder="∞"
-                className="w-32 text-sm border border-gray-200 dark:border-neutral-600 rounded-lg px-3 py-1.5 bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-600 [appearance:textfield]" />
+            <div className="fc-bill-revenue-val">{fmt(totalDoctors)}</div>
+            <div className="fc-bill-revenue-trend">
+              <span className="fc-kpi-delta is-up">
+                {settlements.length} {t('طبيب', 'doctors')}
+              </span>
+              <span className="fc-bill-revenue-vs">
+                {totalSessions} {t('جلسة معلقة', 'sessions pending')}
+              </span>
             </div>
-            <div className="space-y-1">
-              <p className="text-xs font-medium text-gray-500">{t('ترتيب حسب', 'Sort by')}</p>
-              <div className="flex gap-1">
-                <select value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)}
-                  className="text-sm border border-gray-200 dark:border-neutral-600 rounded-lg px-3 py-1.5 bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-600">
-                  <option value="name">{t('الاسم', 'Name')}</option>
-                  <option value="sessions">{t('الجلسات', 'Sessions')}</option>
-                  <option value="sessionFees">{t('رسوم الجلسة', 'Session Fees')}</option>
-                  <option value="netPool">{t('الصافي', 'Net Pool')}</option>
-                  <option value="doctor">{t('حصة الطبيب', "Doctor's Share")}</option>
-                  <option value="clinic">{t('حصة العيادة', "Clinic's Share")}</option>
-                </select>
-                <button onClick={() => setSortDir((d) => d === 'asc' ? 'desc' : 'asc')}
-                  className="px-2 py-1.5 text-sm border border-gray-200 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50">
-                  {sortDir === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                </button>
+            <svg viewBox="0 0 320 56" width="100%" height="56" className="fc-bill-revenue-chart">
+              {barData.map((s, i) => {
+                const h = Math.max(4, (s.doctorShare / maxBar) * 48);
+                return (
+                  <rect
+                    key={s.doctorId}
+                    x={i * 16.1}
+                    y={56 - h}
+                    width="12"
+                    height={h}
+                    rx="2"
+                    fill={i === 0 ? 'white' : 'rgba(255,255,255,0.28)'}
+                  />
+                );
+              })}
+            </svg>
+          </div>
+
+          {/* Split tile — doctor vs clinic */}
+          <div className="fc-bill-split">
+            <div className="fc-bill-split-head">
+              <Building2 size={14} />
+              <span>{t('توزيع الحصص', 'Share Breakdown')}</span>
+              <span className="fc-bill-split-total">{fmt(totalNetPool)}</span>
+            </div>
+            <div className="fc-bill-split-body">
+              <svg viewBox="0 0 120 120" width="110" height="110">
+                <g transform="translate(60,60)">
+                  <circle r="48" fill="none" stroke="#F3F4F6" strokeWidth="16" />
+                  {totalNetPool > 0 ? (
+                    <>
+                      <circle r="48" fill="none" stroke="#3B82F6" strokeWidth="16"
+                        strokeDasharray={`${drArc} ${C}`} transform="rotate(-90)" />
+                      <circle r="48" fill="none" stroke="#10B981" strokeWidth="16"
+                        strokeDasharray={`${clArc} ${C}`} strokeDashoffset={-drArc} transform="rotate(-90)" />
+                    </>
+                  ) : (
+                    <circle r="48" fill="none" stroke="#E5E7EB" strokeWidth="16" />
+                  )}
+                  <text textAnchor="middle" dy="4" fontFamily="Outfit" fontWeight="700" fontSize="15" fill="#0F172A">
+                    {totalNetPool > 0 ? `${drPct}%` : '—'}
+                  </text>
+                  <text textAnchor="middle" dy="16" fontFamily="Manrope" fontWeight="500" fontSize="8" fill="#94A3B8">
+                    DR
+                  </text>
+                </g>
+              </svg>
+              <div className="fc-bill-split-legend">
+                <div className="fc-bill-leg-row">
+                  <span className="fc-bill-leg-dot" style={{ background: '#3B82F6' }} />
+                  {t('الأطباء', 'Doctors')}
+                  <span className="fc-bill-leg-val">{drPct}%</span>
+                </div>
+                <div className="fc-bill-leg-row">
+                  <span className="fc-bill-leg-dot" style={{ background: '#10B981' }} />
+                  {t('العيادة', 'Clinic')}
+                  <span className="fc-bill-leg-val">{clPct}%</span>
+                </div>
+                {totalMediator > 0 && (
+                  <div className="fc-bill-leg-row">
+                    <span className="fc-bill-leg-dot" style={{ background: '#F59E0B' }} />
+                    {t('الوسيط', 'Mediator')}
+                    <span className="fc-bill-leg-val">{fmt(totalMediator)}</span>
+                  </div>
+                )}
+                {totalExtraServices > 0 && (
+                  <div className="fc-bill-leg-row">
+                    <span className="fc-bill-leg-dot" style={{ background: '#8B5CF6' }} />
+                    {t('إضافية', 'Extra Svcs')}
+                    <span className="fc-bill-leg-val">{fmt(totalExtraServices)}</span>
+                  </div>
+                )}
               </div>
             </div>
-            <Button variant="ghost" size="sm" onClick={clearFilters} className="text-gray-400 hover:text-gray-600 self-end">
-              <X className="w-3.5 h-3.5 me-1" />{t('مسح', 'Clear')}
-            </Button>
           </div>
-        )}
-      </div>
 
-      {/* Summary cards */}
-      {!isLoading && settlements.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-          <div className="rounded-xl border border-gray-100 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-3">
-            <div className="flex items-center gap-1 mb-1"><Banknote className="w-3 h-3 text-gray-400" /><p className="text-xs text-gray-400">{t('رسوم الجلسات', 'Session Fees')}</p></div>
-            <p className="text-base font-bold font-mono tabular-nums text-gray-900 dark:text-gray-100">{fmt(totalSessionFees)}</p>
-          </div>
-          <div className="rounded-xl border border-orange-100 dark:border-orange-900/30 bg-orange-50 dark:bg-orange-900/10 p-3">
-            <div className="flex items-center gap-1 mb-1"><Share2 className="w-3 h-3 text-orange-500" /><p className="text-xs text-orange-600 dark:text-orange-400">{t('الوسيط', 'Mediator')}</p></div>
-            <p className="text-base font-bold font-mono tabular-nums text-orange-700 dark:text-orange-300">{fmt(totalMediator)}</p>
-            {totalSessionFees > 0 && <p className="text-xs text-orange-400 mt-0.5">{((totalMediator / totalSessionFees) * 100).toFixed(1)}%</p>}
-          </div>
-          <div className="rounded-xl border border-violet-100 dark:border-violet-900/30 bg-violet-50 dark:bg-violet-900/10 p-3">
-            <div className="flex items-center gap-1 mb-1"><FlaskConical className="w-3 h-3 text-violet-500" /><p className="text-xs text-violet-600 dark:text-violet-400">{t('خدمات إضافية', 'Extra Services')}</p></div>
-            <p className="text-base font-bold font-mono tabular-nums text-violet-700 dark:text-violet-300">{fmt(totalExtraServices)}</p>
-          </div>
-          <div className="rounded-xl border border-gray-200 dark:border-neutral-600 bg-gray-50 dark:bg-neutral-700/40 p-3">
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{t('صافي المجمع', 'Net Pool')}</p>
-            <p className="text-base font-bold font-mono tabular-nums text-gray-800 dark:text-gray-100">{fmt(totalNetPool)}</p>
-          </div>
-          <div className="rounded-xl border border-blue-100 dark:border-blue-900/30 bg-blue-50 dark:bg-blue-900/10 p-3">
-            <div className="flex items-center gap-1 mb-1"><Stethoscope className="w-3 h-3 text-blue-500" /><p className="text-xs text-blue-600 dark:text-blue-400">{t("مستحق الأطباء", "Doctors'")}</p></div>
-            <p className="text-base font-bold font-mono tabular-nums text-blue-700 dark:text-blue-300">{fmt(totalDoctors)}</p>
-            {totalNetPool > 0 && <p className="text-xs text-blue-400 mt-0.5">{((totalDoctors / totalNetPool) * 100).toFixed(1)}%</p>}
-          </div>
-          <div className="rounded-xl border border-emerald-100 dark:border-emerald-900/30 bg-emerald-50 dark:bg-emerald-900/10 p-3">
-            <div className="flex items-center gap-1 mb-1"><Building2 className="w-3 h-3 text-emerald-500" /><p className="text-xs text-emerald-600 dark:text-emerald-400">{t('صافي العيادة', 'Clinic Net')}</p></div>
-            <p className="text-base font-bold font-mono tabular-nums text-emerald-700 dark:text-emerald-300">{fmt(totalClinic)}</p>
-            {totalNetPool > 0 && <p className="text-xs text-emerald-400 mt-0.5">{((totalClinic / totalNetPool) * 100).toFixed(1)}%</p>}
+          {/* Outstanding tile — net pool summary */}
+          <div className="fc-bill-outstanding">
+            <div className="fc-bill-out-head">
+              <ReceiptText size={14} /> {t('رسوم الجلسات', 'Session Fees')}
+            </div>
+            <div className="fc-bill-out-val">{fmt(totalSessionFees)}</div>
+            <div className="fc-bill-out-sub">
+              {totalSessions} {t('جلسة', 'sessions')} &nbsp;·&nbsp; {settlements.length} {t('طبيب', 'doctors')}
+            </div>
+            <button className="fc-bill-out-cta" onClick={() => setShowAdvanced((v) => !v)}>
+              {t('تصفية الأطباء', 'Filter doctors')} <ChevronRight size={12} strokeWidth={2.4} />
+            </button>
           </div>
         </div>
       )}
 
-      {/* ── PENDING SETTLEMENTS ────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-2">
-        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-          {t('التسويات المعلقة', 'Pending Settlements')}
-        </h3>
-        {!isLoading && <span className="text-xs text-gray-400 bg-gray-100 dark:bg-neutral-700 rounded-full px-2 py-0.5">{settlements.length}</span>}
+      {/* ── Toolbar ───────────────────────────────────────────────────────────── */}
+      <div className="fc-apt-toolbar">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', flex: 1 }}>
+          <div className="fc-dr-search" style={{ maxWidth: 300 }}>
+            <Search className="fc-dr-search-icon" size={14} />
+            <input
+              type="text"
+              value={doctorSearch}
+              onChange={(e) => { setDoctorSearch(e.target.value); setSelectedDoctor(''); }}
+              placeholder={t('بحث باسم الطبيب...', 'Search doctor name...')}
+              aria-label={t('بحث باسم الطبيب', 'Search by doctor name')}
+            />
+            {doctorSearch && (
+              <button className="fc-dr-search-clear" onClick={() => setDoctorSearch('')}>
+                <X size={12} />
+              </button>
+            )}
+          </div>
+          <select
+            value={selectedDoctor}
+            onChange={(e) => { setSelectedDoctor(e.target.value); setDoctorSearch(''); }}
+            className={inputCls}
+          >
+            <option value="">{t('كل الأطباء', 'All doctors')}</option>
+            {doctorList.map((d) => <option key={d.id} value={d.id}>{d.nameEn}</option>)}
+          </select>
+          <button
+            className={cn('fc-btn fc-btn-outline fc-btn-sm', showAdvanced && 'ring-2 ring-primary-500')}
+            onClick={() => setShowAdvanced((v) => !v)}
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5 me-1.5" />
+            {t('فلتر متقدم', 'Advanced')}
+            {hasActiveFilters && <span className="ms-1.5 w-2 h-2 rounded-full bg-primary-500 inline-block" />}
+          </button>
+          {hasActiveFilters && (
+            <button className="fc-btn fc-btn-outline fc-btn-sm text-gray-400" onClick={clearFilters}>
+              <X className="w-3.5 h-3.5 me-1" />{t('مسح الفلاتر', 'Clear filters')}
+            </button>
+          )}
+        </div>
       </div>
 
-      {isLoading ? (
-        <div className="flex items-center justify-center py-12 text-gray-400">
-          <Loader2 className="w-5 h-5 animate-spin me-2" />{t('جاري التحميل...', 'Loading...')}
+      {/* Advanced filter panel */}
+      {showAdvanced && (
+        <div className="rounded-xl border border-gray-200 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-800/60 px-4 py-3 flex flex-wrap gap-4 items-end">
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-gray-500">{t('صافي المجمع: من', 'Net Pool: min')}</p>
+            <input type="number" min="0" step="100" value={minNetPool} onChange={(e) => setMinNetPool(e.target.value)} placeholder="0"
+              className={cn(inputCls, 'w-32 [appearance:textfield]')} />
+          </div>
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-gray-500">{t('صافي المجمع: إلى', 'Net Pool: max')}</p>
+            <input type="number" min="0" step="100" value={maxNetPool} onChange={(e) => setMaxNetPool(e.target.value)} placeholder="∞"
+              className={cn(inputCls, 'w-32 [appearance:textfield]')} />
+          </div>
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-gray-500">{t('ترتيب حسب', 'Sort by')}</p>
+            <div className="flex gap-1">
+              <select value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)} className={inputCls}>
+                <option value="name">{t('الاسم', 'Name')}</option>
+                <option value="sessions">{t('الجلسات', 'Sessions')}</option>
+                <option value="sessionFees">{t('رسوم الجلسة', 'Session Fees')}</option>
+                <option value="netPool">{t('الصافي', 'Net Pool')}</option>
+                <option value="doctor">{t('حصة الطبيب', "Doctor's Share")}</option>
+                <option value="clinic">{t('حصة العيادة', "Clinic's Share")}</option>
+              </select>
+              <button onClick={() => setSortDir((d) => d === 'asc' ? 'desc' : 'asc')}
+                className={cn(inputCls, 'px-2')}>
+                {sortDir === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+          <button className="fc-btn fc-btn-outline fc-btn-sm text-gray-400 self-end" onClick={clearFilters}>
+            <X className="w-3.5 h-3.5 me-1" />{t('مسح', 'Clear')}
+          </button>
         </div>
-      ) : isError ? (
-        <div className="flex flex-col items-center justify-center py-12 gap-4">
-          <ReceiptText className="w-12 h-12 text-gray-300 dark:text-gray-600" />
-          <p className="text-gray-500 font-medium">{t('تعذّر تحميل التسويات', 'Failed to load settlements')}</p>
-          <Button variant="outline" size="sm" onClick={() => void refetch()} disabled={isFetching}>
-            <RefreshCw className={cn('w-4 h-4', isFetching && 'animate-spin')} />{t('إعادة المحاولة', 'Retry')}
-          </Button>
+      )}
+
+      {/* ── Pending settlements ────────────────────────────────────────────────── */}
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+            {t('التسويات المعلقة', 'Pending Settlements')}
+          </h3>
+          {!isLoading && <span className="fc-pill-count">{settlements.length}</span>}
         </div>
-      ) : settlements.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-12 gap-3">
-          <CheckCircle2 className="w-10 h-10 text-emerald-400" />
-          <p className="text-gray-500 font-medium">{t('لا توجد تسويات معلقة في هذه الفترة', 'No pending settlements in this period')}</p>
-        </div>
-      ) : (
-        <Card>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12 text-gray-400">
+            <Loader2 className="w-5 h-5 animate-spin me-2" />{t('جاري التحميل...', 'Loading...')}
+          </div>
+        ) : isError ? (
+          <div className="flex flex-col items-center justify-center py-12 gap-4">
+            <ReceiptText className="w-12 h-12 text-gray-300 dark:text-gray-600" />
+            <p className="text-gray-500 font-medium">{t('تعذّر تحميل التسويات', 'Failed to load settlements')}</p>
+            <button className="fc-btn fc-btn-outline fc-btn-sm" onClick={() => void refetch()} disabled={isFetching}>
+              <RefreshCw className={cn('w-4 h-4 me-1.5', isFetching && 'animate-spin')} />{t('إعادة المحاولة', 'Retry')}
+            </button>
+          </div>
+        ) : settlements.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 gap-3">
+            <CheckCircle2 className="w-10 h-10 text-emerald-400" />
+            <p className="text-gray-500 font-medium">{t('لا توجد تسويات معلقة في هذه الفترة', 'No pending settlements in this period')}</p>
+          </div>
+        ) : (
+          <div className="fc-card">
+            <div className="fc-table-wrap">
+              <table className="fc-table">
                 <thead>
-                  <tr className="border-b border-gray-100 dark:border-neutral-700 bg-gray-50/60 dark:bg-neutral-800/60">
-                    <th className="w-8 px-3 py-3" />
-                    <th className="text-start px-4 py-3 font-medium text-gray-500 text-xs whitespace-nowrap cursor-pointer hover:text-gray-700 select-none" onClick={() => toggleSort('name')}>
+                  <tr>
+                    <th className="w-8" />
+                    <th className="cursor-pointer hover:text-gray-700 select-none" onClick={() => toggleSort('name')}>
                       {t('الطبيب', 'Doctor')} <SortIcon col="name" />
                     </th>
-                    <th className="text-end px-4 py-3 font-medium text-gray-500 text-xs whitespace-nowrap cursor-pointer hover:text-gray-700 select-none" onClick={() => toggleSort('sessions')}>
-                      {t('حجوزات', 'Sessions')} <SortIcon col="sessions" />
+                    <th className="text-end cursor-pointer hover:text-gray-700 select-none" onClick={() => toggleSort('sessions')}>
+                      {t('جلسات', 'Sessions')} <SortIcon col="sessions" />
                     </th>
-                    <th className="text-end px-4 py-3 font-medium text-gray-500 text-xs whitespace-nowrap cursor-pointer hover:text-gray-700 select-none" onClick={() => toggleSort('sessionFees')}>
+                    <th className="text-end cursor-pointer hover:text-gray-700 select-none" onClick={() => toggleSort('sessionFees')}>
                       {t('رسوم الجلسة', 'Session Fees')} <SortIcon col="sessionFees" />
                     </th>
-                    <th className="text-end px-4 py-3 text-xs whitespace-nowrap">
-                      <span className="flex items-center justify-end gap-1 text-orange-500 font-medium"><Share2 className="w-3 h-3" />{t('الوسيط', 'Mediator')}</span>
+                    <th className="text-end" style={{ color: '#D97706' }}>
+                      <span className="inline-flex items-center gap-1"><Share2 className="w-3 h-3" />{t('الوسيط', 'Mediator')}</span>
                     </th>
-                    <th className="text-end px-4 py-3 text-xs whitespace-nowrap">
-                      <span className="flex items-center justify-end gap-1 text-violet-500 font-medium"><FlaskConical className="w-3 h-3" />{t('إضافية', 'Extra Svcs')}</span>
+                    <th className="text-end" style={{ color: '#7C3AED' }}>
+                      <span className="inline-flex items-center gap-1"><FlaskConical className="w-3 h-3" />{t('إضافية', 'Extra Svcs')}</span>
                     </th>
-                    <th className="text-end px-4 py-3 font-medium text-gray-500 text-xs whitespace-nowrap cursor-pointer hover:text-gray-700 select-none" onClick={() => toggleSort('netPool')}>
+                    <th className="text-end cursor-pointer hover:text-gray-700 select-none" onClick={() => toggleSort('netPool')}>
                       {t('الصافي', 'Net Pool')} <SortIcon col="netPool" />
                     </th>
-                    <th className="text-end px-4 py-3 text-xs whitespace-nowrap cursor-pointer hover:text-blue-600 select-none" onClick={() => toggleSort('doctor')}>
-                      <span className="flex items-center justify-end gap-1 text-blue-500 font-medium"><Stethoscope className="w-3 h-3" />{t('الطبيب', 'Doctor')} <SortIcon col="doctor" /></span>
+                    <th className="text-end cursor-pointer select-none" style={{ color: '#2563EB' }} onClick={() => toggleSort('doctor')}>
+                      <span className="inline-flex items-center gap-1"><Stethoscope className="w-3 h-3" />{t('الطبيب', 'Doctor')} <SortIcon col="doctor" /></span>
                     </th>
-                    <th className="text-end px-4 py-3 text-xs whitespace-nowrap cursor-pointer hover:text-emerald-600 select-none" onClick={() => toggleSort('clinic')}>
-                      <span className="flex items-center justify-end gap-1 text-emerald-500 font-medium"><Building2 className="w-3 h-3" />{t('العيادة', 'Clinic')} <SortIcon col="clinic" /></span>
+                    <th className="text-end cursor-pointer select-none" style={{ color: '#059669' }} onClick={() => toggleSort('clinic')}>
+                      <span className="inline-flex items-center gap-1"><Building2 className="w-3 h-3" />{t('العيادة', 'Clinic')} <SortIcon col="clinic" /></span>
                     </th>
-                    <th className="px-4 py-3" />
+                    <th />
                   </tr>
                 </thead>
                 <tbody>
@@ -369,42 +498,53 @@ export default function SettlementsPage() {
                     const extraSvcs   = s.totalExtraServices ?? 0;
                     const extraCount  = s.totalExtraServicesCount ?? 0;
                     const isOpen      = expanded === s.doctorId;
+                    const docName     = doctorMap.get(s.doctorId)?.nameEn ?? s.doctorId.slice(0, 8);
                     return (
                       <>
-                        <tr key={s.doctorId} onClick={() => setExpanded(isOpen ? null : s.doctorId)}
-                          className="border-b border-gray-50 dark:border-neutral-700/50 cursor-pointer transition-colors hover:bg-gray-50/60 dark:hover:bg-neutral-700/20">
-                          <td className="px-3 py-3.5 text-gray-400">
+                        <tr
+                          key={s.doctorId}
+                          onClick={() => setExpanded(isOpen ? null : s.doctorId)}
+                          className="cursor-pointer"
+                        >
+                          <td className="text-gray-400">
                             {isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                           </td>
-                          <td className="px-4 py-3.5 font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">
-                            {doctorMap.get(s.doctorId)?.nameEn ?? s.doctorId.slice(0, 8)}
+                          <td>
+                            <div className="fc-pat">
+                              <LetterAvatar name={docName} size={28} />
+                              <span className="fc-pat-name">{docName}</span>
+                            </div>
                           </td>
-                          <td className="px-4 py-3.5 text-end font-mono text-gray-600 dark:text-gray-300">
+                          <td className="text-end fc-mono text-gray-600 dark:text-gray-300">
                             {(s.totalConsultations ?? 0) + (s.totalProcedures ?? 0)}
                           </td>
-                          <td className="px-4 py-3.5 text-end font-mono tabular-nums text-gray-700 dark:text-gray-200">{fmt(sessionFees)}</td>
-                          <td className="px-4 py-3.5 text-end font-mono tabular-nums text-orange-600 dark:text-orange-400">{fmt(s.totalSourceFees)}</td>
-                          <td className="px-4 py-3.5 text-end">
-                            <span className="font-mono tabular-nums text-violet-600 dark:text-violet-400">{fmt(extraSvcs)}</span>
+                          <td className="text-end fc-mono text-gray-700 dark:text-gray-200">{fmt(sessionFees)}</td>
+                          <td className="text-end fc-mono" style={{ color: '#D97706' }}>{fmt(s.totalSourceFees)}</td>
+                          <td className="text-end">
+                            <span className="fc-mono" style={{ color: '#7C3AED' }}>{fmt(extraSvcs)}</span>
                             {extraCount > 0 && (
                               <span className="block text-[10px] text-gray-400 mt-0.5">({extraCount} {t('بنود', 'items')})</span>
                             )}
                           </td>
-                          <td className="px-4 py-3.5 text-end font-mono tabular-nums text-gray-600 dark:text-gray-300">{fmt(s.grossRevenue)}</td>
-                          <td className="px-4 py-3.5 text-end font-mono tabular-nums text-blue-700 dark:text-blue-400 font-semibold">{fmt(s.doctorShare)}</td>
-                          <td className="px-4 py-3.5 text-end font-mono tabular-nums text-emerald-700 dark:text-emerald-400 font-semibold">{fmt(s.clinicShare)}</td>
-                          <td className="px-4 py-3.5">
+                          <td className="text-end fc-mono text-gray-600 dark:text-gray-300">{fmt(s.grossRevenue)}</td>
+                          <td className="text-end fc-mono font-semibold" style={{ color: '#1D4ED8' }}>{fmt(s.doctorShare)}</td>
+                          <td className="text-end fc-mono font-semibold" style={{ color: '#047857' }}>{fmt(s.clinicShare)}</td>
+                          <td>
                             {(s.netPayable ?? 0) > 0 && (
-                              <Button size="sm" className="h-7 px-3 text-xs whitespace-nowrap"
-                                onClick={(e) => { e.stopPropagation(); setSettleTarget(s); }}>
-                                {t('تسوية', 'Settle')}
-                              </Button>
+                              <div className="fc-row-actions" style={{ opacity: 1 }}>
+                                <button
+                                  className="fc-act fc-act-settle"
+                                  onClick={(e) => { e.stopPropagation(); setSettleTarget(s); }}
+                                >
+                                  {t('تسوية', 'Settle')}
+                                </button>
+                              </div>
                             )}
                           </td>
                         </tr>
                         {isOpen && (
-                          <tr key={`${s.doctorId}-detail`} className="bg-gray-50/40 dark:bg-neutral-800/30">
-                            <td colSpan={10} className="px-6 py-4">
+                          <tr key={`${s.doctorId}-detail`}>
+                            <td colSpan={10} className="bg-gray-50/40 dark:bg-neutral-800/30 px-6 py-4">
                               <SettlementDetail doctorId={s.doctorId} from={from} to={to} locale={locale} t={t} />
                             </td>
                           </tr>
@@ -414,88 +554,104 @@ export default function SettlementsPage() {
                   })}
                 </tbody>
                 <tfoot>
-                  <tr className="border-t-2 border-gray-200 dark:border-neutral-600 bg-gray-50 dark:bg-neutral-800/60 font-semibold text-sm">
-                    <td className="px-3 py-3" />
+                  <tr style={{ borderTop: '2px solid #E5E7EB' }} className="bg-gray-50 dark:bg-neutral-800/60 font-semibold text-sm">
+                    <td className="px-4 py-3" />
                     <td className="px-4 py-3 text-xs text-gray-500 uppercase tracking-wide">{t('الإجمالي', 'Total')}</td>
-                    <td className="px-4 py-3 text-end font-mono text-gray-600">{settlements.reduce((s, r) => s + (r.totalConsultations ?? 0) + (r.totalProcedures ?? 0), 0)}</td>
-                    <td className="px-4 py-3 text-end font-mono tabular-nums text-gray-900 dark:text-gray-100">{fmt(totalSessionFees)}</td>
-                    <td className="px-4 py-3 text-end font-mono tabular-nums text-orange-700 dark:text-orange-300">{fmt(totalMediator)}</td>
-                    <td className="px-4 py-3 text-end font-mono tabular-nums text-violet-700 dark:text-violet-300">{fmt(totalExtraServices)}</td>
-                    <td className="px-4 py-3 text-end font-mono tabular-nums text-gray-700 dark:text-gray-300">{fmt(totalNetPool)}</td>
-                    <td className="px-4 py-3 text-end font-mono tabular-nums text-blue-700 dark:text-blue-300">{fmt(totalDoctors)}</td>
-                    <td className="px-4 py-3 text-end font-mono tabular-nums text-emerald-700 dark:text-emerald-300">{fmt(totalClinic)}</td>
+                    <td className="px-4 py-3 text-end fc-mono text-gray-600">{totalSessions}</td>
+                    <td className="px-4 py-3 text-end fc-mono text-gray-900 dark:text-gray-100">{fmt(totalSessionFees)}</td>
+                    <td className="px-4 py-3 text-end fc-mono" style={{ color: '#D97706' }}>{fmt(totalMediator)}</td>
+                    <td className="px-4 py-3 text-end fc-mono" style={{ color: '#7C3AED' }}>{fmt(totalExtraServices)}</td>
+                    <td className="px-4 py-3 text-end fc-mono text-gray-700 dark:text-gray-300">{fmt(totalNetPool)}</td>
+                    <td className="px-4 py-3 text-end fc-mono" style={{ color: '#1D4ED8' }}>{fmt(totalDoctors)}</td>
+                    <td className="px-4 py-3 text-end fc-mono" style={{ color: '#047857' }}>{fmt(totalClinic)}</td>
                     <td className="px-4 py-3" />
                   </tr>
                 </tfoot>
               </table>
             </div>
-          </CardContent>
-        </Card>
-      )}
+          </div>
+        )}
+      </div>
 
-      {/* ── COMPLETED SETTLEMENTS ──────────────────────────────────────────────── */}
+      {/* ── Completed settlements ──────────────────────────────────────────────── */}
       {completedRecords.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
             <CheckCircle2 className="w-4 h-4 text-emerald-500" />
             <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
               {t('التسويات المكتملة', 'Completed Settlements')}
             </h3>
-            <span className="text-xs text-gray-400 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded-full px-2 py-0.5">{completedRecords.length}</span>
+            <span className="fc-pill-count" style={{ background: '#D1FAE5', color: '#047857' }}>
+              {completedRecords.length}
+            </span>
           </div>
-          <Card>
-            <CardContent className="p-0">
-              <div className="divide-y divide-gray-100 dark:divide-neutral-700/50">
-                {completedRecords.map((rec) => (
-                  <div key={rec.id} className={cn(
-                    'flex items-center justify-between px-5 py-3.5 gap-4',
-                    rec.reversedAt ? 'opacity-50' : 'bg-emerald-50/30 dark:bg-emerald-900/5',
-                  )}>
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className={cn('w-1 h-10 rounded-full flex-shrink-0', rec.reversedAt ? 'bg-gray-300' : 'bg-emerald-500')} />
-                      <div>
-                        <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                          {doctorMap.get(rec.doctorId)?.nameEn ?? rec.doctorId.slice(0, 8)}
+          <div className="fc-card">
+            <div className="fc-stl-hist-list">
+              {completedRecords.map((rec) => {
+                const docName = doctorMap.get(rec.doctorId)?.nameEn ?? rec.doctorId.slice(0, 8);
+                const period = rec.periodFrom && rec.periodTo
+                  ? `${rec.periodFrom} → ${rec.periodTo}`
+                  : rec.settlementDate;
+                const method = PAYMENT_METHOD_LABELS[rec.paymentMethod] ?? rec.paymentMethod;
+                const ref = rec.paymentReference ? ` · Ref: ${rec.paymentReference}` : '';
+                return (
+                  <div
+                    key={rec.id}
+                    className={cn('fc-stl-hist-item', rec.reversedAt && 'is-reversed')}
+                  >
+                    <div
+                      className="fc-stl-hist-bar"
+                      style={{ background: rec.reversedAt ? '#CBD5E1' : '#10B981' }}
+                    />
+                    <div className="fc-stl-hist-body">
+                      <div className="fc-stl-hist-text">
+                        <div className="fc-stl-hist-name">
+                          {docName}
                           {rec.reversedAt && (
-                            <span className="ms-2 text-xs font-normal text-gray-400 bg-gray-100 dark:bg-neutral-700 rounded px-1.5 py-0.5">
+                            <span
+                              className="fc-statuspill ms-2"
+                              style={{ background: '#F1F5F9', color: '#64748B', fontSize: 10 }}
+                            >
                               {t('مُعكوس', 'Reversed')}
                             </span>
                           )}
-                        </p>
-                        <p className="text-xs text-gray-400 mt-0.5">
-                          {rec.periodFrom && rec.periodTo ? `${rec.periodFrom} → ${rec.periodTo}` : rec.settlementDate}
-                          {' · '}{PAYMENT_METHOD_LABELS[rec.paymentMethod] ?? rec.paymentMethod}
-                          {rec.paymentReference && ` · Ref: ${rec.paymentReference}`}
-                        </p>
+                        </div>
+                        <div className="fc-stl-hist-meta">{period} · {method}{ref}</div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <div className="text-end">
-                        <p className="text-sm font-bold font-mono tabular-nums text-emerald-700 dark:text-emerald-400">{fmt(rec.amount)}</p>
-                        <p className="text-xs text-gray-400">{new Date(rec.createdAt).toLocaleDateString()}</p>
+                    <div className="fc-stl-hist-amount">
+                      <div className="fc-stl-hist-amount-val">{fmt(rec.amount)}</div>
+                      <div className="fc-stl-hist-amount-date">
+                        {new Date(rec.createdAt).toLocaleDateString(locale)}
                       </div>
-                      {!rec.reversedAt && (
-                        <Lock className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" aria-label={t('مُسوَّى', 'Settled')} />
-                      )}
+                    </div>
+                    <div className="fc-stl-hist-actions">
+                      {!rec.reversedAt && <Lock className="w-3.5 h-3.5 text-emerald-500" aria-label={t('مُسوَّى', 'Settled')} />}
                       {!rec.reversedAt && (
                         <button
-                          onClick={() => { setReverseTarget(rec.id); setReverseReason(''); setReversePassword(''); setReversePasswordErr(''); setReverseError(''); }}
-                          className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors"
+                          className="fc-act fc-act-reverse"
+                          onClick={() => {
+                            setReverseTarget(rec.id);
+                            setReverseReason('');
+                            setReversePassword('');
+                            setReversePasswordErr('');
+                            setReverseError('');
+                          }}
                           title={t('عكس التسوية', 'Reverse Settlement')}
                         >
-                          <RotateCcw className="w-4 h-4" />
+                          <RotateCcw className="w-3.5 h-3.5" />
                         </button>
                       )}
                     </div>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                );
+              })}
+            </div>
+          </div>
         </div>
       )}
 
-      {/* ── Settle confirmation dialog ──────────────────────────────────────────── */}
+      {/* ── Settle confirmation dialog ────────────────────────────────────────── */}
       {settleTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
           <div className="bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl w-full max-w-md animate-slide-up p-6 space-y-5">
@@ -545,22 +701,26 @@ export default function SettlementsPage() {
               </div>
               <div>
                 <label className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 block">{t('كلمة مرورك للتأكيد', 'Your password to confirm')}</label>
-                <input
-                  type="password"
-                  value={settlePassword}
+                <input type="password" value={settlePassword}
                   onChange={(e) => { setSettlePassword(e.target.value); setSettlePasswordErr(''); }}
                   placeholder="••••••••"
-                  className="w-full text-sm border border-gray-200 dark:border-neutral-600 rounded-lg px-3 py-2 bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
+                  className="w-full text-sm border border-gray-200 dark:border-neutral-600 rounded-lg px-3 py-2 bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
                 {settlePasswordErr && <p className="text-xs text-red-500 mt-1">{settlePasswordErr}</p>}
               </div>
             </div>
-            {settleErr != null && <p className="text-xs text-red-600 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">{settleErr instanceof Error ? settleErr.message : t('فشلت التسوية', 'Settlement failed')}</p>}
+            {settleErr != null && (
+              <p className="text-xs text-red-600 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">
+                {settleErr instanceof Error ? settleErr.message : t('فشلت التسوية', 'Settlement failed')}
+              </p>
+            )}
             <div className="flex gap-3 justify-end pt-1">
-              <Button variant="outline" size="sm" onClick={() => { setSettleTarget(null); setSettlePassword(''); setSettlePasswordErr(''); }} disabled={settling}>{t('إلغاء', 'Cancel')}</Button>
-              <Button size="sm" onClick={() => void handleSettle()} disabled={settling} className="min-w-28 bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-500">
+              <button className="fc-btn fc-btn-outline fc-btn-sm" onClick={() => { setSettleTarget(null); setSettlePassword(''); setSettlePasswordErr(''); }} disabled={settling}>
+                {t('إلغاء', 'Cancel')}
+              </button>
+              <button className="fc-btn fc-btn-sm" style={{ minWidth: 120, background: '#059669', color: 'white', border: 'none' }}
+                onClick={() => void handleSettle()} disabled={settling}>
                 {settling ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : <><Check className="w-3.5 h-3.5 me-1.5" />{t('تأكيد التسوية', 'Confirm & Settle')}</>}
-              </Button>
+              </button>
             </div>
           </div>
         </div>
@@ -590,23 +750,24 @@ export default function SettlementsPage() {
               </div>
               <div>
                 <label className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 block">{t('كلمة مرورك للتأكيد', 'Your password to confirm')}</label>
-                <input
-                  type="password"
-                  value={reversePassword}
+                <input type="password" value={reversePassword}
                   onChange={(e) => { setReversePassword(e.target.value); setReversePasswordErr(''); }}
                   placeholder="••••••••"
-                  className="w-full text-sm border border-gray-200 dark:border-neutral-600 rounded-lg px-3 py-2 bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-400"
-                />
+                  className="w-full text-sm border border-gray-200 dark:border-neutral-600 rounded-lg px-3 py-2 bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-400" />
                 {reversePasswordErr && <p className="text-xs text-red-500 mt-1">{reversePasswordErr}</p>}
               </div>
             </div>
             {reverseError && <p className="text-xs text-red-600 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">{reverseError}</p>}
             <div className="flex gap-3 justify-end pt-1">
-              <Button variant="outline" size="sm" onClick={() => { setReverseTarget(null); setReversePassword(''); setReversePasswordErr(''); setReverseError(''); }} disabled={reversing}>{t('إلغاء', 'Cancel')}</Button>
-              <Button size="sm" className="min-w-28 bg-amber-600 hover:bg-amber-700 focus:ring-amber-500"
+              <button className="fc-btn fc-btn-outline fc-btn-sm"
+                onClick={() => { setReverseTarget(null); setReversePassword(''); setReversePasswordErr(''); setReverseError(''); }}
+                disabled={reversing}>
+                {t('إلغاء', 'Cancel')}
+              </button>
+              <button className="fc-btn fc-btn-sm" style={{ minWidth: 120, background: '#D97706', color: 'white', border: 'none' }}
                 onClick={() => void handleReverse()} disabled={reversing || reverseReason.trim().length < 10}>
                 {reversing ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : <><RotateCcw className="w-3.5 h-3.5 me-1.5" />{t('عكس التسوية', 'Reverse')}</>}
-              </Button>
+              </button>
             </div>
           </div>
         </div>
@@ -639,7 +800,6 @@ function SettlementDetail({ doctorId, from, to, locale, t }: {
   );
   const fmt = (n: number) => formatCurrency(n, 'EGP', locale);
 
-  // Collect all patient IDs and resolve names
   const patientIds = useMemo(() => txs.map((tx) => tx.patientId).filter(Boolean), [txs]);
   const patientMap = usePatientBatch(patientIds);
 
@@ -747,13 +907,11 @@ function TransactionRow({ tx, fmt, t, patientMap }: {
     <>
       <tr className="hover:bg-white dark:hover:bg-neutral-700/20 transition-colors">
         <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{tx.transactionDate?.slice(0, 10)}</td>
-        {/* Patient name — Issue 3 */}
         <td className="px-3 py-2 max-w-[140px]">
           <span className="font-semibold text-gray-800 dark:text-gray-200 truncate block" title={patientName}>
             {patientName}
           </span>
         </td>
-        {/* Visit type — Issue 6 */}
         <td className="px-3 py-2">
           {visitTypeInfo ? (
             <span className={cn('text-[10px] font-medium px-1.5 py-0.5 rounded', visitTypeInfo.color)}>
@@ -768,7 +926,6 @@ function TransactionRow({ tx, fmt, t, patientMap }: {
         <td className="px-3 py-2 text-end font-mono text-orange-500">{tx.sourceFeePercentage}%</td>
         <td className="px-3 py-2 text-end font-mono tabular-nums text-orange-600 dark:text-orange-400">{fmt(tx.sourceFeeAmount)}</td>
 
-        {/* Extra Services cell — Issue 4: shows count + expand toggle */}
         <td className="px-3 py-2 text-center">
           <div className="flex items-center justify-center gap-1">
             {itemCount > 0 ? (
@@ -796,7 +953,6 @@ function TransactionRow({ tx, fmt, t, patientMap }: {
         <td className="px-3 py-2 text-end font-mono tabular-nums font-semibold text-emerald-700 dark:text-emerald-400">{fmt(clShare)}</td>
       </tr>
 
-      {/* Issue 4: Inline extra services sub-rows */}
       {showExtras && itemCount > 0 && (
         <tr className="bg-violet-50/30 dark:bg-violet-900/5">
           <td colSpan={13} className="px-6 py-2">
@@ -945,11 +1101,11 @@ function ExtraServicesPopup({ tx, initItems, onClose, t, fmt, replaceServices }:
           </div>
         </div>
         <div className="px-5 pb-5 flex justify-end gap-3 border-t border-gray-100 dark:border-neutral-800 pt-4">
-          <Button variant="outline" size="sm" onClick={onClose} disabled={isPending}>{t('إغلاق', 'Close')}</Button>
-          <Button size="sm" onClick={() => void handleSave()} disabled={isPending} className="min-w-24 gap-1.5">
-            {isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-            {t('حفظ التغييرات', 'Save Changes')}
-          </Button>
+          <button className="fc-btn fc-btn-outline fc-btn-sm" onClick={onClose} disabled={isPending}>{t('إغلاق', 'Close')}</button>
+          <button className="fc-btn fc-btn-sm" style={{ minWidth: 96, background: 'var(--color-primary-600)', color: 'white', border: 'none' }}
+            onClick={() => void handleSave()} disabled={isPending}>
+            {isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <><Check className="w-3.5 h-3.5 me-1.5" />{t('حفظ التغييرات', 'Save Changes')}</>}
+          </button>
         </div>
       </div>
     </div>

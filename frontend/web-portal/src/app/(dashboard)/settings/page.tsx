@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useTranslateName } from '@/hooks/useTranslateName';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { identityApi } from '@/lib/api';
 import {
@@ -151,6 +152,7 @@ function CreateUserModal({
   const [form, setForm] = useState({ nameEn: '', nameAr: '', email: '', password: '', role: 'receptionist' as Role });
   const [err, setErr] = useState('');
   const [ok, setOk]   = useState(false);
+  const { translate, translating } = useTranslateName();
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -179,8 +181,36 @@ function CreateUserModal({
       ) : (
         <>
           <div className="grid grid-cols-2 gap-3">
-            <Input label="Name (EN)" labelAr="الاسم (إنجليزي)" lang={lang} value={form.nameEn} onChange={(e) => setForm((f) => ({ ...f, nameEn: e.target.value }))} />
-            <Input label="Name (AR)" labelAr="الاسم (عربي)"    lang={lang} value={form.nameAr} onChange={(e) => setForm((f) => ({ ...f, nameAr: e.target.value }))} />
+            <div className="relative">
+              <Input
+                label="Name (EN)" labelAr="الاسم (إنجليزي)" lang={lang}
+                value={form.nameEn}
+                className={translating === 'en' ? 'pe-8' : ''}
+                onChange={(e) => setForm((f) => ({ ...f, nameEn: e.target.value }))}
+                onBlur={(e) => {
+                  const v = e.target.value.trim();
+                  if (lang === 'en' && v && !form.nameAr.trim()) {
+                    void translate(v, 'en').then((r) => { if (r) setForm((f) => ({ ...f, nameAr: r })); });
+                  }
+                }}
+              />
+              {translating === 'en' && <Loader2 className="absolute bottom-3.5 end-2.5 w-4 h-4 text-primary-500 animate-spin pointer-events-none" />}
+            </div>
+            <div className="relative">
+              <Input
+                label="Name (AR)" labelAr="الاسم (عربي)" lang={lang}
+                value={form.nameAr}
+                className={translating === 'ar' ? 'pe-8' : ''}
+                onChange={(e) => setForm((f) => ({ ...f, nameAr: e.target.value }))}
+                onBlur={(e) => {
+                  const v = e.target.value.trim();
+                  if (lang === 'ar' && v && !form.nameEn.trim()) {
+                    void translate(v, 'ar').then((r) => { if (r) setForm((f) => ({ ...f, nameEn: r })); });
+                  }
+                }}
+              />
+              {translating === 'ar' && <Loader2 className="absolute bottom-3.5 end-2.5 w-4 h-4 text-primary-500 animate-spin pointer-events-none" />}
+            </div>
           </div>
           <Input label="Email" labelAr="البريد الإلكتروني" type="email" lang={lang} value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
           <Input label="Initial Password" labelAr="كلمة المرور الأولية" type="password" lang={lang} value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} />
