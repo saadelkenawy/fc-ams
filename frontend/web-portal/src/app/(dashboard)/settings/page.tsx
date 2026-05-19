@@ -7,9 +7,8 @@ import { identityApi } from '@/lib/api';
 import {
   Building2, Users, Activity, Check, Loader2, Key, RefreshCw, X,
   UserPlus, Edit2, ShieldOff, ShieldCheck, RotateCcw, Search, Trash2,
-  SlidersHorizontal,
+  SlidersHorizontal, ChevronRight, Zap,
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
@@ -46,14 +45,15 @@ interface PlatformUser {
   branchId:    number;
 }
 
-const TABS = [
-  { key: 'clinic',        labelAr: 'معلومات العيادة',   labelEn: 'Clinic Info',   icon: Building2 },
-  { key: 'users',         labelAr: 'المستخدمون',         labelEn: 'Users',          icon: Users },
-  { key: 'system',        labelAr: 'النظام',              labelEn: 'System',         icon: Activity },
-  { key: 'accessibility', labelAr: 'إمكانية الوصول',     labelEn: 'Accessibility',  icon: SlidersHorizontal },
+const SECTIONS = [
+  { key: 'clinic',       labelAr: 'معلومات العيادة', labelEn: 'Clinic Info',   icon: Building2 },
+  { key: 'users',        labelAr: 'المستخدمون',       labelEn: 'Users',         icon: Users },
+  { key: 'system',       labelAr: 'النظام',            labelEn: 'System',        icon: Activity },
+  { key: 'appearance',   labelAr: 'المظهر',            labelEn: 'Appearance',    icon: SlidersHorizontal },
+  { key: 'integrations', labelAr: 'التكاملات',         labelEn: 'Integrations',  icon: Zap },
 ] as const;
 
-type TabKey = typeof TABS[number]['key'];
+type SectionKey = typeof SECTIONS[number]['key'];
 
 const ROLES = ['admin', 'finance', 'doctor', 'receptionist', 'procurement'] as const;
 type Role = typeof ROLES[number];
@@ -66,7 +66,6 @@ const ROLE_META: Record<Role, { labelAr: string; labelEn: string; color: string 
   procurement:  { labelAr: 'مشتريات',          labelEn: 'Procurement',   color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' },
 };
 
-// What each role can access (for the permissions matrix)
 const PERMISSIONS: Array<{ labelAr: string; labelEn: string; admin: boolean; finance: boolean; doctor: boolean; receptionist: boolean; procurement: boolean }> = [
   { labelAr: 'لوحة التحكم',        labelEn: 'Dashboard',        admin: true,  finance: true,  doctor: false, receptionist: false, procurement: false },
   { labelAr: 'إدارة المرضى',       labelEn: 'Patients (all)',   admin: true,  finance: false, doctor: false, receptionist: true,  procurement: false },
@@ -88,37 +87,53 @@ const PERMISSIONS: Array<{ labelAr: string; labelEn: string; admin: boolean; fin
   { labelAr: 'أرباحي',            labelEn: 'Own Earnings',     admin: false, finance: false, doctor: true,  receptionist: false, procurement: false },
 ];
 
-/* ──────────────── Clinic Info Tab ──────────────── */
-function ClinicInfoTab({ t, lang }: { t: (ar: string, en: string) => string; lang: 'ar' | 'en' }) {
+const INTEGRATIONS = [
+  { key: 'vez',      nameEn: 'VEZ',              nameAr: 'فيز',          descEn: 'Egyptian health insurance portal',  descAr: 'بوابة التأمين الصحي المصرية',  connected: false, color: '#10B981', abbr: 'VZ' },
+  { key: 'instapay', nameEn: 'InstaPay',          nameAr: 'إنستاباي',     descEn: 'Instant bank transfers',           descAr: 'تحويلات بنكية فورية',           connected: true,  color: '#7C3AED', abbr: 'IP' },
+  { key: 'whatsapp', nameEn: 'WhatsApp Business', nameAr: 'واتساب بزنس',  descEn: 'Patient messaging & reminders',    descAr: 'مراسلة المرضى والتذكيرات',      connected: false, color: '#25D366', abbr: 'WA' },
+  { key: 'gcal',     nameEn: 'Google Calendar',   nameAr: 'تقويم جوجل',   descEn: 'Sync appointments to Google',      descAr: 'مزامنة المواعيد مع جوجل',       connected: false, color: '#4285F4', abbr: 'GC' },
+] as const;
+
+/* ──────────────── Clinic Info Content ──────────────── */
+function ClinicInfoContent({ t, lang }: { t: (ar: string, en: string) => string; lang: 'ar' | 'en' }) {
   const WORKING_HOURS = [
     { dayAr: 'السبت – الخميس', dayEn: 'Sat – Thu', hours: '08:00 – 20:00' },
     { dayAr: 'الجمعة',          dayEn: 'Friday',     hours: t('إجازة', 'Off') },
   ];
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader><CardTitle>{t('بيانات العيادة الأساسية', 'Basic Clinic Data')}</CardTitle></CardHeader>
-        <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4">
+      <div>
+        <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-100 mb-4">
+          <Building2 className="w-4 h-4 text-gray-400" />
+          {t('بيانات العيادة الأساسية', 'Basic Clinic Data')}
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Input label="Clinic Name (EN)" labelAr="اسم العيادة (إنجليزي)" defaultValue="Fadl Clinic" lang={lang} />
           <Input label="Clinic Name (AR)" labelAr="اسم العيادة (عربي)"    defaultValue="فضل كلينك"   lang={lang} />
           <Input label="Phone"            labelAr="الهاتف"                 defaultValue="+20 100 000 0000" lang={lang} />
           <Input label="Address"          labelAr="العنوان"                defaultValue="Cairo, Egypt" lang={lang} />
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader><CardTitle>{t('أوقات العمل', 'Working Hours')}</CardTitle></CardHeader>
-        <CardContent className="pt-4">
-          <ul className="space-y-2">
-            {WORKING_HOURS.map((row) => (
-              <li key={row.dayEn} className="flex items-center justify-between py-2 border-b border-gray-50 dark:border-neutral-700/50 last:border-0">
-                <span className="text-sm text-gray-700 dark:text-gray-300">{lang === 'ar' ? row.dayAr : row.dayEn}</span>
-                <span className="text-sm font-mono text-gray-500 dark:text-gray-400">{row.hours}</span>
-              </li>
-            ))}
-          </ul>
-        </CardContent>
-      </Card>
-      <Button disabled className="opacity-60 cursor-not-allowed">{t('حفظ التغييرات (قريباً)', 'Save Changes (Coming Soon)')}</Button>
+        </div>
+        <div className="mt-5">
+          <button className="fc-btn fc-btn-md fc-btn-secondary opacity-50 cursor-not-allowed" disabled>
+            {t('حفظ التغييرات (قريباً)', 'Save Changes (Coming Soon)')}
+          </button>
+        </div>
+      </div>
+
+      <div className="border-t border-gray-100 dark:border-neutral-700 pt-6">
+        <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-100 mb-4">
+          <Activity className="w-4 h-4 text-gray-400" />
+          {t('أوقات العمل', 'Working Hours')}
+        </h3>
+        <div className="fc-set-hours-list">
+          {WORKING_HOURS.map((row) => (
+            <div key={row.dayEn} className="fc-set-hours-row">
+              <span className="fc-set-hours-day">{lang === 'ar' ? row.dayAr : row.dayEn}</span>
+              <span className="fc-set-hours-val">{row.hours}</span>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -391,7 +406,7 @@ function DeleteUserModal({
   );
 }
 
-/* ──────────────── My Account card (change password) ──────────────── */
+/* ──────────────── My Account card ──────────────── */
 function MyAccountCard({ t, lang }: { t: (ar: string, en: string) => string; lang: 'ar' | 'en' }) {
   const { user } = useAuth();
   const [showPw, setShowPw] = useState(false);
@@ -425,29 +440,28 @@ function MyAccountCard({ t, lang }: { t: (ar: string, en: string) => string; lan
 
   return (
     <>
-      <Card>
-        <CardHeader><CardTitle>{t('حسابي', 'My Account')}</CardTitle></CardHeader>
-        <CardContent className="pt-4">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full bg-primary-100 dark:bg-primary-900/40 flex items-center justify-center text-primary-700 dark:text-primary-400 text-lg font-bold select-none flex-shrink-0">
-              {(displayName ?? '?').charAt(0).toUpperCase()}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-gray-900 dark:text-gray-100">{displayName ?? '—'}</p>
-              <p className="text-sm text-gray-400 dark:text-gray-500 mt-0.5">{user?.email}</p>
-            </div>
-            <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${ROLE_META[role as Role]?.color ?? 'bg-gray-100 text-gray-600'}`}>
-              {lang === 'ar' ? ROLE_META[role as Role]?.labelAr : ROLE_META[role as Role]?.labelEn}
-            </span>
-          </div>
-          <div className="mt-4 pt-4 border-t border-gray-100 dark:border-neutral-700 flex items-center justify-between">
-            <p className="text-sm text-gray-500 dark:text-gray-400">{t('تغيير كلمة المرور', 'Change Password')}</p>
-            <Button variant="outline" size="sm" onClick={() => setShowPw(true)}>
-              <Key className="w-4 h-4" />{t('تغيير', 'Change')}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="fc-set-profile">
+        <div className="fc-set-profile-avatar">
+          {(displayName ?? '?').charAt(0).toUpperCase()}
+        </div>
+        <div className="fc-set-profile-info">
+          <div className="fc-set-profile-name">{displayName ?? '—'}</div>
+          <div className="fc-set-profile-meta">{user?.email}</div>
+        </div>
+        <div className="fc-set-profile-actions">
+          <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${ROLE_META[role as Role]?.color ?? 'bg-gray-100 text-gray-600'}`}>
+            {lang === 'ar' ? ROLE_META[role as Role]?.labelAr : ROLE_META[role as Role]?.labelEn}
+          </span>
+          <button
+            type="button"
+            className="fc-btn fc-btn-sm fc-btn-outline gap-1.5"
+            onClick={() => setShowPw(true)}
+          >
+            <Key className="w-3.5 h-3.5" />
+            {t('تغيير', 'Change')}
+          </button>
+        </div>
+      </div>
 
       {showPw && (
         <Modal title={t('تغيير كلمة المرور', 'Change Password')} onClose={() => { setShowPw(false); setPwError(''); setPwSuccess(false); setPwForm({ current: '', next: '', confirm: '' }); }}>
@@ -473,8 +487,8 @@ function MyAccountCard({ t, lang }: { t: (ar: string, en: string) => string; lan
   );
 }
 
-/* ──────────────── Users Tab ──────────────── */
-function UsersTab({ t, lang }: { t: (ar: string, en: string) => string; lang: 'ar' | 'en' }) {
+/* ──────────────── Users Content ──────────────── */
+function UsersContent({ t, lang }: { t: (ar: string, en: string) => string; lang: 'ar' | 'en' }) {
   const qc = useQueryClient();
   const { user: currentUser } = useAuth();
   const [search, setSearch]               = useState('');
@@ -483,7 +497,7 @@ function UsersTab({ t, lang }: { t: (ar: string, en: string) => string; lang: 'a
   const [resetPwUser, setResetPwUser]         = useState<PlatformUser | null>(null);
   const [deleteConfirmUser, setDeleteConfirm] = useState<PlatformUser | null>(null);
 
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['platform-users'],
     queryFn:  async () => {
       const { data: res } = await identityApi.get<{ success: boolean; data: PlatformUser[] }>('/users');
@@ -517,159 +531,149 @@ function UsersTab({ t, lang }: { t: (ar: string, en: string) => string; lang: 'a
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <MyAccountCard t={t} lang={lang} />
 
-      {/* Platform users management */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <CardTitle><Users className="w-4 h-4" />{t('مستخدمو المنصة', 'Platform Users')}</CardTitle>
-            <Button size="sm" onClick={() => setShowCreate(true)} className="gap-1.5">
-              <UserPlus className="w-4 h-4" />
-              {t('مستخدم جديد', 'New User')}
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4 pt-2">
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute top-1/2 -translate-y-1/2 start-3 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
-            <input
-              type="text"
-              placeholder={t('بحث بالاسم أو البريد...', 'Search by name or email...')}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full h-9 ps-9 pe-4 text-sm bg-gray-50 dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-600 text-gray-800 dark:text-gray-100 placeholder:text-gray-400"
-            />
-          </div>
+      <div className="border-t border-gray-100 dark:border-neutral-700 pt-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-100">
+            <Users className="w-4 h-4 text-gray-400" />
+            {t('مستخدمو المنصة', 'Platform Users')}
+          </h3>
+          <button type="button" className="fc-btn fc-btn-sm fc-btn-primary gap-1.5" onClick={() => setShowCreate(true)}>
+            <UserPlus className="w-3.5 h-3.5" />
+            {t('مستخدم جديد', 'New User')}
+          </button>
+        </div>
 
-          {/* Table */}
-          {isLoading ? (
-            <div className="flex items-center justify-center py-10 gap-2 text-gray-400">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span className="text-sm">{t('جاري التحميل...', 'Loading...')}</span>
-            </div>
-          ) : (
-            <div className="overflow-x-auto rounded-xl border border-gray-100 dark:border-neutral-700">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-gray-50/80 dark:bg-neutral-900/50 border-b border-gray-100 dark:border-neutral-700">
-                    {[t('المستخدم', 'User'), t('الدور', 'Role'), t('الحالة', 'Status'), t('آخر دخول', 'Last Login'), t('إجراءات', 'Actions')].map((h) => (
-                      <th key={h} className="text-start px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{h}</th>
-                    ))}
+        <div className="relative mb-4">
+          <Search className="absolute top-1/2 -translate-y-1/2 start-3 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+          <input
+            type="text"
+            placeholder={t('بحث بالاسم أو البريد...', 'Search by name or email...')}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full h-9 ps-9 pe-4 text-sm bg-gray-50 dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-600 text-gray-800 dark:text-gray-100 placeholder:text-gray-400"
+          />
+        </div>
+
+        {isLoading ? (
+          <div className="flex items-center justify-center py-10 gap-2 text-gray-400">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            <span className="text-sm">{t('جاري التحميل...', 'Loading...')}</span>
+          </div>
+        ) : (
+          <div className="fc-table-wrap rounded-xl border border-gray-100 dark:border-neutral-700">
+            <table className="fc-table">
+              <thead>
+                <tr>
+                  {[t('المستخدم', 'User'), t('الدور', 'Role'), t('الحالة', 'Status'), t('آخر دخول', 'Last Login'), t('إجراءات', 'Actions')].map((h) => (
+                    <th key={h}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {users.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-10 text-center text-gray-400 text-sm">
+                      {t('لا توجد نتائج', 'No users found')}
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50 dark:divide-neutral-700/50">
-                  {users.length === 0 && (
-                    <tr>
-                      <td colSpan={5} className="px-4 py-10 text-center text-gray-400 text-sm">
-                        {t('لا توجد نتائج', 'No users found')}
+                )}
+                {users.map((u) => {
+                  const isSelf = u.id === currentUser?.id;
+                  return (
+                    <tr key={u.id}>
+                      <td>
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-900/40 flex items-center justify-center text-primary-700 dark:text-primary-400 text-sm font-bold flex-shrink-0">
+                            {u.nameEn.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-medium text-gray-900 dark:text-gray-100 truncate text-sm">
+                              {lang === 'ar' ? (u.nameAr ?? u.nameEn) : u.nameEn}
+                              {isSelf && <span className="ms-1.5 text-[10px] text-primary-500">{t('(أنا)', '(me)')}</span>}
+                            </p>
+                            <p className="text-xs text-gray-400 dark:text-gray-500 truncate">{u.email}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${ROLE_META[u.role as Role]?.color ?? 'bg-gray-100 text-gray-600'}`}>
+                          {lang === 'ar' ? ROLE_META[u.role as Role]?.labelAr : ROLE_META[u.role as Role]?.labelEn}
+                        </span>
+                      </td>
+                      <td>
+                        {u.isActive ? (
+                          <Badge variant="success" className="gap-1 text-xs"><Check className="w-3 h-3" />{t('نشط', 'Active')}</Badge>
+                        ) : (
+                          <Badge variant="default" className="text-xs text-gray-500">{t('معطل', 'Inactive')}</Badge>
+                        )}
+                      </td>
+                      <td className="text-xs text-gray-400 whitespace-nowrap">{relTime(u.lastLoginAt)}</td>
+                      <td>
+                        <div className="fc-row-actions">
+                          <button
+                            type="button"
+                            onClick={() => setEditRoleUser(u)}
+                            className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-700 text-gray-400 hover:text-primary-600 transition-colors"
+                            aria-label={t('تغيير الدور', 'Edit role')}
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setResetPwUser(u)}
+                            className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-700 text-gray-400 hover:text-amber-600 transition-colors"
+                            aria-label={t('إعادة تعيين كلمة المرور', 'Reset password')}
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                          </button>
+                          {!isSelf && (
+                            <button
+                              type="button"
+                              onClick={() => toggleActive.mutate({ id: u.id, isActive: !u.isActive })}
+                              className={`p-1.5 rounded-lg transition-colors ${u.isActive
+                                ? 'hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500'
+                                : 'hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-gray-400 hover:text-emerald-600'
+                              }`}
+                              aria-label={u.isActive ? t('تعطيل', 'Deactivate') : t('تفعيل', 'Activate')}
+                            >
+                              {u.isActive ? <ShieldOff className="w-3.5 h-3.5" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+                            </button>
+                          )}
+                          {!isSelf && (
+                            <button
+                              type="button"
+                              onClick={() => setDeleteConfirm(u)}
+                              className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-300 hover:text-red-500 dark:text-gray-600 dark:hover:text-red-400 transition-colors"
+                              aria-label={t('حذف المستخدم', 'Delete user')}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
-                  )}
-                  {users.map((u) => {
-                    const isSelf = u.id === currentUser?.id;
-                    return (
-                      <tr key={u.id} className="hover:bg-gray-50/50 dark:hover:bg-neutral-700/20 transition-colors">
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-900/40 flex items-center justify-center text-primary-700 dark:text-primary-400 text-sm font-bold flex-shrink-0">
-                              {u.nameEn.charAt(0).toUpperCase()}
-                            </div>
-                            <div className="min-w-0">
-                              <p className="font-medium text-gray-900 dark:text-gray-100 truncate">
-                                {lang === 'ar' ? (u.nameAr ?? u.nameEn) : u.nameEn}
-                                {isSelf && <span className="ms-1.5 text-[10px] text-primary-500">{t('(أنا)', '(me)')}</span>}
-                              </p>
-                              <p className="text-xs text-gray-400 dark:text-gray-500 truncate">{u.email}</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${ROLE_META[u.role as Role]?.color ?? 'bg-gray-100 text-gray-600'}`}>
-                            {lang === 'ar' ? ROLE_META[u.role as Role]?.labelAr : ROLE_META[u.role as Role]?.labelEn}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          {u.isActive ? (
-                            <Badge variant="success" className="gap-1 text-xs"><Check className="w-3 h-3" />{t('نشط', 'Active')}</Badge>
-                          ) : (
-                            <Badge variant="default" className="text-xs text-gray-500">{t('معطل', 'Inactive')}</Badge>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">{relTime(u.lastLoginAt)}</td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-1">
-                            {/* Edit role */}
-                            <button
-                              type="button"
-                              onClick={() => setEditRoleUser(u)}
-                              className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-700 text-gray-400 hover:text-primary-600 transition-colors"
-                              aria-label={t('تغيير الدور', 'Edit role')}
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                            </button>
-                            {/* Reset password — admin-initiated only */}
-                            <button
-                              type="button"
-                              onClick={() => setResetPwUser(u)}
-                              className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-700 text-gray-400 hover:text-amber-600 transition-colors"
-                              aria-label={t('إعادة تعيين كلمة المرور', 'Reset password')}
-                            >
-                              <RotateCcw className="w-3.5 h-3.5" />
-                            </button>
-                            {/* Activate / Deactivate */}
-                            {!isSelf && (
-                              <button
-                                type="button"
-                                onClick={() => toggleActive.mutate({ id: u.id, isActive: !u.isActive })}
-                                className={`p-1.5 rounded-lg transition-colors ${u.isActive
-                                  ? 'hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500'
-                                  : 'hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-gray-400 hover:text-emerald-600'
-                                }`}
-                                aria-label={u.isActive ? t('تعطيل', 'Deactivate') : t('تفعيل', 'Activate')}
-                              >
-                                {u.isActive ? <ShieldOff className="w-3.5 h-3.5" /> : <ShieldCheck className="w-3.5 h-3.5" />}
-                              </button>
-                            )}
-                            {/* Delete */}
-                            {!isSelf && (
-                              <button
-                                type="button"
-                                onClick={() => setDeleteConfirm(u)}
-                                className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-300 hover:text-red-500 dark:text-gray-600 dark:hover:text-red-400 transition-colors"
-                                aria-label={t('حذف المستخدم', 'Delete user')}
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
-      {/* Permissions matrix — always visible */}
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('مصفوفة الصلاحيات', 'Permissions Matrix')}</CardTitle>
-        </CardHeader>
-        <CardContent className="pt-0 overflow-x-auto">
-          <table className="w-full text-xs border-collapse">
+      <div className="border-t border-gray-100 dark:border-neutral-700 pt-6">
+        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-4">
+          {t('مصفوفة الصلاحيات', 'Permissions Matrix')}
+        </h3>
+        <div className="fc-table-wrap">
+          <table className="fc-table">
             <thead>
-              <tr className="bg-gray-50 dark:bg-neutral-800/60">
-                <th className="text-start py-3 px-4 font-medium text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-neutral-700 min-w-[180px]">
-                  {t('الصلاحية', 'Permission')}
-                </th>
+              <tr>
+                <th className="min-w-[160px]">{t('الصلاحية', 'Permission')}</th>
                 {ROLES.map((r) => (
-                  <th key={r} className="py-3 px-4 text-center font-medium border-b border-gray-200 dark:border-neutral-700 whitespace-nowrap">
+                  <th key={r} className="is-center whitespace-nowrap">
                     <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold ${ROLE_META[r].color}`}>
                       {lang === 'ar' ? ROLE_META[r].labelAr : ROLE_META[r].labelEn}
                     </span>
@@ -678,13 +682,11 @@ function UsersTab({ t, lang }: { t: (ar: string, en: string) => string; lang: 'a
               </tr>
             </thead>
             <tbody>
-              {PERMISSIONS.map((perm, i) => (
-                <tr key={perm.labelEn} className={`border-b border-gray-100 dark:border-neutral-700/50 transition-colors hover:bg-primary-50/30 dark:hover:bg-primary-900/10 ${i % 2 === 0 ? '' : 'bg-gray-50/40 dark:bg-neutral-800/20'}`}>
-                  <td className="py-2.5 px-4 text-gray-700 dark:text-gray-300 font-medium">
-                    {lang === 'ar' ? perm.labelAr : perm.labelEn}
-                  </td>
+              {PERMISSIONS.map((perm) => (
+                <tr key={perm.labelEn}>
+                  <td className="font-medium text-xs">{lang === 'ar' ? perm.labelAr : perm.labelEn}</td>
                   {ROLES.map((r) => (
-                    <td key={r} className="py-2.5 px-4 text-center">
+                    <td key={r} className="is-center">
                       {perm[r] ? (
                         <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-900/30 mx-auto">
                           <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
@@ -700,10 +702,9 @@ function UsersTab({ t, lang }: { t: (ar: string, en: string) => string; lang: 'a
               ))}
             </tbody>
           </table>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      {/* Modals */}
       {showCreate        && <CreateUserModal    lang={lang} t={t} onClose={() => setShowCreate(false)}      onDone={invalidate} />}
       {editRoleUser      && <EditRoleModal      lang={lang} t={t} user={editRoleUser}      onClose={() => setEditRoleUser(null)}   onDone={invalidate} />}
       {resetPwUser       && <ResetPasswordModal lang={lang} t={t} user={resetPwUser}       onClose={() => setResetPwUser(null)} />}
@@ -712,8 +713,8 @@ function UsersTab({ t, lang }: { t: (ar: string, en: string) => string; lang: 'a
   );
 }
 
-/* ──────────────── System Tab ──────────────── */
-function SystemTab({ t, lang }: { t: (ar: string, en: string) => string; lang: 'ar' | 'en' }) {
+/* ──────────────── System Content ──────────────── */
+function SystemContent({ t, lang }: { t: (ar: string, en: string) => string; lang: 'ar' | 'en' }) {
   const { data, isLoading, refetch, isFetching } = useQuery({
     queryKey: ['service-health'],
     queryFn:  async (): Promise<{ services: ServiceStatus[]; checkedAt: string }> => {
@@ -728,46 +729,48 @@ function SystemTab({ t, lang }: { t: (ar: string, en: string) => string; lang: '
   const checkedAt = data?.checkedAt;
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>{t('حالة الخدمات', 'Service Health')}</CardTitle>
-            <Button variant="ghost" size="sm" onClick={() => void refetch()} disabled={isFetching} className="gap-1.5">
-              <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? 'animate-spin' : ''}`} />
-              {t('تحديث', 'Refresh')}
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="pt-2">
-          {checkedAt && <p className="text-[10px] text-gray-400 dark:text-gray-500 mb-4 font-mono">{t('آخر فحص:', 'Last checked:')} {new Date(checkedAt).toLocaleTimeString()}</p>}
-          {isLoading ? (
-            <div className="flex items-center justify-center py-8 gap-2 text-gray-400">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span className="text-sm">{t('جاري الفحص...', 'Checking services...')}</span>
-            </div>
-          ) : (
-            services.map((svc) => (
-              <div key={svc.key} className="flex items-center justify-between py-3 border-b border-gray-50 dark:border-neutral-700/50 last:border-0">
-                <span className="text-sm text-gray-700 dark:text-gray-300">{lang === 'ar' ? svc.nameAr : svc.name}</span>
-                <div className="flex items-center gap-2">
-                  {svc.ms !== null && <span className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">{svc.ms}ms</span>}
-                  {svc.ok ? (
-                    <Badge variant="success" className="gap-1"><Check className="w-3 h-3" />{t('متاح', 'Online')}</Badge>
-                  ) : (
-                    <Badge variant="default" className="gap-1 text-gray-500 dark:text-gray-400"><span className="w-1.5 h-1.5 rounded-full bg-gray-400" />{t('غير متاح', 'Down')}</Badge>
-                  )}
-                </div>
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-100">
+          <Activity className="w-4 h-4 text-gray-400" />
+          {t('حالة الخدمات', 'Service Health')}
+        </h3>
+        <button type="button" className="fc-btn fc-btn-sm fc-btn-ghost gap-1.5" onClick={() => void refetch()} disabled={isFetching}>
+          <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? 'animate-spin' : ''}`} />
+          {t('تحديث', 'Refresh')}
+        </button>
+      </div>
+      {checkedAt && (
+        <p className="text-[10px] text-gray-400 dark:text-gray-500 mb-4 font-mono">
+          {t('آخر فحص:', 'Last checked:')} {new Date(checkedAt).toLocaleTimeString()}
+        </p>
+      )}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-8 gap-2 text-gray-400">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          <span className="text-sm">{t('جاري الفحص...', 'Checking services...')}</span>
+        </div>
+      ) : (
+        <div className="fc-set-health-list">
+          {services.map((svc) => (
+            <div key={svc.key} className="fc-set-health-row">
+              <span className="fc-set-health-name">{lang === 'ar' ? svc.nameAr : svc.name}</span>
+              <div className="fc-set-health-right">
+                {svc.ms !== null && <span className="fc-set-health-ms">{svc.ms}ms</span>}
+                <span className={`fc-set-health-badge ${svc.ok ? 'is-ok' : 'is-down'}`}>
+                  <span className="fc-set-health-dot" />
+                  {svc.ok ? t('متاح', 'Online') : t('غير متاح', 'Down')}
+                </span>
               </div>
-            ))
-          )}
-        </CardContent>
-      </Card>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
-/* ──────────────── Accessibility Tab ──────────────── */
+/* ──────────────── Appearance Content ──────────────── */
 const TEXT_SIZES = [
   { key: 'sm' as const, labelAr: 'صغير',      labelEn: 'Small' },
   { key: 'md' as const, labelAr: 'متوسط',     labelEn: 'Medium' },
@@ -776,14 +779,14 @@ const TEXT_SIZES = [
 ] as const;
 type TextSizeKey = typeof TEXT_SIZES[number]['key'];
 
-const HC_THEMES: { id: ThemeId; labelAr: string; labelEn: string }[] = [
-  { id: 'light',          labelAr: 'فاتح',          labelEn: 'Light' },
-  { id: 'dark',           labelAr: 'داكن',           labelEn: 'Dark' },
-  { id: 'teal',           labelAr: 'تيل طبي',        labelEn: 'Medical Teal' },
-  { id: 'high-contrast',  labelAr: 'تباين عالٍ',     labelEn: 'High Contrast' },
+const THEMES: { id: ThemeId; labelAr: string; labelEn: string; bg: string; fg: string }[] = [
+  { id: 'light',         labelAr: 'فاتح',      labelEn: 'Light',         bg: '#F8FAFC', fg: '#1E293B' },
+  { id: 'dark',          labelAr: 'داكن',       labelEn: 'Dark',          bg: '#0F1623', fg: '#E2E8F0' },
+  { id: 'teal',          labelAr: 'تيل طبي',    labelEn: 'Medical Teal',  bg: '#0D9488', fg: '#FFFFFF' },
+  { id: 'high-contrast', labelAr: 'تباين عالٍ', labelEn: 'High Contrast', bg: '#111827', fg: '#FFFFFF' },
 ];
 
-function AccessibilityTab({ t, lang }: { t: (ar: string, en: string) => string; lang: string }) {
+function AppearanceContent({ t, lang }: { t: (ar: string, en: string) => string; lang: string }) {
   const { theme, setTheme } = useTheme();
   const [textSize, setTextSizeState] = useState<TextSizeKey>('md');
 
@@ -800,70 +803,113 @@ function AccessibilityTab({ t, lang }: { t: (ar: string, en: string) => string; 
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Text size */}
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('حجم النص', 'Text Size')}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {t('اختر حجم النص المناسب لراحة القراءة', 'Choose a text size comfortable for reading')}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {TEXT_SIZES.map((s) => (
-              <button
-                key={s.key}
-                type="button"
-                onClick={() => applyTextSize(s.key)}
-                className={[
-                  'px-4 py-2 rounded-full text-sm font-medium transition-all duration-150 border cursor-pointer',
-                  textSize === s.key
-                    ? 'bg-primary-600 text-white border-primary-600'
-                    : 'bg-white dark:bg-neutral-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-neutral-700 hover:border-primary-400',
-                ].join(' ')}
-              >
-                {lang === 'ar' ? s.labelAr : s.labelEn}
-              </button>
-            ))}
-          </div>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            {t('معاينة: ', 'Preview: ')}
-            <span className="font-medium text-gray-800 dark:text-gray-200">
-              {t('نص العينة — فضل كلينك لإدارة العيادات', 'Sample text — Fadl Clinic Management System')}
-            </span>
-          </p>
-        </CardContent>
-      </Card>
+      <div>
+        <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-100 mb-1">
+          <SlidersHorizontal className="w-4 h-4 text-gray-400" />
+          {t('حجم النص', 'Text Size')}
+        </h3>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+          {t('اختر حجم النص المناسب لراحة القراءة', 'Choose a text size comfortable for reading')}
+        </p>
+        <div className="fc-set-size-row">
+          {TEXT_SIZES.map((s) => (
+            <button
+              key={s.key}
+              type="button"
+              onClick={() => applyTextSize(s.key)}
+              className={`fc-set-size-btn${textSize === s.key ? ' is-active' : ''}`}
+            >
+              {lang === 'ar' ? s.labelAr : s.labelEn}
+            </button>
+          ))}
+        </div>
+        <div className="fc-set-preview">
+          {t('معاينة: ', 'Preview: ')}
+          <strong>{t('نص العينة — فضل كلينك لإدارة العيادات', 'Sample text — Fadl Clinic Management System')}</strong>
+        </div>
+      </div>
 
-      {/* Theme / high contrast */}
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('مظهر النظام', 'Appearance')}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {t('وضع التباين العالي مناسب لذوي ضعف البصر والمسنين', 'High Contrast mode is recommended for users with visual impairment or elderly users')}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {HC_THEMES.map((th) => (
-              <button
-                key={th.id}
-                type="button"
-                onClick={() => setTheme(th.id)}
-                className={[
-                  'px-4 py-2 rounded-full text-sm font-medium transition-all duration-150 border cursor-pointer',
-                  theme === th.id
-                    ? 'bg-primary-600 text-white border-primary-600'
-                    : 'bg-white dark:bg-neutral-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-neutral-700 hover:border-primary-400',
-                ].join(' ')}
+      {/* Theme */}
+      <div className="border-t border-gray-100 dark:border-neutral-700 pt-6">
+        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-1">
+          {t('مظهر النظام', 'Theme')}
+        </h3>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+          {t('وضع التباين العالي مناسب لذوي ضعف البصر والمسنين', 'High Contrast mode is recommended for users with visual impairment or elderly users')}
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {THEMES.map((th) => (
+            <button
+              key={th.id}
+              type="button"
+              onClick={() => setTheme(th.id)}
+              className={`rounded-xl border p-3 text-left transition-all ${
+                theme === th.id
+                  ? 'border-primary-600 ring-2 ring-primary-600/20'
+                  : 'border-gray-200 dark:border-neutral-700 hover:border-gray-300 dark:hover:border-neutral-600'
+              }`}
+            >
+              <div
+                className="rounded-lg mb-2.5 h-14 flex items-center px-3 text-sm font-medium"
+                style={{ background: th.bg, color: th.fg }}
               >
+                Aa Bb 0123
+              </div>
+              <p className="text-xs font-medium text-gray-800 dark:text-gray-100">
                 {lang === 'ar' ? th.labelAr : th.labelEn}
+              </p>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ──────────────── Integrations Content ──────────────── */
+function IntegrationsContent({ t, lang }: { t: (ar: string, en: string) => string; lang: string }) {
+  return (
+    <div>
+      <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-100 mb-1">
+        <Zap className="w-4 h-4 text-gray-400" />
+        {t('التكاملات الخارجية', 'External Integrations')}
+      </h3>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+        {t('ربط العيادة بالخدمات والأنظمة الخارجية', 'Connect your clinic to external services and systems')}
+      </p>
+      <div className="divide-y divide-gray-100 dark:divide-neutral-700">
+        {INTEGRATIONS.map((intg) => (
+          <div key={intg.key} className="flex items-center gap-4 py-4 first:pt-0 last:pb-0">
+            <div
+              className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+              style={{ background: intg.color }}
+            >
+              {intg.abbr}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                {lang === 'ar' ? intg.nameAr : intg.nameEn}
+              </p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                {lang === 'ar' ? intg.descAr : intg.descEn}
+              </p>
+            </div>
+            {intg.connected ? (
+              <Badge variant="success" className="text-xs shrink-0">{t('متصل', 'Connected')}</Badge>
+            ) : (
+              <button
+                type="button"
+                className="fc-btn fc-btn-sm fc-btn-outline shrink-0 opacity-60 cursor-not-allowed"
+                disabled
+              >
+                {t('ربط (قريباً)', 'Connect (Soon)')}
               </button>
-            ))}
+            )}
           </div>
-        </CardContent>
-      </Card>
+        ))}
+      </div>
     </div>
   );
 }
@@ -872,7 +918,7 @@ function AccessibilityTab({ t, lang }: { t: (ar: string, en: string) => string; 
 export default function SettingsPage() {
   const { lang, t } = useLang();
   const jwtUser = getUser();
-  const [activeTab, setActiveTab] = useState<TabKey>('clinic');
+  const [section, setSection] = useState<SectionKey>('clinic');
 
   const isAdmin = jwtUser.role === 'admin';
 
@@ -890,37 +936,48 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-5 max-w-5xl mx-auto">
-      <div>
-        <h2 className="text-2xl font-bold font-display text-gray-900 dark:text-gray-100">{t('الإعدادات', 'Settings')}</h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{t('إعدادات النظام والعيادة', 'System and clinic configuration')}</p>
+    <div className="fc-page max-w-7xl mx-auto">
+      <div className="fc-page-head">
+        <div>
+          <h2 className="fc-page-title">{t('الإعدادات', 'Settings')}</h2>
+          <p className="fc-page-sub">{t('إعدادات النظام والعيادة', 'System and clinic configuration')}</p>
+        </div>
       </div>
 
-      <div className="flex flex-wrap gap-1 bg-gray-100 dark:bg-neutral-800 rounded-full p-1 w-fit">
-        {TABS.map((tab) => {
-          const Icon = tab.icon;
-          return (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={[
-                'flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-150 cursor-pointer',
-                activeTab === tab.key
-                  ? 'bg-white dark:bg-neutral-700 text-gray-900 dark:text-gray-100 shadow-sm'
-                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300',
-              ].join(' ')}
-            >
-              <Icon className="w-4 h-4" />
-              {lang === 'ar' ? tab.labelAr : tab.labelEn}
-            </button>
-          );
-        })}
-      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Sidebar nav */}
+        <div className="fc-card p-2 self-start">
+          {SECTIONS.map((s) => {
+            const Icon = s.icon;
+            const isActive = section === s.key;
+            return (
+              <button
+                key={s.key}
+                type="button"
+                onClick={() => setSection(s.key)}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                  isActive
+                    ? 'bg-primary-50 text-primary-700 font-semibold dark:bg-primary-900/20 dark:text-primary-300'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-neutral-700/50'
+                }`}
+              >
+                <Icon className="w-4 h-4 flex-shrink-0" />
+                <span className="flex-1 text-start">{lang === 'ar' ? s.labelAr : s.labelEn}</span>
+                {isActive && <ChevronRight className={`w-4 h-4 opacity-40 flex-shrink-0 ${lang === 'ar' ? 'rotate-180' : ''}`} />}
+              </button>
+            );
+          })}
+        </div>
 
-      {activeTab === 'clinic'        && <ClinicInfoTab    t={t} lang={lang} />}
-      {activeTab === 'users'         && <UsersTab         t={t} lang={lang} />}
-      {activeTab === 'system'        && <SystemTab        t={t} lang={lang} />}
-      {activeTab === 'accessibility' && <AccessibilityTab t={t} lang={lang} />}
+        {/* Content card */}
+        <div className="fc-card p-6 lg:col-span-3">
+          {section === 'clinic'       && <ClinicInfoContent    t={t} lang={lang} />}
+          {section === 'users'        && <UsersContent         t={t} lang={lang} />}
+          {section === 'system'       && <SystemContent        t={t} lang={lang} />}
+          {section === 'appearance'   && <AppearanceContent    t={t} lang={lang} />}
+          {section === 'integrations' && <IntegrationsContent  t={t} lang={lang} />}
+        </div>
+      </div>
     </div>
   );
 }

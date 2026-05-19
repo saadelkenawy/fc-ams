@@ -1077,6 +1077,7 @@ html { transition: background-color 350ms ease, color 350ms ease; }
    ============================================================ */
 .fc-table-wrap {
   overflow-x: auto;
+  overflow-y: clip; /* prevent implicit overflow-y:auto from overflow-x:auto */
   -webkit-overflow-scrolling: touch;
 }
 .fc-table {
@@ -1251,6 +1252,75 @@ html { transition: background-color 350ms ease, color 350ms ease; }
 
 /* RTL */
 [dir="rtl"] .fc-stl-hist-amount { text-align: left; }
+
+/* ── Settings page (fc-set-*) ─────────────────────────────────────────── */
+
+
+/* Table column center modifier (shared) */
+.fc-table th.is-center, .fc-table td.is-center { text-align: center; }
+
+/* Profile hero card */
+.fc-set-profile { display: flex; align-items: center; gap: 16px; padding: 20px; background: white; border: 1px solid var(--color-gray-100); border-radius: 14px; box-shadow: var(--shadow-2); }
+.fc-set-profile-avatar { width: 52px; height: 52px; border-radius: 50%; background: var(--color-primary-100); color: var(--color-primary-700); font: 700 20px/52px var(--font-display); text-align: center; flex-shrink: 0; user-select: none; }
+.fc-set-profile-info { flex: 1; min-width: 0; }
+.fc-set-profile-name { font: 700 15px/1.3 var(--font-display); color: var(--color-gray-900); }
+.fc-set-profile-meta { font: 400 12px/1.4 var(--font-body); color: var(--color-gray-400); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fc-set-profile-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+/* Service health rows */
+.fc-set-health-list { display: flex; flex-direction: column; }
+.fc-set-health-row { display: flex; align-items: center; justify-content: space-between; padding: 11px 0; border-bottom: 1px solid var(--color-gray-50); }
+.fc-set-health-row:last-child { border-bottom: none; }
+.fc-set-health-name { font: 500 13px/1.4 var(--font-body); color: var(--color-gray-700); }
+.fc-set-health-right { display: flex; align-items: center; gap: 8px; }
+.fc-set-health-ms { font: 400 11px/1 'Geist Mono', monospace; color: var(--color-gray-400); background: var(--color-gray-50); border: 1px solid var(--color-gray-100); border-radius: 6px; padding: 3px 7px; }
+.fc-set-health-badge { display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; padding: 4px 10px; font: 600 11px/1 var(--font-body); }
+.fc-set-health-badge.is-ok   { background: #ECFDF5; color: #059669; }
+.fc-set-health-badge.is-down { background: var(--color-gray-100); color: var(--color-gray-500); }
+.fc-set-health-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+
+/* Theme swatches */
+.fc-set-theme-grid { display: flex; flex-wrap: wrap; gap: 14px; }
+.fc-set-theme-btn { display: flex; flex-direction: column; align-items: center; gap: 7px; cursor: pointer; border: none; background: transparent; padding: 0; }
+.fc-set-theme-swatch { width: 52px; height: 52px; border-radius: 14px; border: 2px solid transparent; box-shadow: var(--shadow-2); transition: all .15s var(--ease-out); }
+.fc-set-theme-btn.is-active .fc-set-theme-swatch { border-color: var(--color-primary-600); box-shadow: 0 0 0 4px rgba(220,38,38,0.12), var(--shadow-2); transform: translateY(-1px); }
+.fc-set-theme-lbl { font: 500 11px/1.3 var(--font-body); color: var(--color-gray-500); text-align: center; white-space: nowrap; }
+.fc-set-theme-btn.is-active .fc-set-theme-lbl { color: var(--color-primary-600); font-weight: 700; }
+
+/* Text size buttons */
+.fc-set-size-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.fc-set-size-btn { height: 36px; padding: 0 18px; border-radius: 999px; font: 600 13px/1 var(--font-body); border: 1px solid var(--color-gray-200); background: white; color: var(--color-gray-700); cursor: pointer; transition: all .15s var(--ease-out); }
+.fc-set-size-btn:hover { border-color: var(--color-primary-400); color: var(--color-primary-700); }
+.fc-set-size-btn.is-active { background: var(--color-primary-600); color: white; border-color: var(--color-primary-600); }
+
+/* Accessibility preview text */
+.fc-set-preview { margin-top: 12px; padding: 12px 14px; background: var(--color-gray-50); border: 1px solid var(--color-gray-100); border-radius: 10px; font: 500 13px/1.5 var(--font-body); color: var(--color-gray-700); }
+
+/* Working hours list */
+.fc-set-hours-list { display: flex; flex-direction: column; }
+.fc-set-hours-row { display: flex; align-items: center; justify-content: space-between; padding: 11px 0; border-bottom: 1px solid var(--color-gray-50); }
+.fc-set-hours-row:last-child { border-bottom: none; }
+.fc-set-hours-day { font: 500 13px/1.4 var(--font-body); color: var(--color-gray-700); }
+.fc-set-hours-val { font: 500 13px/1 'Geist Mono', monospace; color: var(--color-gray-500); }
+
+/* Dark mode */
+
+[data-theme="dark"] .fc-set-profile { background: #131A2A; border-color: #1F2738; }
+[data-theme="dark"] .fc-set-profile-avatar { background: rgba(220,38,38,0.18); color: #FCA5A5; }
+[data-theme="dark"] .fc-set-profile-name { color: #E5E7EB; }
+[data-theme="dark"] .fc-set-profile-meta { color: #64748B; }
+[data-theme="dark"] .fc-set-health-row { border-bottom-color: #1F2738; }
+[data-theme="dark"] .fc-set-health-name { color: #CBD5E1; }
+[data-theme="dark"] .fc-set-health-ms { background: #0F1623; border-color: #1F2738; color: #64748B; }
+[data-theme="dark"] .fc-set-health-badge.is-ok { background: rgba(16,185,129,0.15); color: #6EE7B7; }
+[data-theme="dark"] .fc-set-health-badge.is-down { background: #1F2738; color: #64748B; }
+[data-theme="dark"] .fc-set-size-btn { background: #131A2A; border-color: #1F2738; color: #CBD5E1; }
+[data-theme="dark"] .fc-set-size-btn:hover { border-color: var(--color-primary-400); color: #FCA5A5; }
+[data-theme="dark"] .fc-set-size-btn.is-active { background: var(--color-primary-600); color: white; border-color: transparent; }
+[data-theme="dark"] .fc-set-preview { background: #0F1623; border-color: #1F2738; color: #CBD5E1; }
+[data-theme="dark"] .fc-set-hours-row { border-bottom-color: #1F2738; }
+[data-theme="dark"] .fc-set-hours-day { color: #CBD5E1; }
+[data-theme="dark"] .fc-set-hours-val { color: #64748B; }
 
 /* ── Invoice print / PDF ────────────────────────────────────────────────── */
 @media print {
