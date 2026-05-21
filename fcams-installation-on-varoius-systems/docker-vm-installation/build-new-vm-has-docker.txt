@@ -1,0 +1,24 @@
+No — you don't pull each image separately
+  
+  On any server, the entire system starts with 3 commands:
+
+  # 1. Copy these files to your server (scp/rsync)
+  #    docker-compose.registry.yml
+  #    infra/  (the whole folder)
+  #    .env    (copy .env.example → .env, fill in secrets)
+
+  # 2. Login once
+  docker login
+
+  # 3. Pull ALL images + start everything
+  docker compose -f docker-compose.registry.yml up -d
+
+  Docker Compose fetches all 14 images automatically and starts them in dependency order.
+
+  ---
+  To update later (new release)
+
+  docker compose -f docker-compose.registry.yml pull
+  docker compose -f docker-compose.registry.yml up -d
+
+  That's it — it only re-downloads layers that changed.
