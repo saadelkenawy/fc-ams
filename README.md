@@ -16,7 +16,8 @@ A production microservices platform replacing Excel-based clinic operations at F
 8. [Frontend Structure](#8-frontend-structure)
 9. [Migration History](#9-migration-history)
 10. [Development Workflow](#10-development-workflow)
-11. [Phase & Status](#11-phase--status)
+11. [Deployment & Registry](#11-deployment--registry)
+12. [Phase & Status](#12-phase--status)
 
 ---
 
@@ -864,7 +865,108 @@ cd services/doctor-service && npx tsc --noEmit
 
 ---
 
-## 11. Phase & Status
+## 11. Deployment & Registry
+
+### Branch Strategy
+
+| Branch | Purpose | Docker tag |
+|---|---|---|
+| `main` | Latest stable code — source of truth | — |
+| `pre-prod` | Staging / acceptance testing; mirrors `main` | — |
+| `post-prod` | Production-verified release snapshot | `post-prod` |
+
+All three branches currently point to the same commit. `post-prod` is promoted by pushing `main → post-prod` after acceptance sign-off.
+
+---
+
+### Docker Hub Registry
+
+All 14 services are published to Docker Hub under `saadelkenawy/fcms-<service>:post-prod`:
+
+| Image | Compressed size |
+|---|---|
+| `saadelkenawy/fcms-web-portal:post-prod` | ~327 MB |
+| `saadelkenawy/fcms-analytics-service:post-prod` | ~59 MB |
+| `saadelkenawy/fcms-ai-chatbot-service:post-prod` | ~56 MB |
+| `saadelkenawy/fcms-file-service:post-prod` | ~56 MB |
+| All other backend services | ~54 MB each |
+
+Images are **private** — a `docker login` with the `saadelkenawy` account is required to pull.
+
+To publish a new `post-prod` release:
+```bash
+# 1. Build all images
+bash /tmp/build-post-prod.sh   # or run docker build manually per service
+
+# 2. Push
+docker login
+for svc in identity-service patient-service appointment-service doctor-service \
+           billing-service notification-service ai-chatbot-service file-service \
+           analytics-service ehr-service procedure-service procurement-service \
+           integration-service web-portal; do
+  docker push saadelkenawy/fcms-${svc}:post-prod
+done
+
+# 3. Tag git
+git push origin main main:pre-prod main:post-prod
+```
+
+---
+
+### Installation Assets
+
+All deployment files are organised under `fcams-installation-on-varoius-systems/`:
+
+```
+fcams-installation-on-varoius-systems/
+└── docker-vm-installation/
+    ├── docker-compose.registry.yml   ← standalone compose (pulls from Docker Hub)
+    ├── .env.example                  ← all required env vars with comments
+    ├── gen-secrets.sh                ← auto-generates strong secrets → .env
+    ├── build-new-vm-has-docker.txt   ← step-by-step VM setup guide
+    └── infra/
+        ├── postgres/
+        │   ├── init.sql              ← creates all 13 databases + roles
+        │   └── pg_hba.conf
+        ├── pgbouncer/
+        │   ├── pgbouncer.ini
+        │   └── userlist.txt          ← updated by gen-secrets.sh (md5 hash)
+        ├── nginx/
+        │   ├── nginx.conf            ← TLS + reverse proxy config
+        │   └── proxy_params.conf
+        ├── databases/                ← Kubernetes/OpenShift PostgreSQL cluster specs
+        └── openshift/                ← Kubernetes namespace + network policies
+```
+
+### Quick Start on a New Server (Docker VM)
+
+```bash
+# 1. Copy installation assets to the server
+scp -r fcams-installation-on-varoius-systems/docker-vm-installation/ user@server:/opt/fadl/
+
+# 2. On the server: generate secrets
+cd /opt/fadl/docker-vm-installation
+bash gen-secrets.sh
+# Then edit .env and fill in: DOMAIN, MINIO_PUBLIC_URL, SMTP_*, TWILIO_*, ANTHROPIC_API_KEY
+
+# 3. Pull images and start
+docker login
+docker compose -f docker-compose.registry.yml up -d
+
+# 4. Verify all services healthy
+docker compose -f docker-compose.registry.yml ps
+```
+
+### Updating to a New Release
+
+```bash
+docker compose -f docker-compose.registry.yml pull
+docker compose -f docker-compose.registry.yml up -d
+```
+
+---
+
+## 12. Phase & Status
 
 | Phase | Scope | Status |
 |---|---|---|
@@ -877,6 +979,13 @@ cd services/doctor-service && npx tsc --noEmit
 
 | Date | Change |
 |---|---|
+| 2026-05-21 | **Registry deployment:** All 14 services built and pushed to Docker Hub as `saadelkenawy/fcms-*:post-prod`; standalone `docker-compose.registry.yml` created for zero-source-code server installs |
+| 2026-05-21 | **Branch strategy:** `post-prod` branch created on GitHub; `main` → `pre-prod` → `post-prod` all aligned to same commit |
+| 2026-05-21 | **Installation bundle:** `fcams-installation-on-varoius-systems/docker-vm-installation/` consolidates all infra configs, compose file, env template, and secret generator in one directory |
+| 2026-05-21 | **Full-width layout:** Removed `max-w-7xl`/`max-w-6xl mx-auto` from 18 dashboard pages; all list/overview views now stretch fluidly to match Appointments page behaviour |
+| 2026-05-21 | **Appointments — time display:** `formatTime()` now accepts a `locale` param; AM/PM labels render as `AM`/`PM` in English mode and `ص`/`م` in Arabic mode |
+| 2026-05-21 | **Appointments — duplicate warning:** Duplicate-booking check now guards on `appointmentDate === date`; stale data from `keepPreviousData` no longer triggers a false warning |
+| 2026-05-21 | **File attachments:** Fixed CORS on MinIO (`MINIO_API_CORS_ALLOW_ORIGIN: "*"`), corrected file initiate route (`/files/initiate`), added `response.ok` guard on presigned PUT |
 | 2026-05-15 | Doctor revenue splits now sync to billing-service on every save; V009 migration allows pending split updates; backfill corrected 27 doctors × 3 visit types |
 | 2026-05-15 | Appointment `specialtyId` auto-mapped from selected doctor on create and edit; 5-row SQL backfill |
 | 2026-05-15 | Appointment notes field made optional |
