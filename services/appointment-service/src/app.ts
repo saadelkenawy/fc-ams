@@ -5,6 +5,7 @@ import jwt from '@fastify/jwt';
 import rateLimit from '@fastify/rate-limit';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
+import { ZodError } from 'zod';
 import { config } from './config';
 import { redis } from './config/redis';
 import { startDoctorStatusSubscriber } from './subscribers/doctor-status.subscriber';
@@ -60,6 +61,17 @@ export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
   await app.register(roomRoutes, { prefix: '/api/v1' });
 
   app.setErrorHandler(async (error, request, reply) => {
+    if (error instanceof ZodError) {
+      const first = error.issues[0];
+      const field = first?.path?.join('.') ?? 'input';
+      const msg   = first?.message ?? 'Validation failed';
+      void reply.status(400).send({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: `${field}: ${msg}` },
+      });
+      return;
+    }
+
     const statusCode = (error as { statusCode?: number }).statusCode ?? 500;
     const code = (error as { code?: string }).code ?? 'INTERNAL_ERROR';
 

@@ -46,8 +46,8 @@ const PAYMENT_METHODS = [
 
 function addMinutes(time: string, mins: number): string {
   const [h, m] = time.split(':').map(Number);
-  const total = h * 60 + m + mins;
-  return `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+  const total = Math.min(h * 60 + m + mins, 23 * 60 + 59);
+  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 }
 
 function diffMinutes(start: string, end: string): number {
@@ -713,7 +713,7 @@ export function AddAppointmentModal({
             description = t('هذا الموعد محجوز بالفعل. اختر وقتاً آخر.', 'This time slot is already booked. Please pick another time.');
           } else if (mutation.isError) {
             title       = t('فشل الحجز', 'Booking failed');
-            description = apiMsg ?? t('حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.', 'An unexpected error occurred. Please try again.');
+            description = apiMsg ?? (mutation.error as Error)?.message ?? t('حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.', 'An unexpected error occurred. Please try again.');
           } else {
             title       = t('حقول مطلوبة مفقودة', 'Required fields missing');
             description = (
