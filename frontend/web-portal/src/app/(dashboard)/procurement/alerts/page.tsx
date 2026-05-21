@@ -95,7 +95,7 @@ export default function AlertsPage() {
   }
 
   return (
-    <div className="space-y-5 max-w-7xl mx-auto">
+    <div className="space-y-5">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h2 className="text-2xl font-bold font-display text-gray-900 dark:text-gray-100">

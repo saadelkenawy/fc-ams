@@ -501,7 +501,9 @@ export function AddAppointmentModal({
   const TERMINAL_STATUSES = ['Canc.', 'Ref.', 'Resch.'];
   const duplicateAppt = !isEdit && patient && doctorAppts?.data
     ? (doctorAppts.data.find(
-        (a) => a.patientId === patient.patientId && !TERMINAL_STATUSES.includes(a.status),
+        (a) => a.patientId === patient.patientId &&
+               a.appointmentDate === date &&
+               !TERMINAL_STATUSES.includes(a.status),
       ) ?? null)
     : null;
 
@@ -627,17 +629,18 @@ export function AddAppointmentModal({
       if (attachment) {
         const initRes = await fileApi.post<{ data: { fileId: string; uploadUrl: string } }>('/files/initiate', {
           originalName: attachment.name,
-          mimeType:     attachment.type,
+          mimeType:     attachment.type || 'application/octet-stream',
           sizeBytes:    attachment.size,
           entityType:   'other',
           entityId:     appointmentId,
           description:  'Appointment attachment',
         });
-        await fetch(initRes.data.data.uploadUrl, {
+        const uploadRes = await fetch(initRes.data.data.uploadUrl, {
           method:  'PUT',
           body:    attachment,
-          headers: { 'Content-Type': attachment.type },
+          headers: { 'Content-Type': attachment.type || 'application/octet-stream' },
         });
+        if (!uploadRes.ok) throw new Error(`File upload failed: ${uploadRes.status} ${uploadRes.statusText}`);
       }
     },
     onSuccess: () => {

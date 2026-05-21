@@ -56,7 +56,7 @@ export function useUploadFile(entityType: string, entityId: string) {
     mutationFn: async (file: File) => {
       // Step 1: initiate upload — get presigned PUT URL
       const { data: initData } = await fileApi.post<{ success: boolean; data: UploadInitResponse }>(
-        '/files/upload/initiate',
+        '/files/initiate',
         {
           originalName: file.name,
           mimeType:     file.type || 'application/octet-stream',

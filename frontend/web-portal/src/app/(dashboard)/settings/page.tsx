@@ -936,7 +936,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="fc-page max-w-7xl mx-auto">
+    <div className="fc-page">
       <div className="fc-page-head">
         <div>
           <h2 className="fc-page-title">{t('الإعدادات', 'Settings')}</h2>

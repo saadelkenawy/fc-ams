@@ -17,10 +17,12 @@ export function formatDate(date: string | Date, locale = 'ar-EG'): string {
   return new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(new Date(date));
 }
 
-export function formatTime(time: string): string {
+export function formatTime(time: string, locale: 'ar' | 'en' = 'ar'): string {
   const [h, m] = time.split(':');
   const hour = parseInt(h, 10);
-  const ampm = hour >= 12 ? 'م' : 'ص';
+  const ampm = hour >= 12
+    ? (locale === 'ar' ? 'م' : 'PM')
+    : (locale === 'ar' ? 'ص' : 'AM');
   const h12 = hour % 12 || 12;
   return `${h12}:${m} ${ampm}`;
 }

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import {
   CalendarPlus, ChevronLeft, ChevronRight,
@@ -115,7 +116,9 @@ interface ActionMenuProps {
 
 function ActionMenu({ appointment, lang, t, userRole, onStatusChange, onEdit, onDelete }: ActionMenuProps) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({});
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const allTransitions = TRANSITIONS[appointment.status] ?? [];
   const visibleTransitions = userRole === 'admin' ? allTransitions : allTransitions.filter((s) => s !== 'Ref.');
   const canChange = visibleTransitions.length > 0;
@@ -123,13 +126,79 @@ function ActionMenu({ appointment, lang, t, userRole, onStatusChange, onEdit, on
   const canEdit = !isTerminal && (userRole === 'admin' || userRole === 'receptionist');
   const canDelete = userRole === 'admin';
 
+  const openMenu = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!btnRef.current) return;
+    const r = btnRef.current.getBoundingClientRect();
+    const menuH = 90;
+    const menuW = 192;
+    // clientWidth/clientHeight exclude the OS scrollbar gutter
+    const vw = document.documentElement.clientWidth;
+    const vh = document.documentElement.clientHeight;
+    const spaceBelow = vh - r.bottom;
+    const top = spaceBelow >= menuH ? r.bottom + 4 : r.top - menuH - 4;
+    const rawLeft = lang === 'ar' ? r.left : r.right - menuW;
+    // clamp so the dropdown never overlaps the scrollbar or bleeds off screen
+    const left = Math.max(4, Math.min(rawLeft, vw - menuW - 4));
+    setMenuStyle({ position: 'fixed', top, left, width: menuW, zIndex: 9999 });
+    setOpen((v) => !v);
+  }, [lang]);
+
   useEffect(() => {
+    if (!open) return;
     function handle(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (
+        menuRef.current && !menuRef.current.contains(e.target as Node) &&
+        btnRef.current && !btnRef.current.contains(e.target as Node)
+      ) setOpen(false);
     }
-    if (open) document.addEventListener('mousedown', handle);
+    document.addEventListener('mousedown', handle);
     return () => document.removeEventListener('mousedown', handle);
   }, [open]);
+
+  // close on scroll so menu doesn't float away from its anchor
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    window.addEventListener('scroll', close, true);
+    return () => window.removeEventListener('scroll', close, true);
+  }, [open]);
+
+  const menu = open ? (
+    <div
+      ref={menuRef}
+      style={menuStyle}
+      className="rounded-xl border border-gray-100 dark:border-neutral-700 bg-white dark:bg-neutral-800 shadow-lg py-1 text-sm overflow-hidden"
+    >
+      {canChange && (
+        <button
+          onClick={(e) => { e.stopPropagation(); setOpen(false); onStatusChange(appointment); }}
+          className="w-full flex items-center gap-2.5 px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors"
+        >
+          <Check className="w-3.5 h-3.5 text-primary-500" />
+          {t('تغيير الحالة', 'Change Status')}
+        </button>
+      )}
+      {canDelete ? (
+        <button
+          onClick={(e) => { e.stopPropagation(); setOpen(false); onDelete(appointment); }}
+          className="w-full flex items-center gap-2.5 px-4 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+          {t('حذف الموعد', 'Delete')}
+        </button>
+      ) : (
+        <button
+          disabled
+          title={t('الحذف للمدير فقط', 'Only administrators can delete')}
+          className="w-full flex items-center gap-2.5 px-4 py-2 text-gray-300 dark:text-gray-600 cursor-not-allowed"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+          {t('حذف الموعد', 'Delete')}
+        </button>
+      )}
+    </div>
+  ) : null;
 
   return (
     <div className="flex items-center gap-1">
@@ -143,45 +212,16 @@ function ActionMenu({ appointment, lang, t, userRole, onStatusChange, onEdit, on
         </button>
       )}
       {(canChange || canDelete || userRole === 'receptionist') && (
-        <div ref={ref} className="relative">
+        <>
           <button
-            onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
+            ref={btnRef}
+            onClick={openMenu}
             className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-700 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
           >
             <MoreVertical className="w-4 h-4" />
           </button>
-          {open && (
-            <div className="absolute end-0 top-8 z-50 w-48 rounded-xl border border-gray-100 dark:border-neutral-700 bg-white dark:bg-neutral-800 shadow-lg py-1 text-sm">
-              {canChange && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); setOpen(false); onStatusChange(appointment); }}
-                  className="w-full flex items-center gap-2.5 px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors"
-                >
-                  <Check className="w-3.5 h-3.5 text-primary-500" />
-                  {t('تغيير الحالة', 'Change Status')}
-                </button>
-              )}
-              {canDelete ? (
-                <button
-                  onClick={(e) => { e.stopPropagation(); setOpen(false); onDelete(appointment); }}
-                  className="w-full flex items-center gap-2.5 px-4 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  {t('حذف الموعد', 'Delete')}
-                </button>
-              ) : (
-                <button
-                  disabled
-                  title={t('الحذف للمدير فقط', 'Only administrators can delete')}
-                  className="w-full flex items-center gap-2.5 px-4 py-2 text-gray-300 dark:text-gray-600 cursor-not-allowed"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  {t('حذف الموعد', 'Delete')}
-                </button>
-              )}
-            </div>
-          )}
-        </div>
+          {typeof document !== 'undefined' && createPortal(menu, document.body)}
+        </>
       )}
     </div>
   );
@@ -836,7 +876,7 @@ export default function AppointmentsPage() {
                           </td>
                         )}
                         <td>
-                          <div className="fc-time" dir="ltr">{formatTime(a.startTime)}</div>
+                          <div className="fc-time" dir="ltr">{formatTime(a.startTime, lang)}</div>
                         </td>
                         <td>
                           <div className="fc-pat">
@@ -940,7 +980,7 @@ export default function AppointmentsPage() {
                     style={{ top, height, borderLeftColor: borderColor }}
                     onClick={() => setStatusAppt(a)}
                   >
-                    <div className="fc-apt-tl-time" dir="ltr">{formatTime(a.startTime)}</div>
+                    <div className="fc-apt-tl-time" dir="ltr">{formatTime(a.startTime, lang)}</div>
                     <div>
                       <div className="fc-apt-tl-name">{patName}</div>
                       <div className="fc-apt-tl-sub">

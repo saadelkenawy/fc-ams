@@ -449,7 +449,7 @@ export default function ReportsPage() {
   }
 
   return (
-    <div className="space-y-5 max-w-7xl mx-auto animate-fade-in">
+    <div className="space-y-5 animate-fade-in">
       <div className="flex items-center justify-between gap-4">
         <div className="animate-slide-down">
           <h2 className="text-2xl font-bold font-display text-gray-900 dark:text-gray-100">{t('التقارير', 'Reports')}</h2>

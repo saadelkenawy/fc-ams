@@ -68,7 +68,7 @@ export default function DashboardPage() {
   const total = appointments.length || 1;
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto animate-fade-in">
+    <div className="space-y-6 animate-fade-in">
       {/* Header row */}
       <div className="flex items-start justify-between gap-4 animate-slide-down">
         <div>

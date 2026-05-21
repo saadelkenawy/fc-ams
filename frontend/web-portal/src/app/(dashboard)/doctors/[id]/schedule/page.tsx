@@ -480,7 +480,7 @@ export default function DoctorSchedulePage() {
   const upcomingOverrides = overrides.slice(0, 10);
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto animate-fade-in">
+    <div className="space-y-6 animate-fade-in">
       {/* Header */}
       <div className="flex items-center gap-4 animate-slide-down">
         <button

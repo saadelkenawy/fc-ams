@@ -8,7 +8,6 @@ import {
   Plus, Trash2, Edit3, Save, X, Share2, CheckCircle,
   AlertCircle, Loader2, Info, PlusCircle,
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { StatCard } from '@/components/ui/StatCard';
@@ -375,17 +374,17 @@ function SourceRow({
   const deductVariant = DEDUCT_VARIANT[source.deductFrom];
 
   return (
-    <tr className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/20 transition-colors group">
-      <td className="px-5 py-3.5">
+    <tr>
+      <td>
         <span className="font-mono text-xs font-bold text-primary-700 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20 px-2 py-0.5 rounded">
           {source.sourceCode}
         </span>
       </td>
-      <td className="px-5 py-3.5">
+      <td>
         <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{source.sourceNameEn}</p>
         <p className="text-xs text-gray-400 dark:text-gray-500">{source.sourceNameAr}</p>
       </td>
-      <td className="px-5 py-3.5">
+      <td>
         <div className="flex items-center gap-1.5">
           <span className={cn(
             'text-sm font-semibold tabular-nums',
@@ -406,26 +405,26 @@ function SourceRow({
           )}
         </div>
       </td>
-      <td className="px-5 py-3.5">
+      <td>
         <Badge variant={deductVariant} className="text-[11px]">
           {lang === 'ar' ? deduct.ar : deduct.en}
         </Badge>
       </td>
-      <td className="px-5 py-3.5">
+      <td>
         {source.isActive ? (
           <Badge variant="success" dot className="text-[11px]">{t('نشط', 'Active')}</Badge>
         ) : (
           <Badge variant="outline" className="text-[11px]">{t('معطّل', 'Inactive')}</Badge>
         )}
       </td>
-      <td className="px-5 py-3.5 text-xs text-gray-500 dark:text-gray-400 font-mono">
+      <td className="text-xs text-gray-500 dark:text-gray-400 font-mono">
         {source.validFrom}
         {source.validUntil && (
           <span className="text-gray-300 dark:text-gray-600"> → {source.validUntil}</span>
         )}
       </td>
-      <td className="px-5 py-3.5">
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+      <td>
+        <div className="fc-row-actions">
           <button
             onClick={onEdit}
             className="p-1.5 rounded-lg text-gray-400 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
@@ -475,21 +474,19 @@ export default function SourcesPage() {
   }
 
   return (
-    <div className="space-y-5 max-w-6xl mx-auto">
+    <div className="fc-page">
       {/* Page header */}
-      <div className="flex items-center justify-between gap-4">
+      <div className="fc-page-head">
         <div>
-          <h2 className="text-2xl font-bold font-display text-gray-900 dark:text-gray-100">
-            {t('مصادر المرضى', 'Patient Sources')}
-          </h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-            {t('إدارة مصادر الإحالة ورسوم المنصات', 'Manage referral sources and platform fee rules')}
-          </p>
+          <h2 className="fc-page-title">{t('مصادر المرضى', 'Patient Sources')}</h2>
+          <p className="fc-page-sub">{t('إدارة مصادر الإحالة ورسوم المنصات', 'Manage referral sources and platform fee rules')}</p>
         </div>
-        <Button size="sm" onClick={() => setModalSource(null)}>
-          <Plus className="w-4 h-4" />
-          {t('إضافة مصدر', 'Add Source')}
-        </Button>
+        <div className="fc-page-actions">
+          <Button size="sm" onClick={() => setModalSource(null)}>
+            <Plus className="w-4 h-4" />
+            {t('إضافة مصدر', 'Add Source')}
+          </Button>
+        </div>
       </div>
 
       {/* Stat cards */}
@@ -533,71 +530,67 @@ export default function SourcesPage() {
       </div>
 
       {/* Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            <Share2 className="w-4 h-4" />
+      <div className="fc-card">
+        <div className="flex items-center gap-2 px-5 py-4 border-b border-gray-100 dark:border-neutral-700">
+          <Share2 className="w-4 h-4 text-gray-400" />
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
             {t('قائمة المصادر', 'Sources List')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-16 text-gray-400">
-              <Loader2 className="w-5 h-5 animate-spin me-2" />
-              {t('جاري التحميل...', 'Loading...')}
-            </div>
-          ) : isError ? (
-            <div className="py-12 text-center text-red-500 dark:text-red-400 text-sm">
-              {t('تعذّر تحميل المصادر', 'Failed to load sources')}
-            </div>
-          ) : sources.length === 0 ? (
-            <div className="py-16 text-center">
-              <Share2 className="w-8 h-8 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-              <p className="text-sm text-gray-500 dark:text-gray-400">{t('لا توجد مصادر بعد', 'No sources yet')}</p>
-              <button
-                onClick={() => setModalSource(null)}
-                className="mt-2 text-sm text-primary-600 dark:text-primary-400 hover:underline"
-              >
-                {t('+ إضافة أول مصدر', '+ Add first source')}
-              </button>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
-                    {[
-                      [t('الكود', 'Code'), ''],
-                      [t('الاسم', 'Name'), ''],
-                      [t('الرسوم', 'Fee'), ''],
-                      [t('تُخصم من', 'Deducted From'), ''],
-                      [t('الحالة', 'Status'), ''],
-                      [t('الفترة', 'Period'), ''],
-                      ['', ''],
-                    ].map(([label], i) => (
-                      <th key={i} className="text-start px-5 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">
-                        {label}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {sources.map((s) => (
-                    <SourceRow
-                      key={s.sourceCode}
-                      source={s}
-                      lang={lang}
-                      t={t}
-                      onEdit={() => setModalSource(s)}
-                      onDelete={() => setDeleteTarget(s)}
-                    />
+          </h3>
+        </div>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-16 text-gray-400">
+            <Loader2 className="w-5 h-5 animate-spin me-2" />
+            {t('جاري التحميل...', 'Loading...')}
+          </div>
+        ) : isError ? (
+          <div className="py-12 text-center text-red-500 dark:text-red-400 text-sm">
+            {t('تعذّر تحميل المصادر', 'Failed to load sources')}
+          </div>
+        ) : sources.length === 0 ? (
+          <div className="py-16 text-center">
+            <Share2 className="w-8 h-8 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+            <p className="text-sm text-gray-500 dark:text-gray-400">{t('لا توجد مصادر بعد', 'No sources yet')}</p>
+            <button
+              onClick={() => setModalSource(null)}
+              className="mt-2 text-sm text-primary-600 dark:text-primary-400 hover:underline"
+            >
+              {t('+ إضافة أول مصدر', '+ Add first source')}
+            </button>
+          </div>
+        ) : (
+          <div className="fc-table-wrap">
+            <table className="fc-table">
+              <thead>
+                <tr>
+                  {[
+                    t('الكود', 'Code'),
+                    t('الاسم', 'Name'),
+                    t('الرسوم', 'Fee'),
+                    t('تُخصم من', 'Deducted From'),
+                    t('الحالة', 'Status'),
+                    t('الفترة', 'Period'),
+                    '',
+                  ].map((label, i) => (
+                    <th key={i}>{label}</th>
                   ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                </tr>
+              </thead>
+              <tbody>
+                {sources.map((s) => (
+                  <SourceRow
+                    key={s.sourceCode}
+                    source={s}
+                    lang={lang}
+                    t={t}
+                    onEdit={() => setModalSource(s)}
+                    onDelete={() => setDeleteTarget(s)}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       {/* Add/Edit modal */}
       {modalSource !== undefined && (

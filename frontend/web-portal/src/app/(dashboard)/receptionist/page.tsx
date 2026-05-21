@@ -516,7 +516,7 @@ export default function ReceptionistPage() {
   }, []);
 
   return (
-    <div className="space-y-5 max-w-6xl mx-auto" data-density="compact">
+    <div className="space-y-5" data-density="compact">
       {/* Modals */}
       {showRegister && (
         <RegisterPatientModal
