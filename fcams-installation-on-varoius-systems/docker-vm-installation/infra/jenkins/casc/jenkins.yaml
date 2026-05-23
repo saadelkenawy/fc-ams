@@ -8,6 +8,7 @@ jenkins:
   numExecutors: 4
   mode: NORMAL
   scmCheckoutRetryCount: 2
+  rootUrl: "http://192.168.110.100:8080/"
 
   # ── Security ──────────────────────────────────────────────────────────────
   securityRealm:
