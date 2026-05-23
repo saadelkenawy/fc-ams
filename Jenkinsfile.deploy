@@ -108,7 +108,7 @@ pipeline {
                     def svcs = env.RESOLVED_SERVICES
                     sh """
                         cd ${WORKSPACE}
-                        docker compose ${env.COMPOSE_FILES} up -d --no-deps --no-build ${svcs}
+                        docker-compose ${env.COMPOSE_FILES} up -d --no-deps --no-build ${svcs}
                     """
                 }
             }
