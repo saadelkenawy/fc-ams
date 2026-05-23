@@ -1,6 +1,6 @@
 # ─── Jenkins Configuration as Code (JCasC) ────────────────────────────────────
-# Applied automatically on startup via CASC_JENKINS_CONFIG env var.
-# Edit here — no manual UI clicks needed after first boot.
+# Core settings only. Credentials are configured via the UI or by re-running
+# setup.sh with a valid .env file (which passes GITHUB_TOKEN, DOCKERHUB_TOKEN, etc.).
 # ──────────────────────────────────────────────────────────────────────────────
 
 jenkins:
@@ -8,105 +8,14 @@ jenkins:
   numExecutors: 4
   mode: NORMAL
   scmCheckoutRetryCount: 2
-  rootUrl: "http://192.168.110.100:8080/"
 
-  # ── Security ──────────────────────────────────────────────────────────────
-  securityRealm:
-    local:
-      allowsSignup: false
-      users:
-        - id: "admin"
-          password: "${JENKINS_ADMIN_PASSWORD}"   # set in .env before deploying
-
+  # Allow full access without login until admin user is configured via UI
   authorizationStrategy:
-    loggedInUsersCanDoAnything:
-      allowAnonymousRead: true
+    unsecured: {}
 
-# ── Credentials ───────────────────────────────────────────────────────────────
-credentials:
-  system:
-    domainCredentials:
-      - credentials:
-          # GitHub token — used to clone repo and receive webhooks
-          - usernamePassword:
-              scope: GLOBAL
-              id: "github-token"
-              description: "GitHub — saadelkenawy PAT"
-              username: "saadelkenawy"
-              password: "${GITHUB_TOKEN}"          # set in .env
+  securityRealm:
+    none: {}
 
-          # Docker Hub — push images to saadelkenawy/*
-          - usernamePassword:
-              scope: GLOBAL
-              id: "dockerhub-creds"
-              description: "Docker Hub — saadelkenawy"
-              username: "saadelkenawy"
-              password: "${DOCKERHUB_TOKEN}"       # set in .env
-
-          # SSH key — deploy to pre-prod and prod servers
-          - basicSSHUserPrivateKey:
-              scope: GLOBAL
-              id: "deploy-server-key"
-              description: "SSH key — deploy user on pre-prod and prod servers"
-              username: "deploy"
-              privateKeySource:
-                directEntry:
-                  privateKey: "${DEPLOY_SSH_KEY}"  # set in .env (paste PEM block)
-
-# ── Plugins (requires Plugin Installation Manager or pre-baked image) ─────────
-# Install these via:  Manage Jenkins → Plugins → Available → search each name
-# Or bake into image: https://github.com/jenkinsci/docker#preinstalling-plugins
-#
-# Required:
-#   - git
-#   - github
-#   - workflow-multibranch     (Multibranch Pipeline)
-#   - pipeline-github-notify
-#   - docker-workflow           (docker.build / docker.withRegistry)
-#   - ssh-agent                 (sshagent step)
-#   - credentials-binding       (withCredentials step)
-#   - job-dsl                   (seed job reads jobs/*.groovy)
-
-# ── Job DSL seed job — creates the Multibranch Pipeline automatically ─────────
-jobs:
-  - script: >
-      multibranchPipelineJob('fcms-pipeline') {
-        description('Fadl Clinic FCMS — builds Docker images on push to main or pre-prod')
-
-        branchSources {
-          github {
-            id('fcms-github')
-            credentialsId('github-token')
-            repoOwner('saadelkenawy')
-            repository('fc-ams')
-            traits {
-              // Only track main and pre-prod
-              headRegexFilter {
-                regex('(main|pre-prod)')
-              }
-              // Trigger on push events from GitHub webhook
-              gitHubBranchDiscovery {
-                strategyId(1)    // 1 = exclude forks
-              }
-            }
-          }
-        }
-
-        // Where to find the pipeline definition in each branch
-        factory {
-          workflowBranchProjectFactory {
-            scriptPath('Jenkinsfile')
-          }
-        }
-
-        // Scan for new / removed branches every hour as fallback
-        triggers {
-          periodic(60)
-        }
-
-        orphanedItemStrategy {
-          discardOldItems {
-            numToKeep(5)
-          }
-        }
-      }
+unclassified:
+  location:
+    url: "http://192.168.110.100:8080/"
