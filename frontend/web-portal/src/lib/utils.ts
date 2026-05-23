@@ -10,7 +10,7 @@ function latinNumerals(locale: string): string {
 }
 
 export function formatCurrency(amount: number, currency = 'EGP', locale = 'ar-EG'): string {
-  return new Intl.NumberFormat(latinNumerals(locale), { style: 'currency', currency }).format(amount);
+  return new Intl.NumberFormat(latinNumerals(locale), { style: 'currency', currency, currencyDisplay: 'code' }).format(amount);
 }
 
 export function formatNumber(n: number, locale = 'ar-EG'): string {
