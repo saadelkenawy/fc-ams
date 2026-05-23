@@ -37,8 +37,8 @@ pipeline {
         DOCKERHUB_CRED = 'dockerhub-creds'
         PREPROD_HOST   = 'preprod.fadlclinic.local'
         PROD_HOST      = 'prod.fadlclinic.local'
-        // local uses base file only — prod overlay needs .env on the target server
-        COMPOSE_LOCAL  = '-p fcms -f docker-compose.yml'
+        // local uses base file + env file from host; prod overlay used on remote servers
+        COMPOSE_LOCAL  = '-p fcms --env-file /fcms-project.env -f docker-compose.yml'
         COMPOSE_REMOTE = '-p fcms -f docker-compose.yml -f docker-compose.prod.yml'
 
         ALL_SERVICES = [
