@@ -1,0 +1,198 @@
+// ─── CD Pipeline — Pull from Docker Hub & Deploy ──────────────────────────────
+// Trigger manually or via webhook after a successful CI push.
+// Does NOT build anything — only pulls pre-built images and restarts services.
+//
+// Usage:
+//   1. Create a new Jenkins Pipeline job pointing to this file (scriptPath: Jenkinsfile.deploy)
+//   2. Run with parameters or accept defaults.
+//
+// Required Jenkins credentials:
+//   dockerhub-creds   — Docker Hub username + token   (usernamePassword)
+//   deploy-server-key — SSH private key for deploy@<host>  (sshUserPrivateKey)  [only for remote deploy]
+// ──────────────────────────────────────────────────────────────────────────────
+
+pipeline {
+    agent any
+
+    parameters {
+        choice(
+            name: 'IMAGE_TAG',
+            choices: ['post-prod', 'latest'],
+            description: 'Docker Hub tag to pull and deploy'
+        )
+        choice(
+            name: 'DEPLOY_TARGET',
+            choices: ['local', 'pre-prod', 'production'],
+            description: 'Where to deploy: local = this machine, pre-prod / production = remote via SSH'
+        )
+        string(
+            name: 'SERVICES',
+            defaultValue: 'all',
+            description: 'Comma-separated list of services to deploy, or "all" for everything'
+        )
+    }
+
+    environment {
+        DOCKERHUB_USER = 'saadelkenawy'
+        DOCKERHUB_CRED = 'dockerhub-creds'
+        PREPROD_HOST   = 'preprod.fadlclinic.local'
+        PROD_HOST      = 'prod.fadlclinic.local'
+        COMPOSE_FILES  = '-f docker-compose.yml -f docker-compose.prod.yml'
+
+        ALL_SERVICES = [
+            'identity-service',
+            'patient-service',
+            'doctor-service',
+            'appointment-service',
+            'billing-service',
+            'ehr-service',
+            'notification-service',
+            'analytics-service',
+            'file-service',
+            'integration-service',
+            'procurement-service',
+            'procedure-service',
+            'ai-chatbot-service',
+            'web-portal'
+        ].join(',')
+    }
+
+    stages {
+
+        // ── 1. Resolve which services to deploy ──────────────────────────────
+        stage('Resolve Services') {
+            steps {
+                script {
+                    def tag = params.IMAGE_TAG
+                    def raw = params.SERVICES?.trim() ?: 'all'
+                    def list = (raw == 'all') ? env.ALL_SERVICES.split(',').toList() : raw.split(',').collect { it.trim() }
+
+                    echo "Tag:     ${tag}"
+                    echo "Target:  ${params.DEPLOY_TARGET}"
+                    echo "Services (${list.size()}): ${list.join(', ')}"
+
+                    env.RESOLVED_SERVICES = list.join(' ')
+                    env.IMAGE_TAG = tag
+                }
+            }
+        }
+
+        // ── 2. Pull images from Docker Hub ───────────────────────────────────
+        stage('Pull Images') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: env.DOCKERHUB_CRED,
+                    usernameVariable: 'DH_USER',
+                    passwordVariable: 'DH_PASS'
+                )]) {
+                    sh 'echo "$DH_PASS" | docker login -u "$DH_USER" --password-stdin'
+
+                    script {
+                        env.RESOLVED_SERVICES.split(' ').each { svc ->
+                            def image = "${env.DOCKERHUB_USER}/fcms-${svc}:${env.IMAGE_TAG}"
+                            echo "Pulling ${image}"
+                            sh "docker pull ${image}"
+                            // Re-tag pulled image to the local name docker compose expects
+                            sh "docker tag ${image} fcms-${svc}:latest"
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── 3a. Deploy locally (same machine as Jenkins) ──────────────────────
+        stage('Deploy — Local') {
+            when { expression { params.DEPLOY_TARGET == 'local' } }
+            steps {
+                script {
+                    def svcs = env.RESOLVED_SERVICES
+                    sh """
+                        cd ${WORKSPACE}
+                        docker compose ${env.COMPOSE_FILES} up -d --no-deps --no-build ${svcs}
+                    """
+                }
+            }
+        }
+
+        // ── 3b. Deploy to Pre-Production server via SSH ───────────────────────
+        stage('Deploy — Pre-Prod') {
+            when { expression { params.DEPLOY_TARGET == 'pre-prod' } }
+            steps {
+                sshagent(['deploy-server-key']) {
+                    script {
+                        def svcs = env.RESOLVED_SERVICES
+                        def tag  = env.IMAGE_TAG
+                        sh """
+                            ssh -o StrictHostKeyChecking=no deploy@${env.PREPROD_HOST} '
+                                cd /opt/fcms &&
+                                echo "Pulling images on pre-prod..." &&
+                                docker compose -f docker-compose.yml -f docker-compose.prod.yml pull ${svcs} &&
+                                echo "Restarting services..." &&
+                                docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-deps --no-build ${svcs} &&
+                                echo "Done."
+                            '
+                        """
+                    }
+                }
+            }
+        }
+
+        // ── 3c. Deploy to Production server via SSH ───────────────────────────
+        stage('Deploy — Production') {
+            when { expression { params.DEPLOY_TARGET == 'production' } }
+            steps {
+                input message: "Deploy tag '${params.IMAGE_TAG}' to PRODUCTION?", ok: "Deploy"
+                sshagent(['deploy-server-key']) {
+                    script {
+                        def svcs = env.RESOLVED_SERVICES
+                        sh """
+                            ssh -o StrictHostKeyChecking=no deploy@${env.PROD_HOST} '
+                                cd /opt/fcms &&
+                                echo "Pulling images on production..." &&
+                                docker compose -f docker-compose.yml -f docker-compose.prod.yml pull ${svcs} &&
+                                echo "Restarting services..." &&
+                                docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-deps --no-build ${svcs} &&
+                                echo "Done."
+                            '
+                        """
+                    }
+                }
+            }
+        }
+
+        // ── 4. Health check ───────────────────────────────────────────────────
+        stage('Health Check') {
+            when { expression { params.DEPLOY_TARGET == 'local' } }
+            steps {
+                sh 'sleep 10'
+                script {
+                    def svcs = env.RESOLVED_SERVICES.split(' ')
+                    def failed = []
+                    svcs.each { svc ->
+                        def status = sh(
+                            script: "docker inspect --format='{{.State.Health.Status}}' fcms-${svc}-1 2>/dev/null || echo 'unknown'",
+                            returnStdout: true
+                        ).trim()
+                        echo "${svc}: ${status}"
+                        if (status == 'unhealthy') failed.add(svc)
+                    }
+                    if (failed) {
+                        error("Unhealthy after deploy: ${failed.join(', ')}")
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "Deployment complete — tag=${params.IMAGE_TAG}, target=${params.DEPLOY_TARGET}"
+        }
+        failure {
+            echo "Deployment FAILED — check stage logs above."
+        }
+        always {
+            sh 'docker logout || true'
+        }
+    }
+}
