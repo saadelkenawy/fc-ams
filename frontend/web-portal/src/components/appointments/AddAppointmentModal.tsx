@@ -6,7 +6,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Calendar, Clock, Search, AlertCircle, AlertTriangle, CalendarPlus,
   FlaskConical, X, UserPlus, Building2, Globe, Zap, Phone,
-  Banknote, CreditCard, Smartphone, Pencil, Paperclip,
+  Banknote, CreditCard, Smartphone, Pencil, Paperclip, ExternalLink,
 } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
@@ -15,6 +15,7 @@ import { useDoctors, useSpecialties } from '@/hooks/useDoctors';
 import { usePatients } from '@/hooks/usePatients';
 import { useProcedures } from '@/hooks/useProcedures';
 import { useDebounce } from '@/hooks/useDebounce';
+import { useRouter } from 'next/navigation';
 import { appointmentApi, patientApi, fileApi } from '@/lib/api';
 import { useAppointments } from '@/hooks/useAppointments';
 import { cn } from '@/lib/utils';
@@ -459,6 +460,7 @@ export function AddAppointmentModal({
 }: AddAppointmentModalProps) {
   const { lang, t } = useLang();
   const qc = useQueryClient();
+  const router = useRouter();
   const { data: specialties = [] } = useSpecialties();
   const { data: proceduresData } = useProcedures({ isActive: true, limit: 100 });
   const procedures = proceduresData?.data ?? [];
@@ -482,6 +484,7 @@ export function AddAppointmentModal({
   const [charge,        setCharge]        = useState(editAppointment?.approvedCharge != null ? String(editAppointment.approvedCharge) : '');
   const [notes,         setNotes]         = useState(editAppointment?.notes ?? '');
   const [procedureId,   setProcedureId]   = useState(editAppointment?.procedureId ?? '');
+  const [showBillingWarn, setShowBillingWarn] = useState(false);
   const [procCost,      setProcCost]      = useState(editAppointment?.procedureCost != null ? String(editAppointment.procedureCost) : '');
   const [errors,        setErrors]        = useState<Record<string, string>>({});
   const [attachment,    setAttachment]    = useState<File | null>(null);
@@ -665,12 +668,21 @@ export function AddAppointmentModal({
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!validate()) return;
+    // Warn admin when the session fee changes on an existing appointment —
+    // the billing transaction will be updated automatically.
+    const originalCharge = editAppointment?.approvedCharge;
+    const newCharge = charge ? Number(charge) : null;
+    if (isEdit && originalCharge != null && newCharge != null && newCharge !== originalCharge) {
+      setShowBillingWarn(true);
+      return;
+    }
     mutation.mutate();
   }
 
   const inputCls = 'w-full h-10 rounded-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-600 transition-shadow';
 
   return (
+    <>
     <Modal
       open={open}
       onClose={onClose}
@@ -1000,5 +1012,59 @@ export function AddAppointmentModal({
 
       </form>
     </Modal>
+
+    {/* ── Billing fee-change confirmation dialog ─────────────────────────── */}
+    {showBillingWarn && editAppointment && createPortal(
+      <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div className="relative w-full max-w-sm mx-4 rounded-2xl bg-white dark:bg-neutral-900 shadow-2xl p-6 flex flex-col gap-4">
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/40">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+            </span>
+            <div>
+              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                {t('تعديل التعرفة سيؤثر على الفاتورة', 'Fee change will update billing')}
+              </p>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                {t(
+                  `التعرفة ستتغير من ${editAppointment.approvedCharge} إلى ${charge} — سيتم إعادة حساب حصة الطبيب والعيادة تلقائياً.`,
+                  `Fee will change from ${editAppointment.approvedCharge} → ${charge} — doctor & clinic shares will be recalculated automatically.`,
+                )}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <button
+              className="w-full rounded-xl bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white text-sm font-semibold py-2.5 transition-colors"
+              onClick={() => { setShowBillingWarn(false); mutation.mutate(); }}
+            >
+              {t('تأكيد التعديل', 'Confirm changes')}
+            </button>
+
+            <button
+              className="w-full flex items-center justify-center gap-2 rounded-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700 text-sm font-medium text-gray-700 dark:text-gray-300 py-2.5 transition-colors"
+              onClick={() => {
+                setShowBillingWarn(false);
+                onClose();
+                router.push(`/billing?highlightApptId=${editAppointment.id}`);
+              }}
+            >
+              <ExternalLink className="h-4 w-4" />
+              {t('عرض في الفواتير', 'View billing record')}
+            </button>
+
+            <button
+              className="w-full rounded-xl text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 py-2 transition-colors"
+              onClick={() => setShowBillingWarn(false)}
+            >
+              {t('إلغاء', 'Cancel')}
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body,
+    )}
+    </>
   );
 }

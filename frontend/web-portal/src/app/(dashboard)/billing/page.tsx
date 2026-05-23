@@ -680,7 +680,8 @@ export default function BillingPage() {
   const { lang, t } = useLang();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const deleteApptId = searchParams.get('deleteApptId');
+  const deleteApptId    = searchParams.get('deleteApptId');
+  const highlightApptId = searchParams.get('highlightApptId');
   const locale = lang === 'ar' ? 'ar-EG' : 'en-US';
   const { toast } = useToast();
 
@@ -715,6 +716,19 @@ export default function BillingPage() {
       }, 400);
     }
   }, [deleteApptId]);
+
+  // Scroll to and blink the charge-updated row
+  useEffect(() => {
+    if (!highlightApptId) return;
+    setTimeout(() => {
+      const el = document.getElementById('charge-highlight-row');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('billing-charge-blink');
+        setTimeout(() => el.classList.remove('billing-charge-blink'), 3000);
+      }
+    }, 400);
+  }, [highlightApptId]);
 
   // Clear selection when filters change
   useEffect(() => {
@@ -1212,19 +1226,22 @@ export default function BillingPage() {
                       const pat = patientMap.get(tx.patientId);
                       const patName = pat ? (lang === 'ar' ? (pat.nameAr ?? pat.nameEn) : pat.nameEn) : `…${tx.patientId.slice(-8).toUpperCase()}`;
                       const docName = doc ? (lang === 'ar' ? (doc.nameAr ?? doc.nameEn) : doc.nameEn) : (tx.doctorId ? `…${tx.doctorId.slice(-8).toUpperCase()}` : '—');
-                      const isDeleteTarget = deleteApptId && tx.appointmentId === deleteApptId;
+                      const isDeleteTarget    = deleteApptId    && tx.appointmentId === deleteApptId;
+                      const isChargeHighlight = highlightApptId && tx.appointmentId === highlightApptId;
                       const isSelected = selectedIds.has(tx.id);
                       return (
                         <tr
                           key={tx.id}
-                          id={isDeleteTarget ? 'delete-target-row' : undefined}
+                          id={isDeleteTarget ? 'delete-target-row' : isChargeHighlight ? 'charge-highlight-row' : undefined}
                           className={cn(
                             'border-b transition-colors',
                             isDeleteTarget
                               ? 'border-2 border-red-400 dark:border-red-500 bg-red-50 dark:bg-red-900/15'
-                              : isSelected
-                                ? 'border-primary-100 dark:border-primary-800/40 bg-primary-50/60 dark:bg-primary-900/15'
-                                : 'border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30',
+                              : isChargeHighlight
+                                ? 'border-2 border-amber-400 dark:border-amber-500 bg-amber-50 dark:bg-amber-900/15'
+                                : isSelected
+                                  ? 'border-primary-100 dark:border-primary-800/40 bg-primary-50/60 dark:bg-primary-900/15'
+                                  : 'border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30',
                           )}
                         >
                           <td className="w-10 px-3 py-3.5">

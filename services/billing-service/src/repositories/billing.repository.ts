@@ -872,38 +872,24 @@ export async function updateApprovedChargeByAppointmentId(
 ): Promise<FinancialTransaction> {
   return withTransaction(async (client: PoolClient) => {
     const { rows: existing } = await client.query(
-      `SELECT * FROM financial_transactions WHERE appointment_id = $1 FOR UPDATE`,
+      `SELECT payment_status FROM financial_transactions WHERE appointment_id = $1 FOR UPDATE`,
       [appointmentId],
     );
     if (!existing.length) {
       throw Object.assign(new Error('Transaction not found for appointment'), { statusCode: 404, code: 'TRANSACTION_NOT_FOUND' });
     }
-    const row = existing[0] as Record<string, unknown>;
-    if (row.payment_status === 'reconciled') {
+    const status = (existing[0] as Record<string, unknown>).payment_status as string;
+    if (status === 'reconciled') {
       throw Object.assign(new Error('Record is reconciled and locked'), { statusCode: 403, code: 'RECORD_RECONCILED' });
     }
-    if (row.payment_status === 'refunded') {
+    if (status === 'refunded') {
       throw Object.assign(new Error('Transaction is refunded and locked'), { statusCode: 403, code: 'RECORD_REFUNDED' });
     }
-    const sourceFeePercentage = Number(row.source_fee_percentage);
-    const sourceFeeAmount = newCharge * sourceFeePercentage / 100;
-    const procedureCost = row.procedure_cost !== null ? Number(row.procedure_cost) : 0;
-    const grossRevenue = (newCharge - sourceFeeAmount) + procedureCost;
-    const splitDoctorPercentage = Number(row.split_doctor_percentage);
-    const splitClinicPercentage = Number(row.split_clinic_percentage);
-    const doctorShare = grossRevenue * splitDoctorPercentage / 100;
-    const clinicShare = grossRevenue * splitClinicPercentage / 100;
-
+    // DB trigger aab_recalc_charge recalculates source_fee_amount, gross_revenue,
+    // doctor_share, clinic_share using the stored percentages.
     const { rows } = await client.query(
-      `UPDATE financial_transactions
-          SET approved_charge    = $2,
-              source_fee_amount  = $3,
-              gross_revenue      = $4,
-              doctor_share       = $5,
-              clinic_share       = $6
-        WHERE appointment_id = $1
-        RETURNING *`,
-      [appointmentId, newCharge, sourceFeeAmount, grossRevenue, doctorShare, clinicShare],
+      `UPDATE financial_transactions SET approved_charge = $2 WHERE appointment_id = $1 RETURNING *`,
+      [appointmentId, newCharge],
     );
     return rowToTransaction(rows[0] as Record<string, unknown>);
   });

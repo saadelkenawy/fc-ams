@@ -1322,6 +1322,16 @@ html { transition: background-color 350ms ease, color 350ms ease; }
 [data-theme="dark"] .fc-set-hours-day { color: #CBD5E1; }
 [data-theme="dark"] .fc-set-hours-val { color: #64748B; }
 
+/* ── Billing charge-update highlight blink ──────────────────────────────── */
+@keyframes billing-charge-blink {
+  0%, 100% { background-color: transparent; }
+  20%, 60% { background-color: rgb(251 191 36 / 0.35); }
+  40%, 80% { background-color: transparent; }
+}
+.billing-charge-blink {
+  animation: billing-charge-blink 3s ease-in-out;
+}
+
 /* ── Invoice print / PDF ────────────────────────────────────────────────── */
 @media print {
   /* Scope: only apply when user triggers invoice print */
