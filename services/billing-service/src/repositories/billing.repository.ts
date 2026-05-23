@@ -529,6 +529,81 @@ export async function replaceExtraServices(
   });
 }
 
+export async function listExtraServicesByAppointmentId(appointmentId: string): Promise<ExtraServiceRecord[]> {
+  const { rows: txRows } = await pool.query(
+    `SELECT id FROM financial_transactions WHERE appointment_id = $1 LIMIT 1`,
+    [appointmentId],
+  );
+  if (!txRows.length) return [];
+  const transactionId = (txRows[0] as Record<string, unknown>).id as string;
+  return listExtraServices(transactionId);
+}
+
+export async function replaceExtraServicesByAppointmentId(
+  appointmentId: string,
+  items: Array<{ serviceName: string; cost: number }>,
+  createdBy: string,
+): Promise<ExtraServiceRecord[]> {
+  return withTransaction(async (client: PoolClient) => {
+    const { rows: txRows } = await client.query(
+      `SELECT id, payment_status FROM financial_transactions WHERE appointment_id = $1 FOR UPDATE`,
+      [appointmentId],
+    );
+    if (!txRows.length) {
+      throw Object.assign(new Error('No billing record found for this appointment'), { statusCode: 404, code: 'TRANSACTION_NOT_FOUND' });
+    }
+    const tx = txRows[0] as Record<string, unknown>;
+    const transactionId = tx.id as string;
+    const status = tx.payment_status as string;
+    if (status === 'reconciled') {
+      throw Object.assign(new Error('Record is reconciled and locked'), { statusCode: 403, code: 'RECORD_RECONCILED' });
+    }
+    if (status === 'refunded') {
+      throw Object.assign(new Error('Record is refunded and locked'), { statusCode: 403, code: 'RECORD_REFUNDED' });
+    }
+
+    // Capture old sum for audit delta
+    const { rows: oldRows } = await client.query(
+      `SELECT COALESCE(SUM(cost), 0) AS old_total FROM transaction_extra_services WHERE transaction_id = $1`,
+      [transactionId],
+    );
+    const oldTotal = Number((oldRows[0] as Record<string, unknown>).old_total);
+    const newTotal = items.reduce((s, i) => s + i.cost, 0);
+
+    await client.query(`DELETE FROM transaction_extra_services WHERE transaction_id = $1`, [transactionId]);
+
+    const inserted: ExtraServiceRecord[] = [];
+    for (const item of items) {
+      const { rows } = await client.query(
+        `INSERT INTO transaction_extra_services (transaction_id, service_name, cost, created_by)
+         VALUES ($1, $2, $3, $4) RETURNING *`,
+        [transactionId, item.serviceName, item.cost, createdBy],
+      );
+      inserted.push(rowToExtraService(rows[0] as Record<string, unknown>));
+    }
+
+    // Audit log
+    await client.query(
+      `INSERT INTO financial_events (transaction_id, event_type, event_data, created_by)
+       VALUES ($1, 'EXTRA_SERVICES_UPDATED', $2::jsonb, $3::uuid)`,
+      [
+        transactionId,
+        JSON.stringify({
+          appointmentId,
+          oldTotal,
+          newTotal,
+          delta: newTotal - oldTotal,
+          itemCount: items.length,
+          items: items.map((i) => ({ serviceName: i.serviceName, cost: i.cost })),
+        }),
+        createdBy,
+      ],
+    );
+
+    return inserted;
+  });
+}
+
 // ─── Reconcile Doctor (atomic Paid → Reconciled for all of a doctor's sessions) ─
 
 export interface ReconcileResult {

@@ -123,6 +123,20 @@ export async function updateProcedureCost(request: FastifyRequest, reply: Fastif
   void reply.send({ success: true, data: tx });
 }
 
+export async function getExtraServicesByAppointmentHandler(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { appointmentId } = request.params as { appointmentId: string };
+  const items = await repo.listExtraServicesByAppointmentId(appointmentId);
+  void reply.send({ success: true, data: items });
+}
+
+export async function replaceExtraServicesByAppointmentHandler(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { appointmentId } = request.params as { appointmentId: string };
+  const { items } = replaceExtraServicesSchema.parse(request.body);
+  const user = request.user as JwtPayload;
+  const result = await repo.replaceExtraServicesByAppointmentId(appointmentId, items, user.sub);
+  void reply.send({ success: true, data: result });
+}
+
 export async function updateChargeByAppointmentHandler(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { appointmentId } = request.params as { appointmentId: string };
   const { approvedCharge } = updateApprovedChargeSchema.parse(request.body);

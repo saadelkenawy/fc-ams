@@ -7,6 +7,7 @@ import {
   Calendar, Clock, Search, AlertCircle, AlertTriangle, CalendarPlus,
   FlaskConical, X, UserPlus, Building2, Globe, Zap, Phone,
   Banknote, CreditCard, Smartphone, Pencil, Paperclip, ExternalLink,
+  Plus, Trash2,
 } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
@@ -16,7 +17,8 @@ import { usePatients } from '@/hooks/usePatients';
 import { useProcedures } from '@/hooks/useProcedures';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useRouter } from 'next/navigation';
-import { appointmentApi, patientApi, fileApi } from '@/lib/api';
+import { appointmentApi, patientApi, fileApi, billingApi } from '@/lib/api';
+import { useToast } from '@/components/ui/Toast';
 import { useAppointments } from '@/hooks/useAppointments';
 import { cn } from '@/lib/utils';
 import type { Appointment, Doctor, Patient, Specialty } from '@fadl/types';
@@ -459,6 +461,7 @@ export function AddAppointmentModal({
   editAppointment, editPatient, editDoctor,
 }: AddAppointmentModalProps) {
   const { lang, t } = useLang();
+  const { toast } = useToast();
   const qc = useQueryClient();
   const router = useRouter();
   const { data: specialties = [] } = useSpecialties();
@@ -488,6 +491,11 @@ export function AddAppointmentModal({
   const [procCost,      setProcCost]      = useState(editAppointment?.procedureCost != null ? String(editAppointment.procedureCost) : '');
   const [errors,        setErrors]        = useState<Record<string, string>>({});
   const [attachment,    setAttachment]    = useState<File | null>(null);
+
+  // Billing line items (edit mode only — persisted to transaction_extra_services)
+  type ExtraLine = { key: string; serviceName: string; cost: string };
+  const [extraLines,         setExtraLines]         = useState<ExtraLine[]>([]);
+  const [extraLinesLoading,  setExtraLinesLoading]  = useState(false);
 
   const timeManuallyEdited     = useRef(false);
   const durationManuallyEdited = useRef(false);
@@ -572,6 +580,25 @@ export function AddAppointmentModal({
     }
     setErrors({});
     setAttachment(null);
+    setExtraLines([]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, editAppointment?.id]);
+
+  // Load existing billing line items when editing an appointment that has a fee set
+  useEffect(() => {
+    if (!open || !isEdit || !editAppointment || !charge) return;
+    setExtraLinesLoading(true);
+    billingApi
+      .get<{ data: Array<{ id: string; serviceName: string; cost: number }> }>(
+        `/transactions/by-appointment/${editAppointment.id}/extra-services`,
+      )
+      .then((res) => {
+        setExtraLines(
+          res.data.data.map((s) => ({ key: s.id, serviceName: s.serviceName, cost: String(s.cost) })),
+        );
+      })
+      .catch(() => { /* no billing record yet — start with empty list */ })
+      .finally(() => setExtraLinesLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, editAppointment?.id]);
 
@@ -628,6 +655,14 @@ export function AddAppointmentModal({
         appointmentId = res.data.data.id;
       }
 
+      // Persist billing line items (edit mode only, when billing record exists)
+      if (isEdit && charge) {
+        const validLines = extraLines.filter((l) => l.serviceName.trim() && l.cost.trim());
+        await billingApi.put(`/transactions/by-appointment/${appointmentId}/extra-services`, {
+          items: validLines.map((l) => ({ serviceName: l.serviceName.trim(), cost: Number(l.cost) })),
+        });
+      }
+
       // Upload attachment if provided (presigned PUT via file-service)
       if (attachment) {
         const initRes = await fileApi.post<{ data: { fileId: string; uploadUrl: string } }>('/files/initiate', {
@@ -648,6 +683,12 @@ export function AddAppointmentModal({
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['appointments'] });
+      if (isEdit && extraLines.filter((l) => l.serviceName.trim()).length > 0) {
+        toast(
+          t('تم تحديث الخدمات الإضافية. تم تعديل تسوية الطبيب بنجاح.', 'Extra service added. Billing and doctor settlements updated successfully.'),
+          'success',
+        );
+      }
       onCreated?.();
       onClose();
     },
@@ -964,6 +1005,86 @@ export function AddAppointmentModal({
                   onChange={(e) => setNotes(e.target.value)}
                 />
               </div>
+
+              {/* Billing line items — edit mode only, requires a session fee */}
+              {isEdit && (
+                <div className="rounded-xl border border-teal-100 dark:border-teal-900/40 bg-teal-50/60 dark:bg-teal-950/20 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] font-bold text-teal-600 dark:text-teal-400 uppercase tracking-widest">
+                      {t('خدمات إضافية (فوترة)', 'Billing Line Items')}
+                    </p>
+                    {!charge && (
+                      <span className="text-[10px] text-gray-400 dark:text-gray-500 italic">
+                        {t('أضف التعرفة أولاً', 'Add session fee first')}
+                      </span>
+                    )}
+                  </div>
+
+                  {extraLinesLoading ? (
+                    <p className="text-xs text-gray-400 text-center py-2">{t('جاري التحميل...', 'Loading...')}</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {extraLines.map((line, idx) => (
+                        <div key={line.key} className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            className="flex-1 h-9 rounded-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-shadow"
+                            placeholder={t('اسم الخدمة', 'Service name')}
+                            value={line.serviceName}
+                            disabled={!charge}
+                            onChange={(e) => {
+                              const updated = [...extraLines];
+                              updated[idx] = { ...updated[idx], serviceName: e.target.value };
+                              setExtraLines(updated);
+                            }}
+                          />
+                          <div className="relative flex shrink-0 w-28">
+                            <span className="inline-flex items-center px-2 rounded-s-xl border border-e-0 border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-[10px] font-bold text-gray-500 select-none">
+                              EGP
+                            </span>
+                            <input
+                              type="number" min="0" step="10"
+                              className="w-full h-9 rounded-e-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-2 text-sm font-semibold tabular-nums text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-shadow [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                              placeholder="0" value={line.cost} disabled={!charge}
+                              onChange={(e) => {
+                                const updated = [...extraLines];
+                                updated[idx] = { ...updated[idx], cost: e.target.value };
+                                setExtraLines(updated);
+                              }}
+                              dir="ltr"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setExtraLines(extraLines.filter((_, i) => i !== idx))}
+                            className="shrink-0 text-gray-300 hover:text-red-400 dark:text-gray-600 dark:hover:text-red-400 transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+
+                      {extraLines.length > 0 && (
+                        <div className="flex justify-end pt-1">
+                          <span className="text-xs font-semibold text-teal-700 dark:text-teal-300 tabular-nums">
+                            {t('المجموع', 'Total')}: {extraLines.reduce((s, l) => s + (Number(l.cost) || 0), 0).toLocaleString()} EGP
+                          </span>
+                        </div>
+                      )}
+
+                      <button
+                        type="button"
+                        disabled={!charge}
+                        onClick={() => setExtraLines([...extraLines, { key: makeKey(), serviceName: '', cost: '' }])}
+                        className="flex items-center gap-1.5 text-xs font-medium text-teal-600 dark:text-teal-400 hover:text-teal-800 dark:hover:text-teal-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        {t('إضافة خدمة', 'Add service')}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
 
             </div>
           </StepSection>

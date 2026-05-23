@@ -197,6 +197,49 @@ export async function billingRoutes(app: FastifyInstance): Promise<void> {
     },
   }, ctrl.deleteSourceHandler);
 
+  // GET /transactions/by-appointment/:appointmentId/extra-services
+  app.get('/transactions/by-appointment/:appointmentId/extra-services', {
+    preHandler: [requireRole('admin', 'finance', 'doctor', 'receptionist')],
+    schema: {
+      tags: ['billing'],
+      params: {
+        type: 'object',
+        required: ['appointmentId'],
+        properties: { appointmentId: { type: 'string', format: 'uuid' } },
+      },
+    },
+  }, ctrl.getExtraServicesByAppointmentHandler);
+
+  // PUT /transactions/by-appointment/:appointmentId/extra-services  (replaces all line items atomically)
+  app.put('/transactions/by-appointment/:appointmentId/extra-services', {
+    preHandler: [requireRole('admin', 'finance')],
+    schema: {
+      tags: ['billing'],
+      params: {
+        type: 'object',
+        required: ['appointmentId'],
+        properties: { appointmentId: { type: 'string', format: 'uuid' } },
+      },
+      body: {
+        type: 'object',
+        required: ['items'],
+        properties: {
+          items: {
+            type: 'array',
+            items: {
+              type: 'object',
+              required: ['serviceName', 'cost'],
+              properties: {
+                serviceName: { type: 'string', minLength: 1, maxLength: 200 },
+                cost: { type: 'number', minimum: 0 },
+              },
+            },
+          },
+        },
+      },
+    },
+  }, ctrl.replaceExtraServicesByAppointmentHandler);
+
   // PATCH /transactions/by-appointment/:appointmentId/payment-status  (sync billing status from appointment)
   app.patch('/transactions/by-appointment/:appointmentId/payment-status', {
     preHandler: [requireRole('admin')],
