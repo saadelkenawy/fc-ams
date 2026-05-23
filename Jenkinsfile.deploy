@@ -37,7 +37,7 @@ pipeline {
         DOCKERHUB_CRED = 'dockerhub-creds'
         PREPROD_HOST   = 'preprod.fadlclinic.local'
         PROD_HOST      = 'prod.fadlclinic.local'
-        COMPOSE_FILES  = '-f docker-compose.yml -f docker-compose.prod.yml'
+        COMPOSE_FILES  = '-p fcms -f docker-compose.yml -f docker-compose.prod.yml'
 
         ALL_SERVICES = [
             'identity-service',
