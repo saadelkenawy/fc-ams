@@ -91,6 +91,10 @@ const updateProcedureCostSchema = z.object({
   procedureCost: z.number().min(0).nullable(),
 });
 
+const updateApprovedChargeSchema = z.object({
+  approvedCharge: z.number().positive(),
+});
+
 const replaceExtraServicesSchema = z.object({
   items: z.array(z.object({
     serviceName: z.string().min(1).max(200),
@@ -116,6 +120,13 @@ export async function updateProcedureCost(request: FastifyRequest, reply: Fastif
   const { id } = request.params as { id: string };
   const { procedureCost } = updateProcedureCostSchema.parse(request.body);
   const tx = await repo.updateProcedureCost(id, procedureCost);
+  void reply.send({ success: true, data: tx });
+}
+
+export async function updateChargeByAppointmentHandler(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { appointmentId } = request.params as { appointmentId: string };
+  const { approvedCharge } = updateApprovedChargeSchema.parse(request.body);
+  const tx = await repo.updateApprovedChargeByAppointmentId(appointmentId, approvedCharge);
   void reply.send({ success: true, data: tx });
 }
 

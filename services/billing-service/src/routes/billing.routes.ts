@@ -228,6 +228,24 @@ export async function billingRoutes(app: FastifyInstance): Promise<void> {
     },
   }, ctrl.refundTransactionByAppointmentHandler);
 
+  // PATCH /transactions/by-appointment/:appointmentId/charge  (recalculates all derived fields when fee changes)
+  app.patch('/transactions/by-appointment/:appointmentId/charge', {
+    preHandler: [requireRole('admin')],
+    schema: {
+      tags: ['billing'],
+      params: {
+        type: 'object',
+        required: ['appointmentId'],
+        properties: { appointmentId: { type: 'string', format: 'uuid' } },
+      },
+      body: {
+        type: 'object',
+        required: ['approvedCharge'],
+        properties: { approvedCharge: { type: 'number', exclusiveMinimum: 0 } },
+      },
+    },
+  }, ctrl.updateChargeByAppointmentHandler);
+
   // GET /sources/:code/rate?specialtyId=
   app.get('/sources/:code/rate', {
     preHandler: [requireRole('admin', 'finance', 'receptionist')],

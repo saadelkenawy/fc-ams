@@ -3,7 +3,7 @@ import { z } from 'zod';
 import type { AppointmentStatus, JwtPayload } from '@fadl/types';
 import * as repo from '../repositories/appointment.repository';
 import { fireNotification } from '../clients/notification';
-import { createBillingTransaction, refundTransactionByAppointment, syncBillingPaymentStatus } from '../clients/billing';
+import { createBillingTransaction, refundTransactionByAppointment, syncBillingApprovedCharge, syncBillingPaymentStatus } from '../clients/billing';
 import { verifyUserPassword } from '../clients/identity';
 
 const APPOINTMENT_STATUS = z.enum(['TBC', 'Ok!', 'Conf.', 'Comp.', 'Canc.', 'Resch.', 'Inf.', 'Ref.']);
@@ -158,6 +158,13 @@ export async function updateAppointment(request: FastifyRequest, reply: FastifyR
   const input = updateSchema.parse(request.body);
   const user = request.user as JwtPayload;
   const appointment = await repo.updateAppointment(id, input, user.sub);
+
+  if (input.approvedCharge != null) {
+    void syncBillingApprovedCharge(id, input.approvedCharge).catch((err: Error) =>
+      console.error('[appt] billing charge sync failed', err.message),
+    );
+  }
+
   void reply.send({ success: true, data: appointment });
 }
 

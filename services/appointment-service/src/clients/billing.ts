@@ -72,3 +72,7 @@ export async function syncBillingPaymentStatus(appointmentId: string, status: st
 export async function refundTransactionByAppointment(appointmentId: string): Promise<void> {
   await billingClient.patch(`/transactions/by-appointment/${appointmentId}/refund`, {});
 }
+
+export async function syncBillingApprovedCharge(appointmentId: string, approvedCharge: number): Promise<void> {
+  await billingClient.patch(`/transactions/by-appointment/${appointmentId}/charge`, { approvedCharge });
+}
