@@ -5,16 +5,20 @@ export function cn(...inputs: ClassValue[]): string {
   return twMerge(clsx(inputs));
 }
 
+function latinNumerals(locale: string): string {
+  return locale.startsWith('ar') ? `${locale}-u-nu-latn` : locale;
+}
+
 export function formatCurrency(amount: number, currency = 'EGP', locale = 'ar-EG'): string {
-  return new Intl.NumberFormat(locale, { style: 'currency', currency }).format(amount);
+  return new Intl.NumberFormat(latinNumerals(locale), { style: 'currency', currency }).format(amount);
 }
 
 export function formatNumber(n: number, locale = 'ar-EG'): string {
-  return new Intl.NumberFormat(locale).format(n);
+  return new Intl.NumberFormat(latinNumerals(locale)).format(n);
 }
 
 export function formatDate(date: string | Date, locale = 'ar-EG'): string {
-  return new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(new Date(date));
+  return new Intl.DateTimeFormat(latinNumerals(locale), { dateStyle: 'medium' }).format(new Date(date));
 }
 
 export function formatTime(time: string, locale: 'ar' | 'en' = 'ar'): string {

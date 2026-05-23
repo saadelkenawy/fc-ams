@@ -13,7 +13,7 @@ import { Pagination } from '@/components/ui/Pagination';
 import { useLang } from '@/contexts/LanguageContext';
 import { useToast } from '@/components/ui/Toast';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { useTransactions, useUpdateTransactionStatus, useBulkDeleteTransactions, useBulkEditPaymentMethod, useSettlements, useReconcileDoctor } from '@/hooks/useBilling';
+import { useTransactions, useUpdateTransactionStatus, useBulkDeleteTransactions, useBulkEditPaymentMethod, useSettlements } from '@/hooks/useBilling';
 import { useDoctorMap } from '@/hooks/useDoctors';
 import { usePatientMap } from '@/hooks/usePatients';
 import { cn } from '@/lib/utils';
@@ -546,134 +546,6 @@ function BulkEditModal({ selected, onClose, onEdited, lang, t }: BulkEditModalPr
   );
 }
 
-// ── Reconcile Modal ────────────────────────────────────────────────────────
-
-interface ReconcileModalProps {
-  doctorId: string;
-  doctorName: string;
-  from: string;
-  to: string;
-  totalConsultations: number;
-  netPayable: number;
-  onClose: () => void;
-  onDone: () => void;
-}
-
-function ReconcileModal({ doctorId, doctorName, from, to, totalConsultations, netPayable, onClose, onDone }: ReconcileModalProps) {
-  const { lang, t } = useLang();
-  const { toast } = useToast();
-  const { mutateAsync, isLoading } = useReconcileDoctor();
-  const [paymentMethod, setPaymentMethod] = useState('cash');
-  const [paymentReference, setPaymentReference] = useState('');
-  const [notes, setNotes] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-
-  async function handleConfirm() {
-    setError('');
-    if (!password) { setError(t('كلمة المرور مطلوبة', 'Password is required')); return; }
-    try {
-      await mutateAsync({ doctorId, from, to, paymentMethod, paymentReference: paymentReference || undefined, notes: notes || undefined, password });
-      toast(t('تمت التسوية بنجاح', 'Settlement completed successfully'), 'success');
-      onDone();
-    } catch (e: unknown) {
-      const msg = (e as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message;
-      setError(msg ?? t('فشلت التسوية. تحقق من كلمة المرور.', 'Settlement failed. Check your password.'));
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-md mx-4 bg-white dark:bg-neutral-800 rounded-2xl shadow-2xl p-6" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center gap-3 mb-5">
-          <div className="w-11 h-11 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center flex-shrink-0">
-            <Check className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
-          </div>
-          <div>
-            <h3 className="font-semibold text-gray-900 dark:text-gray-100">{t('تسوية الطبيب', 'Settle Doctor')}</h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{doctorName}</p>
-          </div>
-        </div>
-
-        <div className="bg-gray-50 dark:bg-neutral-700/50 rounded-xl p-4 mb-4 grid grid-cols-2 gap-3 text-sm">
-          <div>
-            <p className="text-xs text-gray-400 mb-0.5">{t('الفترة', 'Period')}</p>
-            <p className="font-medium text-gray-800 dark:text-gray-200">{from} → {to}</p>
-          </div>
-          <div>
-            <p className="text-xs text-gray-400 mb-0.5">{t('الاستشارات', 'Consultations')}</p>
-            <p className="font-medium text-gray-800 dark:text-gray-200">{totalConsultations}</p>
-          </div>
-          <div className="col-span-2">
-            <p className="text-xs text-gray-400 mb-0.5">{t('المستحق للطبيب', 'Net Payable')}</p>
-            <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(netPayable)}</p>
-          </div>
-        </div>
-
-        <div className="space-y-3 mb-4">
-          <div>
-            <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">{t('طريقة الدفع', 'Payment Method')}</label>
-            <select
-              value={paymentMethod}
-              onChange={(e) => setPaymentMethod(e.target.value)}
-              className="w-full h-10 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-gray-900 dark:text-gray-100 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            >
-              <option value="cash">{t('نقداً', 'Cash')}</option>
-              <option value="bank">{t('تحويل بنكي', 'Bank Transfer')}</option>
-              <option value="cheque">{t('شيك', 'Cheque')}</option>
-              <option value="transfer">InstaPay / {t('تحويل', 'Transfer')}</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">{t('رقم المرجع (اختياري)', 'Reference # (optional)')}</label>
-            <input
-              type="text"
-              value={paymentReference}
-              onChange={(e) => setPaymentReference(e.target.value)}
-              className="w-full h-10 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-gray-900 dark:text-gray-100 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              placeholder={t('رقم الشيك / رقم التحويل', 'Cheque # / transfer ref')}
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">{t('ملاحظات (اختياري)', 'Notes (optional)')}</label>
-            <input
-              type="text"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className="w-full h-10 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-gray-900 dark:text-gray-100 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">{t('كلمة مرورك', 'Your password')}</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full h-10 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-gray-900 dark:text-gray-100 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              placeholder="••••••••"
-              autoFocus
-            />
-          </div>
-        </div>
-
-        {error && <p className="text-red-500 text-xs mb-3">{error}</p>}
-
-        <div className="flex gap-2">
-          <Button variant="ghost" className="flex-1" onClick={onClose}>{t('إلغاء', 'Cancel')}</Button>
-          <Button
-            variant="primary"
-            className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
-            onClick={() => void handleConfirm()}
-            disabled={isLoading}
-          >
-            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : t('تأكيد التسوية', 'Confirm Settlement')}
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function BillingPage() {
@@ -705,7 +577,6 @@ export default function BillingPage() {
   const today = new Date().toISOString().split('T')[0];
   const [settlFrom, setSettlFrom] = useState(today);
   const [settlTo, setSettlTo]     = useState(today);
-  const [reconcileTarget, setReconcileTarget] = useState<{ doctorId: string; doctorName: string; totalConsultations: number; netPayable: number } | null>(null);
 
   // Auto-open secure delete modal and scroll to highlighted row
   useEffect(() => {
@@ -749,7 +620,7 @@ export default function BillingPage() {
   const doctorMap    = useDoctorMap();
   const patientMap   = usePatientMap();
 
-  const { data: settlData, isLoading: settlLoading, refetch: refetchSettlements } = useSettlements({
+  const { data: settlData, isLoading: settlLoading } = useSettlements({
     from: settlFrom, to: settlTo, unsettledOnly: true,
   });
 
@@ -1375,7 +1246,6 @@ export default function BillingPage() {
                       <th className="px-4 py-3 text-start text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{t('إجمالي الرسوم', 'Total Charge')}</th>
                       <th className="px-4 py-3 text-start text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{t('نصيب الطبيب', 'Dr. Share')}</th>
                       <th className="px-4 py-3 text-start text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{t('المستحق', 'Net Payable')}</th>
-                      <th className="px-4 py-3" />
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50 dark:divide-neutral-700/50">
@@ -1389,15 +1259,6 @@ export default function BillingPage() {
                           <td className="px-4 py-3.5 text-gray-600 dark:text-gray-300">{formatCurrency(s.totalSessionFees ?? 0)}</td>
                           <td className="px-4 py-3.5 text-gray-600 dark:text-gray-300">{formatCurrency(s.doctorShare)}</td>
                           <td className="px-4 py-3.5 font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(s.netPayable)}</td>
-                          <td className="px-4 py-3.5 text-end">
-                            <button
-                              onClick={() => setReconcileTarget({ doctorId: s.doctorId, doctorName: name, totalConsultations: s.totalConsultations, netPayable: s.netPayable })}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 text-xs font-medium hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors"
-                            >
-                              <Check className="w-3.5 h-3.5" />
-                              {t('تسوية', 'Settle')}
-                            </button>
-                          </td>
                         </tr>
                       );
                     })}
@@ -1407,19 +1268,6 @@ export default function BillingPage() {
             )}
           </CardContent>
         </Card>
-
-        {reconcileTarget && (
-          <ReconcileModal
-            doctorId={reconcileTarget.doctorId}
-            doctorName={reconcileTarget.doctorName}
-            from={settlFrom}
-            to={settlTo}
-            totalConsultations={reconcileTarget.totalConsultations}
-            netPayable={reconcileTarget.netPayable}
-            onClose={() => setReconcileTarget(null)}
-            onDone={() => { setReconcileTarget(null); void refetchSettlements(); }}
-          />
-        )}
 
       {showDeleteModal && deleteApptId && (
         <SecureDeleteModal
