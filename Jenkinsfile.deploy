@@ -37,7 +37,9 @@ pipeline {
         DOCKERHUB_CRED = 'dockerhub-creds'
         PREPROD_HOST   = 'preprod.fadlclinic.local'
         PROD_HOST      = 'prod.fadlclinic.local'
-        COMPOSE_FILES  = '-p fcms -f docker-compose.yml -f docker-compose.prod.yml'
+        // local uses base file only — prod overlay needs .env on the target server
+        COMPOSE_LOCAL  = '-p fcms -f docker-compose.yml'
+        COMPOSE_REMOTE = '-p fcms -f docker-compose.yml -f docker-compose.prod.yml'
 
         ALL_SERVICES = [
             'identity-service',
@@ -108,7 +110,7 @@ pipeline {
                     def svcs = env.RESOLVED_SERVICES
                     sh """
                         cd ${WORKSPACE}
-                        docker-compose ${env.COMPOSE_FILES} up -d --no-build ${svcs}
+                        docker-compose ${env.COMPOSE_LOCAL} up -d --no-build ${svcs}
                     """
                 }
             }
@@ -126,9 +128,9 @@ pipeline {
                             ssh -o StrictHostKeyChecking=no deploy@${env.PREPROD_HOST} '
                                 cd /opt/fcms &&
                                 echo "Pulling images on pre-prod..." &&
-                                docker compose -f docker-compose.yml -f docker-compose.prod.yml pull ${svcs} &&
+                                docker-compose -p fcms -f docker-compose.yml -f docker-compose.prod.yml pull ${svcs} &&
                                 echo "Restarting services..." &&
-                                docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-deps --no-build ${svcs} &&
+                                docker-compose -p fcms -f docker-compose.yml -f docker-compose.prod.yml up -d --no-deps --no-build ${svcs} &&
                                 echo "Done."
                             '
                         """
@@ -149,9 +151,9 @@ pipeline {
                             ssh -o StrictHostKeyChecking=no deploy@${env.PROD_HOST} '
                                 cd /opt/fcms &&
                                 echo "Pulling images on production..." &&
-                                docker compose -f docker-compose.yml -f docker-compose.prod.yml pull ${svcs} &&
+                                docker-compose -p fcms -f docker-compose.yml -f docker-compose.prod.yml pull ${svcs} &&
                                 echo "Restarting services..." &&
-                                docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-deps --no-build ${svcs} &&
+                                docker-compose -p fcms -f docker-compose.yml -f docker-compose.prod.yml up -d --no-deps --no-build ${svcs} &&
                                 echo "Done."
                             '
                         """
