@@ -26,7 +26,7 @@ services:
     entrypoint: >
       /bin/sh -c "
         apt-get update -qq &&
-        apt-get install -y -qq docker-ce-cli &&
+        apt-get install -y -qq docker.io &&
         /usr/bin/tini -- /usr/local/bin/jenkins.sh
       "
 
