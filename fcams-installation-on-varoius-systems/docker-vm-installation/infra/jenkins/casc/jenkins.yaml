@@ -1,6 +1,7 @@
 # ─── Jenkins Configuration as Code (JCasC) ────────────────────────────────────
-# Core settings only. Credentials are configured via the UI or by re-running
-# setup.sh with a valid .env file (which passes GITHUB_TOKEN, DOCKERHUB_TOKEN, etc.).
+# Applied automatically on startup via CASC_JENKINS_CONFIG env var.
+# Requires .env with: JENKINS_ADMIN_PASSWORD, GITHUB_TOKEN, DOCKERHUB_TOKEN, DEPLOY_SSH_KEY
+# Deploy: docker compose --env-file .env up -d --force-recreate
 # ──────────────────────────────────────────────────────────────────────────────
 
 jenkins:
@@ -9,13 +10,46 @@ jenkins:
   mode: NORMAL
   scmCheckoutRetryCount: 2
 
-  # Allow full access without login until admin user is configured via UI
-  authorizationStrategy:
-    unsecured: {}
-
   securityRealm:
-    none: {}
+    local:
+      allowsSignup: false
+      users:
+        - id: "admin"
+          password: "${JENKINS_ADMIN_PASSWORD}"
 
+  authorizationStrategy:
+    loggedInUsersCanDoAnything:
+      allowAnonymousRead: true
+
+# rootUrl lives under unclassified.location in JCasC >= 1.50
 unclassified:
   location:
-    url: "http://192.168.110.100:8080/"
+    url: "https://safer-thick-fisheries-care.trycloudflare.com/"
+
+# ── Credentials ───────────────────────────────────────────────────────────────
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+          - usernamePassword:
+              scope: GLOBAL
+              id: "github-token"
+              description: "GitHub — saadelkenawy PAT"
+              username: "saadelkenawy"
+              password: "${GITHUB_TOKEN}"
+
+          - usernamePassword:
+              scope: GLOBAL
+              id: "dockerhub-creds"
+              description: "Docker Hub — saadelkenawy"
+              username: "saadelkenawy"
+              password: "${DOCKERHUB_TOKEN}"
+
+          - basicSSHUserPrivateKey:
+              scope: GLOBAL
+              id: "deploy-server-key"
+              description: "SSH key — deploy user on pre-prod and prod servers"
+              username: "deploy"
+              privateKeySource:
+                directEntry:
+                  privateKey: "${DEPLOY_SSH_KEY}"
