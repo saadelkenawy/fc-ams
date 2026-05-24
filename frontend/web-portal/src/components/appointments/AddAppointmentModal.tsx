@@ -683,6 +683,8 @@ export function AddAppointmentModal({
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['appointments'] });
+      void qc.invalidateQueries({ queryKey: ['rooms'] });
+      void qc.invalidateQueries({ queryKey: ['room-availability'] });
       if (isEdit && extraLines.filter((l) => l.serviceName.trim()).length > 0) {
         toast(
           t('تم تحديث الخدمات الإضافية. تم تعديل تسوية الطبيب بنجاح.', 'Extra service added. Billing and doctor settlements updated successfully.'),

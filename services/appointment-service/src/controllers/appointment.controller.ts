@@ -100,7 +100,7 @@ export async function createAppointment(request: FastifyRequest, reply: FastifyR
               `UPDATE appointments SET room_id = $1, room_code = $2, room_assigned_at = NOW(), updated_at = NOW() WHERE id = $3`,
               [roomId, roomCode, appointment.id],
             );
-            broadcastRoom(user.branchId, 'room-updated', { roomId, roomCode, appointmentId: appointment.id });
+            broadcastRoom(user.branchId, 'room_updated', { roomId, roomCode, appointmentId: appointment.id });
           } finally {
             client.release();
           }
