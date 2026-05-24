@@ -131,7 +131,8 @@ pipeline {
                             ssh deploy@\${PREPROD_HOST} '
                                 cd /opt/fcms &&
                                 docker compose -f docker-compose.yml -f docker-compose.prod.yml pull ${services} &&
-                                docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-deps ${services}
+                                docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-deps ${services} &&
+                                docker image prune -f
                             '
                         """
                     }
@@ -156,7 +157,8 @@ pipeline {
                                 ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no deploy@\${PROD_HOST} '
                                     cd /opt/fcms &&
                                     docker compose -f docker-compose.yml -f docker-compose.prod.yml pull ${services} &&
-                                    docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-deps ${services}
+                                    docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-deps ${services} &&
+                                    docker image prune -f
                                 '
                             """
                         }
@@ -165,7 +167,7 @@ pipeline {
             }
         }
 
-        // ── 6. Clean up local images and build cache to save disk space ─────────
+        // ── 6. Clean up Jenkins build server — remove built images + dangling layers ──
         stage('Cleanup') {
             when { expression { env.BUILD_LIST?.trim() } }
             steps {
@@ -176,6 +178,8 @@ pipeline {
                         sh "docker rmi ${fullImage}:${env.BUILD_TAG} ${fullImage}:latest || true"
                     }
                 }
+                // Remove dangling intermediate layers left over from the build
+                sh 'docker image prune -f'
                 // Prune build cache — keep 5 GB of warm layers for faster incremental builds
                 sh 'docker builder prune -f --keep-storage=5GB'
             }
