@@ -5,6 +5,7 @@ import * as repo from '../repositories/appointment.repository';
 import { fireNotification } from '../clients/notification';
 import { createBillingTransaction, refundTransactionByAppointment, syncBillingApprovedCharge, syncBillingPaymentStatus } from '../clients/billing';
 import { verifyUserPassword } from '../clients/identity';
+import { broadcastRoom } from '../lib/room-sse';
 
 const APPOINTMENT_STATUS = z.enum(['TBC', 'Ok!', 'Conf.', 'Comp.', 'Canc.', 'Resch.', 'Inf.', 'Ref.']);
 
@@ -99,6 +100,7 @@ export async function createAppointment(request: FastifyRequest, reply: FastifyR
               `UPDATE appointments SET room_id = $1, room_code = $2, room_assigned_at = NOW(), updated_at = NOW() WHERE id = $3`,
               [roomId, roomCode, appointment.id],
             );
+            broadcastRoom(user.branchId, 'room-updated', { roomId, roomCode, appointmentId: appointment.id });
           } finally {
             client.release();
           }
