@@ -49,8 +49,9 @@
     <scriptPath>Jenkinsfile</scriptPath>
   </factory>
   <triggers>
+    <!-- Fallback scan every hour in case the webhook is missed -->
     <com.cloudbees.hudson.plugins.folder.computed.PeriodicFolderTrigger plugin="cloudbees-folder">
-      <spec>H H * * *</spec>
+      <spec>H * * * *</spec>
       <interval>3600000</interval>
     </com.cloudbees.hudson.plugins.folder.computed.PeriodicFolderTrigger>
   </triggers>

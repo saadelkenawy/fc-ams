@@ -25,6 +25,11 @@ jenkins:
 unclassified:
   location:
     url: "https://safer-thick-fisheries-care.trycloudflare.com/"
+  # GitHub webhook endpoint: <url>github-webhook/
+  # Register at: https://github.com/saadelkenawy/fc-ams/settings/hooks
+  # Payload URL : https://safer-thick-fisheries-care.trycloudflare.com/github-webhook/
+  # Content type: application/json
+  # Events      : push
 
 # ── Credentials ───────────────────────────────────────────────────────────────
 credentials:
