@@ -7,8 +7,12 @@
 //   2. Run with parameters or accept defaults.
 //
 // Required Jenkins credentials:
-//   dockerhub-creds   — Docker Hub username + token   (usernamePassword)
-//   deploy-server-key — SSH private key for deploy@<host>  (sshUserPrivateKey)  [only for remote deploy]
+//   dockerhub-creds      — Docker Hub username + token   (usernamePassword)
+//   deploy-server-key    — SSH private key for deploy@<host>  (sshUserPrivateKey)  [only for remote deploy]
+//   prod-db-user         — DB_USER for docker-compose  (secretText)
+//   prod-db-password     — DB_PASSWORD for docker-compose  (secretText)
+//   prod-jwt-secret      — JWT_SECRET for docker-compose  (secretText)
+//   prod-redis-password  — REDIS_PASSWORD for docker-compose  (secretText, empty = no auth)
 // ──────────────────────────────────────────────────────────────────────────────
 
 pipeline {
@@ -107,13 +111,26 @@ pipeline {
         stage('Deploy — Local') {
             when { expression { params.DEPLOY_TARGET == 'local' } }
             steps {
-                script {
-                    def svcs = env.RESOLVED_SERVICES
-                    sh """
-                        cd ${env.COMPOSE_LOCAL_DIR}
-                        docker-compose ${env.COMPOSE_LOCAL} up -d --no-build ${svcs}
-                    """
+                withCredentials([
+                    string(credentialsId: 'prod-db-user',       variable: 'ENV_DB_USER'),
+                    string(credentialsId: 'prod-db-password',   variable: 'ENV_DB_PASSWORD'),
+                    string(credentialsId: 'prod-jwt-secret',    variable: 'ENV_JWT_SECRET'),
+                    string(credentialsId: 'prod-redis-password', variable: 'ENV_REDIS_PASSWORD'),
+                ]) {
+                    script {
+                        def svcs = env.RESOLVED_SERVICES
+                        sh """
+                            printf 'DB_USER=%s\\nDB_PASSWORD=%s\\nJWT_SECRET=%s\\nREDIS_PASSWORD=%s\\n' \
+                                "\$ENV_DB_USER" "\$ENV_DB_PASSWORD" "\$ENV_JWT_SECRET" "\$ENV_REDIS_PASSWORD" \
+                                > "\${WORKSPACE}/.env"
+                            cd ${env.COMPOSE_LOCAL_DIR}
+                            docker-compose --env-file "\${WORKSPACE}/.env" ${env.COMPOSE_LOCAL} up -d --no-build ${svcs}
+                        """
+                    }
                 }
+            }
+            post {
+                always { sh 'rm -f "${WORKSPACE}/.env" || true' }
             }
         }
 
