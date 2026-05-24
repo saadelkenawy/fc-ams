@@ -6,7 +6,7 @@ import { useRooms, useRoomSSE, useAutoAssignRoom, useReleaseRoom, useNextPatient
 import { useQueue } from '@/hooks/useQueue';
 import { usePatientBatch } from '@/hooks/usePatients';
 import { useDoctors, useSpecialtyMap } from '@/hooks/useDoctors';
-import { useDoctorsOnDate } from '@/hooks/useAppointments';
+import { useAppointments, useDoctorsOnDate } from '@/hooks/useAppointments';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { useLang } from '@/contexts/LanguageContext';
@@ -437,6 +437,20 @@ function AssignDoctorModal({ room, initialDate, onClose }: { room: RoomDetail; i
     [allDoctors, doctorApptCounts],
   );
 
+  // Appointments for the selected doctor on the selected date
+  const { data: apptResp, isFetching: apptLoading } = useAppointments(
+    { doctorId, date, limit: 100 },
+    { enabled: !!doctorId },
+  );
+  const doctorApptList = useMemo(
+    () => (apptResp?.data ?? [])
+      .filter((a) => a.status !== 'Canc.' && a.status !== 'Comp.')
+      .sort((a, b) => a.startTime.localeCompare(b.startTime)),
+    [apptResp],
+  );
+  const apptPatientIds = useMemo(() => doctorApptList.map((a) => a.patientId), [doctorApptList]);
+  const apptPatientMap = usePatientBatch(apptPatientIds);
+
   const selectedDoctor  = allDoctors.find((d) => d.id === doctorId);
   const specialtyName   = selectedDoctor ? (specialtyMap.get(selectedDoctor.specialtyId)?.nameEn ?? 'this specialty') : '';
   const apptCount       = doctorId ? (doctorApptCounts.get(doctorId) ?? 0) : 0;
@@ -558,6 +572,52 @@ function AssignDoctorModal({ room, initialDate, onClose }: { room: RoomDetail; i
             </p>
           )}
         </div>
+
+        {/* Appointment list for selected doctor */}
+        {doctorId && (
+          <div>
+            <p className="text-[10px] uppercase tracking-widest text-gray-400 dark:text-gray-500 font-semibold mb-1.5">
+              Appointments on {date}
+            </p>
+            {apptLoading ? (
+              <div className="space-y-1.5">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-8 rounded-lg bg-gray-100 dark:bg-neutral-800 animate-pulse" />
+                ))}
+              </div>
+            ) : doctorApptList.length === 0 ? (
+              <p className="text-xs text-amber-600 dark:text-amber-400 italic px-1">
+                No active appointments for this date.
+              </p>
+            ) : (
+              <div className="max-h-44 overflow-y-auto space-y-1 rounded-lg border border-gray-100 dark:border-neutral-700 p-1">
+                {doctorApptList.map((appt, i) => {
+                  const name = apptPatientMap.get(appt.patientId)?.nameEn ?? `Patient #${i + 1}`;
+                  const statusColors: Record<string, string> = {
+                    'TBC':   'bg-gray-100 dark:bg-neutral-700 text-gray-600 dark:text-gray-300',
+                    'Ok!':   'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300',
+                    'Conf.': 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
+                    'Resch.':'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300',
+                    'Inf.':  'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300',
+                    'Ref.':  'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300',
+                  };
+                  const badgeCls = statusColors[appt.status] ?? 'bg-gray-100 dark:bg-neutral-700 text-gray-500';
+                  return (
+                    <div key={appt.id} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-neutral-800 transition-colors text-xs">
+                      <span className="text-gray-400 dark:text-gray-500 font-mono w-[90px] flex-shrink-0 tabular-nums">
+                        {appt.startTime}–{appt.endTime}
+                      </span>
+                      <span className="flex-1 truncate text-gray-800 dark:text-gray-200 font-medium">{name}</span>
+                      <span className={cn('px-1.5 py-0.5 rounded-full text-[10px] font-semibold flex-shrink-0', badgeCls)}>
+                        {appt.status}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="flex gap-2 pt-1">
           <Button variant="outline" onClick={onClose} className="flex-1">Cancel</Button>

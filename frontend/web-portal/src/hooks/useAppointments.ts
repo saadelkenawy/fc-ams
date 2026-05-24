@@ -11,7 +11,7 @@ export interface AppointmentListParams {
   limit?: number;
 }
 
-export function useAppointments(params: AppointmentListParams = {}) {
+export function useAppointments(params: AppointmentListParams = {}, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['appointments', params],
     queryFn: async () => {
@@ -24,6 +24,7 @@ export function useAppointments(params: AppointmentListParams = {}) {
       const res = await appointmentApi.get('/appointments', { params: qs });
       return res.data as PaginatedResponse<Appointment>;
     },
+    enabled: options?.enabled !== false,
     staleTime: 15_000,
     keepPreviousData: true,
   });
