@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { useRooms, useRoomSSE, useAutoAssignRoom, useReleaseRoom, useNextPatient } from '@/hooks/useRooms';
 import { useQueue } from '@/hooks/useQueue';
+import { usePatientBatch } from '@/hooks/usePatients';
 import { useDoctors, useSpecialtyMap } from '@/hooks/useDoctors';
 import { useDoctorsOnDate } from '@/hooks/useAppointments';
 import { Modal } from '@/components/ui/Modal';
@@ -77,10 +78,10 @@ function SessionProgress({ done, total, color }: { done: number; total: number; 
 
 // ── Queue pill ────────────────────────────────────────────────────────────────
 
-function QueuePill({ entry, isCurrent }: { entry: PatientQueueEntry; isCurrent: boolean }) {
+function QueuePill({ entry, isCurrent, patientName }: { entry: PatientQueueEntry; isCurrent: boolean; patientName?: string }) {
   const label = isCurrent
     ? entry.status === 'called' ? 'Called, waiting to enter' : 'In Session'
-    : `Patient #${entry.position}`;
+    : patientName ?? `Patient #${entry.position}`;
   return (
     <div className={cn(
       'flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-all',
@@ -190,13 +191,24 @@ function RoomCard({
   const hasDoctor = !!room.assignedDoctor?.id;
 
   const doctorId = room.assignedDoctor?.id ?? '';
-  const { data: queue = [] } = useQueue(doctorId, date, expanded && hasDoctor);
+  // Load queue whenever a doctor is assigned so the collapsed header can show current patient
+  const { data: queue = [] } = useQueue(doctorId, date, hasDoctor);
 
   const inSessionEntry = queue.find((q) => q.status === 'in_session');
   const calledEntry    = queue.find((q) => q.status === 'called');
   const currentEntry   = inSessionEntry ?? calledEntry ?? null;
   const waitingEntries = queue.filter((q) => q.status === 'waiting').slice(0, 3);
   const nextWaiting    = waitingEntries[0] ?? null;
+
+  // Batch-fetch patient names for visible queue entries
+  const patientIds = useMemo(() => {
+    const ids: string[] = [];
+    if (currentEntry) ids.push(currentEntry.patientId);
+    waitingEntries.forEach((e) => ids.push(e.patientId));
+    return [...new Set(ids)];
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queue]);
+  const patientNameMap = usePatientBatch(patientIds);
 
   const done       = room.appointmentsToday - room.appointmentsRemaining;
   const doctorName = room.assignedDoctor?.nameEn ?? (hasDoctor ? 'Unknown Doctor' : null);
@@ -252,17 +264,37 @@ function RoomCard({
             </p>
           )}
 
+          {/* Current patient badge — visible even when card is collapsed */}
+          {isActive && currentEntry && (
+            <div className="flex items-center gap-1.5 -mt-0.5">
+              <span className={cn(
+                'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium',
+                currentEntry.status === 'in_session'
+                  ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300'
+                  : 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300',
+              )}>
+                <span className={cn(
+                  'w-1.5 h-1.5 rounded-full flex-shrink-0',
+                  currentEntry.status === 'in_session' ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500',
+                )} />
+                {patientNameMap.get(currentEntry.patientId)?.nameEn ?? `Patient #${currentEntry.position}`}
+                {' · '}
+                {currentEntry.status === 'in_session' ? t('في الجلسة', 'In Session') : t('تم الاستدعاء', 'Called')}
+              </span>
+            </div>
+          )}
+          {isActive && !currentEntry && (
+            <p className="text-xs text-gray-400 dark:text-gray-500 italic -mt-0.5">
+              {t('لا توجد جلسة نشطة', 'No active session')}
+            </p>
+          )}
+
           {/* Progress bar */}
           {isActive && room.appointmentsToday > 0 && (
             <SessionProgress done={done} total={room.appointmentsToday} color={cfg.progress} />
           )}
           {isActive && room.appointmentsToday === 0 && (
             <p className="text-xs text-gray-500">{room.appointmentsRemaining} patients remaining</p>
-          )}
-
-          {/* Occupied patient pill */}
-          {room.status === 'occupied' && currentEntry == null && isActive && (
-            <p className="text-xs text-gray-400 italic">{t('لا توجد جلسة نشطة', 'No active session')}</p>
           )}
         </button>
 
@@ -283,11 +315,11 @@ function RoomCard({
                   {t('قائمة الانتظار', 'Queue')}
                 </p>
                 {currentEntry
-                  ? <QueuePill entry={currentEntry} isCurrent />
+                  ? <QueuePill entry={currentEntry} isCurrent patientName={patientNameMap.get(currentEntry.patientId)?.nameEn} />
                   : <p className="text-xs text-gray-400 italic">{t('لا توجد جلسة نشطة', 'No active session')}</p>
                 }
                 {waitingEntries.length > 0
-                  ? waitingEntries.map((e) => <QueuePill key={e.id} entry={e} isCurrent={false} />)
+                  ? waitingEntries.map((e) => <QueuePill key={e.id} entry={e} isCurrent={false} patientName={patientNameMap.get(e.patientId)?.nameEn} />)
                   : currentEntry === null && (
                     <p className="text-xs text-gray-400 italic">{t('لا يوجد مرضى في الانتظار', 'No patients waiting')}</p>
                   )

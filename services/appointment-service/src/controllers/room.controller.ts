@@ -2,7 +2,9 @@ import { FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import type { JwtPayload } from '@fadl/types';
 import * as repo from '../repositories/room.repository';
+import * as queueRepo from '../repositories/queue.repository';
 import { registerRoomClient, broadcastRoom } from '../lib/room-sse';
+import { broadcast as broadcastQueue } from '../lib/queue-sse';
 import { redis } from '../config/redis';
 import { createBillingTransaction } from '../clients/billing';
 
@@ -187,7 +189,7 @@ export async function nextPatientHandler(request: FastifyRequest, reply: Fastify
   const result = await repo.nextPatient(appointmentId, user.sub, user.branchId);
 
   // Fire-and-forget billing — idempotency key prevents double billing
-  const { completed } = result;
+  const { completed, queueDate, queueExhausted } = result;
   if (completed.approvedCharge > 0) {
     const apptType = completed.appointmentType ?? '';
     const visitType: 'consultation' | 'operative' | 'online' =
@@ -208,7 +210,57 @@ export async function nextPatientHandler(request: FastifyRequest, reply: Fastify
     });
   }
 
-  broadcastRoom(user.branchId, 'room_status_changed', { roomCode: roomCode.toUpperCase() });
+  // Push queue SSE so connected room boards update immediately
+  void (async () => {
+    try {
+      const [fullQueue, stats] = await Promise.all([
+        queueRepo.getFullQueue(completed.doctorId, queueDate),
+        queueRepo.getQueueStats(completed.doctorId, queueDate),
+      ]);
+      broadcastQueue(completed.doctorId, queueDate, user.branchId, 'queue_update', {
+        queue: fullQueue,
+        stats,
+        doctorId: completed.doctorId,
+        date: queueDate,
+      });
+    } catch { /* non-critical */ }
+  })();
+
+  // Auto-release room when no more patients or remaining appointments
+  if (queueExhausted) {
+    try {
+      const released = await repo.releaseRoomByCode(roomCode.toUpperCase(), user.branchId);
+      if (released) {
+        await redis.del(`room:doctor:${released.doctorId}:${released.assignedDate}`);
+        const { pool } = await import('../config/database');
+        const client = await pool.connect();
+        try {
+          await client.query(`SET app.current_branch_id = $1`, [user.branchId]);
+          await client.query(
+            `UPDATE appointments
+             SET room_id = NULL, room_code = NULL, room_assigned_at = NULL, updated_at = NOW()
+             WHERE doctor_id = $1 AND appointment_date = $2
+               AND status NOT IN ('Comp.','Canc.','Resch.') AND deleted_at IS NULL`,
+            [released.doctorId, released.assignedDate],
+          );
+        } finally {
+          client.release();
+        }
+        broadcastRoom(user.branchId, 'room_released', {
+          roomCode: roomCode.toUpperCase(),
+          doctorId: released.doctorId,
+          date: released.assignedDate,
+        });
+      } else {
+        broadcastRoom(user.branchId, 'room_status_changed', { roomCode: roomCode.toUpperCase() });
+      }
+    } catch (err) {
+      request.log.error({ err, roomCode }, 'auto-release after queue exhaustion failed');
+      broadcastRoom(user.branchId, 'room_status_changed', { roomCode: roomCode.toUpperCase() });
+    }
+  } else {
+    broadcastRoom(user.branchId, 'room_status_changed', { roomCode: roomCode.toUpperCase() });
+  }
 
   void reply.send({ success: true, data: result });
 }
