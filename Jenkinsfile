@@ -165,7 +165,7 @@ pipeline {
             }
         }
 
-        // ── 6. Clean up local images to save disk space ───────────────────────
+        // ── 6. Clean up local images and build cache to save disk space ─────────
         stage('Cleanup') {
             when { expression { env.BUILD_LIST?.trim() } }
             steps {
@@ -176,6 +176,8 @@ pipeline {
                         sh "docker rmi ${fullImage}:${env.BUILD_TAG} ${fullImage}:latest || true"
                     }
                 }
+                // Prune build cache — keep 5 GB of warm layers for faster incremental builds
+                sh 'docker builder prune -f --keep-storage=5GB'
             }
         }
     }
