@@ -79,8 +79,10 @@ pipeline {
                         def (imageName, buildCtx) = entry.split('\\|')
                         def fullImage = "${env.DOCKERHUB_USER}/${imageName}"
 
-                        echo "Building ${fullImage} from ./${buildCtx}"
-                        sh "docker build -t ${fullImage}:${env.BUILD_TAG} -t ${fullImage}:latest ${buildCtx}"
+                        // Build from repo root so all services can resolve shared/types
+                        // via pnpm workspace:* — Dockerfile path is specified explicitly
+                        echo "Building ${fullImage} (context=., dockerfile=${buildCtx}/Dockerfile)"
+                        sh "docker build -f ${buildCtx}/Dockerfile -t ${fullImage}:${env.BUILD_TAG} -t ${fullImage}:latest ."
                     }
                 }
             }
