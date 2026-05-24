@@ -502,7 +502,7 @@ export function AddAppointmentModal({
   const fileInputRef           = useRef<HTMLInputElement>(null);
 
   // Query doctor's existing appointments for the selected date (create mode only)
-  const { data: doctorAppts } = useAppointments(
+  const { data: doctorAppts, isFetching: apptsFetching } = useAppointments(
     !isEdit && !!doctor && !!date
       ? { doctorId: doctor.id, date, limit: 100 }
       : {},
@@ -739,7 +739,7 @@ export function AddAppointmentModal({
           <Button
             size="sm"
             onClick={handleSubmit}
-            disabled={mutation.isPending || !paymentMethod}
+            disabled={mutation.isPending || !paymentMethod || (!isEdit && apptsFetching)}
             className="gap-2 min-w-[140px]"
           >
             {isEdit ? <Pencil className="w-4 h-4" /> : <CalendarPlus className="w-4 h-4" />}
@@ -761,7 +761,7 @@ export function AddAppointmentModal({
           let title: string;
           let description: React.ReactNode;
 
-          if (mutation.isError && code === 'DOUBLE_BOOKING') {
+          if (mutation.isError && (code === 'DOUBLE_BOOKING' || (errObj as { response?: { status?: number } })?.response?.status === 409)) {
             title       = t('تعارض في الموعد', 'Time slot conflict');
             description = t('هذا الموعد محجوز بالفعل. اختر وقتاً آخر.', 'This time slot is already booked. Please pick another time.');
           } else if (mutation.isError) {
