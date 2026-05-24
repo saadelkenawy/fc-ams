@@ -33,3 +33,17 @@ export function useTodayAppointments() {
   const today = new Date().toISOString().split('T')[0];
   return useAppointments({ date: today, limit: 50 });
 }
+
+export function useDoctorsOnDate(date: string) {
+  return useQuery({
+    queryKey: ['appointments', 'doctors-on-date', date],
+    queryFn: async () => {
+      const res = await appointmentApi.get<{ success: boolean; data: { doctorId: string; appointmentCount: number }[] }>(
+        '/appointments/doctors-on-date',
+        { params: { date } },
+      );
+      return res.data.data ?? [];
+    },
+    staleTime: 15_000,
+  });
+}

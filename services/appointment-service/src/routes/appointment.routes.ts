@@ -33,6 +33,21 @@ export async function appointmentRoutes(app: FastifyInstance): Promise<void> {
     },
   }, ctrl.listAppointments);
 
+  // GET /appointments/doctors-on-date?date=YYYY-MM-DD
+  // Lightweight: returns [{ doctorId, appointmentCount }] for room assignment filtering
+  app.get('/appointments/doctors-on-date', {
+    schema: {
+      tags: ['appointments'],
+      querystring: {
+        type: 'object',
+        required: ['date'],
+        properties: {
+          date: { type: 'string', format: 'date' },
+        },
+      },
+    },
+  }, ctrl.listDoctorsOnDate);
+
   // GET /appointments/:id
   app.get('/appointments/:id', {
     schema: {

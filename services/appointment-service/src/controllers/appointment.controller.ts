@@ -79,6 +79,16 @@ export async function listAppointments(request: FastifyRequest, reply: FastifyRe
   void reply.send({ success: true, ...result });
 }
 
+const doctorsOnDateSchema = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+
+export async function listDoctorsOnDate(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { date } = doctorsOnDateSchema.parse(request.query);
+  const doctors = await repo.getDoctorsOnDate(date);
+  void reply.send({ success: true, data: doctors });
+}
+
 export async function createAppointment(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const input = createSchema.parse(request.body);
   const user = request.user as JwtPayload;

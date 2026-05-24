@@ -5,7 +5,7 @@ import { useMutation } from '@tanstack/react-query';
 import { useRooms, useRoomSSE, useAutoAssignRoom, useReleaseRoom, useNextPatient } from '@/hooks/useRooms';
 import { useQueue } from '@/hooks/useQueue';
 import { useDoctors, useSpecialtyMap } from '@/hooks/useDoctors';
-import { useAppointments } from '@/hooks/useAppointments';
+import { useDoctorsOnDate } from '@/hooks/useAppointments';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { useLang } from '@/contexts/LanguageContext';
@@ -386,18 +386,16 @@ function AssignDoctorModal({ room, initialDate, onClose }: { room: RoomDetail; i
 
   const specialtyMap = useSpecialtyMap();
 
-  // Fetch appointments for selected date to determine which doctors have bookings
-  const { data: apptData } = useAppointments({ date, limit: 500 });
-  const apptList = apptData?.data ?? [];
+  // Lightweight fetch: which doctors have non-cancelled appointments on this date
+  const { data: doctorDateEntries = [] } = useDoctorsOnDate(date);
 
-  // Map of doctorId → appointment count for the selected date
   const doctorApptCounts = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const a of apptList) {
-      counts.set(a.doctorId, (counts.get(a.doctorId) ?? 0) + 1);
+    for (const e of doctorDateEntries) {
+      counts.set(e.doctorId, e.appointmentCount);
     }
     return counts;
-  }, [apptList]);
+  }, [doctorDateEntries]);
 
   // Active doctors who have appointments on the selected date, sorted by count desc
   const doctorsWithAppts = useMemo(() =>
