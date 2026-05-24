@@ -37,9 +37,10 @@ pipeline {
         DOCKERHUB_CRED = 'dockerhub-creds'
         PREPROD_HOST   = 'preprod.fadlclinic.local'
         PROD_HOST      = 'prod.fadlclinic.local'
-        // local uses base file + env file from host; prod overlay used on remote servers
-        COMPOSE_LOCAL  = '-p fcms --env-file /fcms-project.env -f docker-compose.yml'
-        COMPOSE_REMOTE = '-p fcms -f docker-compose.yml -f docker-compose.prod.yml'
+        // local: run from host project dir so bind-mount paths resolve correctly on the host daemon
+        COMPOSE_LOCAL_DIR = '/root/fcms'
+        COMPOSE_LOCAL     = '-p fcms -f docker-compose.yml'
+        COMPOSE_REMOTE    = '-p fcms -f docker-compose.yml -f docker-compose.prod.yml'
 
         ALL_SERVICES = [
             'identity-service',
@@ -109,7 +110,7 @@ pipeline {
                 script {
                     def svcs = env.RESOLVED_SERVICES
                     sh """
-                        cd ${WORKSPACE}
+                        cd ${env.COMPOSE_LOCAL_DIR}
                         docker-compose ${env.COMPOSE_LOCAL} up -d --no-build ${svcs}
                     """
                 }
