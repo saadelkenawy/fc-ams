@@ -148,16 +148,18 @@ pipeline {
                 }
             }
             steps {
-                sshagent(['deploy-server-key']) {
-                    script {
-                        def services = env.BUILD_LIST.split(';').collect { it.split('\\|')[0] }.join(' ')
-                        sh """
-                            ssh deploy@\${PROD_HOST} '
-                                cd /opt/fcms &&
-                                docker compose -f docker-compose.yml -f docker-compose.prod.yml pull ${services} &&
-                                docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-deps ${services}
-                            '
-                        """
+                catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                    sshagent(['deploy-server-key']) {
+                        script {
+                            def services = env.BUILD_LIST.split(';').collect { it.split('\\|')[0] }.join(' ')
+                            sh """
+                                ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no deploy@\${PROD_HOST} '
+                                    cd /opt/fcms &&
+                                    docker compose -f docker-compose.yml -f docker-compose.prod.yml pull ${services} &&
+                                    docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-deps ${services}
+                                '
+                            """
+                        }
                     }
                 }
             }
