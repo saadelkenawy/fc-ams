@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, Users, CalendarDays, Stethoscope, Receipt,
@@ -164,14 +163,10 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
           {collapsed ? (
             <HeartPulse className="w-6 h-6 text-primary-600 flex-shrink-0" />
           ) : (
-            <Image
+            <img
               src="/images/logo-wordmark.png"
               alt="Fadl Clinic"
-              width={145}
-              height={28}
               className="logo-img h-7 w-auto object-contain"
-              priority
-              unoptimized
             />
           )}
         </div>
