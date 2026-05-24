@@ -68,6 +68,8 @@ export interface NextPatientResult {
     patientId: string;
     position: number;
   } | null;
+  queueDate: string;
+  queueExhausted: boolean;
 }
 
 export interface AssignRoomResult {
@@ -499,6 +501,22 @@ export async function nextPatient(
       };
     }
 
+    // Check exhaustion: no active queue entries AND no remaining non-terminal appointments
+    const { rows: activeQRows } = await client.query(
+      `SELECT COUNT(*) AS cnt FROM patient_queue
+       WHERE doctor_id = $1 AND queue_date = $2 AND status IN ('waiting','called','in_session')`,
+      [doctorId, queueDate],
+    );
+    const { rows: activeApptRows } = await client.query(
+      `SELECT COUNT(*) AS cnt FROM appointments
+       WHERE doctor_id = $1 AND appointment_date = $2
+         AND status NOT IN ('Comp.','Canc.','Resch.') AND deleted_at IS NULL`,
+      [doctorId, queueDate],
+    );
+    const queueExhausted =
+      Number((activeQRows[0]  as { cnt: string }).cnt) === 0 &&
+      Number((activeApptRows[0] as { cnt: string }).cnt) === 0;
+
     return {
       completed: {
         appointmentId,
@@ -514,6 +532,8 @@ export async function nextPatient(
         appointmentType: (appt.appointment_type as string | null) ?? null,
       },
       next,
+      queueDate,
+      queueExhausted,
     };
   });
 }

@@ -428,6 +428,79 @@ export async function cascadeCancelForDoctor(
   });
 }
 
+// ── Advance queue after appointment completion ────────────────────────────────
+// Called when admin marks an appointment Comp. from the appointments panel.
+// Returns null if the appointment has no active queue entry (patient never checked in).
+
+export interface AdvanceQueueResult {
+  doctorId: string;
+  queueDate: string;
+  nextCalled: { queueId: string; patientId: string; position: number } | null;
+  queueExhausted: boolean;
+}
+
+export async function advanceQueueAfterCompletion(
+  appointmentId: string,
+  performedBy: string,
+  branchId: number,
+): Promise<AdvanceQueueResult | null> {
+  return withTransaction(async (client: PoolClient) => {
+    const { rows: qRows } = await client.query(
+      `SELECT id, doctor_id, queue_date, status FROM patient_queue
+       WHERE appointment_id = $1 AND status IN ('in_session','called','waiting') FOR UPDATE`,
+      [appointmentId],
+    );
+    if (!qRows.length) return null;
+
+    const q = qRows[0] as Record<string, unknown>;
+    const queueId  = q.id as string;
+    const doctorId = q.doctor_id as string;
+    const queueDate = (q.queue_date as Date).toISOString().split('T')[0];
+
+    await client.query(
+      `UPDATE patient_queue SET status = 'completed', session_end = NOW(), updated_at = NOW() WHERE id = $1`,
+      [queueId],
+    );
+    await logEvent(client, queueId, 'session_completed', branchId, { performedBy });
+
+    // Call next waiting patient
+    const { rows: nextRows } = await client.query(
+      `SELECT id, patient_id, position FROM patient_queue
+       WHERE doctor_id = $1 AND queue_date = $2 AND status = 'waiting'
+       ORDER BY position ASC LIMIT 1 FOR UPDATE`,
+      [doctorId, queueDate],
+    );
+    let nextCalled: AdvanceQueueResult['nextCalled'] = null;
+    if (nextRows.length) {
+      const nr = nextRows[0] as Record<string, unknown>;
+      await client.query(
+        `UPDATE patient_queue SET status = 'called', called_at = NOW(), updated_at = NOW() WHERE id = $1`,
+        [nr.id],
+      );
+      await logEvent(client, nr.id as string, 'called', branchId, { performedBy });
+      nextCalled = { queueId: nr.id as string, patientId: nr.patient_id as string, position: nr.position as number };
+    }
+
+    // Exhaustion: no active queue entries AND no remaining appointments for that doctor/date
+    const { rows: activeQRows } = await client.query(
+      `SELECT COUNT(*) AS cnt FROM patient_queue
+       WHERE doctor_id = $1 AND queue_date = $2 AND status IN ('waiting','called','in_session')`,
+      [doctorId, queueDate],
+    );
+    const { rows: activeApptRows } = await client.query(
+      `SELECT COUNT(*) AS cnt FROM appointments
+       WHERE doctor_id = $1 AND appointment_date = $2
+         AND status NOT IN ('Comp.','Canc.','Resch.') AND deleted_at IS NULL`,
+      [doctorId, queueDate],
+    );
+    const queueExhausted =
+      Number((activeQRows[0]  as { cnt: string }).cnt) === 0 &&
+      Number((activeApptRows[0] as { cnt: string }).cnt) === 0;
+
+    return { doctorId, queueDate, nextCalled, queueExhausted };
+  });
+}
+
 // Preview what a cancel would do — used by confirmation dialog (read-only)
 export async function previewCancel(
   queueId: string,

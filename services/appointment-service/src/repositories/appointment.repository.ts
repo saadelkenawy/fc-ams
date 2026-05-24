@@ -489,6 +489,29 @@ export async function softDeleteAppointment(id: string, deletedBy: string): Prom
 // ---------------------------------------------------------------------------
 const BILLING_CASCADE_SAFE = new Set(['TBC', 'Ok!', 'Conf.']);
 
+// ---------------------------------------------------------------------------
+// getDoctorsOnDate — lightweight: returns doctorId + appointment count for a date
+// Used by room assignment to filter to doctors with actual appointments
+// ---------------------------------------------------------------------------
+export async function getDoctorsOnDate(date: string): Promise<{ doctorId: string; appointmentCount: number }[]> {
+  return withRlsContext(async (client) => {
+    const { rows } = await client.query(
+      `SELECT doctor_id, COUNT(*)::int AS appointment_count
+         FROM appointments
+        WHERE appointment_date = $1
+          AND deleted_at IS NULL
+          AND status NOT IN ('Canc.', 'Resch.')
+        GROUP BY doctor_id
+        ORDER BY appointment_count DESC`,
+      [date],
+    );
+    return (rows as { doctor_id: string; appointment_count: number }[]).map((r) => ({
+      doctorId: r.doctor_id,
+      appointmentCount: r.appointment_count,
+    }));
+  });
+}
+
 export async function cascadeSoftDeleteFromBilling(id: string, deletedBy: string): Promise<'deleted' | 'skipped'> {
   const result = await pool.query(
     `UPDATE appointments

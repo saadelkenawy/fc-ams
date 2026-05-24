@@ -16,3 +16,27 @@ Thumbs.db
 *.key
 *.cert
 *.p12
+
+# Test/validation scripts (one-off dev artifacts)
+validate-*.js
+theme-*.js
+settlement-*.js
+*-screenshots/
+graphify-out/
+
+# Misplaced media files at repo root
+*.jpg
+*.png
+*.jpeg
+*.xlsm
+
+# Tool state files
+.claude-flow/
+.agents/
+.swarm/
+.impeccable/
+.specify/
+agentdb.rvf
+agentdb.rvf.lock
+ruvector.db
+skills-lock.json

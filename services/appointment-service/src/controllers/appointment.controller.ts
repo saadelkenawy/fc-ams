@@ -2,10 +2,13 @@ import { FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import type { AppointmentStatus, JwtPayload } from '@fadl/types';
 import * as repo from '../repositories/appointment.repository';
+import * as queueRepo from '../repositories/queue.repository';
+import * as roomRepo from '../repositories/room.repository';
 import { fireNotification } from '../clients/notification';
 import { createBillingTransaction, refundTransactionByAppointment, syncBillingApprovedCharge, syncBillingPaymentStatus } from '../clients/billing';
 import { verifyUserPassword } from '../clients/identity';
 import { broadcastRoom } from '../lib/room-sse';
+import { broadcast as broadcastQueue } from '../lib/queue-sse';
 
 const APPOINTMENT_STATUS = z.enum(['TBC', 'Ok!', 'Conf.', 'Comp.', 'Canc.', 'Resch.', 'Inf.', 'Ref.']);
 
@@ -77,6 +80,16 @@ export async function listAppointments(request: FastifyRequest, reply: FastifyRe
   const params = listSchema.parse(request.query);
   const result = await repo.listAppointments(params);
   void reply.send({ success: true, ...result });
+}
+
+const doctorsOnDateSchema = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+
+export async function listDoctorsOnDate(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { date } = doctorsOnDateSchema.parse(request.query);
+  const doctors = await repo.getDoctorsOnDate(date);
+  void reply.send({ success: true, data: doctors });
 }
 
 export async function createAppointment(request: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -203,6 +216,60 @@ export async function updateStatus(request: FastifyRequest, reply: FastifyReply)
     void syncBillingPaymentStatus(appointment.id, 'paid').catch((err: Error) =>
       console.error('[appt] billing status sync on completion failed', err.message),
     );
+    // Advance queue and auto-release room if all patients are done (fire-and-forget)
+    void (async () => {
+      try {
+        const adv = await queueRepo.advanceQueueAfterCompletion(appointment.id, user.sub, user.branchId);
+        if (!adv) return;
+
+        // Push queue SSE so room boards update immediately
+        try {
+          const [fullQueue, stats] = await Promise.all([
+            queueRepo.getFullQueue(adv.doctorId, adv.queueDate),
+            queueRepo.getQueueStats(adv.doctorId, adv.queueDate),
+          ]);
+          broadcastQueue(adv.doctorId, adv.queueDate, user.branchId, 'queue_update', {
+            queue: fullQueue, stats, doctorId: adv.doctorId, date: adv.queueDate,
+          });
+        } catch { /* non-critical */ }
+
+        if (!adv.queueExhausted) return;
+
+        // Look up room from Redis then release
+        const { redis } = await import('../config/redis');
+        const cached = await redis.get(`room:doctor:${adv.doctorId}:${adv.queueDate}`);
+        if (!cached) return;
+        const { roomCode } = JSON.parse(cached) as { roomId: number; roomCode: string };
+
+        const released = await roomRepo.releaseRoomByCode(roomCode, user.branchId);
+        if (!released) return;
+
+        await redis.del(`room:doctor:${adv.doctorId}:${adv.queueDate}`);
+
+        const { pool } = await import('../config/database');
+        const client = await pool.connect();
+        try {
+          await client.query(`SET app.current_branch_id = $1`, [user.branchId]);
+          await client.query(
+            `UPDATE appointments
+             SET room_id = NULL, room_code = NULL, room_assigned_at = NULL, updated_at = NOW()
+             WHERE doctor_id = $1 AND appointment_date = $2
+               AND status NOT IN ('Comp.','Canc.','Resch.') AND deleted_at IS NULL`,
+            [adv.doctorId, adv.queueDate],
+          );
+        } finally {
+          client.release();
+        }
+
+        broadcastRoom(user.branchId, 'room_released', {
+          roomCode,
+          doctorId: adv.doctorId,
+          date: adv.queueDate,
+        });
+      } catch (err) {
+        console.error('[appt] queue/room advancement after manual Comp. failed', (err as Error).message);
+      }
+    })();
   } else if (status === 'Ref.') {
     void refundTransactionByAppointment(appointment.id).catch((err: Error) =>
       console.error('[appt] billing refund on Ref. status failed', err.message),
