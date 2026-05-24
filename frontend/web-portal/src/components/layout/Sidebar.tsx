@@ -171,6 +171,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
               height={28}
               className="logo-img h-7 w-auto object-contain"
               priority
+              unoptimized
             />
           )}
         </div>

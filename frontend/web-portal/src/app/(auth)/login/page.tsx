@@ -96,7 +96,7 @@ export default function LoginPage() {
         {/* Logo card */}
         <div className="relative z-10 flex items-center gap-3">
           <div className="bg-white rounded-xl px-3 py-2 shadow-lg">
-            <Image src="/images/logo-wordmark.png" alt="Fadl Clinic" width={127} height={28} className="h-7 w-auto object-contain" priority />
+            <Image src="/images/logo-wordmark.png" alt="Fadl Clinic" width={127} height={28} className="h-7 w-auto object-contain" priority unoptimized />
           </div>
         </div>
 
