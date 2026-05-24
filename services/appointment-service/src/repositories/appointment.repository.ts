@@ -10,7 +10,7 @@ const ALLOWED_TRANSITIONS: Record<AppointmentStatus, AppointmentStatus[]> = {
   'TBC':    ['Ok!', 'Canc.', 'Ref.'],
   'Ok!':    ['Comp.', 'Canc.', 'Ref.'],
   'Conf.':  ['Comp.', 'Canc.', 'Ref.'],
-  'Comp.':  ['Ref.'],
+  'Comp.':  [],
   'Canc.':  ['Ref.'],
   'Resch.': [],
   'Inf.':   ['TBC', 'Ok!'],
@@ -442,12 +442,19 @@ export async function hardDeleteAppointment(
 ): Promise<void> {
   return withTransaction(async (client: PoolClient) => {
     const { rows } = await client.query(
-      `SELECT id, branch_id FROM appointments WHERE id = $1 AND deleted_at IS NULL FOR UPDATE`,
+      `SELECT id, status, branch_id FROM appointments WHERE id = $1 AND deleted_at IS NULL FOR UPDATE`,
       [id],
     );
 
     if (!rows.length) {
       throw Object.assign(new Error('Appointment not found'), { code: 'APPOINTMENT_NOT_FOUND', statusCode: 404 });
+    }
+
+    if ((rows[0] as Record<string, unknown>).status === 'Comp.') {
+      throw Object.assign(
+        new Error('Completed appointments cannot be deleted'),
+        { code: 'APPOINTMENT_COMPLETED', statusCode: 422 },
+      );
     }
 
     // Write audit log BEFORE delete
@@ -467,11 +474,12 @@ export async function hardDeleteAppointment(
 // ---------------------------------------------------------------------------
 export async function softDeleteAppointment(id: string, deletedBy: string): Promise<void> {
   const result = await pool.query(
-    `UPDATE appointments SET deleted_at = NOW(), updated_by = $2 WHERE id = $1 AND deleted_at IS NULL`,
+    `UPDATE appointments SET deleted_at = NOW(), updated_by = $2
+      WHERE id = $1 AND deleted_at IS NULL AND status != 'Comp.'`,
     [id, deletedBy],
   );
   if (result.rowCount === 0) {
-    throw Object.assign(new Error('Appointment not found'), { code: 'APPOINTMENT_NOT_FOUND', statusCode: 404 });
+    // Either not found or completed — either way, nothing to soft-delete
   }
 }
 

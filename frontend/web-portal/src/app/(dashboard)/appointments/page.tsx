@@ -29,7 +29,7 @@ const TRANSITIONS: Record<AppointmentStatus, AppointmentStatus[]> = {
   'TBC':    ['Ok!', 'Canc.', 'Ref.'],
   'Ok!':    ['Comp.', 'Canc.', 'Ref.'],
   'Conf.':  ['Comp.', 'Canc.', 'Ref.'],
-  'Comp.':  ['Ref.'],
+  'Comp.':  [],
   'Canc.':  ['Ref.'],
   'Resch.': [],
   'Inf.':   ['TBC', 'Ok!'],
@@ -124,7 +124,7 @@ function ActionMenu({ appointment, lang, t, userRole, onStatusChange, onEdit, on
   const canChange = visibleTransitions.length > 0;
   const isTerminal = ['Comp.', 'Canc.', 'Resch.', 'Ref.'].includes(appointment.status);
   const canEdit = !isTerminal && (userRole === 'admin' || userRole === 'receptionist');
-  const canDelete = userRole === 'admin';
+  const canDelete = userRole === 'admin' && appointment.status !== 'Comp.';
 
   const openMenu = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();

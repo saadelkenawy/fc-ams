@@ -196,6 +196,11 @@ export async function updateStatus(request: FastifyRequest, reply: FastifyReply)
     void syncBillingPaymentStatus(appointment.id, 'paid').catch((err: Error) =>
       console.error('[appt] billing status sync failed', err.message),
     );
+  } else if (status === 'Comp.') {
+    // Consultation complete — ensure billing is marked paid (idempotent if Ok! already set it)
+    void syncBillingPaymentStatus(appointment.id, 'paid').catch((err: Error) =>
+      console.error('[appt] billing status sync on completion failed', err.message),
+    );
   } else if (status === 'Ref.') {
     void refundTransactionByAppointment(appointment.id).catch((err: Error) =>
       console.error('[appt] billing refund on Ref. status failed', err.message),
