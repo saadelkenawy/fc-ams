@@ -59,6 +59,15 @@ const STATUS_CONFIG = {
   },
 } as const;
 
+const APPT_STATUS_CONFIG: Record<string, { label: string; cls: string }> = {
+  'TBC':    { label: 'TBC',         cls: 'bg-gray-100 dark:bg-neutral-700 text-gray-500 dark:text-gray-400' },
+  'Ok!':    { label: 'Confirmed',   cls: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300' },
+  'Conf.':  { label: 'Waiting',     cls: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' },
+  'Resch.': { label: 'Rescheduled', cls: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' },
+  'Inf.':   { label: 'Informed',    cls: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300' },
+  'Ref.':   { label: 'Referred',    cls: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' },
+};
+
 // ── Session progress bar ──────────────────────────────────────────────────────
 
 function SessionProgress({ done, total, color }: { done: number; total: number; color: string }) {
@@ -201,13 +210,26 @@ function RoomCard({
   const nextWaiting    = waitingEntries[0] ?? null;
 
   // Batch-fetch patient names for visible queue entries
+  // Fetch full appointment schedule when the card is expanded
+  const { data: scheduleResp, isFetching: scheduleFetching } = useAppointments(
+    { doctorId, date, limit: 100 },
+    { enabled: expanded && hasDoctor },
+  );
+  const scheduleList = useMemo(
+    () => (scheduleResp?.data ?? [])
+      .filter((a) => a.status !== 'Canc.' && a.status !== 'Comp.')
+      .sort((a, b) => a.startTime.localeCompare(b.startTime)),
+    [scheduleResp],
+  );
+
   const patientIds = useMemo(() => {
     const ids: string[] = [];
     if (currentEntry) ids.push(currentEntry.patientId);
     waitingEntries.forEach((e) => ids.push(e.patientId));
+    scheduleList.forEach((a) => ids.push(a.patientId));
     return [...new Set(ids)];
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queue]);
+  }, [queue, scheduleList]);
   const patientNameMap = usePatientBatch(patientIds);
 
   const done       = room.appointmentsToday - room.appointmentsRemaining;
@@ -302,7 +324,7 @@ function RoomCard({
         <div
           className={cn(
             'transition-all duration-300 ease-in-out overflow-hidden',
-            expanded ? 'max-h-80 opacity-100' : 'max-h-0 opacity-0 pointer-events-none',
+            expanded ? 'max-h-[32rem] opacity-100' : 'max-h-0 opacity-0 pointer-events-none',
           )}
           aria-hidden={!expanded}
         >
@@ -328,6 +350,60 @@ function RoomCard({
                   <p className="text-[10px] text-gray-400 ps-2">
                     +{room.appointmentsRemaining - waitingEntries.length - (currentEntry ? 1 : 0)} more waiting
                   </p>
+                )}
+              </div>
+            )}
+
+            {/* Today's Appointments schedule */}
+            {isActive && (
+              <div className="flex flex-col gap-1.5">
+                <p className="text-[10px] uppercase tracking-widest text-gray-400 dark:text-gray-500 font-medium mb-0.5">
+                  {t('مواعيد اليوم', "Today's Appointments")}
+                </p>
+                {!hasDoctor ? (
+                  <p className="text-xs text-gray-400 dark:text-gray-500 italic">
+                    {t('لا توجد مواعيد مجدولة لهذه الغرفة', 'No scheduled appointments for this room.')}
+                  </p>
+                ) : scheduleFetching ? (
+                  <div className="space-y-1">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="h-7 rounded-lg bg-gray-100 dark:bg-neutral-800 animate-pulse" />
+                    ))}
+                  </div>
+                ) : scheduleList.length === 0 ? (
+                  <p className="text-xs text-gray-400 dark:text-gray-500 italic">
+                    {t('لا توجد مواعيد مجدولة لهذه الغرفة', 'No scheduled appointments for this room.')}
+                  </p>
+                ) : (
+                  <div className="max-h-40 overflow-y-auto space-y-0.5 rounded-lg border border-gray-100 dark:border-neutral-700 p-0.5">
+                    {scheduleList.map((appt) => {
+                      let statusLabel: string;
+                      let statusCls: string;
+                      if (appt.id === inSessionEntry?.appointmentId) {
+                        statusLabel = 'In Progress';
+                        statusCls   = 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300';
+                      } else if (appt.id === calledEntry?.appointmentId) {
+                        statusLabel = 'Called';
+                        statusCls   = 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300';
+                      } else {
+                        const mapped = APPT_STATUS_CONFIG[appt.status];
+                        statusLabel  = mapped?.label ?? appt.status;
+                        statusCls    = mapped?.cls   ?? 'bg-gray-100 dark:bg-neutral-700 text-gray-500 dark:text-gray-400';
+                      }
+                      const patientName = patientNameMap.get(appt.patientId)?.nameEn ?? '—';
+                      return (
+                        <div key={appt.id} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs hover:bg-gray-50 dark:hover:bg-neutral-800 transition-colors">
+                          <span className="text-gray-400 dark:text-gray-500 font-mono w-[76px] flex-shrink-0 tabular-nums">
+                            {appt.startTime}–{appt.endTime}
+                          </span>
+                          <span className="flex-1 truncate text-gray-800 dark:text-gray-200 font-medium">{patientName}</span>
+                          <span className={cn('px-1.5 py-0.5 rounded-full text-[10px] font-semibold flex-shrink-0', statusCls)}>
+                            {statusLabel}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
             )}
