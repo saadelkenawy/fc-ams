@@ -473,15 +473,57 @@ function AssignDoctorModal({ room, initialDate, onClose }: { room: RoomDetail; i
 
   // ── Step: done ────────────────────────────────────────────────────────────
   if (step === 'done') {
+    const statusColors: Record<string, string> = {
+      'TBC':   'bg-gray-100 dark:bg-neutral-700 text-gray-600 dark:text-gray-300',
+      'Ok!':   'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300',
+      'Conf.': 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
+      'Resch.':'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300',
+      'Inf.':  'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300',
+      'Ref.':  'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300',
+    };
     return (
-      <Modal open onClose={onClose} title="Room Assigned">
+      <Modal open onClose={onClose} title={`Room ${assignedRoom} — Scheduled`}>
         <div className="flex flex-col gap-4">
           <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/30 p-4 text-sm space-y-1.5 text-emerald-700 dark:text-emerald-300">
             <p className="font-semibold">✓ Room {assignedRoom} assigned successfully</p>
-            <p>Dr. {selectedDoctor?.nameEn} → Room {assignedRoom} on {date}</p>
+            <p>Dr. {selectedDoctor?.nameEn} · {date} · {fromTime}–{untilTime}</p>
             <p>{apptCount} appointment{apptCount !== 1 ? 's' : ''} linked to this room</p>
           </div>
-          <Button onClick={onClose} className="w-full">Close</Button>
+
+          {/* Patient appointment list for the assigned room */}
+          <div>
+            <p className="text-[10px] uppercase tracking-widest text-gray-400 dark:text-gray-500 font-semibold mb-1.5">
+              Patients in {assignedRoom} · {date}
+            </p>
+            {doctorApptList.length === 0 ? (
+              <p className="text-xs text-amber-600 dark:text-amber-400 italic px-1">
+                No active appointments found.
+              </p>
+            ) : (
+              <div className="max-h-52 overflow-y-auto space-y-1 rounded-lg border border-gray-100 dark:border-neutral-700 p-1">
+                {doctorApptList.map((appt, i) => {
+                  const name = apptPatientMap.get(appt.patientId)?.nameEn ?? `Patient #${i + 1}`;
+                  const badgeCls = statusColors[appt.status] ?? 'bg-gray-100 dark:bg-neutral-700 text-gray-500';
+                  return (
+                    <div key={appt.id} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-neutral-800 transition-colors text-xs">
+                      <span className="w-5 h-5 rounded-full bg-gray-100 dark:bg-neutral-700 flex items-center justify-center text-[10px] font-bold text-gray-500 flex-shrink-0 tabular-nums">
+                        {i + 1}
+                      </span>
+                      <span className="text-gray-400 dark:text-gray-500 font-mono w-[82px] flex-shrink-0 tabular-nums">
+                        {appt.startTime}–{appt.endTime}
+                      </span>
+                      <span className="flex-1 truncate text-gray-800 dark:text-gray-200 font-medium">{name}</span>
+                      <span className={cn('px-1.5 py-0.5 rounded-full text-[10px] font-semibold flex-shrink-0', badgeCls)}>
+                        {appt.status}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <Button onClick={onClose} className="w-full">Done</Button>
         </div>
       </Modal>
     );
