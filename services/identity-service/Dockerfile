@@ -10,13 +10,14 @@ RUN pnpm install --no-frozen-lockfile
 COPY . .
 RUN pnpm --filter @fadl/types build
 RUN pnpm --filter @fadl/identity-service build
+RUN pnpm --filter @fadl/identity-service deploy --prod /deploy
 
 FROM node:20-alpine AS runner
 WORKDIR /app
 RUN addgroup -S fadl && adduser -S fadl -G fadl
-COPY --from=builder /app/services/identity-service/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/services/identity-service/package.json ./
+COPY --from=builder /deploy/dist ./dist
+COPY --from=builder /deploy/node_modules ./node_modules
+COPY --from=builder /deploy/package.json ./
 USER fadl
 EXPOSE 3000
 CMD ["node", "dist/server.js"]

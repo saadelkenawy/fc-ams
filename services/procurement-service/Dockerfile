@@ -10,13 +10,14 @@ RUN pnpm install --no-frozen-lockfile
 COPY . .
 RUN pnpm --filter @fadl/types build
 RUN pnpm --filter @fadl/procurement-service build
+RUN pnpm --filter @fadl/procurement-service deploy --prod /deploy
 
 FROM node:20-alpine AS runner
 WORKDIR /app
 RUN addgroup -S fadl && adduser -S fadl -G fadl
-COPY --from=builder /app/services/procurement-service/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/services/procurement-service/package.json ./
+COPY --from=builder /deploy/dist ./dist
+COPY --from=builder /deploy/node_modules ./node_modules
+COPY --from=builder /deploy/package.json ./
 USER fadl
 EXPOSE 3013
 CMD ["node", "dist/server.js"]
