@@ -1,0 +1,43 @@
+# ─── Jenkins — Fadl Clinic CI/CD ──────────────────────────────────────────────
+# Deploy:  docker compose -f infra/jenkins/docker-compose.yml up -d
+# Logs:    docker compose -f infra/jenkins/docker-compose.yml logs -f jenkins
+# ──────────────────────────────────────────────────────────────────────────────
+
+services:
+  jenkins:
+    image: jenkins/jenkins:lts-jdk21
+    container_name: fcms-jenkins
+    restart: unless-stopped
+    user: root
+    ports:
+      - "8080:8080"
+      - "50000:50000"        # agent inbound port
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock   # build Docker images from Jenkins
+      - ./casc:/var/jenkins_home/casc_configs:ro    # JCasC config directory
+      - /root/fcms:/root/fcms:ro                    # host project dir so docker-compose bind-mount paths match host
+    env_file:
+      - path: .env
+        required: false          # don't fail if .env is absent; vars can be set on the shell
+    environment:
+      CASC_JENKINS_CONFIG: /var/jenkins_home/casc_configs
+      JAVA_OPTS: >-
+        -Djenkins.install.runSetupWizard=false
+        -Dhudson.model.DirectoryBrowserSupport.CSP=
+    # Install Docker CLI + required plugins on first boot
+    # Plugin list kept minimal — add extras via Manage Jenkins → Plugins
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        apt-get update -qq
+        apt-get install -y -qq docker.io curl
+        curl -fsSL https://github.com/docker/compose/releases/download/v2.27.1/docker-compose-linux-x86_64 \
+          -o /usr/local/bin/docker-compose
+        chmod +x /usr/local/bin/docker-compose
+        exec /usr/bin/tini -- /usr/local/bin/jenkins.sh
+
+volumes:
+  jenkins_home:

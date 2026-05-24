@@ -1,0 +1,55 @@
+# ─── Jenkins Configuration as Code (JCasC) ────────────────────────────────────
+# Applied automatically on startup via CASC_JENKINS_CONFIG env var.
+# Requires .env with: JENKINS_ADMIN_PASSWORD, GITHUB_TOKEN, DOCKERHUB_TOKEN, DEPLOY_SSH_KEY
+# Deploy: docker compose --env-file .env up -d --force-recreate
+# ──────────────────────────────────────────────────────────────────────────────
+
+jenkins:
+  systemMessage: "Fadl Clinic FCMS — CI/CD Pipeline"
+  numExecutors: 4
+  mode: NORMAL
+  scmCheckoutRetryCount: 2
+
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+        - id: "admin"
+          password: "${JENKINS_ADMIN_PASSWORD}"
+
+  authorizationStrategy:
+    loggedInUsersCanDoAnything:
+      allowAnonymousRead: true
+
+# rootUrl lives under unclassified.location in JCasC >= 1.50
+unclassified:
+  location:
+    url: "https://safer-thick-fisheries-care.trycloudflare.com/"
+
+# ── Credentials ───────────────────────────────────────────────────────────────
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+          - usernamePassword:
+              scope: GLOBAL
+              id: "github-token"
+              description: "GitHub — saadelkenawy PAT"
+              username: "saadelkenawy"
+              password: "${GITHUB_TOKEN}"
+
+          - usernamePassword:
+              scope: GLOBAL
+              id: "dockerhub-creds"
+              description: "Docker Hub — saadelkenawy"
+              username: "saadelkenawy"
+              password: "${DOCKERHUB_TOKEN}"
+
+          - basicSSHUserPrivateKey:
+              scope: GLOBAL
+              id: "deploy-server-key"
+              description: "SSH key — deploy user on pre-prod and prod servers"
+              username: "deploy"
+              privateKeySource:
+                directEntry:
+                  privateKey: "${DEPLOY_SSH_KEY}"
