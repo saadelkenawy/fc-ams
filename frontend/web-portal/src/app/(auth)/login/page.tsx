@@ -9,7 +9,7 @@ import { z } from 'zod';
 import {
   Eye, EyeOff, Globe, Mail, Lock,
   ShieldCheck, LineChart, Globe2, Moon, Sun,
-  UserRound, Stethoscope, Shield, Info, HeartPulse, ArrowRight, ArrowLeft,
+  UserRound, Stethoscope, Shield, Banknote, Info, HeartPulse, ArrowRight, ArrowLeft,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLang } from '@/contexts/LanguageContext';
@@ -24,12 +24,13 @@ const schema = z.object({
 });
 type FormValues = z.infer<typeof schema>;
 
-type Role = 'receptionist' | 'doctor' | 'admin';
+type Role = 'receptionist' | 'doctor' | 'admin' | 'finance';
 
 const ROLE_OPTIONS: { key: Role; labelAr: string; labelEn: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { key: 'receptionist', labelAr: 'الاستقبال', labelEn: 'Receptionist', icon: UserRound },
   { key: 'doctor',       labelAr: 'طبيب',      labelEn: 'Doctor',       icon: Stethoscope },
   { key: 'admin',        labelAr: 'إدارة',     labelEn: 'Admin',        icon: Shield },
+  { key: 'finance',      labelAr: 'المالية',   labelEn: 'Finance',      icon: Banknote },
 ];
 
 const FEATURE_CHIPS = [
@@ -63,6 +64,19 @@ export default function LoginPage() {
       const res = await identityApi.post<{
         data: { accessToken: string; refreshToken: string; user: Parameters<typeof login>[1] };
       }>('/auth/login', { email: data.email, password: data.password });
+
+      const returnedRole = res.data.data.user.role;
+      if (returnedRole !== role) {
+        setError(
+          t(
+            `هذا الحساب مسجّل كـ "${returnedRole}" وليس كـ "${role}". اختر الدور الصحيح.`,
+            `This account is registered as "${returnedRole}", not "${role}". Please select the correct role.`,
+          ),
+        );
+        setShakeKey((k) => k + 1);
+        return;
+      }
+
       localStorage.setItem('fadl_refresh_token', res.data.data.refreshToken);
       login(res.data.data.accessToken, res.data.data.user);
       router.replace('/');
@@ -317,7 +331,7 @@ export default function LoginPage() {
                 <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
                   {t('ادخل بدور', 'Sign in as')}
                 </p>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   {ROLE_OPTIONS.map(({ key, labelAr, labelEn, icon: Icon }) => (
                     <button
                       key={key}
