@@ -28,7 +28,7 @@ export async function billingRoutes(app: FastifyInstance): Promise<void> {
           dateFrom:      { type: 'string', format: 'date' },
           dateTo:        { type: 'string', format: 'date' },
           page:          { type: 'integer', minimum: 1, default: 1 },
-          limit:         { type: 'integer', minimum: 1, maximum: 100, default: 20 },
+          limit:         { type: 'integer', minimum: 1, maximum: 500, default: 20 },
         },
       },
     },
