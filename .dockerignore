@@ -7,6 +7,7 @@ frontend/web-portal/.next
 
 # TypeScript build output (rebuilt inside Docker)
 shared/types/dist
+**/*.tsbuildinfo
 
 # Dev / local files
 **/.env.local
