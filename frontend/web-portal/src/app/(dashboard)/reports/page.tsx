@@ -46,10 +46,13 @@ function StatRow({ label, value, sub }: { label: string; value: string | number;
 
 /* ──────────────── Financial Summary ──────────────── */
 function FinancialReport({ lang, locale }: { lang: string; locale: string }) {
-  const { data, isLoading, isError } = useTransactions({ limit: 500 });
+  const { from, to } = currentMonthRange();
+  const { data, isLoading, isError } = useTransactions({ limit: 500, dateFrom: from, dateTo: to });
   const txns = data?.data ?? [];
 
-  const approved = txns.filter((t) => t.paymentStatus === 'approved' || t.paymentStatus === 'paid');
+  const approved = txns.filter((t) =>
+    t.paymentStatus === 'approved' || t.paymentStatus === 'paid' || t.paymentStatus === 'reconciled',
+  );
   const totalCharged   = approved.reduce((s, t) => s + t.approvedCharge, 0);
   const totalFees      = approved.reduce((s, t) => s + t.sourceFeeAmount, 0);
   const totalGross     = approved.reduce((s, t) => s + t.grossRevenue, 0);
@@ -63,7 +66,7 @@ function FinancialReport({ lang, locale }: { lang: string; locale: string }) {
   });
 
   const bySource: Record<string, { count: number; revenue: number; fees: number }> = {};
-  txns.forEach((t) => {
+  approved.forEach((t) => {
     if (!bySource[t.patientSource]) bySource[t.patientSource] = { count: 0, revenue: 0, fees: 0 };
     bySource[t.patientSource].count++;
     bySource[t.patientSource].revenue += t.approvedCharge;
@@ -239,8 +242,11 @@ const SOURCE_COLORS: Record<string, string> = {
 };
 
 function SourcesReport({ lang, locale }: { lang: string; locale: string }) {
-  const { data, isLoading, isError } = useTransactions({ limit: 500 });
-  const txns = data?.data ?? [];
+  const { from, to } = currentMonthRange();
+  const { data, isLoading, isError } = useTransactions({ limit: 500, dateFrom: from, dateTo: to });
+  const txns = (data?.data ?? []).filter((t) =>
+    t.paymentStatus === 'approved' || t.paymentStatus === 'paid' || t.paymentStatus === 'reconciled',
+  );
 
   const bySource: Record<string, { count: number; revenue: number }> = {};
   txns.forEach((t) => {
@@ -321,9 +327,12 @@ function SourcesReport({ lang, locale }: { lang: string; locale: string }) {
 
 /* ──────────────── Activity Report ──────────────── */
 function ActivityReport({ lang, locale }: { lang: string; locale: string }) {
+  const { from, to } = currentMonthRange();
   const { data: doctorsData } = useDoctors({ limit: 100 });
-  const { data, isLoading, isError } = useTransactions({ limit: 500 });
-  const txns = data?.data ?? [];
+  const { data, isLoading, isError } = useTransactions({ limit: 500, dateFrom: from, dateTo: to });
+  const txns = (data?.data ?? []).filter((t) =>
+    t.paymentStatus === 'approved' || t.paymentStatus === 'paid' || t.paymentStatus === 'reconciled',
+  );
   const allDoctors = doctorsData?.data ?? [];
 
   const byDoctor: Record<string, { name: string; nameAr?: string; count: number; revenue: number; drShare: number }> = {};
@@ -400,7 +409,7 @@ export default function ReportsPage() {
   const qc = useQueryClient();
 
   const { from, to } = currentMonthRange();
-  const { data: txnData }      = useTransactions({ limit: 500 });
+  const { data: txnData }      = useTransactions({ limit: 500, dateFrom: from, dateTo: to });
   const { data: settlData }    = useSettlements({ from, to });
   const { data: doctorsData }  = useDoctors({ limit: 100 });
 
@@ -420,7 +429,7 @@ export default function ReportsPage() {
     const allDoctors  = doctorsData?.data ?? [];
 
     if (tab === 'financial') {
-      const rows = txns.filter((t) => t.paymentStatus === 'approved' || t.paymentStatus === 'paid').map((t) => ({
+      const rows = txns.filter((t) => t.paymentStatus === 'approved' || t.paymentStatus === 'paid' || t.paymentStatus === 'reconciled').map((t) => ({
         Date:           t.createdAt?.slice(0, 10) ?? '',
         Source:         t.patientSource,
         'Payment Method': t.paymentMethod ?? 'cash',
