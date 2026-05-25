@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   TrendingUp, Download, Printer, Loader2, DollarSign, Activity, PieChart, RefreshCw,
+  ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { downloadCSV } from '@/lib/export';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -23,11 +24,10 @@ const REPORT_TABS = [
 ] as const;
 type ReportTab = typeof REPORT_TABS[number]['key'];
 
-function currentMonthRange() {
-  const now = new Date();
-  const from = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
-  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  const to = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${lastDay}`;
+function monthRange(year: number, month: number) {
+  const from = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+  const lastDay = new Date(year, month + 1, 0).getDate();
+  const to = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
   return { from, to };
 }
 
@@ -45,8 +45,7 @@ function StatRow({ label, value, sub }: { label: string; value: string | number;
 }
 
 /* ──────────────── Financial Summary ──────────────── */
-function FinancialReport({ lang, locale }: { lang: string; locale: string }) {
-  const { from, to } = currentMonthRange();
+function FinancialReport({ lang, locale, from, to }: { lang: string; locale: string; from: string; to: string }) {
   const { data, isLoading, isError } = useTransactions({ limit: 500, dateFrom: from, dateTo: to });
   const txns = data?.data ?? [];
 
@@ -154,8 +153,7 @@ function FinancialReport({ lang, locale }: { lang: string; locale: string }) {
 }
 
 /* ──────────────── Doctor Settlements ──────────────── */
-function SettlementsReport({ lang, locale }: { lang: string; locale: string }) {
-  const { from, to } = currentMonthRange();
+function SettlementsReport({ lang, locale, from, to }: { lang: string; locale: string; from: string; to: string }) {
   const { data, isLoading, isError } = useSettlements({ from, to });
   const { data: doctorsData } = useDoctors({ limit: 100 });
   const allDoctors = doctorsData?.data ?? [];
@@ -193,7 +191,7 @@ function SettlementsReport({ lang, locale }: { lang: string; locale: string }) {
         <Card>
           <CardContent className="pt-5">
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{lang === 'ar' ? 'الفترة' : 'Period'}</p>
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{new Date().toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-US', { month: 'long', year: 'numeric' })}</p>
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{new Date(from).toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-US', { month: 'long', year: 'numeric' })}</p>
           </CardContent>
         </Card>
       </div>
@@ -220,7 +218,13 @@ function SettlementsReport({ lang, locale }: { lang: string; locale: string }) {
                   <td className="px-5 py-3.5 font-mono tabular-nums text-gray-600 dark:text-gray-400">{formatNumber(s.totalConsultations ?? 0, locale)}</td>
                   <td className="px-5 py-3.5 font-mono tabular-nums text-gray-700 dark:text-gray-300">{formatCurrency(s.grossRevenue ?? 0, 'EGP', locale)}</td>
                   <td className="px-5 py-3.5 font-mono tabular-nums font-semibold text-primary-700 dark:text-primary-400">{formatCurrency(s.doctorShare ?? 0, 'EGP', locale)}</td>
-                  <td className="px-5 py-3.5"><Badge variant="warning">{lang === 'ar' ? 'بانتظار التسوية' : 'Pending'}</Badge></td>
+                  <td className="px-5 py-3.5">
+                    {(s.status === 'paid' || s.status === 'reconciled')
+                      ? <Badge variant="success">{lang === 'ar' ? 'مُسوَّى' : 'Settled'}</Badge>
+                      : s.status === 'approved'
+                      ? <Badge variant="default">{lang === 'ar' ? 'معتمد' : 'Approved'}</Badge>
+                      : <Badge variant="warning">{lang === 'ar' ? 'بانتظار التسوية' : 'Pending'}</Badge>}
+                  </td>
                 </tr>
                 );
               })}
@@ -241,8 +245,7 @@ const SOURCE_COLORS: Record<string, string> = {
   SHL:  '#10B981', 'Cl.s':'#F59E0B', 'Ref.':'#8B5CF6',
 };
 
-function SourcesReport({ lang, locale }: { lang: string; locale: string }) {
-  const { from, to } = currentMonthRange();
+function SourcesReport({ lang, locale, from, to }: { lang: string; locale: string; from: string; to: string }) {
   const { data, isLoading, isError } = useTransactions({ limit: 500, dateFrom: from, dateTo: to });
   const txns = (data?.data ?? []).filter((t) =>
     t.paymentStatus === 'approved' || t.paymentStatus === 'paid' || t.paymentStatus === 'reconciled',
@@ -326,8 +329,7 @@ function SourcesReport({ lang, locale }: { lang: string; locale: string }) {
 }
 
 /* ──────────────── Activity Report ──────────────── */
-function ActivityReport({ lang, locale }: { lang: string; locale: string }) {
-  const { from, to } = currentMonthRange();
+function ActivityReport({ lang, locale, from, to }: { lang: string; locale: string; from: string; to: string }) {
   const { data: doctorsData } = useDoctors({ limit: 100 });
   const { data, isLoading, isError } = useTransactions({ limit: 500, dateFrom: from, dateTo: to });
   const txns = (data?.data ?? []).filter((t) =>
@@ -357,7 +359,7 @@ function ActivityReport({ lang, locale }: { lang: string; locale: string }) {
     <div className="animate-fade-in">
       <Card>
         <CardHeader>
-          <CardTitle>{lang === 'ar' ? `أداء الأطباء: ${new Date().toLocaleString('ar-EG', { month: 'long', year: 'numeric' })}` : `Doctor Performance: ${new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' })}`}</CardTitle>
+          <CardTitle>{lang === 'ar' ? `أداء الأطباء: ${new Date(from).toLocaleString('ar-EG', { month: 'long', year: 'numeric' })}` : `Doctor Performance: ${new Date(from).toLocaleString('en-US', { month: 'long', year: 'numeric' })}`}</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <table className="w-full text-sm">
@@ -408,7 +410,24 @@ export default function ReportsPage() {
   const locale = lang === 'ar' ? 'ar-EG' : 'en-US';
   const qc = useQueryClient();
 
-  const { from, to } = currentMonthRange();
+  const now = new Date();
+  const [selectedMonth, setSelectedMonth] = useState({ year: now.getFullYear(), month: now.getMonth() });
+  const { from, to } = monthRange(selectedMonth.year, selectedMonth.month);
+
+  function prevMonth() {
+    setSelectedMonth((m) => {
+      const d = new Date(m.year, m.month - 1, 1);
+      return { year: d.getFullYear(), month: d.getMonth() };
+    });
+  }
+  function nextMonth() {
+    setSelectedMonth((m) => {
+      const d = new Date(m.year, m.month + 1, 1);
+      return { year: d.getFullYear(), month: d.getMonth() };
+    });
+  }
+  const isCurrentMonth = selectedMonth.year === now.getFullYear() && selectedMonth.month === now.getMonth();
+
   const { data: txnData }      = useTransactions({ limit: 500, dateFrom: from, dateTo: to });
   const { data: settlData }    = useSettlements({ from, to });
   const { data: doctorsData }  = useDoctors({ limit: 100 });
@@ -441,13 +460,17 @@ export default function ReportsPage() {
       }));
       downloadCSV(rows, 'financial-summary');
     } else if (tab === 'settlements') {
-      const rows = settlements.map((s: import('@fadl/types').DoctorSettlement) => ({
-        'Doctor (EN)':        s.doctorNameEn,
-        Consultations:        s.totalConsultations ?? 0,
-        'Total Charged (EGP)': s.grossRevenue ?? 0,
-        "Doctor's Share (EGP)": s.doctorShare ?? 0,
-        Status:               'Pending',
-      }));
+      const rows = settlements.map((s: import('@fadl/types').DoctorSettlement) => {
+        const dr = allDoctors.find((d) => d.id === s.doctorId);
+        return {
+          'Doctor (EN)':        dr?.nameEn ?? s.doctorId,
+          'Doctor (AR)':        dr?.nameAr ?? '',
+          Consultations:        s.totalConsultations ?? 0,
+          'Total Charged (EGP)': s.grossRevenue ?? 0,
+          "Doctor's Share (EGP)": s.doctorShare ?? 0,
+          Status:               (s.status === 'paid' || s.status === 'reconciled') ? 'Settled' : s.status === 'approved' ? 'Approved' : 'Pending',
+        };
+      });
       downloadCSV(rows, 'doctor-settlements');
     } else if (tab === 'sources') {
       const bySource: Record<string, { count: number; revenue: number; fees: number }> = {};
@@ -493,9 +516,17 @@ export default function ReportsPage() {
       <div className="flex items-center justify-between gap-4">
         <div className="animate-slide-down">
           <h2 className="text-2xl font-bold font-display text-gray-900 dark:text-gray-100">{t('التقارير', 'Reports')}</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-300 mt-0.5">
-            {new Date().toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-US', { month: 'long', year: 'numeric' })}
-          </p>
+          <div className="flex items-center gap-1 mt-0.5">
+            <button type="button" onClick={prevMonth} className="p-0.5 rounded hover:bg-gray-100 dark:hover:bg-neutral-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <p className="text-sm text-gray-500 dark:text-gray-300 min-w-[110px] text-center">
+              {new Date(selectedMonth.year, selectedMonth.month, 1).toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-US', { month: 'long', year: 'numeric' })}
+            </p>
+            <button type="button" onClick={nextMonth} disabled={isCurrentMonth} className="p-0.5 rounded hover:bg-gray-100 dark:hover:bg-neutral-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
         </div>
         <div className="flex gap-2 animate-slide-down" style={{ animationDelay: '40ms' }}>
           <Button size="sm" variant="outline" onClick={() => void handleRefresh()} disabled={isRefreshing}>
@@ -537,10 +568,10 @@ export default function ReportsPage() {
         })}
       </div>
 
-      {tab === 'financial'   && <FinancialReport   lang={lang} locale={locale} />}
-      {tab === 'settlements' && <SettlementsReport lang={lang} locale={locale} />}
-      {tab === 'sources'     && <SourcesReport     lang={lang} locale={locale} />}
-      {tab === 'activity'    && <ActivityReport    lang={lang} locale={locale} />}
+      {tab === 'financial'   && <FinancialReport   lang={lang} locale={locale} from={from} to={to} />}
+      {tab === 'settlements' && <SettlementsReport lang={lang} locale={locale} from={from} to={to} />}
+      {tab === 'sources'     && <SourcesReport     lang={lang} locale={locale} from={from} to={to} />}
+      {tab === 'activity'    && <ActivityReport    lang={lang} locale={locale} from={from} to={to} />}
     </div>
   );
 }
