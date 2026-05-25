@@ -45,7 +45,7 @@ function StatRow({ label, value, sub }: { label: string; value: string | number;
 
 /* ──────────────── Financial Summary ──────────────── */
 function FinancialReport({ lang, locale }: { lang: string; locale: string }) {
-  const { data, isLoading } = useTransactions({ limit: 500 });
+  const { data, isLoading, isError } = useTransactions({ limit: 500 });
   const txns = data?.data ?? [];
 
   const approved = txns.filter((t) => t.paymentStatus === 'approved' || t.paymentStatus === 'paid');
@@ -73,6 +73,11 @@ function FinancialReport({ lang, locale }: { lang: string; locale: string }) {
     <div className="flex items-center justify-center py-20 text-gray-400">
       <Loader2 className="w-5 h-5 animate-spin me-2" />
       Loading...
+    </div>
+  );
+  if (isError) return (
+    <div className="flex items-center justify-center py-20 text-red-400 text-sm">
+      Failed to load financial data — please refresh the page.
     </div>
   );
 
@@ -147,13 +152,20 @@ function FinancialReport({ lang, locale }: { lang: string; locale: string }) {
 /* ──────────────── Doctor Settlements ──────────────── */
 function SettlementsReport({ lang, locale }: { lang: string; locale: string }) {
   const { from, to } = currentMonthRange();
-  const { data, isLoading } = useSettlements({ from, to });
+  const { data, isLoading, isError } = useSettlements({ from, to });
+  const { data: doctorsData } = useDoctors({ limit: 100 });
+  const allDoctors = doctorsData?.data ?? [];
   const settlements = data?.data ?? [];
 
   if (isLoading) return (
     <div className="flex items-center justify-center py-20 text-gray-400">
       <Loader2 className="w-5 h-5 animate-spin me-2" />
       Loading...
+    </div>
+  );
+  if (isError) return (
+    <div className="flex items-center justify-center py-20 text-red-400 text-sm">
+      Failed to load settlement data — please refresh the page.
     </div>
   );
 
@@ -195,15 +207,19 @@ function SettlementsReport({ lang, locale }: { lang: string; locale: string }) {
               </tr>
             </thead>
             <tbody>
-              {settlements.map((s: DoctorSettlement, i: number) => (
+              {settlements.map((s: DoctorSettlement, i: number) => {
+                const dr = allDoctors.find((d) => d.id === s.doctorId);
+                const drName = lang === 'ar' ? (dr?.nameAr ?? dr?.nameEn ?? s.doctorId) : (dr?.nameEn ?? s.doctorId);
+                return (
                 <tr key={s.doctorId ?? i} className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors">
-                  <td className="px-5 py-3.5 font-medium text-gray-900 dark:text-gray-100">{s.doctorNameEn}</td>
+                  <td className="px-5 py-3.5 font-medium text-gray-900 dark:text-gray-100">{drName}</td>
                   <td className="px-5 py-3.5 font-mono tabular-nums text-gray-600 dark:text-gray-400">{formatNumber(s.totalConsultations ?? 0, locale)}</td>
                   <td className="px-5 py-3.5 font-mono tabular-nums text-gray-700 dark:text-gray-300">{formatCurrency(s.grossRevenue ?? 0, 'EGP', locale)}</td>
                   <td className="px-5 py-3.5 font-mono tabular-nums font-semibold text-primary-700 dark:text-primary-400">{formatCurrency(s.doctorShare ?? 0, 'EGP', locale)}</td>
                   <td className="px-5 py-3.5"><Badge variant="warning">{lang === 'ar' ? 'بانتظار التسوية' : 'Pending'}</Badge></td>
                 </tr>
-              ))}
+                );
+              })}
               {settlements.length === 0 && (
                 <tr><td colSpan={5} className="px-5 py-12 text-center text-gray-400">{lang === 'ar' ? 'لا بيانات' : 'No data'}</td></tr>
               )}
@@ -222,7 +238,7 @@ const SOURCE_COLORS: Record<string, string> = {
 };
 
 function SourcesReport({ lang, locale }: { lang: string; locale: string }) {
-  const { data, isLoading } = useTransactions({ limit: 500 });
+  const { data, isLoading, isError } = useTransactions({ limit: 500 });
   const txns = data?.data ?? [];
 
   const bySource: Record<string, { count: number; revenue: number }> = {};
@@ -235,6 +251,7 @@ function SourcesReport({ lang, locale }: { lang: string; locale: string }) {
   const sorted = Object.entries(bySource).sort((a, b) => b[1].count - a[1].count);
 
   if (isLoading) return <div className="flex items-center justify-center py-20 text-gray-400"><Loader2 className="w-5 h-5 animate-spin me-2" /></div>;
+  if (isError) return <div className="flex items-center justify-center py-20 text-red-400 text-sm">Failed to load source data — please refresh the page.</div>;
 
   return (
     <div className="animate-fade-in space-y-5">
@@ -304,7 +321,7 @@ function SourcesReport({ lang, locale }: { lang: string; locale: string }) {
 /* ──────────────── Activity Report ──────────────── */
 function ActivityReport({ lang, locale }: { lang: string; locale: string }) {
   const { data: doctorsData } = useDoctors({ limit: 100 });
-  const { data, isLoading } = useTransactions({ limit: 500 });
+  const { data, isLoading, isError } = useTransactions({ limit: 500 });
   const txns = data?.data ?? [];
   const allDoctors = doctorsData?.data ?? [];
 
@@ -324,6 +341,7 @@ function ActivityReport({ lang, locale }: { lang: string; locale: string }) {
   const maxRev = sorted[0]?.[1]?.revenue ?? 1;
 
   if (isLoading) return <div className="flex items-center justify-center py-20 text-gray-400"><Loader2 className="w-5 h-5 animate-spin me-2" /></div>;
+  if (isError) return <div className="flex items-center justify-center py-20 text-red-400 text-sm">Failed to load activity data — please refresh the page.</div>;
 
   return (
     <div className="animate-fade-in">

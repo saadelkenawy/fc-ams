@@ -73,7 +73,7 @@ export async function listTransactions(params: {
   limit: number;
 }): Promise<PaginatedResponse<FinancialTransaction>> {
   const page = params.page ?? 1;
-  const limit = Math.min(params.limit ?? 20, 100);
+  const limit = Math.min(params.limit ?? 20, 500);
   const offset = (page - 1) * limit;
 
   return withRlsContext(async (client) => {
