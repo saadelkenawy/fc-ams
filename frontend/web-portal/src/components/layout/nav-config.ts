@@ -55,6 +55,7 @@ const NAV: Record<UserRole, NavGroup[]> = {
         { key: 'chatbot',      href: '/chatbot',      labelAr: 'المساعد الذكي',      labelEn: 'AI Assistant',  icon: 'Bot' },
         { key: 'integrations', href: '/integrations', labelAr: 'التكاملات الخارجية', labelEn: 'Integrations',  icon: 'Plug' },
         { key: 'room-settings', href: '/rooms',       labelAr: 'إعدادات الغرف',      labelEn: 'Room Settings', icon: 'DoorOpen' },
+        { key: 'register',     href: '/register',    labelAr: 'تسجيل موظف',         labelEn: 'Register Staff', icon: 'UserPlus' },
         { key: 'settings',     href: '/settings',     labelAr: 'الإعدادات',          labelEn: 'Settings',      icon: 'Settings' },
       ],
     },
