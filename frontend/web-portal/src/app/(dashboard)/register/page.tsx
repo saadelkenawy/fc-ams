@@ -18,9 +18,9 @@ import { useTranslateName } from '@/hooks/useTranslateName';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 
-// ── Zod schema ────────────────────────────────────────────────────────────────
+// ── Schema ────────────────────────────────────────────────────────────────────
 const schema = z.object({
-  nameEn:   z.string().min(2,  'Name must be at least 2 characters'),
+  nameEn:   z.string().min(2, 'Name must be at least 2 characters'),
   nameAr:   z.string().optional(),
   email:    z.string().email('Enter a valid email address'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
@@ -32,7 +32,6 @@ const schema = z.object({
 });
 
 type FormValues = z.infer<typeof schema>;
-
 type Role = 'admin' | 'finance' | 'doctor' | 'receptionist' | 'procurement';
 
 const ROLE_OPTIONS: {
@@ -43,158 +42,56 @@ const ROLE_OPTIONS: {
   descAr: string;
   descEn: string;
 }[] = [
-  {
-    key: 'receptionist',
-    labelAr: 'موظف استقبال',
-    labelEn: 'Receptionist',
-    icon: UserRound,
-    descAr: 'إدارة المواعيد والمرضى',
-    descEn: 'Manage appointments & patients',
-  },
-  {
-    key: 'doctor',
-    labelAr: 'طبيب',
-    labelEn: 'Doctor',
-    icon: Stethoscope,
-    descAr: 'الوصول للحالات السريرية والجداول',
-    descEn: 'Access encounters & schedules',
-  },
-  {
-    key: 'admin',
-    labelAr: 'مسؤول النظام',
-    labelEn: 'Admin',
-    icon: Shield,
-    descAr: 'صلاحيات كاملة على النظام',
-    descEn: 'Full system access',
-  },
-  {
-    key: 'finance',
-    labelAr: 'مالية',
-    labelEn: 'Finance',
-    icon: Banknote,
-    descAr: 'الفواتير والتسويات والتقارير',
-    descEn: 'Billing, settlements & reports',
-  },
-  {
-    key: 'procurement',
-    labelAr: 'مشتريات',
-    labelEn: 'Procurement',
-    icon: Package,
-    descAr: 'كتالوج المشتريات والموردون',
-    descEn: 'Procurement catalog & vendors',
-  },
+  { key: 'receptionist', labelAr: 'موظف استقبال', labelEn: 'Receptionist', icon: UserRound,  descAr: 'إدارة المواعيد والمرضى',      descEn: 'Appointments & patients' },
+  { key: 'doctor',       labelAr: 'طبيب',          labelEn: 'Doctor',       icon: Stethoscope, descAr: 'الحالات السريرية والجداول',   descEn: 'Encounters & schedules' },
+  { key: 'finance',      labelAr: 'مالية',          labelEn: 'Finance',      icon: Banknote,    descAr: 'الفواتير والتسويات والتقارير', descEn: 'Billing & reports' },
+  { key: 'admin',        labelAr: 'مسؤول النظام',   labelEn: 'Admin',        icon: Shield,      descAr: 'صلاحيات كاملة على النظام',     descEn: 'Full system access' },
+  { key: 'procurement',  labelAr: 'مشتريات',        labelEn: 'Procurement',  icon: Package,     descAr: 'كتالوج المشتريات والموردون',   descEn: 'Catalog & vendors' },
 ];
 
-// ── Password strength meter ───────────────────────────────────────────────────
-function passwordStrength(pw: string): { score: number; labelAr: string; labelEn: string; color: string } {
-  let score = 0;
-  if (pw.length >= 8)  score++;
-  if (pw.length >= 12) score++;
-  if (/[A-Z]/.test(pw)) score++;
-  if (/[0-9]/.test(pw)) score++;
-  if (/[^A-Za-z0-9]/.test(pw)) score++;
-
-  if (score <= 1) return { score, labelAr: 'ضعيفة جداً', labelEn: 'Very weak',  color: 'bg-red-500' };
-  if (score === 2) return { score, labelAr: 'ضعيفة',      labelEn: 'Weak',       color: 'bg-orange-500' };
-  if (score === 3) return { score, labelAr: 'متوسطة',     labelEn: 'Fair',       color: 'bg-yellow-500' };
-  if (score === 4) return { score, labelAr: 'جيدة',       labelEn: 'Good',       color: 'bg-emerald-400' };
-  return                  { score, labelAr: 'قوية جداً',  labelEn: 'Very strong', color: 'bg-emerald-600' };
+// ── Password strength ─────────────────────────────────────────────────────────
+function pwStrength(pw: string) {
+  let s = 0;
+  if (pw.length >= 8)          s++;
+  if (pw.length >= 12)         s++;
+  if (/[A-Z]/.test(pw))        s++;
+  if (/[0-9]/.test(pw))        s++;
+  if (/[^A-Za-z0-9]/.test(pw)) s++;
+  const levels = [
+    { labelAr: 'ضعيفة جداً', labelEn: 'Very weak',   color: 'bg-red-500'     },
+    { labelAr: 'ضعيفة',      labelEn: 'Weak',         color: 'bg-orange-500'  },
+    { labelAr: 'متوسطة',     labelEn: 'Fair',         color: 'bg-yellow-500'  },
+    { labelAr: 'جيدة',       labelEn: 'Good',         color: 'bg-emerald-400' },
+    { labelAr: 'قوية جداً',  labelEn: 'Very strong',  color: 'bg-emerald-600' },
+  ];
+  return { score: s, ...levels[Math.min(s, 4)] };
 }
 
-// ── Field wrapper ─────────────────────────────────────────────────────────────
-function Field({ label, labelAr, lang, error, children }: {
-  label: string;
-  labelAr: string;
-  lang: 'ar' | 'en';
-  error?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-        {lang === 'ar' ? labelAr : label}
-      </label>
-      {children}
-      {error && (
-        <p className="text-xs text-red-500 flex items-center gap-1">
-          <Info className="w-3 h-3 flex-shrink-0" />
-          {error}
-        </p>
-      )}
-    </div>
-  );
-}
-
-// ── Text input ────────────────────────────────────────────────────────────────
-function TextInput({
-  icon: Icon,
-  invalid,
-  type = 'text',
-  placeholder,
-  suffix,
-  ...rest
-}: {
-  icon?: React.ComponentType<{ className?: string }>;
-  invalid?: boolean;
-  type?: string;
-  placeholder?: string;
-  suffix?: React.ReactNode;
-} & React.InputHTMLAttributes<HTMLInputElement>) {
-  return (
-    <div className="relative">
-      {Icon && (
-        <Icon className="absolute start-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-      )}
-      <input
-        type={type}
-        placeholder={placeholder}
-        className={cn(
-          'w-full h-11 rounded-lg border text-sm bg-white dark:bg-neutral-800 text-gray-900 dark:text-gray-100',
-          'focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent transition-all duration-200',
-          Icon ? 'ps-10' : 'ps-4',
-          suffix ? 'pe-11' : 'pe-4',
-          invalid
-            ? 'border-red-400 dark:border-red-500'
-            : 'border-gray-200 dark:border-neutral-600',
-        )}
-        {...rest}
-      />
-      {suffix && (
-        <div className="absolute inset-y-0 end-0 flex items-center pe-3">
-          {suffix}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── Success state ─────────────────────────────────────────────────────────────
-function SuccessCard({
-  nameEn, email, role, t, lang, onAnother, onGoToSettings,
-}: {
-  nameEn: string;
-  email: string;
-  role: string;
+// ── Success card ──────────────────────────────────────────────────────────────
+function SuccessCard({ nameEn, email, role, t, onAnother, onGoSettings }: {
+  nameEn: string; email: string; role: string;
   t: (ar: string, en: string) => string;
-  lang: 'ar' | 'en';
   onAnother: () => void;
-  onGoToSettings: () => void;
+  onGoSettings: () => void;
 }) {
   return (
-    <div className="flex flex-col items-center gap-6 py-8 text-center">
+    <div className="flex flex-col items-center gap-6 py-6 text-center">
       <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
         <Check className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
       </div>
       <div>
-        <h3 className="text-xl font-display font-bold text-gray-900 dark:text-gray-100 mb-1">
-          {t('تم إنشاء الحساب بنجاح', 'Account created successfully')}
+        <h3 className="text-lg font-display font-bold text-gray-900 dark:text-gray-100 mb-1">
+          {t('تم إنشاء الحساب', 'Account created')}
         </h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          {t(`تم إضافة ${nameEn} (${email}) بدور "${role}"`, `${nameEn} (${email}) has been added as ${role}.`)}
+        <p className="text-sm text-gray-500 dark:text-gray-400 max-w-xs mx-auto">
+          {t(
+            `أُضيف ${nameEn} (${email}) بدور "${role}" بنجاح.`,
+            `${nameEn} (${email}) was added as ${role}.`,
+          )}
         </p>
       </div>
-      <div className="flex gap-3 w-full max-w-xs">
-        <Button className="flex-1" onClick={onGoToSettings}>
+      <div className="flex gap-3 w-full">
+        <Button className="flex-1" onClick={onGoSettings}>
           {t('إدارة المستخدمين', 'Manage Users')}
         </Button>
         <Button variant="outline" className="flex-1" onClick={onAnother}>
@@ -207,42 +104,28 @@ function SuccessCard({
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function RegisterPage() {
-  const { lang, t } = useLang();
-  const { user }    = useAuth();
-  const router      = useRouter();
+  const { lang, t }  = useLang();
+  const { user }     = useAuth();
+  const router       = useRouter();
   const { translate, translating } = useTranslateName();
 
   const [showPass, setShowPass]       = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [nameAr, setNameAr]           = useState('');
   const [role, setRole]               = useState<Role>('receptionist');
-  const [submitted, setSubmitted]     = useState<{ nameEn: string; email: string; role: string } | null>(null);
+  const [done, setDone]               = useState<{ nameEn: string; email: string; role: string } | null>(null);
 
-  // Admin guard
   useEffect(() => {
     if (user && user.role !== 'admin') router.replace('/');
   }, [user, router]);
 
-  const {
-    register,
-    handleSubmit,
-    watch,
-    getValues,
-    setValue,
-    reset,
-    formState: { errors, isSubmitting },
-  } = useForm<FormValues>({
-    resolver: zodResolver(schema),
-    defaultValues: { role: 'receptionist' },
-  });
+  const { register, handleSubmit, watch, getValues, setValue, reset, formState: { errors, isSubmitting } } =
+    useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: { role: 'receptionist' } });
 
-  // Keep role in sync with chip state
-  useEffect(() => {
-    setValue('role', role);
-  }, [role, setValue]);
+  useEffect(() => { setValue('role', role); }, [role, setValue]);
 
-  const passwordValue = watch('password', '');
-  const strength      = passwordValue ? passwordStrength(passwordValue) : null;
+  const pw       = watch('password', '');
+  const strength = pw ? pwStrength(pw) : null;
 
   const mutation = useMutation({
     mutationFn: async (data: FormValues) => {
@@ -256,175 +139,243 @@ export default function RegisterPage() {
       });
       return { nameEn: data.nameEn, email: data.email, role: data.role };
     },
-    onSuccess: (result) => {
-      setSubmitted(result);
-    },
+    onSuccess: (res) => setDone(res),
   });
 
-  function onAnother() {
-    setSubmitted(null);
+  function resetForm() {
+    setDone(null);
     setNameAr('');
     setRole('receptionist');
+    mutation.reset();
     reset();
-  }
-
-  async function onSubmit(data: FormValues) {
-    await mutation.mutateAsync(data);
   }
 
   if (user?.role !== 'admin') return null;
 
-  return (
-    <div className="fc-page">
-      {/* Page header */}
-      <div className="fc-page-head">
-        <div>
-          <h2 className="fc-page-title">{t('تسجيل موظف جديد', 'Register New Staff')}</h2>
-          <p className="fc-page-sub">
-            {t('إنشاء حساب نظام لموظف جديد في العيادة', 'Create a system account for a new clinic staff member')}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => router.push('/settings?section=users')}
-          className="fc-btn fc-btn-sm fc-btn-outline gap-1.5"
-        >
-          {lang === 'ar' ? <ArrowRight className="w-3.5 h-3.5" /> : <ArrowLeft className="w-3.5 h-3.5" />}
-          {t('المستخدمون', 'Users')}
-        </button>
-      </div>
+  const isAr = lang === 'ar';
 
-      <div className="max-w-2xl">
-        <div className="fc-card p-6">
-          {submitted ? (
+  return (
+    /* Centre the card in the full available area */
+    <div className="min-h-full flex items-center justify-center p-4" dir={isAr ? 'rtl' : 'ltr'}>
+      <div className="w-full max-w-xl">
+
+        {/* Card */}
+        <div className="fc-card p-8">
+
+          {/* Header row inside card */}
+          <div className="flex items-start justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center flex-shrink-0">
+                <UserPlus className="w-5 h-5 text-primary-600 dark:text-primary-400" />
+              </div>
+              <div>
+                <h2 className="text-lg font-display font-bold text-gray-900 dark:text-gray-100 leading-tight">
+                  {t('تسجيل موظف جديد', 'Register New Staff')}
+                </h2>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                  {t('إنشاء حساب دخول للنظام', 'Create a system login account')}
+                </p>
+              </div>
+            </div>
+
+            {/* Back button */}
+            <button
+              type="button"
+              onClick={() => router.push('/settings')}
+              className="flex items-center gap-1.5 text-xs font-medium text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+            >
+              {isAr ? <ArrowRight className="w-3.5 h-3.5" /> : <ArrowLeft className="w-3.5 h-3.5" />}
+              {t('رجوع', 'Back')}
+            </button>
+          </div>
+
+          {/* Divider */}
+          <div className="border-t border-gray-100 dark:border-neutral-700 mb-6" />
+
+          {done ? (
             <SuccessCard
-              {...submitted}
+              {...done}
               t={t}
-              lang={lang}
-              onAnother={onAnother}
-              onGoToSettings={() => router.push('/settings?section=users')}
+              onAnother={resetForm}
+              onGoSettings={() => router.push('/settings')}
             />
           ) : (
-            <form onSubmit={(e) => void handleSubmit(onSubmit)(e)} noValidate className="space-y-5">
+            <form onSubmit={(e) => void handleSubmit((d) => mutation.mutateAsync(d))(e)} noValidate className="space-y-5">
 
-              {/* Name row */}
+              {/* Names */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
                 {/* Name EN */}
-                <Field label="Full Name (EN)" labelAr="الاسم الكامل (إنجليزي)" lang={lang} error={errors.nameEn?.message}>
-                  <TextInput
-                    icon={UserPlus}
-                    placeholder="e.g. Ahmed Hassan"
-                    invalid={!!errors.nameEn}
-                    {...register('nameEn', {
-                      onBlur: async (e: React.FocusEvent<HTMLInputElement>) => {
-                        const v = e.target.value.trim();
-                        if (lang === 'en' && v && !nameAr.trim()) {
-                          const res = await translate(v, 'en');
-                          if (res) setNameAr(res);
-                        }
-                      },
-                    })}
-                    suffix={translating === 'ar' ? <Loader2 className="w-4 h-4 text-primary-500 animate-spin" /> : undefined}
-                  />
-                </Field>
+                <div className="space-y-1.5">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {t('الاسم (إنجليزي)', 'Full Name (EN)')}
+                  </label>
+                  <div className="relative">
+                    <UserPlus className="absolute start-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                    <input
+                      type="text"
+                      placeholder="e.g. Ahmed Hassan"
+                      autoComplete="off"
+                      className={cn(
+                        'w-full h-11 rounded-lg border ps-10 pe-9 text-sm bg-white dark:bg-neutral-800 text-gray-900 dark:text-gray-100',
+                        'focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent transition-all',
+                        errors.nameEn ? 'border-red-400 dark:border-red-500' : 'border-gray-200 dark:border-neutral-600',
+                      )}
+                      {...register('nameEn', {
+                        onBlur: async (e) => {
+                          const v = e.target.value.trim();
+                          if (lang === 'en' && v && !nameAr.trim()) {
+                            const r = await translate(v, 'en');
+                            if (r) setNameAr(r);
+                          }
+                        },
+                      })}
+                    />
+                    {translating === 'ar' && (
+                      <Loader2 className="absolute end-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-500 animate-spin pointer-events-none" />
+                    )}
+                  </div>
+                  {errors.nameEn && (
+                    <p className="text-xs text-red-500 flex items-center gap-1">
+                      <Info className="w-3 h-3 flex-shrink-0" />{errors.nameEn.message}
+                    </p>
+                  )}
+                </div>
 
                 {/* Name AR */}
-                <Field label="Full Name (AR)" labelAr="الاسم الكامل (عربي)" lang={lang}>
-                  <TextInput
-                    placeholder="مثال: أحمد حسن"
-                    value={nameAr}
-                    onChange={(e) => setNameAr(e.target.value)}
-                    onBlur={async (e) => {
-                      const v = e.target.value.trim();
-                      const en = getValues('nameEn').trim();
-                      if (lang === 'ar' && v && !en) {
-                        const res = await translate(v, 'ar');
-                        if (res) setValue('nameEn', res);
-                      }
-                    }}
-                    suffix={translating === 'en' ? <Loader2 className="w-4 h-4 text-primary-500 animate-spin" /> : undefined}
-                  />
-                </Field>
+                <div className="space-y-1.5">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {t('الاسم (عربي)', 'Full Name (AR)')}
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="مثال: أحمد حسن"
+                      value={nameAr}
+                      onChange={(e) => setNameAr(e.target.value)}
+                      onBlur={async (e) => {
+                        const v = e.target.value.trim();
+                        const en = getValues('nameEn').trim();
+                        if (lang === 'ar' && v && !en) {
+                          const r = await translate(v, 'ar');
+                          if (r) setValue('nameEn', r);
+                        }
+                      }}
+                      className="w-full h-11 rounded-lg border px-4 pe-9 text-sm bg-white dark:bg-neutral-800 text-gray-900 dark:text-gray-100 border-gray-200 dark:border-neutral-600 focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent transition-all"
+                    />
+                    {translating === 'en' && (
+                      <Loader2 className="absolute end-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-500 animate-spin pointer-events-none" />
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* Email */}
-              <Field label="Email Address" labelAr="البريد الإلكتروني" lang={lang} error={errors.email?.message}>
-                <TextInput
-                  icon={Mail}
-                  type="email"
-                  placeholder="staff@fadlclinic.com"
-                  autoComplete="off"
-                  invalid={!!errors.email}
-                  {...register('email')}
-                />
-              </Field>
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {t('البريد الإلكتروني', 'Email Address')}
+                </label>
+                <div className="relative">
+                  <Mail className="absolute start-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  <input
+                    type="email"
+                    placeholder="staff@fadlclinic.com"
+                    autoComplete="off"
+                    className={cn(
+                      'w-full h-11 rounded-lg border ps-10 pe-4 text-sm bg-white dark:bg-neutral-800 text-gray-900 dark:text-gray-100',
+                      'focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent transition-all',
+                      errors.email ? 'border-red-400 dark:border-red-500' : 'border-gray-200 dark:border-neutral-600',
+                    )}
+                    {...register('email')}
+                  />
+                </div>
+                {errors.email && (
+                  <p className="text-xs text-red-500 flex items-center gap-1">
+                    <Info className="w-3 h-3 flex-shrink-0" />{errors.email.message}
+                  </p>
+                )}
+              </div>
 
-              {/* Password */}
-              <Field label="Initial Password" labelAr="كلمة المرور الأولية" lang={lang} error={errors.password?.message}>
-                <TextInput
-                  icon={Lock}
-                  type={showPass ? 'text' : 'password'}
-                  placeholder="••••••••"
-                  autoComplete="new-password"
-                  invalid={!!errors.password}
-                  suffix={
-                    <button
-                      type="button"
-                      onClick={() => setShowPass((s) => !s)}
-                      className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                    >
+              {/* Passwords */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+                {/* Password */}
+                <div className="space-y-1.5">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {t('كلمة المرور', 'Password')}
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute start-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                    <input
+                      type={showPass ? 'text' : 'password'}
+                      placeholder="••••••••"
+                      autoComplete="new-password"
+                      className={cn(
+                        'w-full h-11 rounded-lg border ps-10 pe-11 text-sm bg-white dark:bg-neutral-800 text-gray-900 dark:text-gray-100',
+                        'focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent transition-all',
+                        errors.password ? 'border-red-400 dark:border-red-500' : 'border-gray-200 dark:border-neutral-600',
+                      )}
+                      {...register('password')}
+                    />
+                    <button type="button" onClick={() => setShowPass((s) => !s)}
+                      className="absolute inset-y-0 end-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
                       {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
-                  }
-                  {...register('password')}
-                />
-                {/* Strength bar */}
-                {strength && (
-                  <div className="mt-2 space-y-1">
-                    <div className="flex gap-1">
-                      {[1, 2, 3, 4, 5].map((i) => (
-                        <div
-                          key={i}
-                          className={cn(
-                            'h-1 flex-1 rounded-full transition-all duration-300',
-                            i <= strength.score ? strength.color : 'bg-gray-200 dark:bg-neutral-700',
-                          )}
-                        />
-                      ))}
-                    </div>
-                    <p className="text-[11px] text-gray-400 dark:text-gray-500">
-                      {lang === 'ar' ? strength.labelAr : strength.labelEn}
-                    </p>
                   </div>
-                )}
-              </Field>
+                  {/* Strength bar */}
+                  {strength && (
+                    <div className="space-y-1">
+                      <div className="flex gap-1">
+                        {[1,2,3,4,5].map((i) => (
+                          <div key={i} className={cn('h-1 flex-1 rounded-full transition-all', i <= strength.score ? strength.color : 'bg-gray-200 dark:bg-neutral-700')} />
+                        ))}
+                      </div>
+                      <p className="text-[11px] text-gray-400">{isAr ? strength.labelAr : strength.labelEn}</p>
+                    </div>
+                  )}
+                  {errors.password && (
+                    <p className="text-xs text-red-500 flex items-center gap-1">
+                      <Info className="w-3 h-3 flex-shrink-0" />{errors.password.message}
+                    </p>
+                  )}
+                </div>
 
-              {/* Confirm password */}
-              <Field label="Confirm Password" labelAr="تأكيد كلمة المرور" lang={lang} error={errors.confirm?.message}>
-                <TextInput
-                  icon={Lock}
-                  type={showConfirm ? 'text' : 'password'}
-                  placeholder="••••••••"
-                  autoComplete="new-password"
-                  invalid={!!errors.confirm}
-                  suffix={
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirm((s) => !s)}
-                      className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                    >
+                {/* Confirm */}
+                <div className="space-y-1.5">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {t('تأكيد كلمة المرور', 'Confirm Password')}
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute start-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                    <input
+                      type={showConfirm ? 'text' : 'password'}
+                      placeholder="••••••••"
+                      autoComplete="new-password"
+                      className={cn(
+                        'w-full h-11 rounded-lg border ps-10 pe-11 text-sm bg-white dark:bg-neutral-800 text-gray-900 dark:text-gray-100',
+                        'focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent transition-all',
+                        errors.confirm ? 'border-red-400 dark:border-red-500' : 'border-gray-200 dark:border-neutral-600',
+                      )}
+                      {...register('confirm')}
+                    />
+                    <button type="button" onClick={() => setShowConfirm((s) => !s)}
+                      className="absolute inset-y-0 end-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
                       {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
-                  }
-                  {...register('confirm')}
-                />
-              </Field>
+                  </div>
+                  {errors.confirm && (
+                    <p className="text-xs text-red-500 flex items-center gap-1">
+                      <Info className="w-3 h-3 flex-shrink-0" />{errors.confirm.message}
+                    </p>
+                  )}
+                </div>
+              </div>
 
-              {/* Role selector */}
-              <div>
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+              {/* Role */}
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   {t('الدور الوظيفي', 'Role')}
-                </p>
+                </label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {ROLE_OPTIONS.map(({ key, labelAr: rAr, labelEn: rEn, icon: Icon, descAr, descEn }) => (
                     <button
@@ -441,28 +392,23 @@ export default function RegisterPage() {
                     >
                       <span className={cn(
                         'w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors',
-                        role === key
-                          ? 'bg-primary-100 dark:bg-primary-800/40 text-primary-700 dark:text-primary-300'
-                          : 'bg-gray-100 dark:bg-neutral-700 text-gray-500 dark:text-gray-400',
+                        role === key ? 'bg-primary-100 dark:bg-primary-800/40 text-primary-700 dark:text-primary-300'
+                                     : 'bg-gray-100 dark:bg-neutral-700 text-gray-500 dark:text-gray-400',
                       )}>
                         <Icon className="w-4 h-4" />
                       </span>
                       <span className="flex-1 min-w-0">
                         <span className={cn(
                           'block text-sm font-medium',
-                          role === key
-                            ? 'text-primary-700 dark:text-primary-300'
-                            : 'text-gray-800 dark:text-gray-200',
+                          role === key ? 'text-primary-700 dark:text-primary-300' : 'text-gray-800 dark:text-gray-200',
                         )}>
-                          {lang === 'ar' ? rAr : rEn}
+                          {isAr ? rAr : rEn}
                         </span>
                         <span className="block text-xs text-gray-400 dark:text-gray-500 mt-0.5 truncate">
-                          {lang === 'ar' ? descAr : descEn}
+                          {isAr ? descAr : descEn}
                         </span>
                       </span>
-                      {role === key && (
-                        <Check className="w-4 h-4 text-primary-600 dark:text-primary-400 flex-shrink-0" />
-                      )}
+                      {role === key && <Check className="w-4 h-4 text-primary-600 dark:text-primary-400 flex-shrink-0" />}
                     </button>
                   ))}
                 </div>
@@ -473,53 +419,38 @@ export default function RegisterPage() {
                 <div className="rounded-xl px-4 py-3 text-sm border flex items-center gap-2 bg-red-50 border-red-200 text-red-700 dark:bg-red-950/30 dark:border-red-800 dark:text-red-400">
                   <Info className="w-4 h-4 flex-shrink-0" />
                   {(mutation.error as { response?: { data?: { message?: string } } })?.response?.data?.message
-                    ?? t('فشل إنشاء الحساب. تأكد من البيانات وحاول مجدداً.', 'Failed to create account. Check the details and try again.')}
+                    ?? t('فشل إنشاء الحساب. تحقق من البيانات وحاول مجدداً.', 'Failed to create account. Check the details and try again.')}
                 </div>
               )}
 
-              {/* Submit */}
-              <div className="pt-2 flex gap-3">
+              {/* Actions */}
+              <div className="flex gap-3 pt-1">
                 <button
                   type="submit"
                   disabled={isSubmitting || mutation.isPending}
                   className={cn(
-                    'flex-1 h-12 rounded-xl text-white font-semibold text-sm',
-                    'bg-primary-600 hover:bg-primary-700 active:bg-primary-800',
-                    'transition-all duration-150 shadow-md hover:shadow-lg',
+                    'flex-1 h-12 rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2',
+                    'bg-primary-600 hover:bg-primary-700 active:bg-primary-800 transition-all duration-150 shadow-md',
                     'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-600 focus-visible:ring-offset-2',
                     'disabled:opacity-60 disabled:cursor-not-allowed',
-                    'flex items-center justify-center gap-2',
                   )}
                 >
-                  {(isSubmitting || mutation.isPending) ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      {t('جاري الإنشاء...', 'Creating account...')}
-                    </>
-                  ) : (
-                    <>
-                      <UserPlus className="w-4 h-4" />
-                      {t('إنشاء الحساب', 'Create Account')}
-                    </>
-                  )}
+                  {(isSubmitting || mutation.isPending)
+                    ? <><Loader2 className="w-4 h-4 animate-spin" />{t('جارٍ الإنشاء...', 'Creating...')}</>
+                    : <><UserPlus className="w-4 h-4" />{t('إنشاء الحساب', 'Create Account')}</>
+                  }
                 </button>
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => router.push('/settings')}
-                  className="px-5"
-                >
+                <Button type="button" variant="outline" onClick={() => router.push('/settings')} className="px-6">
                   {t('إلغاء', 'Cancel')}
                 </Button>
               </div>
 
-              {/* Info note */}
-              <p className="text-xs text-gray-400 dark:text-gray-500 flex items-start gap-1.5 pt-1">
+              {/* Hint */}
+              <p className="text-xs text-gray-400 dark:text-gray-500 flex items-start gap-1.5">
                 <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
                 {t(
-                  'ستُرسل بيانات الدخول للموظف عبر البريد الإلكتروني. يجب أن يغيّر كلمة المرور عند أول دخول.',
-                  'Login credentials will be shared with the staff member. They should change their password on first login.',
+                  'يجب على الموظف تغيير كلمة المرور عند أول دخول.',
+                  'Staff should change their password on first login.',
                 )}
               </p>
             </form>
