@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
-  TrendingUp, Download, Printer, Loader2, DollarSign, Activity, PieChart,
+  TrendingUp, Download, Printer, Loader2, DollarSign, Activity, PieChart, RefreshCw,
 } from 'lucide-react';
 import { downloadCSV } from '@/lib/export';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -394,12 +395,24 @@ function ActivityReport({ lang, locale }: { lang: string; locale: string }) {
 export default function ReportsPage() {
   const { lang, t } = useLang();
   const [tab, setTab] = useState<ReportTab>('financial');
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const locale = lang === 'ar' ? 'ar-EG' : 'en-US';
+  const qc = useQueryClient();
 
   const { from, to } = currentMonthRange();
   const { data: txnData }      = useTransactions({ limit: 500 });
   const { data: settlData }    = useSettlements({ from, to });
   const { data: doctorsData }  = useDoctors({ limit: 100 });
+
+  async function handleRefresh() {
+    setIsRefreshing(true);
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: ['transactions'] }),
+      qc.invalidateQueries({ queryKey: ['settlements'] }),
+      qc.invalidateQueries({ queryKey: ['doctors'] }),
+    ]);
+    setIsRefreshing(false);
+  }
 
   function handleExportCSV() {
     const txns       = txnData?.data ?? [];
@@ -476,6 +489,10 @@ export default function ReportsPage() {
           </p>
         </div>
         <div className="flex gap-2 animate-slide-down" style={{ animationDelay: '40ms' }}>
+          <Button size="sm" variant="outline" onClick={() => void handleRefresh()} disabled={isRefreshing}>
+            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">{t('تحديث', 'Refresh')}</span>
+          </Button>
           <Button size="sm" variant="outline" onClick={handleExportCSV}>
             <Download className="w-4 h-4" />
             {t('تصدير CSV', 'Export CSV')}

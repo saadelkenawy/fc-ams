@@ -160,6 +160,8 @@ export function useSettlements(params: SettlementParams) {
     },
     enabled: !!params.from && !!params.to,
     staleTime: 30_000,
+    refetchInterval: 30_000,
+    keepPreviousData: true,
     retry: 1,
   });
 }
