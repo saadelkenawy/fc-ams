@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useAutoAnimate } from '@formkit/auto-animate/react';
 import { useRouter } from 'next/navigation';
 import {
   Search, X, Stethoscope, Users, PowerOff, Wifi,
@@ -118,8 +119,10 @@ export default function DoctorsPage() {
     });
   }
 
+  const [gridRef] = useAutoAnimate();
+
   return (
-    <div className="fc-page animate-fade-in">
+    <div className="fc-page">
 
       {/* ── Page header ── */}
       <div className="fc-page-head animate-slide-down">
@@ -233,7 +236,7 @@ export default function DoctorsPage() {
 
       {/* ── Doctor card grid ── */}
       {!isLoading && filtered.length > 0 && (
-        <div className="fc-dr-grid animate-slide-up" style={{ animationDelay: '80ms' }}>
+        <div className="fc-dr-grid" ref={gridRef}>
           {filtered.map((doc, idx) => {
             const name   = lang === 'ar' ? (doc.nameAr ?? doc.nameEn) : doc.nameEn;
             const spec   = specialtyMap.get(doc.specialtyId);
