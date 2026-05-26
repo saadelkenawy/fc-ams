@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useAutoAnimate } from '@formkit/auto-animate/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { UserPlus, Users, TrendingUp, Globe, Search, X, ChevronRight, Pencil, Trash2 } from 'lucide-react';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -89,6 +90,7 @@ export default function PatientsPage() {
   const { lang, t } = useLang();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [listRef] = useAutoAnimate();
   const { toast } = useToast();
 
   const [query, setQuery]             = useState(() => searchParams.get('query') ?? '');
@@ -146,7 +148,7 @@ export default function PatientsPage() {
   }
 
   return (
-    <div className="fc-page animate-fade-in">
+    <div className="fc-page">
 
       {/* ── Page header ── */}
       <div className="fc-page-head animate-slide-down">
@@ -286,7 +288,7 @@ export default function PatientsPage() {
           <span />
         </div>
 
-        <div className="fc-pt-list">
+        <div className="fc-pt-list" ref={listRef}>
           {isLoading && Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} />)}
 
           {!isLoading && patients.map((p, idx) => {

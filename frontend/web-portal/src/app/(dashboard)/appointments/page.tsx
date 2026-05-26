@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { useAutoAnimate } from '@formkit/auto-animate/react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import {
@@ -531,6 +532,8 @@ export default function AppointmentsPage() {
     setEditDoctorSt(null);
   }
 
+  const [tbodyRef] = useAutoAnimate();
+
   const isAdmin = user?.role === 'admin';
   const isToday = date === todayStr();
   const allVisibleIds = filtered.map((a) => a.id);
@@ -853,7 +856,7 @@ export default function AppointmentsPage() {
                     <th />
                   </tr>
                 </thead>
-                <tbody>
+                <tbody ref={tbodyRef}>
                   {filtered.map((a) => {
                     const doctor    = a.doctorId ? doctorMap.get(a.doctorId) : null;
                     const specialty = a.specialtyId ? specialtyMap.get(a.specialtyId) : null;
