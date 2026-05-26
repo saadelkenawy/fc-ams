@@ -333,7 +333,14 @@ interface TxDetail {
 }
 
 export async function getSettlementReport(req: FastifyRequest, reply: FastifyReply): Promise<void> {
-  const query = settlementQuerySchema.parse(req.query);
+  let query: z.infer<typeof settlementQuerySchema>;
+  try {
+    query = settlementQuerySchema.parse(req.query);
+  } catch {
+    void reply.status(400).send({ success: false, error: { code: 'INVALID_PARAMS', message: 'Invalid query parameters' } });
+    return;
+  }
+
   const params: Record<string, string> = {};
   if (query.dateFrom)  params.dateFrom = query.dateFrom;
   if (query.dateTo)    params.dateTo   = query.dateTo;
@@ -367,15 +374,17 @@ export async function getSettlementReport(req: FastifyRequest, reply: FastifyRep
     { header: 'Status',       key: 'status',       width: 60 },
   ];
 
-  const rows: TxRow[] = txns.map((t) => ({
-    date:        (t.transactionDate ?? '').slice(0, 10),
-    charge:      fmt(t.approvedCharge),
-    doctorShare: fmt(t.doctorShare),
-    sourceFee:   fmt(t.sourceFeeAmount),
-    net:         fmt(toNum(t.doctorShare) - toNum(t.sourceFeeAmount)),
-    source:      String(t.patientSource ?? ''),
-    status:      String(t.status ?? ''),
-  }));
+  const rows: TxRow[] = txns.length > 0
+    ? txns.map((t) => ({
+        date:        (t.transactionDate ?? '').slice(0, 10),
+        charge:      fmt(t.approvedCharge),
+        doctorShare: fmt(t.doctorShare),
+        sourceFee:   fmt(t.sourceFeeAmount),
+        net:         fmt(toNum(t.doctorShare) - toNum(t.sourceFeeAmount)),
+        source:      String(t.patientSource ?? ''),
+        status:      String(t.status ?? ''),
+      }))
+    : [{ date: '—', charge: '—', doctorShare: '—', sourceFee: '—', net: '—', source: 'No transactions found for this period', status: '—' }];
 
   const buffer = await buildPdf({
     title:    `Settlement Report — ${query.doctorName ?? query.doctorId ?? 'All Doctors'}`,
