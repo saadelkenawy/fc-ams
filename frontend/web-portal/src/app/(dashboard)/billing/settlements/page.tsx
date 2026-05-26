@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useCallback } from 'react';
+import { useAutoAnimate } from '@formkit/auto-animate/react';
 import {
   Banknote, RefreshCw, ReceiptText, ChevronDown, ChevronRight,
   Building2, Stethoscope, Share2, Loader2, FlaskConical, Check, X,
@@ -80,6 +81,7 @@ export default function SettlementsPage() {
   const [settlePassword, setSettlePassword]       = useState('');
   const [settlePasswordErr, setSettlePasswordErr] = useState('');
   const { mutateAsync: reconcile, isPending: settling, error: settleErr } = useReconcileDoctor();
+  const [settlementsBodyRef] = useAutoAnimate();
 
   // Reverse dialog
   const [reverseTarget, setReverseTarget]             = useState<string | null>(null);
@@ -492,7 +494,7 @@ export default function SettlementsPage() {
                     <th />
                   </tr>
                 </thead>
-                <tbody>
+                <tbody ref={settlementsBodyRef}>
                   {settlements.map((s) => {
                     const sessionFees = s.totalSessionFees ?? (s.grossRevenue + s.totalSourceFees);
                     const extraSvcs   = s.totalExtraServices ?? 0;

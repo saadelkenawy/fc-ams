@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useMemo } from 'react';
+import { useAutoAnimate } from '@formkit/auto-animate/react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Download, Filter, Search, Clock, TrendingUp, Loader2, Check, X, Trash2, ShieldAlert, RotateCcw, FileSpreadsheet, FileText, FileDown, Square, CheckSquare, Minus, BarChart3, ChevronRight } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -801,6 +802,9 @@ export default function BillingPage() {
   function handleStatusFilter(s: PaymentStatus | 'all') { setStatusFilter(s); setPage(1); }
   function handleSearch(q: string) { setQuery(q); setPage(1); }
 
+  const [txBodyRef]    = useAutoAnimate();
+  const [settlBodyRef] = useAutoAnimate();
+
   return (
     <div className="fc-page">
       <div className="fc-page-head">
@@ -1090,7 +1094,7 @@ export default function BillingPage() {
                       <th className="w-10" />
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody ref={txBodyRef}>
                     {filtered.map((tx) => {
                       const cfg = STATUS_CONFIG[tx.paymentStatus];
                       const doc = tx.doctorId ? doctorMap.get(tx.doctorId) : null;
@@ -1248,7 +1252,7 @@ export default function BillingPage() {
                       <th className="px-4 py-3 text-start text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{t('المستحق', 'Net Payable')}</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-50 dark:divide-neutral-700/50">
+                  <tbody ref={settlBodyRef} className="divide-y divide-gray-50 dark:divide-neutral-700/50">
                     {settlData.data.map((s) => {
                       const doc = doctorMap.get(s.doctorId);
                       const name = doc ? (lang === 'ar' ? (doc.nameAr ?? doc.nameEn) : doc.nameEn) : s.doctorId.slice(-8);
