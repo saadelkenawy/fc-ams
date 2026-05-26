@@ -4,8 +4,8 @@ import { useState } from 'react';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  TrendingUp, Download, Printer, Loader2, DollarSign, Activity, PieChart, RefreshCw,
-  ChevronLeft, ChevronRight,
+  TrendingUp, TrendingDown, Download, Printer, Loader2, DollarSign, Activity, PieChart,
+  RefreshCw, ChevronLeft, ChevronRight, BarChart2, Layers, FileDown,
 } from 'lucide-react';
 import { downloadCSV } from '@/lib/export';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -15,13 +15,16 @@ import { useLang } from '@/contexts/LanguageContext';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 import { useTransactions, useSettlements } from '@/hooks/useBilling';
 import { useDoctors } from '@/hooks/useDoctors';
+import { useMonthlyRevenue, useSpecialtyBreakdown } from '@/hooks/useAnalytics';
 import type { DoctorSettlement } from '@fadl/types';
 
 const REPORT_TABS = [
-  { key: 'financial',    iconEl: DollarSign,  labelAr: 'الملخص المالي',     labelEn: 'Financial Summary' },
-  { key: 'settlements',  iconEl: TrendingUp,  labelAr: 'تسويات الأطباء',    labelEn: 'Doctor Settlements' },
-  { key: 'sources',      iconEl: PieChart,    labelAr: 'مصادر المرضى',      labelEn: 'Patient Sources' },
-  { key: 'activity',     iconEl: Activity,    labelAr: 'نشاط المواعيد',      labelEn: 'Appointment Activity' },
+  { key: 'financial',   iconEl: DollarSign, labelAr: 'الملخص المالي',     labelEn: 'Financial Summary' },
+  { key: 'settlements', iconEl: TrendingUp, labelAr: 'تسويات الأطباء',    labelEn: 'Doctor Settlements' },
+  { key: 'sources',     iconEl: PieChart,   labelAr: 'مصادر المرضى',      labelEn: 'Patient Sources' },
+  { key: 'activity',    iconEl: Activity,   labelAr: 'نشاط المواعيد',      labelEn: 'Appointment Activity' },
+  { key: 'trends',      iconEl: BarChart2,  labelAr: 'الاتجاهات الشهرية', labelEn: 'Monthly Trends' },
+  { key: 'specialties', iconEl: Layers,     labelAr: 'التخصصات',           labelEn: 'Specialties' },
 ] as const;
 type ReportTab = typeof REPORT_TABS[number]['key'];
 
@@ -32,6 +35,9 @@ function monthRange(year: number, month: number) {
   return { from, to };
 }
 
+function openPdf(path: string) {
+  window.open(`/api/proxy/analytics${path}`, '_blank');
+}
 
 function StatRow({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
   return (
@@ -53,11 +59,11 @@ function FinancialReport({ lang, locale, from, to }: { lang: string; locale: str
   const approved = txns.filter((t) =>
     t.paymentStatus === 'approved' || t.paymentStatus === 'paid' || t.paymentStatus === 'reconciled',
   );
-  const totalCharged   = approved.reduce((s, t) => s + t.approvedCharge, 0);
-  const totalFees      = approved.reduce((s, t) => s + t.sourceFeeAmount, 0);
-  const totalGross     = approved.reduce((s, t) => s + t.grossRevenue, 0);
-  const totalDrShare   = approved.reduce((s, t) => s + t.doctorShare, 0);
-  const totalClnShare  = approved.reduce((s, t) => s + t.clinicShare, 0);
+  const totalCharged  = approved.reduce((s, t) => s + t.approvedCharge, 0);
+  const totalFees     = approved.reduce((s, t) => s + t.sourceFeeAmount, 0);
+  const totalGross    = approved.reduce((s, t) => s + t.grossRevenue, 0);
+  const totalDrShare  = approved.reduce((s, t) => s + t.doctorShare, 0);
+  const totalClnShare = approved.reduce((s, t) => s + t.clinicShare, 0);
 
   const [sourceBodyRef] = useAutoAnimate();
   const byMethod: Record<string, number> = {};
@@ -89,14 +95,20 @@ function FinancialReport({ lang, locale, from, to }: { lang: string; locale: str
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-fade-in">
       <Card>
-        <CardHeader><CardTitle>{lang === 'ar' ? 'ملخص الإيرادات' : 'Revenue Summary'}</CardTitle></CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>{lang === 'ar' ? 'ملخص الإيرادات' : 'Revenue Summary'}</CardTitle>
+          <Button size="sm" variant="outline" onClick={() => openPdf(`/reports/settlement?dateFrom=${from}&dateTo=${to}`)}>
+            <FileDown className="w-3.5 h-3.5" />
+            {lang === 'ar' ? 'PDF' : 'PDF'}
+          </Button>
+        </CardHeader>
         <CardContent>
-          <StatRow label={lang === 'ar' ? 'إجمالي المحصل' : 'Total Charged'}    value={formatCurrency(totalCharged,  'EGP', locale)} />
-          <StatRow label={lang === 'ar' ? 'رسوم المصادر'  : 'Platform Fees'}    value={formatCurrency(totalFees,     'EGP', locale)} sub={`${totalCharged > 0 ? ((totalFees / totalCharged) * 100).toFixed(1) : 0}%`} />
+          <StatRow label={lang === 'ar' ? 'إجمالي المحصل'  : 'Total Charged'}   value={formatCurrency(totalCharged,  'EGP', locale)} />
+          <StatRow label={lang === 'ar' ? 'رسوم المصادر'   : 'Platform Fees'}   value={formatCurrency(totalFees,     'EGP', locale)} sub={`${totalCharged > 0 ? ((totalFees / totalCharged) * 100).toFixed(1) : 0}%`} />
           <StatRow label={lang === 'ar' ? 'الإيراد الصافي' : 'Net Revenue'}      value={formatCurrency(totalGross,    'EGP', locale)} />
-          <StatRow label={lang === 'ar' ? 'حصة الأطباء'   : "Doctors' Share"}   value={formatCurrency(totalDrShare,  'EGP', locale)} sub={`${totalGross > 0 ? ((totalDrShare / totalGross) * 100).toFixed(1) : 0}%`} />
-          <StatRow label={lang === 'ar' ? 'حصة العيادة'   : "Clinic's Share"}   value={formatCurrency(totalClnShare, 'EGP', locale)} sub={`${totalGross > 0 ? ((totalClnShare / totalGross) * 100).toFixed(1) : 0}%`} />
-          <StatRow label={lang === 'ar' ? 'عدد المعاملات' : 'Transactions'}     value={formatNumber(approved.length, locale)} />
+          <StatRow label={lang === 'ar' ? 'حصة الأطباء'   : "Doctors' Share"}  value={formatCurrency(totalDrShare,  'EGP', locale)} sub={`${totalGross > 0 ? ((totalDrShare / totalGross) * 100).toFixed(1) : 0}%`} />
+          <StatRow label={lang === 'ar' ? 'حصة العيادة'   : "Clinic's Share"}  value={formatCurrency(totalClnShare, 'EGP', locale)} sub={`${totalGross > 0 ? ((totalClnShare / totalGross) * 100).toFixed(1) : 0}%`} />
+          <StatRow label={lang === 'ar' ? 'عدد المعاملات' : 'Transactions'}    value={formatNumber(approved.length, locale)} />
         </CardContent>
       </Card>
 
@@ -129,11 +141,11 @@ function FinancialReport({ lang, locale, from, to }: { lang: string; locale: str
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
-                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'المصدر' : 'Source'}</th>
+                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'المصدر'     : 'Source'}</th>
                 <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'المعاملات' : 'Txns'}</th>
                 <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'الإيرادات' : 'Revenue'}</th>
-                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'الرسوم' : 'Fees'}</th>
-                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'صافي' : 'Net'}</th>
+                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'الرسوم'    : 'Fees'}</th>
+                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'صافي'      : 'Net'}</th>
               </tr>
             </thead>
             <tbody ref={sourceBodyRef}>
@@ -192,9 +204,15 @@ function SettlementsReport({ lang, locale, from, to }: { lang: string; locale: s
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-5">
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{lang === 'ar' ? 'الفترة' : 'Period'}</p>
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{new Date(from).toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-US', { month: 'long', year: 'numeric' })}</p>
+          <CardContent className="pt-5 flex items-start justify-between gap-2">
+            <div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{lang === 'ar' ? 'الفترة' : 'Period'}</p>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{new Date(from).toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-US', { month: 'long', year: 'numeric' })}</p>
+            </div>
+            <Button size="sm" variant="outline" className="mt-0.5 flex-shrink-0" onClick={() => openPdf(`/reports/settlement?dateFrom=${from}&dateTo=${to}`)}>
+              <FileDown className="w-3.5 h-3.5" />
+              PDF
+            </Button>
           </CardContent>
         </Card>
       </div>
@@ -204,35 +222,49 @@ function SettlementsReport({ lang, locale, from, to }: { lang: string; locale: s
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
-                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'الطبيب' : 'Doctor'}</th>
-                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'معاملات' : 'Txns'}</th>
+                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'الطبيب'         : 'Doctor'}</th>
+                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'معاملات'        : 'Txns'}</th>
                 <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'إجمالي المحصل' : 'Total Charged'}</th>
-                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'حصة الطبيب' : 'Doctor Share'}</th>
-                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'الحالة' : 'Status'}</th>
+                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'حصة الطبيب'    : 'Doctor Share'}</th>
+                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'الحالة'         : 'Status'}</th>
+                <th className="px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400" />
               </tr>
             </thead>
             <tbody ref={settlBodyRef}>
               {settlements.map((s: DoctorSettlement, i: number) => {
                 const dr = allDoctors.find((d) => d.id === s.doctorId);
                 const drName = lang === 'ar' ? (dr?.nameAr ?? dr?.nameEn ?? s.doctorId) : (dr?.nameEn ?? s.doctorId);
+                const drNameEn = dr?.nameEn ?? String(s.doctorId ?? '');
                 return (
-                <tr key={s.doctorId ?? i} className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors">
-                  <td className="px-5 py-3.5 font-medium text-gray-900 dark:text-gray-100">{drName}</td>
-                  <td className="px-5 py-3.5 font-mono tabular-nums text-gray-600 dark:text-gray-400">{formatNumber(s.totalConsultations ?? 0, locale)}</td>
-                  <td className="px-5 py-3.5 font-mono tabular-nums text-gray-700 dark:text-gray-300">{formatCurrency(s.grossRevenue ?? 0, 'EGP', locale)}</td>
-                  <td className="px-5 py-3.5 font-mono tabular-nums font-semibold text-primary-700 dark:text-primary-400">{formatCurrency(s.doctorShare ?? 0, 'EGP', locale)}</td>
-                  <td className="px-5 py-3.5">
-                    {(s.status === 'paid' || s.status === 'reconciled')
-                      ? <Badge variant="success">{lang === 'ar' ? 'مُسوَّى' : 'Settled'}</Badge>
-                      : s.status === 'approved'
-                      ? <Badge variant="default">{lang === 'ar' ? 'معتمد' : 'Approved'}</Badge>
-                      : <Badge variant="warning">{lang === 'ar' ? 'بانتظار التسوية' : 'Pending'}</Badge>}
-                  </td>
-                </tr>
+                  <tr key={s.doctorId ?? i} className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors">
+                    <td className="px-5 py-3.5 font-medium text-gray-900 dark:text-gray-100">{drName}</td>
+                    <td className="px-5 py-3.5 font-mono tabular-nums text-gray-600 dark:text-gray-400">{formatNumber(s.totalConsultations ?? 0, locale)}</td>
+                    <td className="px-5 py-3.5 font-mono tabular-nums text-gray-700 dark:text-gray-300">{formatCurrency(s.grossRevenue ?? 0, 'EGP', locale)}</td>
+                    <td className="px-5 py-3.5 font-mono tabular-nums font-semibold text-primary-700 dark:text-primary-400">{formatCurrency(s.doctorShare ?? 0, 'EGP', locale)}</td>
+                    <td className="px-5 py-3.5">
+                      {(s.status === 'paid' || s.status === 'reconciled')
+                        ? <Badge variant="success">{lang === 'ar' ? 'مُسوَّى' : 'Settled'}</Badge>
+                        : s.status === 'approved'
+                        ? <Badge variant="default">{lang === 'ar' ? 'معتمد' : 'Approved'}</Badge>
+                        : <Badge variant="warning">{lang === 'ar' ? 'بانتظار التسوية' : 'Pending'}</Badge>}
+                    </td>
+                    <td className="px-5 py-3.5">
+                      {s.doctorId && (
+                        <button
+                          type="button"
+                          title={lang === 'ar' ? 'تحميل PDF' : 'Download PDF'}
+                          className="text-gray-400 hover:text-primary-600 transition-colors"
+                          onClick={() => openPdf(`/reports/settlement?doctorId=${s.doctorId}&dateFrom=${from}&dateTo=${to}&doctorName=${encodeURIComponent(drNameEn)}`)}
+                        >
+                          <FileDown className="w-4 h-4" />
+                        </button>
+                      )}
+                    </td>
+                  </tr>
                 );
               })}
               {settlements.length === 0 && (
-                <tr><td colSpan={5} className="px-5 py-12 text-center text-gray-400">{lang === 'ar' ? 'لا بيانات' : 'No data'}</td></tr>
+                <tr><td colSpan={6} className="px-5 py-12 text-center text-gray-400">{lang === 'ar' ? 'لا بيانات' : 'No data'}</td></tr>
               )}
             </tbody>
           </table>
@@ -260,11 +292,11 @@ function SourcesReport({ lang, locale, from, to }: { lang: string; locale: strin
     bySource[t.patientSource].count++;
     bySource[t.patientSource].revenue += t.approvedCharge;
   });
-  const total = Object.values(bySource).reduce((s, v) => s + v.count, 0);
+  const total  = Object.values(bySource).reduce((s, v) => s + v.count, 0);
   const sorted = Object.entries(bySource).sort((a, b) => b[1].count - a[1].count);
 
   if (isLoading) return <div className="flex items-center justify-center py-20 text-gray-400"><Loader2 className="w-5 h-5 animate-spin me-2" /></div>;
-  if (isError) return <div className="flex items-center justify-center py-20 text-red-400 text-sm">Failed to load source data — please refresh the page.</div>;
+  if (isError)   return <div className="flex items-center justify-center py-20 text-red-400 text-sm">Failed to load source data — please refresh the page.</div>;
 
   return (
     <div className="animate-fade-in space-y-5">
@@ -348,8 +380,8 @@ function ActivityReport({ lang, locale, from, to }: { lang: string; locale: stri
       byDoctor[dId] = { name: dr?.nameEn ?? dId, nameAr: dr?.nameAr, count: 0, revenue: 0, drShare: 0 };
     }
     byDoctor[dId].count++;
-    byDoctor[dId].revenue += t.approvedCharge;
-    byDoctor[dId].drShare += t.doctorShare;
+    byDoctor[dId].revenue  += t.approvedCharge;
+    byDoctor[dId].drShare  += t.doctorShare;
   });
 
   const sorted = Object.entries(byDoctor).sort((a, b) => b[1].revenue - a[1].revenue);
@@ -357,23 +389,25 @@ function ActivityReport({ lang, locale, from, to }: { lang: string; locale: stri
   const [activityBodyRef] = useAutoAnimate();
 
   if (isLoading) return <div className="flex items-center justify-center py-20 text-gray-400"><Loader2 className="w-5 h-5 animate-spin me-2" /></div>;
-  if (isError) return <div className="flex items-center justify-center py-20 text-red-400 text-sm">Failed to load activity data — please refresh the page.</div>;
+  if (isError)   return <div className="flex items-center justify-center py-20 text-red-400 text-sm">Failed to load activity data — please refresh the page.</div>;
 
   return (
     <div className="animate-fade-in">
       <Card>
         <CardHeader>
-          <CardTitle>{lang === 'ar' ? `أداء الأطباء: ${new Date(from).toLocaleString('ar-EG', { month: 'long', year: 'numeric' })}` : `Doctor Performance: ${new Date(from).toLocaleString('en-US', { month: 'long', year: 'numeric' })}`}</CardTitle>
+          <CardTitle>{lang === 'ar'
+            ? `أداء الأطباء: ${new Date(from).toLocaleString('ar-EG', { month: 'long', year: 'numeric' })}`
+            : `Doctor Performance: ${new Date(from).toLocaleString('en-US', { month: 'long', year: 'numeric' })}`}</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
                 <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">#</th>
-                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'الطبيب' : 'Doctor'}</th>
-                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'مرضى' : 'Patients'}</th>
-                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'الإيرادات' : 'Revenue'}</th>
-                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'حصة الطبيب' : 'Dr. Share'}</th>
+                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'الطبيب'       : 'Doctor'}</th>
+                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'مرضى'         : 'Patients'}</th>
+                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'الإيرادات'    : 'Revenue'}</th>
+                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'حصة الطبيب'  : 'Dr. Share'}</th>
                 <th className="px-5 py-3 w-32" />
               </tr>
             </thead>
@@ -406,10 +440,231 @@ function ActivityReport({ lang, locale, from, to }: { lang: string; locale: stri
   );
 }
 
+/* ──────────────── Monthly Trends ──────────────── */
+function TrendsReport({ lang, locale }: { lang: string; locale: string }) {
+  const [months, setMonths] = useState(12);
+  const { data = [], isLoading, isError } = useMonthlyRevenue(months);
+  const [bodyRef] = useAutoAnimate();
+
+  const withGrowth = data.map((d, i) => {
+    const prev = i > 0 ? data[i - 1].revenue : null;
+    const mom = prev === null || prev === 0 ? null : ((d.revenue - prev) / prev) * 100;
+    return { ...d, mom };
+  });
+
+  const totalRevenue  = data.reduce((s, d) => s + d.revenue, 0);
+  const totalDrShare  = data.reduce((s, d) => s + d.doctorShare, 0);
+  const totalClnShare = data.reduce((s, d) => s + d.clinicShare, 0);
+  const avgPerMonth   = data.length > 0 ? totalRevenue / data.length : 0;
+
+  if (isLoading) return <div className="flex items-center justify-center py-20 text-gray-400"><Loader2 className="w-5 h-5 animate-spin me-2" />Loading...</div>;
+  if (isError)   return <div className="flex items-center justify-center py-20 text-red-400 text-sm">Failed to load trends — please refresh the page.</div>;
+
+  return (
+    <div className="animate-fade-in space-y-5">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          { label: lang === 'ar' ? 'إجمالي الإيرادات' : 'Total Revenue',   value: formatCurrency(totalRevenue,  'EGP', locale) },
+          { label: lang === 'ar' ? 'حصة الأطباء'      : "Doctors' Share",  value: formatCurrency(totalDrShare,  'EGP', locale) },
+          { label: lang === 'ar' ? 'حصة العيادة'      : "Clinic's Share",  value: formatCurrency(totalClnShare, 'EGP', locale) },
+          { label: lang === 'ar' ? 'متوسط شهري'       : 'Monthly Avg',     value: formatCurrency(avgPerMonth,   'EGP', locale) },
+        ].map((item) => (
+          <Card key={item.label}>
+            <CardContent className="pt-5">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{item.label}</p>
+              <p className="text-xl font-bold font-mono tabular-nums text-gray-900 dark:text-gray-100">{item.value}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-4">
+          <CardTitle>
+            {lang === 'ar' ? `الاتجاهات: آخر ${formatNumber(months, locale)} أشهر` : `Trends: Last ${months} months`}
+          </CardTitle>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="flex gap-1 bg-gray-100 dark:bg-neutral-800 rounded-full p-0.5 text-xs">
+              {[6, 12, 24].map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setMonths(n)}
+                  className={`px-2.5 py-1 rounded-full font-medium transition-all focus:outline-none ${
+                    months === n
+                      ? 'bg-white dark:bg-neutral-700 text-primary-700 dark:text-primary-300 shadow-sm'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                  }`}
+                >
+                  {n}{lang === 'ar' ? 'ش' : 'm'}
+                </button>
+              ))}
+            </div>
+            <Button size="sm" variant="outline" onClick={() => openPdf(`/reports/financial-summary?months=${months}`)}>
+              <FileDown className="w-3.5 h-3.5" />
+              PDF
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
+                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'الشهر'       : 'Month'}</th>
+                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'الإيرادات'   : 'Revenue'}</th>
+                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 hidden md:table-cell">{lang === 'ar' ? 'حصة الأطباء' : 'Dr. Share'}</th>
+                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 hidden md:table-cell">{lang === 'ar' ? 'حصة العيادة' : 'Clinic'}</th>
+                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'معاملات'     : 'Txns'}</th>
+                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'نمو شهري'    : 'MoM'}</th>
+                <th className="px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 hidden lg:table-cell" />
+              </tr>
+            </thead>
+            <tbody ref={bodyRef}>
+              {[...withGrowth].reverse().map((d) => {
+                const maxRev = Math.max(...withGrowth.map((r) => r.revenue), 1);
+                const barPct = maxRev > 0 ? (d.revenue / maxRev) * 100 : 0;
+                return (
+                  <tr key={d.month} className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors">
+                    <td className="px-5 py-3.5 font-medium text-gray-900 dark:text-gray-100">
+                      {new Date(d.month + '-01').toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-US', { month: 'short', year: 'numeric' })}
+                    </td>
+                    <td className="px-5 py-3.5 font-mono tabular-nums font-semibold text-gray-900 dark:text-gray-100">
+                      {formatCurrency(d.revenue, 'EGP', locale)}
+                    </td>
+                    <td className="px-5 py-3.5 font-mono tabular-nums text-gray-600 dark:text-gray-400 hidden md:table-cell">
+                      {formatCurrency(d.doctorShare, 'EGP', locale)}
+                    </td>
+                    <td className="px-5 py-3.5 font-mono tabular-nums text-gray-600 dark:text-gray-400 hidden md:table-cell">
+                      {formatCurrency(d.clinicShare, 'EGP', locale)}
+                    </td>
+                    <td className="px-5 py-3.5 font-mono tabular-nums text-gray-500 dark:text-gray-400">
+                      {formatNumber(d.appointments, locale)}
+                    </td>
+                    <td className="px-5 py-3.5">
+                      {d.mom === null ? (
+                        <span className="text-xs text-gray-300 dark:text-gray-600">—</span>
+                      ) : (
+                        <span className={`flex items-center gap-1 text-xs font-semibold ${d.mom >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`}>
+                          {d.mom >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                          {d.mom >= 0 ? '+' : ''}{d.mom.toFixed(1)}%
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-5 py-3.5 hidden lg:table-cell">
+                      <div className="h-1.5 bg-gray-100 dark:bg-neutral-700 rounded-full overflow-hidden w-24">
+                        <div className="h-full w-full bg-primary-500 origin-left transition-transform duration-500" style={{ transform: `scaleX(${barPct / 100})` }} />
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              {withGrowth.length === 0 && (
+                <tr><td colSpan={7} className="px-5 py-12 text-center text-gray-400">{lang === 'ar' ? 'لا بيانات' : 'No data'}</td></tr>
+              )}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+/* ──────────────── Specialties ──────────────── */
+function SpecialtiesReport({ lang, locale }: { lang: string; locale: string }) {
+  const { data = [], isLoading, isError } = useSpecialtyBreakdown();
+  const [bodyRef] = useAutoAnimate();
+
+  const totalRevenue = data.reduce((s, d) => s + d.revenue, 0);
+  const totalAppts   = data.reduce((s, d) => s + d.appointments, 0);
+
+  if (isLoading) return <div className="flex items-center justify-center py-20 text-gray-400"><Loader2 className="w-5 h-5 animate-spin me-2" />Loading...</div>;
+  if (isError)   return <div className="flex items-center justify-center py-20 text-red-400 text-sm">Failed to load specialties — please refresh the page.</div>;
+
+  return (
+    <div className="animate-fade-in space-y-5">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+        <Card>
+          <CardContent className="pt-5">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{lang === 'ar' ? 'إجمالي الإيرادات' : 'Total Revenue'}</p>
+            <p className="text-2xl font-bold font-mono tabular-nums text-gray-900 dark:text-gray-100">{formatCurrency(totalRevenue, 'EGP', locale)}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-5">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{lang === 'ar' ? 'إجمالي المواعيد' : 'Total Appointments'}</p>
+            <p className="text-2xl font-bold font-mono text-gray-900 dark:text-gray-100">{formatNumber(totalAppts, locale)}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-5">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{lang === 'ar' ? 'عدد التخصصات' : 'Specialties'}</p>
+            <p className="text-2xl font-bold font-mono text-gray-900 dark:text-gray-100">{formatNumber(data.length, locale)}</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>{lang === 'ar' ? 'أداء التخصصات' : 'Specialty Performance'}</CardTitle>
+          <span className="text-xs text-gray-400 dark:text-gray-500 italic">
+            {lang === 'ar' ? 'بيانات تراكمية — لا تتأثر بمحدد الشهر' : 'All-time data — not month-filtered'}
+          </span>
+        </CardHeader>
+        <CardContent className="p-0">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
+                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">#</th>
+                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'التخصص'      : 'Specialty'}</th>
+                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'الإيرادات'   : 'Revenue'}</th>
+                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 hidden md:table-cell">{lang === 'ar' ? 'المواعيد' : 'Appts'}</th>
+                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'معدل الغياب' : 'No-Show'}</th>
+                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 hidden lg:table-cell">{lang === 'ar' ? 'الحصة' : 'Share'}</th>
+              </tr>
+            </thead>
+            <tbody ref={bodyRef}>
+              {data.map((s, i) => (
+                <tr key={s.specialtyId} className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors">
+                  <td className="px-5 py-3.5 text-xs font-bold text-gray-300 dark:text-gray-600">{formatNumber(i + 1, locale)}</td>
+                  <td className="px-5 py-3.5 font-medium text-gray-900 dark:text-gray-100">
+                    {lang === 'ar' ? s.specialtyAr : s.specialtyEn}
+                  </td>
+                  <td className="px-5 py-3.5 font-mono tabular-nums font-semibold text-gray-900 dark:text-gray-100">
+                    {formatCurrency(s.revenue, 'EGP', locale)}
+                  </td>
+                  <td className="px-5 py-3.5 font-mono tabular-nums text-gray-600 dark:text-gray-400 hidden md:table-cell">
+                    {formatNumber(s.appointments, locale)}
+                  </td>
+                  <td className="px-5 py-3.5">
+                    <Badge variant={s.noShowRate > 10 ? 'danger' : s.noShowRate > 7 ? 'warning' : 'success'}>
+                      {formatNumber(s.noShowRate, locale)}%
+                    </Badge>
+                  </td>
+                  <td className="px-5 py-3.5 hidden lg:table-cell">
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-1.5 bg-gray-100 dark:bg-neutral-700 rounded-full overflow-hidden w-20">
+                        <div className="h-full w-full bg-primary-500 origin-left" style={{ transform: `scaleX(${s.sharePct / 100})` }} />
+                      </div>
+                      <span className="text-xs text-gray-500 dark:text-gray-400 w-8">{formatNumber(s.sharePct, locale)}%</span>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {data.length === 0 && (
+                <tr><td colSpan={6} className="px-5 py-12 text-center text-gray-400">{lang === 'ar' ? 'لا بيانات' : 'No data'}</td></tr>
+              )}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 /* ──────────────── Page ──────────────── */
 export default function ReportsPage() {
   const { lang, t } = useLang();
-  const [tab, setTab] = useState<ReportTab>('financial');
+  const [tab, setTab]           = useState<ReportTab>('financial');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const locale = lang === 'ar' ? 'ar-EG' : 'en-US';
   const qc = useQueryClient();
@@ -432,9 +687,11 @@ export default function ReportsPage() {
   }
   const isCurrentMonth = selectedMonth.year === now.getFullYear() && selectedMonth.month === now.getMonth();
 
-  const { data: txnData }      = useTransactions({ limit: 500, dateFrom: from, dateTo: to });
-  const { data: settlData }    = useSettlements({ from, to });
-  const { data: doctorsData }  = useDoctors({ limit: 100 });
+  const monthPickerHidden = tab === 'trends' || tab === 'specialties';
+
+  const { data: txnData }     = useTransactions({ limit: 500, dateFrom: from, dateTo: to });
+  const { data: settlData }   = useSettlements({ from, to });
+  const { data: doctorsData } = useDoctors({ limit: 100 });
 
   async function handleRefresh() {
     setIsRefreshing(true);
@@ -442,37 +699,38 @@ export default function ReportsPage() {
       qc.invalidateQueries({ queryKey: ['transactions'] }),
       qc.invalidateQueries({ queryKey: ['settlements'] }),
       qc.invalidateQueries({ queryKey: ['doctors'] }),
+      qc.invalidateQueries({ queryKey: ['analytics'] }),
     ]);
     setIsRefreshing(false);
   }
 
   function handleExportCSV() {
-    const txns       = txnData?.data ?? [];
+    const txns        = txnData?.data ?? [];
     const settlements = settlData?.data ?? [];
     const allDoctors  = doctorsData?.data ?? [];
 
     if (tab === 'financial') {
       const rows = txns.filter((t) => t.paymentStatus === 'approved' || t.paymentStatus === 'paid' || t.paymentStatus === 'reconciled').map((t) => ({
-        Date:           t.createdAt?.slice(0, 10) ?? '',
-        Source:         t.patientSource,
-        'Payment Method': t.paymentMethod ?? 'cash',
-        'Charged (EGP)': t.approvedCharge,
-        'Source Fee (EGP)': t.sourceFeeAmount,
-        'Net Revenue (EGP)': t.grossRevenue,
+        Date:                   t.createdAt?.slice(0, 10) ?? '',
+        Source:                 t.patientSource,
+        'Payment Method':       t.paymentMethod ?? 'cash',
+        'Charged (EGP)':        t.approvedCharge,
+        'Source Fee (EGP)':     t.sourceFeeAmount,
+        'Net Revenue (EGP)':    t.grossRevenue,
         "Doctor's Share (EGP)": t.doctorShare,
         "Clinic's Share (EGP)": t.clinicShare,
       }));
       downloadCSV(rows, 'financial-summary');
     } else if (tab === 'settlements') {
-      const rows = settlements.map((s: import('@fadl/types').DoctorSettlement) => {
+      const rows = settlements.map((s: DoctorSettlement) => {
         const dr = allDoctors.find((d) => d.id === s.doctorId);
         return {
-          'Doctor (EN)':        dr?.nameEn ?? s.doctorId,
-          'Doctor (AR)':        dr?.nameAr ?? '',
-          Consultations:        s.totalConsultations ?? 0,
-          'Total Charged (EGP)': s.grossRevenue ?? 0,
-          "Doctor's Share (EGP)": s.doctorShare ?? 0,
-          Status:               (s.status === 'paid' || s.status === 'reconciled') ? 'Settled' : s.status === 'approved' ? 'Approved' : 'Pending',
+          'Doctor (EN)':           dr?.nameEn ?? s.doctorId,
+          'Doctor (AR)':           dr?.nameAr ?? '',
+          Consultations:           s.totalConsultations ?? 0,
+          'Total Charged (EGP)':   s.grossRevenue ?? 0,
+          "Doctor's Share (EGP)":  s.doctorShare ?? 0,
+          Status:                  (s.status === 'paid' || s.status === 'reconciled') ? 'Settled' : s.status === 'approved' ? 'Approved' : 'Pending',
         };
       });
       downloadCSV(rows, 'doctor-settlements');
@@ -485,11 +743,11 @@ export default function ReportsPage() {
         bySource[t.patientSource].fees    += t.sourceFeeAmount;
       });
       const rows = Object.entries(bySource).sort((a, b) => b[1].revenue - a[1].revenue).map(([src, s]) => ({
-        Source:           src,
-        Transactions:     s.count,
-        'Revenue (EGP)':  s.revenue,
-        'Fees (EGP)':     s.fees,
-        'Net (EGP)':      s.revenue - s.fees,
+        Source:          src,
+        Transactions:    s.count,
+        'Revenue (EGP)': s.revenue,
+        'Fees (EGP)':    s.fees,
+        'Net (EGP)':     s.revenue - s.fees,
       }));
       downloadCSV(rows, 'patient-sources');
     } else if (tab === 'activity') {
@@ -505,14 +763,15 @@ export default function ReportsPage() {
         byDoctor[dId].drShare  += t.doctorShare;
       });
       const rows = Object.values(byDoctor).sort((a, b) => b.revenue - a.revenue).map((d, i) => ({
-        Rank:               i + 1,
-        Doctor:             d.name,
-        Patients:           d.count,
-        'Revenue (EGP)':    d.revenue,
+        Rank:                   i + 1,
+        Doctor:                 d.name,
+        Patients:               d.count,
+        'Revenue (EGP)':        d.revenue,
         "Doctor's Share (EGP)": d.drShare,
       }));
       downloadCSV(rows, 'doctor-activity');
     }
+    // trends and specialties are not month-scoped; no CSV from parent context
   }
 
   return (
@@ -520,27 +779,36 @@ export default function ReportsPage() {
       <div className="flex items-center justify-between gap-4">
         <div className="animate-slide-down">
           <h2 className="text-2xl font-bold font-display text-gray-900 dark:text-gray-100">{t('التقارير', 'Reports')}</h2>
-          <div className="flex items-center gap-1 mt-0.5">
-            <button type="button" onClick={prevMonth} className="p-0.5 rounded hover:bg-gray-100 dark:hover:bg-neutral-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <p className="text-sm text-gray-500 dark:text-gray-300 min-w-[110px] text-center">
-              {new Date(selectedMonth.year, selectedMonth.month, 1).toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-US', { month: 'long', year: 'numeric' })}
+          {!monthPickerHidden && (
+            <div className="flex items-center gap-1 mt-0.5">
+              <button type="button" onClick={prevMonth} className="p-0.5 rounded hover:bg-gray-100 dark:hover:bg-neutral-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <p className="text-sm text-gray-500 dark:text-gray-300 min-w-[110px] text-center">
+                {new Date(selectedMonth.year, selectedMonth.month, 1).toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-US', { month: 'long', year: 'numeric' })}
+              </p>
+              <button type="button" onClick={nextMonth} disabled={isCurrentMonth} className="p-0.5 rounded hover:bg-gray-100 dark:hover:bg-neutral-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+          {monthPickerHidden && (
+            <p className="text-sm text-gray-400 dark:text-gray-500 mt-0.5">
+              {lang === 'ar' ? 'بيانات تراكمية' : 'Aggregate view'}
             </p>
-            <button type="button" onClick={nextMonth} disabled={isCurrentMonth} className="p-0.5 rounded hover:bg-gray-100 dark:hover:bg-neutral-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
+          )}
         </div>
         <div className="flex gap-2 animate-slide-down" style={{ animationDelay: '40ms' }}>
           <Button size="sm" variant="outline" onClick={() => void handleRefresh()} disabled={isRefreshing}>
             <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">{t('تحديث', 'Refresh')}</span>
           </Button>
-          <Button size="sm" variant="outline" onClick={handleExportCSV}>
-            <Download className="w-4 h-4" />
-            {t('تصدير CSV', 'Export CSV')}
-          </Button>
+          {!monthPickerHidden && (
+            <Button size="sm" variant="outline" onClick={handleExportCSV}>
+              <Download className="w-4 h-4" />
+              {t('تصدير CSV', 'Export CSV')}
+            </Button>
+          )}
           <Button size="sm" variant="outline" onClick={() => window.print()}>
             <Printer className="w-4 h-4" />
             <span className="sr-only">{t('طباعة', 'Print')}</span>
@@ -549,9 +817,9 @@ export default function ReportsPage() {
       </div>
 
       {/* Tab bar */}
-      <div className="flex gap-1 p-1 bg-white dark:bg-neutral-800 rounded-xl shadow-1 border border-gray-100 dark:border-neutral-700 w-fit">
+      <div className="flex flex-wrap gap-1 p-1 bg-white dark:bg-neutral-800 rounded-xl shadow-1 border border-gray-100 dark:border-neutral-700 w-fit">
         {REPORT_TABS.map((rt) => {
-          const Icon = rt.iconEl;
+          const Icon   = rt.iconEl;
           const active = tab === rt.key;
           return (
             <button
@@ -576,6 +844,8 @@ export default function ReportsPage() {
       {tab === 'settlements' && <SettlementsReport lang={lang} locale={locale} from={from} to={to} />}
       {tab === 'sources'     && <SourcesReport     lang={lang} locale={locale} from={from} to={to} />}
       {tab === 'activity'    && <ActivityReport    lang={lang} locale={locale} from={from} to={to} />}
+      {tab === 'trends'      && <TrendsReport      lang={lang} locale={locale} />}
+      {tab === 'specialties' && <SpecialtiesReport lang={lang} locale={locale} />}
     </div>
   );
 }
