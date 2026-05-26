@@ -1,5 +1,5 @@
 import PDFDocument from 'pdfkit';
-import { LOGO_BASE64 } from './pdf-assets';
+import { LOGO_WHITE_BASE64 } from './pdf-assets';
 
 // ── Design tokens ────────────────────────────────────────────────────────────
 // Header/structure: deep navy instead of high-saturation red
@@ -75,7 +75,7 @@ function drawPageHeader(doc: PDFKit.PDFDocument, W: number, ML: number): number 
   doc.rect(ML, ML, W, H).fill(NAVY);
 
   try {
-    doc.image(Buffer.from(LOGO_BASE64, 'base64'), ML + 14, ML + 16, { width: 116, height: 32 });
+    doc.image(Buffer.from(LOGO_WHITE_BASE64, 'base64'), ML + 14, ML + 16, { width: 116, height: 32 });
   } catch {
     doc.fillColor(WHITE).fontSize(15).font('Helvetica-Bold')
        .text('FADL CLINIC', ML + 14, ML + 24, { lineBreak: false });
