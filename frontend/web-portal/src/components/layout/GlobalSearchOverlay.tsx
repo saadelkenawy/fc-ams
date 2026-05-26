@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, User, Stethoscope, LayoutDashboard, Calendar, Users, FileText, X, ArrowRight } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useLang } from '@/contexts/LanguageContext';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -109,22 +110,30 @@ export function GlobalSearchOverlay({ open, onClose }: Props) {
     }
   }
 
-  if (!open) return null;
-
   const hasResults = patients.length > 0 || doctors.length > 0 || filteredPages.length > 0;
 
   return (
+    <AnimatePresence>
+      {open && (
     /* backdrop */
-    <div
+    <motion.div
       className="fixed inset-0 z-50 flex items-start justify-center pt-[12vh] px-4"
       style={{ backgroundColor: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(4px)' }}
       onClick={onClose}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.18 }}
     >
       {/* panel */}
-      <div
-        className="w-full max-w-xl bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-neutral-700 overflow-hidden animate-slide-down"
+      <motion.div
+        className="w-full max-w-xl bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-neutral-700 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleKey}
+        initial={{ opacity: 0, y: -16, scale: 0.97 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: -16, scale: 0.97 }}
+        transition={{ duration: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
       >
         {/* search input */}
         <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 dark:border-neutral-800">
@@ -268,8 +277,10 @@ export function GlobalSearchOverlay({ open, onClose }: Props) {
           <span><kbd className="font-mono">↵</kbd> {t('انتقل', 'go')}</span>
           <span><kbd className="font-mono">esc</kbd> {t('إغلاق', 'close')}</span>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 

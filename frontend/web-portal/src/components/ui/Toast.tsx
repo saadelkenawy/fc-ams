@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { CheckCircle, XCircle, AlertTriangle, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 type ToastType = 'success' | 'error' | 'warning';
@@ -40,9 +41,11 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         aria-live="polite"
         aria-atomic="false"
       >
-        {toasts.map((t) => (
-          <ToastItem key={t.id} toast={t} onDismiss={() => setToasts((p) => p.filter((x) => x.id !== t.id))} />
-        ))}
+        <AnimatePresence mode="popLayout">
+          {toasts.map((t) => (
+            <ToastItem key={t.id} toast={t} onDismiss={() => setToasts((p) => p.filter((x) => x.id !== t.id))} />
+          ))}
+        </AnimatePresence>
       </div>
     </ToastContext.Provider>
   );
@@ -88,20 +91,22 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
   }, [toast.duration]);
 
   return (
-    <div
+    <motion.div
       role="alert"
+      layout
       className={cn(
         'pointer-events-auto relative flex items-start gap-3',
         'min-w-[300px] max-w-[400px] px-4 py-3.5 rounded-xl overflow-hidden',
-        // glass base
         'bg-white/85 dark:bg-neutral-900/85',
         'backdrop-blur-xl backdrop-saturate-150',
-        // borders: subtle outer + colored left accent
         'border border-gray-200/70 dark:border-neutral-700/60',
         'border-s-2', cfg.accentBorder,
-        'animate-slide-in-right',
       )}
       style={{ boxShadow: cfg.glow }}
+      initial={{ opacity: 0, x: 48, scale: 0.95 }}
+      animate={{ opacity: 1, x: 0, scale: 1 }}
+      exit={{ opacity: 0, x: 48, scale: 0.95 }}
+      transition={{ duration: 0.22, ease: [0.25, 0.46, 0.45, 0.94] }}
     >
       {/* Icon badge */}
       <div className={cn(
@@ -136,7 +141,7 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
           className={cn('absolute bottom-0 start-0 h-0.5 w-full opacity-70', cfg.bar)}
         />
       )}
-    </div>
+    </motion.div>
   );
 }
 

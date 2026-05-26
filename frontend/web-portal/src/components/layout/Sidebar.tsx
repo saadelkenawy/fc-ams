@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Users, CalendarDays, Stethoscope, Receipt,
   Banknote, BarChart3, FileText, Clipboard, Settings, Zap,
@@ -62,16 +63,32 @@ function NavLink({
     >
       {active && <span className="absolute start-0 top-1 bottom-1 w-[3px] rounded-e-sm bg-primary-600" aria-hidden="true" />}
       <Icon className="w-4 h-4 flex-shrink-0" />
-      {!collapsed && (
-        <>
-          <span className="flex-1 truncate">{label}</span>
-          {item.badge && (
-            <span className="ms-auto bg-white/20 text-white text-xs rounded-full px-1.5 py-0.5 min-w-[1.25rem] text-center">
-              {item.badge}
-            </span>
-          )}
-        </>
-      )}
+      <AnimatePresence>
+        {!collapsed && (
+          <motion.span
+            className="flex-1 truncate"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.12 }}
+          >
+            {label}
+          </motion.span>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {!collapsed && item.badge && (
+          <motion.span
+            className="ms-auto bg-white/20 text-white text-xs rounded-full px-1.5 py-0.5 min-w-[1.25rem] text-center"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.12 }}
+          >
+            {item.badge}
+          </motion.span>
+        )}
+      </AnimatePresence>
     </Link>
   );
 }
@@ -142,6 +159,22 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const mobileHiddenClass = lang === 'ar' ? 'translate-x-full' : '-translate-x-full';
 
   return (
+    <>
+      {/* Mobile backdrop */}
+      <AnimatePresence>
+        {isMobile && mobileOpen && (
+          <motion.div
+            className="fixed inset-0 z-30 bg-black/50 lg:hidden"
+            aria-hidden="true"
+            onClick={onMobileClose}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          />
+        )}
+      </AnimatePresence>
+
     <aside
       className={cn(
         'flex flex-col min-h-screen bg-sidebar select-none',
@@ -182,11 +215,19 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
       <nav id="sidebar-nav" className={cn('flex-1 py-4 space-y-5 overflow-y-auto overflow-x-hidden', collapsed ? 'px-1' : 'px-3')}>
         {navGroups.map((group, gi) => (
           <div key={gi}>
-            {!collapsed && (group.groupAr ?? group.groupEn) && (
-              <p className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
-                {lang === 'ar' ? group.groupAr : group.groupEn}
-              </p>
-            )}
+            <AnimatePresence>
+              {!collapsed && (group.groupAr ?? group.groupEn) && (
+                <motion.p
+                  className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-500"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.12 }}
+                >
+                  {lang === 'ar' ? group.groupAr : group.groupEn}
+                </motion.p>
+              )}
+            </AnimatePresence>
             <div className="space-y-0.5">
               {group.items.map((item) => (
                 <NavLink
@@ -208,14 +249,22 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
           <div className="w-8 h-8 rounded-full bg-primary-600 flex items-center justify-center flex-shrink-0 text-white text-xs font-bold">
             {(lang === 'ar' ? user?.nameAr : user?.nameEn)?.charAt(0) ?? '?'}
           </div>
-          {!collapsed && (
-            <div className="flex-1 min-w-0">
-              <p className="text-white text-sm font-medium truncate">
-                {lang === 'ar' ? user?.nameAr : user?.nameEn}
-              </p>
-              <p className="text-slate-400 text-xs truncate capitalize">{user?.role}</p>
-            </div>
-          )}
+          <AnimatePresence>
+            {!collapsed && (
+              <motion.div
+                className="flex-1 min-w-0"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.12 }}
+              >
+                <p className="text-white text-sm font-medium truncate">
+                  {lang === 'ar' ? user?.nameAr : user?.nameEn}
+                </p>
+                <p className="text-slate-400 text-xs truncate capitalize">{user?.role}</p>
+              </motion.div>
+            )}
+          </AnimatePresence>
           <button
             onClick={logout}
             className="text-slate-400 hover:text-white transition-colors p-1 rounded"
@@ -250,5 +299,6 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
         <div className="absolute inset-y-0 end-0 w-0.5 bg-transparent group-hover:bg-primary-500/50 transition-colors duration-150" />
       </div>
     </aside>
+    </>
   );
 }
