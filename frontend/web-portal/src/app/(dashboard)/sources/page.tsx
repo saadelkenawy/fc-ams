@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useAutoAnimate } from '@formkit/auto-animate/react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -457,6 +458,7 @@ export default function SourcesPage() {
   const [modalSource, setModalSource] = useState<SourceFeeRule | null | undefined>(undefined);
   const [deleteTarget, setDeleteTarget] = useState<SourceFeeRule | null>(null);
 
+  const [sourcesBodyRef] = useAutoAnimate();
   const activeCount      = sources.filter((s) => s.isActive).length;
   const feeCount         = sources.filter((s) => s.feeValue > 0).length;
   const specialtyCount   = sources.filter((s) => !s.isGeneral && s.specialtyRates.length > 0).length;
@@ -575,7 +577,7 @@ export default function SourcesPage() {
                   ))}
                 </tr>
               </thead>
-              <tbody>
+              <tbody ref={sourcesBodyRef}>
                 {sources.map((s) => (
                   <SourceRow
                     key={s.sourceCode}

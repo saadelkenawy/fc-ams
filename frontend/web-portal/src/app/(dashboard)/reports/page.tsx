@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useAutoAnimate } from '@formkit/auto-animate/react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   TrendingUp, Download, Printer, Loader2, DollarSign, Activity, PieChart, RefreshCw,
@@ -58,6 +59,7 @@ function FinancialReport({ lang, locale, from, to }: { lang: string; locale: str
   const totalDrShare   = approved.reduce((s, t) => s + t.doctorShare, 0);
   const totalClnShare  = approved.reduce((s, t) => s + t.clinicShare, 0);
 
+  const [sourceBodyRef] = useAutoAnimate();
   const byMethod: Record<string, number> = {};
   approved.forEach((t) => {
     const m = t.paymentMethod ?? 'cash';
@@ -134,7 +136,7 @@ function FinancialReport({ lang, locale, from, to }: { lang: string; locale: str
                 <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'صافي' : 'Net'}</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody ref={sourceBodyRef}>
               {Object.entries(bySource).sort((a, b) => b[1].revenue - a[1].revenue).map(([src, stats]) => (
                 <tr key={src} className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors">
                   <td className="px-5 py-3.5"><Badge variant="outline">{src}</Badge></td>
@@ -158,6 +160,7 @@ function SettlementsReport({ lang, locale, from, to }: { lang: string; locale: s
   const { data: doctorsData } = useDoctors({ limit: 100 });
   const allDoctors = doctorsData?.data ?? [];
   const settlements = data?.data ?? [];
+  const [settlBodyRef] = useAutoAnimate();
 
   if (isLoading) return (
     <div className="flex items-center justify-center py-20 text-gray-400">
@@ -208,7 +211,7 @@ function SettlementsReport({ lang, locale, from, to }: { lang: string; locale: s
                 <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'الحالة' : 'Status'}</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody ref={settlBodyRef}>
               {settlements.map((s: DoctorSettlement, i: number) => {
                 const dr = allDoctors.find((d) => d.id === s.doctorId);
                 const drName = lang === 'ar' ? (dr?.nameAr ?? dr?.nameEn ?? s.doctorId) : (dr?.nameEn ?? s.doctorId);
@@ -351,6 +354,7 @@ function ActivityReport({ lang, locale, from, to }: { lang: string; locale: stri
 
   const sorted = Object.entries(byDoctor).sort((a, b) => b[1].revenue - a[1].revenue);
   const maxRev = sorted[0]?.[1]?.revenue ?? 1;
+  const [activityBodyRef] = useAutoAnimate();
 
   if (isLoading) return <div className="flex items-center justify-center py-20 text-gray-400"><Loader2 className="w-5 h-5 animate-spin me-2" /></div>;
   if (isError) return <div className="flex items-center justify-center py-20 text-red-400 text-sm">Failed to load activity data — please refresh the page.</div>;
@@ -373,7 +377,7 @@ function ActivityReport({ lang, locale, from, to }: { lang: string; locale: stri
                 <th className="px-5 py-3 w-32" />
               </tr>
             </thead>
-            <tbody>
+            <tbody ref={activityBodyRef}>
               {sorted.map(([dId, stats], i) => {
                 const pct = maxRev > 0 ? (stats.revenue / maxRev) * 100 : 0;
                 return (
