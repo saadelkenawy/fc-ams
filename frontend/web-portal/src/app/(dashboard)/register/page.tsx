@@ -226,8 +226,8 @@ export default function RegisterPage() {
   const isAr = lang === 'ar';
 
   return (
-    <div className="min-h-full flex items-center justify-center p-4" dir={isAr ? 'rtl' : 'ltr'}>
-      <div className="w-full max-w-xl">
+    <div className="min-h-full flex items-start justify-center px-6 py-6" dir={isAr ? 'rtl' : 'ltr'}>
+      <div className="w-full">
         <div className="fc-card p-8">
 
           {/* Card header */}
@@ -442,7 +442,7 @@ export default function RegisterPage() {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   {t('الدور الوظيفي', 'Role')}
                 </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
                   {ROLE_OPTIONS.map(({ key, labelAr: rAr, labelEn: rEn, icon: Icon, descAr, descEn }) => (
                     <button
                       key={key} type="button" onClick={() => setRole(key)}
