@@ -345,8 +345,7 @@ export async function getSettlementReport(req: FastifyRequest, reply: FastifyRep
   if (query.dateFrom)  params.dateFrom = query.dateFrom;
   if (query.dateTo)    params.dateTo   = query.dateTo;
   if (query.doctorId)  params.doctorId = query.doctorId;
-  params.limit = '500';
-  params.status = 'paid';
+  params.limit = '100';
 
   let txns: TxDetail[] = [];
   try {
@@ -354,6 +353,8 @@ export async function getSettlementReport(req: FastifyRequest, reply: FastifyRep
     const body = res.data;
     txns = Array.isArray(body) ? body : ((body as { data?: TxDetail[] }).data ?? []);
   } catch { txns = []; }
+
+  txns = txns.filter((t) => t.status === 'paid' || t.status === 'reconciled');
 
   const totalGross  = txns.reduce((s, t) => s + toNum(t.approvedCharge), 0);
   const totalDoctor = txns.reduce((s, t) => s + toNum(t.doctorShare), 0);
@@ -391,6 +392,11 @@ export async function getSettlementReport(req: FastifyRequest, reply: FastifyRep
     subtitle: `Period: ${query.dateFrom ?? 'All time'} → ${query.dateTo ?? 'Today'} | ${txns.length} transactions`,
     columns,
     rows,
+    reportTo: [
+      { label: 'Doctor',  value: query.doctorName ?? query.doctorId ?? 'All Doctors' },
+      { label: 'Period',  value: `${query.dateFrom ?? 'All time'} → ${query.dateTo ?? 'Today'}` },
+      { label: 'Transactions', value: String(txns.length) },
+    ],
     summary: [
       { label: 'Total Gross',   value: fmt(totalGross)  },
       { label: 'Doctor Share',  value: fmt(totalDoctor) },
