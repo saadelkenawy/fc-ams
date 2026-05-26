@@ -8,6 +8,7 @@ import {
   RefreshCw, ChevronLeft, ChevronRight, BarChart2, Layers, FileDown,
 } from 'lucide-react';
 import { downloadCSV } from '@/lib/export';
+import { analyticsApi } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -35,8 +36,15 @@ function monthRange(year: number, month: number) {
   return { from, to };
 }
 
-function openPdf(path: string) {
-  window.open(`/api/proxy/analytics${path}`, '_blank');
+async function openPdf(path: string) {
+  try {
+    const res = await analyticsApi.get(path, { responseType: 'blob' });
+    const url = URL.createObjectURL(res.data as Blob);
+    window.open(url, '_blank');
+    setTimeout(() => URL.revokeObjectURL(url), 30_000);
+  } catch (err) {
+    console.error('Failed to download PDF', err);
+  }
 }
 
 function StatRow({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
