@@ -169,7 +169,7 @@ export function AddPatientModal({ open, onClose, onCreated }: AddPatientModalPro
         </>
       }
     >
-      <form onSubmit={handleSubmit} className="space-y-1 stagger" noValidate>
+      <form onSubmit={handleSubmit} className="space-y-3 stagger" noValidate>
         {mutation.isError && (
           <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 rounded-lg text-red-700 dark:text-red-400 text-sm mb-4">
             <AlertCircle className="w-4 h-4 flex-shrink-0" />
