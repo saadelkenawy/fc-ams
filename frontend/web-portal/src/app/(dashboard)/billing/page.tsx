@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Download, Filter, Search, Clock, TrendingUp, Loader2, Check, X, Trash2, ShieldAlert, RotateCcw, FileSpreadsheet, FileText, FileDown, Square, CheckSquare, Minus, BarChart3, ChevronRight } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { analyticsApi, appointmentApi, billingApi } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -735,6 +735,21 @@ export default function BillingPage() {
     }
   }
 
+  async function writeXlsx(rows: Record<string, unknown>[], sheetName: string, filename: string) {
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet(sheetName);
+    if (rows.length > 0) {
+      ws.columns = Object.keys(rows[0]).map((key) => ({ header: key, key }));
+      ws.addRows(rows);
+    }
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+  }
+
   async function exportAllXlsx() {
     setExportLoading(true);
     try {
@@ -756,11 +771,8 @@ export default function BillingPage() {
           Payment:        tx.paymentMethod ?? '',
         };
       });
-      const ws = XLSX.utils.json_to_sheet(rows);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'All Transactions');
       const today = new Date().toISOString().split('T')[0];
-      XLSX.writeFile(wb, `billing_all_${today}.xlsx`);
+      await writeXlsx(rows, 'All Transactions', `billing_all_${today}.xlsx`);
     } catch {
       toast(t('فشل التصدير', 'Export failed'), 'error');
     } finally {
@@ -768,7 +780,7 @@ export default function BillingPage() {
     }
   }
 
-  function exportXlsx() {
+  async function exportXlsx() {
     if (!filtered.length) { toast(t('لا توجد بيانات للتصدير', 'No data to export'), 'error'); return; }
     setExportLoading(true);
     try {
@@ -787,11 +799,10 @@ export default function BillingPage() {
           Payment:       tx.paymentMethod ?? '',
         };
       });
-      const ws = XLSX.utils.json_to_sheet(rows);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Transactions');
       const today = new Date().toISOString().split('T')[0];
-      XLSX.writeFile(wb, `billing_export_${today}.xlsx`);
+      await writeXlsx(rows, 'Transactions', `billing_export_${today}.xlsx`);
+    } catch {
+      toast(t('فشل التصدير', 'Export failed'), 'error');
     } finally {
       setExportLoading(false);
     }
