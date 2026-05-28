@@ -203,8 +203,8 @@ function PatientPicker({ lang, t, value, onChange, disabled }: {
   const inputRef                = useRef<HTMLInputElement>(null);
   const dropRef                 = useRef<HTMLDivElement>(null);
   const [dropStyle, setDropStyle] = useState<React.CSSProperties>({});
-  const dq                      = useDebounce(q, 280);
-  const canSearch               = dq.trim().length >= 2;
+  const dq                      = useDebounce(q, 150);
+  const canSearch               = dq.trim().length >= 1;
 
   const { data, isFetching } = usePatients(
     canSearch ? { query: dq, limit: 10, enabled: true } : { enabled: false },
@@ -275,7 +275,7 @@ function PatientPicker({ lang, t, value, onChange, disabled }: {
         <input
           ref={inputRef}
           className="w-full h-10 rounded-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 ps-9 pe-9 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-600 transition-shadow"
-          placeholder={t('اكتب اسم المريض أو رقم الهاتف...', 'Name or phone (min 2 chars)...')}
+          placeholder={t('اكتب اسم المريض أو رقم الهاتف...', 'Name or phone...')}
           value={q}
           onChange={(e) => { setQ(e.target.value); setOpen(true); setCreating(false); updatePosition(); }}
           onFocus={() => { setOpen(true); updatePosition(); }}
