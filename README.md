@@ -152,13 +152,13 @@ Signed with `HS256` using shared `JWT_SECRET`. Access token TTL: 24h. Refresh to
 
 ### patient-service (port 3002)
 
-Full CRUD for patient demographics, soft deletes, full-text search.
+Full CRUD for patient demographics, soft deletes, and prefix full-text search. Search uses a GIN-indexed `tsvector` column (`name_search`) covering both `name_en` and `name_ar`; queries are built with `to_tsquery('simple', 'token:*')` so results appear from the first character typed.
 
 **API Routes (`/api/v1`):**
 
 | Method | Path | Roles | Description |
 |---|---|---|---|
-| GET | `/patients` | any auth | List patients; query: `search`, `page`, `limit` |
+| GET | `/patients` | any auth | List patients; query: `query` (prefix name search), `mobile`, `page`, `limit` |
 | GET | `/patients/batch` | any auth | Batch fetch by IDs |
 | GET | `/patients/:id` | any auth | Single patient detail |
 | POST | `/patients` | receptionist, admin | Create patient |
@@ -696,7 +696,7 @@ All service-to-service calls use:
 
 ## 8. Frontend Structure
 
-**Stack:** Next.js 13 App Router, React 18, TypeScript, TailwindCSS, TanStack Query v5, axios
+**Stack:** Next.js 15 App Router, React 18, TypeScript, TailwindCSS, TanStack Query v4, axios
 
 ```
 frontend/web-portal/src/
@@ -979,6 +979,8 @@ docker compose -f docker-compose.registry.yml up -d
 
 | Date | Change |
 |---|---|
+| 2026-05-29 | **Security: 26 Dependabot vulnerabilities resolved** — `uuid` bumped to v11 across all 14 services (buffer bounds check CVE); `nodemailer` v7→v8 in notification-service (SMTP injection); `xlsx`/SheetJS replaced with `exceljs` in billing page (Prototype Pollution + ReDoS, no upstream fix); `postcss` v8.4→v8.5; `esbuild`/`vite` minimum versions enforced via `pnpm.overrides` |
+| 2026-05-29 | **Patient search — real-time prefix matching:** Switched patient-service query builder from `plainto_tsquery` to `to_tsquery` with `:*` suffix tokens; search now returns matches from the first character typed (e.g. "Mo" matches "Mohamed"); multi-word queries work as AND of all word-prefixes; no migration required — existing GIN index covers prefix queries natively |
 | 2026-05-21 | **Registry deployment:** All 14 services built and pushed to Docker Hub as `saadelkenawy/fcms-*:post-prod`; standalone `docker-compose.registry.yml` created for zero-source-code server installs |
 | 2026-05-21 | **Branch strategy:** `post-prod` branch created on GitHub; `main` → `pre-prod` → `post-prod` all aligned to same commit |
 | 2026-05-21 | **Installation bundle:** `fcams-installation-on-varoius-systems/docker-vm-installation/` consolidates all infra configs, compose file, env template, and secret generator in one directory |
