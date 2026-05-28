@@ -139,8 +139,7 @@
 
   /* Sidebar logo card */
   .logo-card                          { background: #ffffff; }
-  [data-theme="dark"] .logo-card      { background: #0d0d1a !important; border: 1px solid rgba(255,255,255,0.08) !important; box-shadow: none !important; }
-  [data-theme="dark"] .logo-img       { filter: invert(1) hue-rotate(180deg); opacity: 0.95; }
+  [data-theme="dark"] .logo-card      { background: #0F172A !important; border: 1px solid rgba(255,255,255,0.08) !important; box-shadow: none !important; padding: 0 !important; overflow: hidden; border-radius: 0.75rem; }
 
   /* Density modes */
   [data-density="compact"]    { --row-height:36px; --btn-height:32px; --input-height:36px; --card-padding:12px; --field-gap:8px; }

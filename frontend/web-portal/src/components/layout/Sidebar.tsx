@@ -14,6 +14,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLang } from '@/contexts/LanguageContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { getNavForRole, NavItem } from './nav-config';
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -102,7 +103,9 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const pathname       = usePathname();
   const { user, logout } = useAuth();
   const { lang, t }    = useLang();
+  const { theme }      = useTheme();
   const navGroups      = getNavForRole(user?.role ?? 'receptionist');
+  const logoSrc        = theme === 'dark' ? '/images/logo-dark-mode.png' : '/images/logo-wordmark.png';
 
   const [width, setWidth]       = useState(SNAP_FULL);
   const [snapping, setSnapping] = useState(false);
@@ -198,7 +201,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
             <HeartPulse className="w-6 h-6 text-primary-600 flex-shrink-0" />
           ) : (
             <img
-              src="/images/logo-wordmark.png"
+              src={logoSrc}
               alt="Fadl Clinic"
               className="logo-img h-7 w-auto object-contain"
             />
