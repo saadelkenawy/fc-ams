@@ -45,11 +45,11 @@ export default function LoginPage() {
   const { theme, setTheme } = useTheme();
   const router              = useRouter();
 
-  const [showPass, setShowPass]     = useState(false);
-  const [error, setError]           = useState('');
-  const [mounted, setMounted]       = useState(false);
-  const [shakeKey, setShakeKey]     = useState(0);
-  const [role, setRole]             = useState<Role>('receptionist');
+  const [showPass, setShowPass]           = useState(false);
+  const [error, setError]                 = useState('');
+  const [mounted, setMounted]             = useState(false);
+  const [shakeKey, setShakeKey]           = useState(0);
+  const [role, setRole]                   = useState<Role>('receptionist');
   const [forgotClicked, setForgotClicked] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
@@ -85,6 +85,9 @@ export default function LoginPage() {
       setShakeKey((k) => k + 1);
     }
   }
+
+  // Dark logo (white text) for dark/high-contrast themes; light logo otherwise
+  const isDarkTheme = theme === 'dark' || theme === 'high-contrast';
 
   return (
     <div className="min-h-screen flex" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
@@ -202,11 +205,11 @@ export default function LoginPage() {
       </div>
 
       {/* ── Right form panel ──────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col bg-white">
+      <div className="flex-1 flex flex-col bg-[var(--color-bg)]">
         <header className="flex items-center justify-end gap-2 p-6">
-          {/* Mobile logo */}
+          {/* Mobile logo — swaps based on current theme */}
           <img
-            src={theme === 'dark' ? '/images/logo-dark-mode.png' : '/images/logo-wordmark.png'}
+            src={isDarkTheme ? '/images/logo-dark-mode.png' : '/images/logo-wordmark.png'}
             alt="Fadl Clinic"
             className="h-7 w-auto object-contain me-auto lg:hidden"
           />
@@ -214,7 +217,7 @@ export default function LoginPage() {
           {/* Language toggle */}
           <button
             onClick={toggle}
-            className="h-10 px-3.5 rounded-full bg-white border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition flex items-center gap-2 focus-visible:ring-2 focus-visible:ring-primary-600 focus-visible:ring-offset-2 focus:outline-none"
+            className="h-10 px-3.5 rounded-full bg-[var(--color-bg-elevated)] border border-[var(--color-border)] text-xs font-semibold text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-card)] transition flex items-center gap-2 focus-visible:ring-2 focus-visible:ring-primary-600 focus-visible:ring-offset-2 focus:outline-none"
           >
             <Globe className="w-4 h-4" />
             {lang === 'ar' ? 'English' : 'عربي'}
@@ -223,7 +226,7 @@ export default function LoginPage() {
           {/* Theme toggle */}
           <button
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            className="h-10 w-10 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-50 transition focus-visible:ring-2 focus-visible:ring-primary-600 focus-visible:ring-offset-2 focus:outline-none"
+            className="h-10 w-10 rounded-full bg-[var(--color-bg-elevated)] border border-[var(--color-border)] flex items-center justify-center text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-card)] transition focus-visible:ring-2 focus-visible:ring-primary-600 focus-visible:ring-offset-2 focus:outline-none"
             aria-label={theme === 'dark' ? t('وضع النهار', 'Light mode') : t('وضع الليل', 'Dark mode')}
           >
             {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
@@ -237,10 +240,10 @@ export default function LoginPage() {
               mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6',
             )}
           >
-            <h1 className="text-3xl font-display font-bold mb-2 text-gray-900">
+            <h1 className="text-3xl font-display font-bold mb-2 text-[var(--color-text-primary)]">
               {t('مرحباً بعودتك', 'Welcome back')}
             </h1>
-            <p className="text-gray-500 text-sm mb-8">
+            <p className="text-sm mb-8 text-[var(--color-text-secondary)]">
               {t('سجّل دخولك للوصول إلى حسابك.', 'Sign in to your account to continue.')}
             </p>
 
@@ -252,20 +255,20 @@ export default function LoginPage() {
             >
               {/* Email */}
               <div className="space-y-1.5">
-                <label htmlFor="email" className="text-sm font-medium text-gray-700">
+                <label htmlFor="email" className="text-sm font-medium text-[var(--color-text-secondary)]">
                   {t('البريد الإلكتروني', 'Email address')}
                 </label>
                 <div className="relative">
-                  <Mail className="absolute start-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  <Mail className="absolute start-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-tertiary)] pointer-events-none" />
                   <input
                     id="email"
                     type="email"
                     autoComplete="email"
                     placeholder="admin@fadlclinic.com"
                     className={cn(
-                      'w-full h-11 rounded-lg border ps-10 pe-4 text-sm bg-white text-gray-900',
+                      'w-full h-11 rounded-lg border ps-10 pe-4 text-sm bg-[var(--color-bg-input)] text-[var(--color-text-primary)]',
                       'focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent transition-all duration-200',
-                      errors.email ? 'border-red-400' : 'border-gray-200',
+                      errors.email ? 'border-red-400' : 'border-[var(--color-border)]',
                     )}
                     {...register('email')}
                   />
@@ -280,7 +283,7 @@ export default function LoginPage() {
               {/* Password */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label htmlFor="password" className="text-sm font-medium text-gray-700">
+                  <label htmlFor="password" className="text-sm font-medium text-[var(--color-text-secondary)]">
                     {t('كلمة المرور', 'Password')}
                   </label>
                   <button
@@ -292,23 +295,23 @@ export default function LoginPage() {
                   </button>
                 </div>
                 <div className="relative">
-                  <Lock className="absolute start-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  <Lock className="absolute start-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-tertiary)] pointer-events-none" />
                   <input
                     id="password"
                     type={showPass ? 'text' : 'password'}
                     autoComplete="current-password"
                     placeholder="••••••••"
                     className={cn(
-                      'w-full h-11 rounded-lg border ps-10 pe-11 text-sm bg-white text-gray-900',
+                      'w-full h-11 rounded-lg border ps-10 pe-11 text-sm bg-[var(--color-bg-input)] text-[var(--color-text-primary)]',
                       'focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent transition-all duration-200',
-                      errors.password ? 'border-red-400' : 'border-gray-200',
+                      errors.password ? 'border-red-400' : 'border-[var(--color-border)]',
                     )}
                     {...register('password')}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPass((s) => !s)}
-                    className="absolute inset-y-0 end-3 flex items-center text-gray-400 hover:text-gray-700 transition-colors"
+                    className="absolute inset-y-0 end-3 flex items-center text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] transition-colors"
                   >
                     {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -321,10 +324,10 @@ export default function LoginPage() {
               </div>
 
               {/* Remember me */}
-              <label className="flex items-center gap-2.5 text-sm text-gray-700 cursor-pointer select-none">
+              <label className="flex items-center gap-2.5 text-sm text-[var(--color-text-secondary)] cursor-pointer select-none">
                 <input
                   type="checkbox"
-                  className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-600"
+                  className="w-4 h-4 rounded border-[var(--color-border-strong)] text-primary-600 focus:ring-primary-600"
                   {...register('remember')}
                 />
                 {t('تذكّرني على هذا الجهاز', 'Remember me on this device')}
@@ -332,7 +335,7 @@ export default function LoginPage() {
 
               {/* Role chip selector */}
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)] mb-2">
                   {t('ادخل بدور', 'Sign in as')}
                 </p>
                 <div className="grid grid-cols-2 gap-2">
@@ -345,7 +348,7 @@ export default function LoginPage() {
                         'flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl border text-xs font-medium transition-all duration-150 focus-visible:ring-2 focus-visible:ring-primary-600 focus:outline-none',
                         role === key
                           ? 'border-primary-600 bg-primary-50 text-primary-700 shadow-glow-primary'
-                          : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300',
+                          : 'border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-strong)]',
                       )}
                     >
                       <Icon className="w-4 h-4" />
@@ -357,8 +360,8 @@ export default function LoginPage() {
 
               {/* Forgot password notice */}
               {forgotClicked && (
-                <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm flex items-start gap-2.5 text-gray-600">
-                  <Info className="w-4 h-4 flex-shrink-0 mt-0.5 text-gray-400" />
+                <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-4 py-3 text-sm flex items-start gap-2.5 text-[var(--color-text-secondary)]">
+                  <Info className="w-4 h-4 flex-shrink-0 mt-0.5 text-[var(--color-text-tertiary)]" />
                   <span>
                     {t(
                       'إعادة تعيين كلمة المرور تتم عبر مسؤول النظام فقط. تواصل مع مدير العيادة للمساعدة.',
@@ -405,10 +408,10 @@ export default function LoginPage() {
               {/* Divider */}
               <div className="relative my-1">
                 <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-200" />
+                  <div className="w-full border-t border-[var(--color-border)]" />
                 </div>
                 <div className="relative flex justify-center">
-                  <span className="bg-white px-3 text-[10px] font-semibold tracking-widest uppercase text-gray-400">
+                  <span className="bg-[var(--color-bg)] px-3 text-[10px] font-semibold tracking-widest uppercase text-[var(--color-text-tertiary)]">
                     {t('أو', 'OR')}
                   </span>
                 </div>
@@ -421,10 +424,10 @@ export default function LoginPage() {
                   {t('حساب تجريبي', 'Demo account')}
                 </p>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-mono text-xs px-2 py-1 rounded-md bg-white border border-gray-200 text-gray-700" dir="ltr">
+                  <span className="font-mono text-xs px-2 py-1 rounded-md bg-[var(--color-bg-elevated)] border border-[var(--color-border)] text-[var(--color-text-primary)]" dir="ltr">
                     admin@fadlclinic.com
                   </span>
-                  <span className="font-mono text-xs px-2 py-1 rounded-md bg-white border border-gray-200 text-gray-700" dir="ltr">
+                  <span className="font-mono text-xs px-2 py-1 rounded-md bg-[var(--color-bg-elevated)] border border-[var(--color-border)] text-[var(--color-text-primary)]" dir="ltr">
                     Admin@123
                   </span>
                 </div>
@@ -434,7 +437,7 @@ export default function LoginPage() {
         </main>
 
         <footer className="pb-6 text-center">
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-[var(--color-text-tertiary)]">
             {t('فضل كلينك © ٢٠٢٦، جميع الحقوق محفوظة', '© 2026 Fadl Clinic. All rights reserved.')}
             {' · '}
             <span className="font-mono" dir="ltr">v1.0.0</span>

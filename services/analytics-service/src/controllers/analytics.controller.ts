@@ -341,6 +341,21 @@ export async function getSettlementReport(req: FastifyRequest, reply: FastifyRep
     return;
   }
 
+  // Resolve doctor name + specialty from the doctor service when only doctorId is given
+  let doctorDisplayName = query.doctorName ?? query.doctorId ?? 'All Doctors';
+  let doctorSpecialty: string | null = null;
+  if (query.doctorId) {
+    try {
+      type DoctorRec = { nameEn?: string; specialtyId?: number };
+      const res = await doctorClient.get<DoctorRec | { data?: DoctorRec }>(`/doctors/${query.doctorId}`);
+      const d = (res.data && 'nameEn' in res.data)
+        ? res.data as DoctorRec
+        : ((res.data as { data?: DoctorRec }).data ?? null);
+      if (d?.nameEn)     doctorDisplayName = d.nameEn;
+      if (d?.specialtyId) doctorSpecialty  = SPECIALTY_LABELS[d.specialtyId]?.en ?? null;
+    } catch { /* doctor service unreachable — fall back to provided name */ }
+  }
+
   const params: Record<string, string> = {};
   if (query.dateFrom)  params.dateFrom = query.dateFrom;
   if (query.dateTo)    params.dateTo   = query.dateTo;
@@ -386,13 +401,14 @@ export async function getSettlementReport(req: FastifyRequest, reply: FastifyRep
   }));
 
   const buffer = await buildPdf({
-    title:    `Settlement Report — ${query.doctorName ?? query.doctorId ?? 'All Doctors'}`,
+    title:    `Settlement Report — ${doctorDisplayName}`,
     subtitle: `Period: ${query.dateFrom ?? 'All time'} → ${query.dateTo ?? 'Today'} | ${txns.length} transactions`,
     columns,
     rows,
     reportTo: [
-      { label: 'Doctor',  value: query.doctorName ?? query.doctorId ?? 'All Doctors' },
-      { label: 'Period',  value: `${query.dateFrom ?? 'All time'} → ${query.dateTo ?? 'Today'}` },
+      { label: 'Doctor',       value: doctorDisplayName },
+      ...(doctorSpecialty ? [{ label: 'Specialty', value: doctorSpecialty }] : []),
+      { label: 'Period',       value: `${query.dateFrom ?? 'All time'} → ${query.dateTo ?? 'Today'}` },
       { label: 'Transactions', value: String(txns.length) },
     ],
     summary: [
