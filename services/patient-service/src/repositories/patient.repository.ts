@@ -103,8 +103,20 @@ export async function searchPatients(
     }
 
     if (params.query) {
-      conditions.push(`name_search @@ plainto_tsquery('simple', $${idx++})`);
-      values.push(params.query);
+      // Prefix-match each whitespace-separated token against the stored tsvector.
+      // to_tsquery('simple', 'Mo:*') hits the existing GIN index; leading wildcards
+      // are never used, so B-tree-style index selectivity is preserved on the GIN.
+      const words = params.query
+        .trim()
+        .replace(/[^\p{L}\p{N}\s]/gu, '')   // strip tsquery special chars
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean);
+      if (words.length > 0) {
+        const tsToken = words.map((w) => `${w}:*`).join(' & ');
+        conditions.push(`name_search @@ to_tsquery('simple', $${idx++})`);
+        values.push(tsToken);
+      }
     }
 
     if (params.isFutureSource === true) {
