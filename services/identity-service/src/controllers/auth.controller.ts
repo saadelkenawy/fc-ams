@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { createHash, timingSafeEqual } from 'crypto';
+import { compare as bcryptCompare } from 'bcryptjs';
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import type { JwtPayload, UserRole } from '@fadl/types';
@@ -43,13 +44,8 @@ async function verifyPassword(password: string, stored: string): Promise<boolean
   return expected.length === actual.length && timingSafeEqual(expected, actual);
 }
 
-// Minimal bcrypt verification using pure JS comparison (for seeded admin only)
-// In production, seed with scrypt hashes instead
-async function verifyBcryptCompat(password: string, _hash: string): Promise<boolean> {
-  // Without bcrypt lib, only allow the known seeded hash for dev
-  // The seeded hash corresponds to "Admin@123"
-  const DEV_PASSWORD = 'Admin@123';
-  return password === DEV_PASSWORD;
+async function verifyBcryptCompat(password: string, hash: string): Promise<boolean> {
+  return bcryptCompare(password, hash);
 }
 
 // ─── Token helpers ─────────────────────────────────────────────────────────
