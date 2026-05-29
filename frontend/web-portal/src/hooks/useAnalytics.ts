@@ -119,3 +119,66 @@ export function useNoShowByDay() {
     staleTime: 60_000,
   });
 }
+
+export interface FinancialSummaryKpis {
+  totalRevenue:     number;
+  outstanding:      number;
+  totalExpenses:    number;
+  netProfit:        number;
+  profitMargin:     number;
+  totalDoctorShare: number;
+  transactionCount: number;
+}
+
+export interface DailyBreakdownItem {
+  date:         string;
+  revenue:      number;
+  transactions: number;
+}
+
+export interface FinancialSummaryDoctor {
+  doctorId:     string;
+  nameEn:       string;
+  nameAr:       string;
+  specialtyId:  number | null;
+  revenue:      number;
+  transactions: number;
+  doctorShare:  number;
+}
+
+export interface RecentTransaction {
+  id:              string;
+  transactionDate: string;
+  approvedCharge:  number;
+  doctorShare:     number;
+  clinicShare:     number;
+  paymentMethod:   string;
+  visitType:       string;
+  patientSource:   string;
+}
+
+export interface FinancialSummaryData {
+  period:             { month: string; dateFrom: string; dateTo: string };
+  kpis:               FinancialSummaryKpis;
+  dailyBreakdown:     DailyBreakdownItem[];
+  byPaymentMethod:    Record<string, number>;
+  byVisitType:        Record<string, number>;
+  topDoctors:         FinancialSummaryDoctor[];
+  recentTransactions: RecentTransaction[];
+}
+
+export function useFinancialSummary(month: string) {
+  return useQuery({
+    queryKey: ['analytics', 'financial-summary', month],
+    queryFn: async () => {
+      const { data } = await analyticsApi.get<{ success: boolean; data: FinancialSummaryData }>(
+        '/analytics/financial-summary',
+        { params: { month } },
+      );
+      return data.data;
+    },
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+    keepPreviousData: true,
+  });
+}

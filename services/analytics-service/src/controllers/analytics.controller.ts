@@ -1,6 +1,6 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
-import { billingClient, patientClient, appointmentClient, doctorClient } from '../clients/internal';
+import { billingClient, patientClient, appointmentClient, doctorClient, procurementClient } from '../clients/internal';
 import { buildPdf, buildInvoicePdf } from '../utils/pdf';
 import type { PdfColumn } from '../utils/pdf';
 
@@ -653,6 +653,201 @@ export async function getInvoicePdf(
   void reply.type('application/pdf')
     .header('Content-Disposition', `attachment; filename="invoice-${String(tx.id).slice(-8).toUpperCase()}.pdf"`)
     .send(buffer);
+}
+
+// ── Financial Summary (JSON) ───────────────────────────────────────────────
+
+interface TxFull extends TxRow {
+  id?: string;
+  paymentMethod?: string;
+  paymentStatus?: string;
+  visitType?: string;
+  patientId?: string;
+}
+
+interface ProcurementReceipt {
+  invoiceTotalEgp?: number | string;
+  dateReceived: string;
+  status: string;
+}
+
+async function fetchTransactionsForPeriod(dateFrom: string, dateTo: string, maxRows = 500): Promise<TxFull[]> {
+  const PAGE = 100;
+  const all: TxFull[] = [];
+  try {
+    let page = 1;
+    while (all.length < maxRows) {
+      const res = await billingClient.get<{ data: TxFull[]; totalPages?: number } | TxFull[]>(
+        '/transactions',
+        { params: { limit: PAGE, page, dateFrom, dateTo } },
+      );
+      const body = res.data;
+      const rows: TxFull[] = Array.isArray(body) ? body : ((body as { data: TxFull[] }).data ?? []);
+      all.push(...rows);
+      const totalPages = Array.isArray(body) ? 1 : ((body as { totalPages?: number }).totalPages ?? 1);
+      if (rows.length < PAGE || page >= totalPages) break;
+      page++;
+    }
+  } catch { /* billing unreachable */ }
+  return all.slice(0, maxRows);
+}
+
+async function fetchProcurementExpenses(dateFrom: string, dateTo: string): Promise<number> {
+  const PAGE = 100;
+  let total = 0;
+  try {
+    let page = 1;
+    while (true) {
+      const res = await procurementClient.get<{ data: ProcurementReceipt[]; totalPages?: number }>(
+        '/receipts',
+        { params: { status: 'approved', limit: PAGE, page } },
+      );
+      const rows = res.data.data ?? [];
+      for (const r of rows) {
+        if (r.dateReceived >= dateFrom && r.dateReceived <= dateTo) {
+          total += toNum(r.invoiceTotalEgp);
+        }
+      }
+      const totalPages = res.data.totalPages ?? 1;
+      if (rows.length < PAGE || page >= totalPages) break;
+      page++;
+    }
+  } catch { /* procurement unreachable — omit expenses */ }
+  return total;
+}
+
+const financialSummarySchema = z.object({
+  month: z.string().regex(/^\d{4}-\d{2}$/).optional(),
+});
+
+export async function getFinancialSummaryData(req: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { month: rawMonth } = financialSummarySchema.parse(req.query);
+  const month = rawMonth ?? currentYearMonth();
+
+  const [year, mon] = month.split('-').map(Number);
+  const dateFrom = `${month}-01`;
+  const lastDay  = new Date(year, mon, 0).getDate();
+  const dateTo   = `${month}-${String(lastDay).padStart(2, '0')}`;
+
+  const [txns, totalExpenses] = await Promise.all([
+    fetchTransactionsForPeriod(dateFrom, dateTo),
+    fetchProcurementExpenses(dateFrom, dateTo),
+  ]);
+
+  const completed = txns.filter((t) => t.paymentStatus === 'paid' || t.paymentStatus === 'reconciled');
+  const pending   = txns.filter((t) => t.paymentStatus === 'pending' || t.paymentStatus === 'approved');
+
+  const totalRevenue     = completed.reduce((s, t) => s + toNum(t.approvedCharge), 0);
+  const outstanding      = pending.reduce((s, t) => s + toNum(t.approvedCharge), 0);
+  const totalDoctorShare = completed.reduce((s, t) => s + toNum(t.doctorShare), 0);
+  const netProfit        = totalRevenue - totalDoctorShare - totalExpenses;
+  const profitMargin     = totalRevenue > 0 ? Math.round((netProfit / totalRevenue) * 1000) / 10 : 0;
+
+  // Daily breakdown
+  const dailyMap = new Map<string, { revenue: number; transactions: number }>();
+  for (const t of completed) {
+    const day = (t.transactionDate ?? '').slice(0, 10);
+    if (!day) continue;
+    if (!dailyMap.has(day)) dailyMap.set(day, { revenue: 0, transactions: 0 });
+    const e = dailyMap.get(day)!;
+    e.revenue      += toNum(t.approvedCharge);
+    e.transactions += 1;
+  }
+  const dailyBreakdown = Array.from(dailyMap.entries())
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([date, d]) => ({ date, ...d }));
+
+  // Payment method breakdown
+  const byPaymentMethod: Record<string, number> = {};
+  for (const t of completed) {
+    const m = t.paymentMethod ?? 'cash';
+    byPaymentMethod[m] = (byPaymentMethod[m] ?? 0) + toNum(t.approvedCharge);
+  }
+
+  // Visit type breakdown
+  const byVisitType: Record<string, number> = {};
+  for (const t of txns) {
+    const v = t.visitType ?? 'consultation';
+    byVisitType[v] = (byVisitType[v] ?? 0) + toNum(t.approvedCharge);
+  }
+
+  // Top doctors by revenue
+  const docRevMap = new Map<string, { revenue: number; transactions: number; doctorShare: number }>();
+  for (const t of completed) {
+    const id = t.doctorId ?? 'unknown';
+    if (!docRevMap.has(id)) docRevMap.set(id, { revenue: 0, transactions: 0, doctorShare: 0 });
+    const e = docRevMap.get(id)!;
+    e.revenue      += toNum(t.approvedCharge);
+    e.transactions += 1;
+    e.doctorShare  += toNum(t.doctorShare);
+  }
+
+  const topDoctorEntries = Array.from(docRevMap.entries())
+    .sort((a, b) => b[1].revenue - a[1].revenue)
+    .slice(0, 5);
+
+  const nameMap = new Map<string, { nameEn: string; nameAr: string; specialtyId: number | null }>();
+  try {
+    const ids = topDoctorEntries.map(([id]) => id).filter((id) => id !== 'unknown');
+    if (ids.length) {
+      const res = await doctorClient.get<{ data?: { id: string; nameEn: string; nameAr?: string; specialtyId?: number }[] }>(
+        '/doctors',
+        { params: { limit: 100 } },
+      );
+      for (const d of res.data.data ?? []) {
+        nameMap.set(d.id, { nameEn: d.nameEn, nameAr: d.nameAr ?? d.nameEn, specialtyId: d.specialtyId ?? null });
+      }
+    }
+  } catch { /* doctor service unreachable */ }
+
+  const topDoctors = topDoctorEntries.map(([doctorId, stats]) => {
+    const info = nameMap.get(doctorId);
+    return {
+      doctorId,
+      nameEn:       info?.nameEn      ?? doctorId,
+      nameAr:       info?.nameAr      ?? doctorId,
+      specialtyId:  info?.specialtyId ?? null,
+      revenue:      stats.revenue,
+      transactions: stats.transactions,
+      doctorShare:  stats.doctorShare,
+    };
+  });
+
+  // Recent high-value transactions (top 10 by charge)
+  const recentTransactions = [...completed]
+    .sort((a, b) => toNum(b.approvedCharge) - toNum(a.approvedCharge))
+    .slice(0, 10)
+    .map((t) => ({
+      id:              t.id ?? '',
+      transactionDate: (t.transactionDate ?? '').slice(0, 10),
+      approvedCharge:  toNum(t.approvedCharge),
+      doctorShare:     toNum(t.doctorShare),
+      clinicShare:     toNum(t.clinicShare),
+      paymentMethod:   t.paymentMethod ?? 'cash',
+      visitType:       t.visitType ?? 'consultation',
+      patientSource:   t.patientSource ?? '',
+    }));
+
+  void reply.send({
+    success: true,
+    data: {
+      period: { month, dateFrom, dateTo },
+      kpis: {
+        totalRevenue,
+        outstanding,
+        totalExpenses,
+        netProfit,
+        profitMargin,
+        totalDoctorShare,
+        transactionCount: completed.length,
+      },
+      dailyBreakdown,
+      byPaymentMethod,
+      byVisitType,
+      topDoctors,
+      recentTransactions,
+    },
+  });
 }
 
 // ── No-Show Rate by Day of Week ─────────────────────────────────────────────

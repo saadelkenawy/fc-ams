@@ -16,7 +16,7 @@ import { useLang } from '@/contexts/LanguageContext';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 import { useTransactions, useSettlements } from '@/hooks/useBilling';
 import { useDoctors } from '@/hooks/useDoctors';
-import { useMonthlyRevenue, useSpecialtyBreakdown } from '@/hooks/useAnalytics';
+import { useMonthlyRevenue, useSpecialtyBreakdown, useFinancialSummary } from '@/hooks/useAnalytics';
 import type { DoctorSettlement } from '@fadl/types';
 
 const REPORT_TABS = [
@@ -60,116 +60,263 @@ function StatRow({ label, value, sub }: { label: string; value: string | number;
 }
 
 /* ──────────────── Financial Summary ──────────────── */
+const PAY_LABEL_MAP: Record<string, Record<string, string>> = {
+  en: { cash: 'Cash', instapay: 'InstaPay', bank_transfer: 'Bank Transfer', vfc_wallet: 'VFC Wallet', mobile_wallet: 'Mobile Wallet' },
+  ar: { cash: 'كاش', instapay: 'InstaPay', bank_transfer: 'حوالة بنكية', vfc_wallet: 'VFC Wallet', mobile_wallet: 'محفظة موبايل' },
+};
+const VISIT_LABEL_MAP: Record<string, Record<string, string>> = {
+  en: { consultation: 'Consultation', operative: 'Operative', online: 'Online' },
+  ar: { consultation: 'استشارة', operative: 'إجراء', online: 'أونلاين' },
+};
+const VISIT_COLORS: Record<string, string> = {
+  consultation: 'bg-primary-500',
+  operative:    'bg-violet-500',
+  online:       'bg-cyan-500',
+};
+const PAY_COLORS = ['bg-primary-500', 'bg-violet-500', 'bg-cyan-500', 'bg-amber-500', 'bg-rose-500'];
+
 function FinancialReport({ lang, locale, from, to }: { lang: string; locale: string; from: string; to: string }) {
-  const { data, isLoading, isError } = useTransactions({ limit: 500, dateFrom: from, dateTo: to });
-  const txns = data?.data ?? [];
+  const month = from.slice(0, 7);
+  const { data, isLoading, isError } = useFinancialSummary(month);
 
-  const approved = txns.filter((t) =>
-    t.paymentStatus === 'approved' || t.paymentStatus === 'paid' || t.paymentStatus === 'reconciled',
-  );
-  const totalCharged  = approved.reduce((s, t) => s + t.approvedCharge, 0);
-  const totalFees     = approved.reduce((s, t) => s + t.sourceFeeAmount, 0);
-  const totalGross    = approved.reduce((s, t) => s + t.grossRevenue, 0);
-  const totalDrShare  = approved.reduce((s, t) => s + t.doctorShare, 0);
-  const totalClnShare = approved.reduce((s, t) => s + t.clinicShare, 0);
-
-  const [sourceBodyRef] = useAutoAnimate();
-  const byMethod: Record<string, number> = {};
-  approved.forEach((t) => {
-    const m = t.paymentMethod ?? 'cash';
-    byMethod[m] = (byMethod[m] ?? 0) + t.approvedCharge;
-  });
-
-  const bySource: Record<string, { count: number; revenue: number; fees: number }> = {};
-  approved.forEach((t) => {
-    if (!bySource[t.patientSource]) bySource[t.patientSource] = { count: 0, revenue: 0, fees: 0 };
-    bySource[t.patientSource].count++;
-    bySource[t.patientSource].revenue += t.approvedCharge;
-    bySource[t.patientSource].fees    += t.sourceFeeAmount;
-  });
+  const payLabel = (k: string) => PAY_LABEL_MAP[lang]?.[k] ?? PAY_LABEL_MAP.en[k] ?? k;
+  const visitLabel = (k: string) => VISIT_LABEL_MAP[lang]?.[k] ?? VISIT_LABEL_MAP.en[k] ?? k;
 
   if (isLoading) return (
     <div className="flex items-center justify-center py-20 text-gray-400">
       <Loader2 className="w-5 h-5 animate-spin me-2" />
-      Loading...
+      {lang === 'ar' ? 'جاري التحميل...' : 'Loading...'}
     </div>
   );
-  if (isError) return (
+  if (isError || !data) return (
     <div className="flex items-center justify-center py-20 text-red-400 text-sm">
-      Failed to load financial data — please refresh the page.
+      {lang === 'ar' ? 'فشل تحميل البيانات — يرجى تحديث الصفحة.' : 'Failed to load financial data — please refresh the page.'}
     </div>
   );
+
+  const { kpis, dailyBreakdown, byPaymentMethod, byVisitType, topDoctors, recentTransactions } = data;
+  const maxDayRevenue   = Math.max(...dailyBreakdown.map((d) => d.revenue), 1);
+  const totalPayments   = Object.values(byPaymentMethod).reduce((s, v) => s + v, 0) || 1;
+  const totalVisit      = Object.values(byVisitType).reduce((s, v) => s + v, 0) || 1;
+
+  const kpiCards = [
+    {
+      label: lang === 'ar' ? 'إجمالي الإيرادات' : 'Total Revenue',
+      value: formatCurrency(kpis.totalRevenue, 'EGP', locale),
+      sub:   `${kpis.transactionCount} ${lang === 'ar' ? 'معاملة' : 'transactions'}`,
+      color: 'text-emerald-600 dark:text-emerald-400',
+      bg:    'bg-emerald-50 dark:bg-emerald-900/20',
+      icon:  <TrendingUp className="w-5 h-5" />,
+    },
+    {
+      label: lang === 'ar' ? 'أرصدة معلقة' : 'Outstanding',
+      value: formatCurrency(kpis.outstanding, 'EGP', locale),
+      sub:   lang === 'ar' ? 'قيد الانتظار' : 'Pending collection',
+      color: 'text-amber-600 dark:text-amber-400',
+      bg:    'bg-amber-50 dark:bg-amber-900/20',
+      icon:  <Activity className="w-5 h-5" />,
+    },
+    {
+      label: lang === 'ar' ? 'المصروفات' : 'Total Expenses',
+      value: formatCurrency(kpis.totalExpenses, 'EGP', locale),
+      sub:   lang === 'ar' ? 'مشتريات موردين' : 'Procurement',
+      color: 'text-rose-600 dark:text-rose-400',
+      bg:    'bg-rose-50 dark:bg-rose-900/20',
+      icon:  <TrendingDown className="w-5 h-5" />,
+    },
+    {
+      label: lang === 'ar' ? 'صافي الربح' : 'Net Profit',
+      value: formatCurrency(kpis.netProfit, 'EGP', locale),
+      sub:   `${kpis.profitMargin}% ${lang === 'ar' ? 'هامش' : 'margin'}`,
+      color: kpis.netProfit >= 0 ? 'text-primary-600 dark:text-primary-400' : 'text-rose-600 dark:text-rose-400',
+      bg:    kpis.netProfit >= 0 ? 'bg-primary-50 dark:bg-primary-900/20' : 'bg-rose-50 dark:bg-rose-900/20',
+      icon:  <DollarSign className="w-5 h-5" />,
+    },
+  ];
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-fade-in">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>{lang === 'ar' ? 'ملخص الإيرادات' : 'Revenue Summary'}</CardTitle>
-          <Button size="sm" variant="outline" onClick={() => openPdf(`/reports/settlement?dateFrom=${from}&dateTo=${to}`)}>
-            <FileDown className="w-3.5 h-3.5" />
-            {lang === 'ar' ? 'PDF' : 'PDF'}
-          </Button>
-        </CardHeader>
-        <CardContent>
-          <StatRow label={lang === 'ar' ? 'إجمالي المحصل'  : 'Total Charged'}   value={formatCurrency(totalCharged,  'EGP', locale)} />
-          <StatRow label={lang === 'ar' ? 'رسوم المصادر'   : 'Platform Fees'}   value={formatCurrency(totalFees,     'EGP', locale)} sub={`${totalCharged > 0 ? ((totalFees / totalCharged) * 100).toFixed(1) : 0}%`} />
-          <StatRow label={lang === 'ar' ? 'الإيراد الصافي' : 'Net Revenue'}      value={formatCurrency(totalGross,    'EGP', locale)} />
-          <StatRow label={lang === 'ar' ? 'حصة الأطباء'   : "Doctors' Share"}  value={formatCurrency(totalDrShare,  'EGP', locale)} sub={`${totalGross > 0 ? ((totalDrShare / totalGross) * 100).toFixed(1) : 0}%`} />
-          <StatRow label={lang === 'ar' ? 'حصة العيادة'   : "Clinic's Share"}  value={formatCurrency(totalClnShare, 'EGP', locale)} sub={`${totalGross > 0 ? ((totalClnShare / totalGross) * 100).toFixed(1) : 0}%`} />
-          <StatRow label={lang === 'ar' ? 'عدد المعاملات' : 'Transactions'}    value={formatNumber(approved.length, locale)} />
-        </CardContent>
-      </Card>
+    <div className="space-y-6 animate-fade-in">
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {kpiCards.map((kpi) => (
+          <Card key={kpi.label}>
+            <CardContent className="pt-5">
+              <div className="flex items-start justify-between gap-2 mb-3">
+                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 leading-snug">{kpi.label}</p>
+                <span className={`flex-shrink-0 p-1.5 rounded-lg ${kpi.bg} ${kpi.color}`}>{kpi.icon}</span>
+              </div>
+              <p className={`text-xl font-bold font-mono tabular-nums ${kpi.color}`}>{kpi.value}</p>
+              {kpi.sub && <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{kpi.sub}</p>}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
 
-      <Card>
-        <CardHeader><CardTitle>{lang === 'ar' ? 'طرق السداد' : 'Payment Methods'}</CardTitle></CardHeader>
-        <CardContent>
-          {Object.entries(byMethod).sort((a, b) => b[1] - a[1]).map(([method, amount]) => {
-            const pct = totalCharged > 0 ? (amount / totalCharged) * 100 : 0;
-            return (
-              <div key={method} className="mb-3">
-                <div className="flex justify-between text-xs mb-1">
-                  <span className="text-gray-600 dark:text-gray-400 capitalize">{method.replace('_', ' ')}</span>
-                  <div className="flex gap-3">
-                    <span className="text-gray-400">{pct.toFixed(1)}%</span>
-                    <span className="font-mono font-medium text-gray-900 dark:text-gray-100">{formatCurrency(amount, 'EGP', locale)}</span>
+      {/* Daily Revenue Trend */}
+      {dailyBreakdown.length > 0 && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>{lang === 'ar' ? 'الإيرادات اليومية' : 'Daily Revenue Trend'}</CardTitle>
+            <Button size="sm" variant="outline" onClick={() => openPdf(`/reports/settlement?dateFrom=${from}&dateTo=${to}`)}>
+              <FileDown className="w-3.5 h-3.5" />
+              PDF
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-end gap-px h-32">
+              {dailyBreakdown.map((d) => {
+                const pct = (d.revenue / maxDayRevenue) * 100;
+                return (
+                  <div
+                    key={d.date}
+                    className="flex-1 flex flex-col items-center gap-0.5 group"
+                    title={`${d.date}: ${formatCurrency(d.revenue, 'EGP', locale)}`}
+                  >
+                    <div
+                      className="w-full bg-primary-500/80 hover:bg-primary-600 rounded-t transition-colors cursor-default"
+                      style={{ height: `${Math.max(pct, 2)}%` }}
+                    />
+                    {dailyBreakdown.length <= 31 && (
+                      <span className="text-[9px] text-gray-400 leading-none">{d.date.slice(8)}</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Payment Methods + Visit Types */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader><CardTitle>{lang === 'ar' ? 'طرق السداد' : 'Payment Methods'}</CardTitle></CardHeader>
+          <CardContent>
+            {Object.entries(byPaymentMethod).length === 0 && (
+              <p className="text-sm text-gray-400 text-center py-4">{lang === 'ar' ? 'لا توجد بيانات' : 'No data'}</p>
+            )}
+            {Object.entries(byPaymentMethod).sort((a, b) => b[1] - a[1]).map(([method, amount], i) => {
+              const pct = (amount / totalPayments) * 100;
+              return (
+                <div key={method} className="mb-3">
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="text-gray-600 dark:text-gray-400">{payLabel(method)}</span>
+                    <div className="flex gap-3">
+                      <span className="text-gray-400">{pct.toFixed(1)}%</span>
+                      <span className="font-mono font-medium text-gray-900 dark:text-gray-100">{formatCurrency(amount, 'EGP', locale)}</span>
+                    </div>
+                  </div>
+                  <div className="h-2 bg-gray-100 dark:bg-neutral-700 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full origin-left transition-transform duration-500 ${PAY_COLORS[i % PAY_COLORS.length]}`}
+                      style={{ transform: `scaleX(${pct / 100})` }}
+                    />
                   </div>
                 </div>
-                <div className="h-2 bg-gray-100 dark:bg-neutral-700 rounded-full overflow-hidden">
-                  <div className="h-full w-full bg-primary-500 origin-left transition-transform duration-500" style={{ transform: `scaleX(${pct / 100})` }} />
-                </div>
-              </div>
-            );
-          })}
-        </CardContent>
-      </Card>
+              );
+            })}
+          </CardContent>
+        </Card>
 
-      <Card className="lg:col-span-2">
-        <CardHeader><CardTitle>{lang === 'ar' ? 'تحليل المصادر' : 'Source Analysis'}</CardTitle></CardHeader>
-        <CardContent className="p-0">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
-                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'المصدر'     : 'Source'}</th>
-                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'المعاملات' : 'Txns'}</th>
-                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'الإيرادات' : 'Revenue'}</th>
-                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'الرسوم'    : 'Fees'}</th>
-                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'صافي'      : 'Net'}</th>
-              </tr>
-            </thead>
-            <tbody ref={sourceBodyRef}>
-              {Object.entries(bySource).sort((a, b) => b[1].revenue - a[1].revenue).map(([src, stats]) => (
-                <tr key={src} className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors">
-                  <td className="px-5 py-3.5"><Badge variant="outline">{src}</Badge></td>
-                  <td className="px-5 py-3.5 font-mono tabular-nums text-gray-600 dark:text-gray-400">{formatNumber(stats.count, locale)}</td>
-                  <td className="px-5 py-3.5 font-mono tabular-nums text-gray-900 dark:text-gray-100">{formatCurrency(stats.revenue, 'EGP', locale)}</td>
-                  <td className="px-5 py-3.5 font-mono tabular-nums text-red-500">{formatCurrency(stats.fees, 'EGP', locale)}</td>
-                  <td className="px-5 py-3.5 font-mono tabular-nums text-emerald-600 dark:text-emerald-400">{formatCurrency(stats.revenue - stats.fees, 'EGP', locale)}</td>
+        <Card>
+          <CardHeader><CardTitle>{lang === 'ar' ? 'أنواع الزيارات' : 'Visit Types'}</CardTitle></CardHeader>
+          <CardContent>
+            {Object.keys(byVisitType).length === 0 && (
+              <p className="text-sm text-gray-400 text-center py-4">{lang === 'ar' ? 'لا توجد بيانات' : 'No data'}</p>
+            )}
+            {Object.keys(byVisitType).length > 0 && (
+              <>
+                <div className="flex h-3 rounded-full overflow-hidden mb-4 gap-px">
+                  {Object.entries(byVisitType).sort((a, b) => b[1] - a[1]).map(([vt, amt]) => (
+                    <div
+                      key={vt}
+                      className={`${VISIT_COLORS[vt] ?? 'bg-gray-400'} transition-all`}
+                      style={{ width: `${(amt / totalVisit) * 100}%` }}
+                      title={`${visitLabel(vt)}: ${formatCurrency(amt, 'EGP', locale)}`}
+                    />
+                  ))}
+                </div>
+                {Object.entries(byVisitType).sort((a, b) => b[1] - a[1]).map(([vt, amt]) => (
+                  <div key={vt} className="flex items-center justify-between py-2.5 border-b border-gray-50 dark:border-neutral-700/50 last:border-0">
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2 h-2 rounded-full ${VISIT_COLORS[vt] ?? 'bg-gray-400'}`} />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">{visitLabel(vt)}</span>
+                    </div>
+                    <div className="text-end">
+                      <span className="text-sm font-mono font-medium text-gray-900 dark:text-gray-100">{formatCurrency(amt, 'EGP', locale)}</span>
+                      <span className="text-xs text-gray-400 ms-2">{((amt / totalVisit) * 100).toFixed(1)}%</span>
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Top Performing Doctors */}
+      {topDoctors.length > 0 && (
+        <Card>
+          <CardHeader><CardTitle>{lang === 'ar' ? 'أعلى الأطباء إيراداً' : 'Top Performing Doctors'}</CardTitle></CardHeader>
+          <CardContent className="p-0">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
+                  <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">#</th>
+                  <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'الطبيب' : 'Doctor'}</th>
+                  <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'المعاملات' : 'Txns'}</th>
+                  <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'الإيرادات' : 'Revenue'}</th>
+                  <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'حصة الطبيب' : 'Dr. Share'}</th>
+                  <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'حصة العيادة' : 'Clinic'}</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </CardContent>
-      </Card>
+              </thead>
+              <tbody>
+                {topDoctors.map((dr, i) => (
+                  <tr key={dr.doctorId} className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors">
+                    <td className="px-5 py-3 text-gray-400 tabular-nums">{i + 1}</td>
+                    <td className="px-5 py-3 font-medium text-gray-900 dark:text-gray-100">{lang === 'ar' ? dr.nameAr : dr.nameEn}</td>
+                    <td className="px-5 py-3 tabular-nums text-gray-600 dark:text-gray-400">{formatNumber(dr.transactions, locale)}</td>
+                    <td className="px-5 py-3 font-mono tabular-nums text-gray-900 dark:text-gray-100">{formatCurrency(dr.revenue, 'EGP', locale)}</td>
+                    <td className="px-5 py-3 font-mono tabular-nums text-violet-600 dark:text-violet-400">{formatCurrency(dr.doctorShare, 'EGP', locale)}</td>
+                    <td className="px-5 py-3 font-mono tabular-nums text-emerald-600 dark:text-emerald-400">{formatCurrency(dr.revenue - dr.doctorShare, 'EGP', locale)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Recent High-Value Transactions */}
+      {recentTransactions.length > 0 && (
+        <Card>
+          <CardHeader><CardTitle>{lang === 'ar' ? 'أعلى المعاملات قيمةً' : 'Top Transactions by Value'}</CardTitle></CardHeader>
+          <CardContent className="p-0">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
+                  <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'التاريخ' : 'Date'}</th>
+                  <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'نوع الزيارة' : 'Type'}</th>
+                  <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'طريقة الدفع' : 'Payment'}</th>
+                  <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'المصدر' : 'Source'}</th>
+                  <th className="text-end px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'المبلغ' : 'Amount'}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentTransactions.map((tx) => (
+                  <tr key={tx.id || tx.transactionDate} className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors">
+                    <td className="px-5 py-3 tabular-nums text-gray-600 dark:text-gray-400">{tx.transactionDate}</td>
+                    <td className="px-5 py-3"><Badge variant="outline">{visitLabel(tx.visitType)}</Badge></td>
+                    <td className="px-5 py-3 text-gray-600 dark:text-gray-400">{payLabel(tx.paymentMethod)}</td>
+                    <td className="px-5 py-3"><Badge variant="outline">{tx.patientSource}</Badge></td>
+                    <td className="px-5 py-3 text-end font-mono font-semibold tabular-nums text-gray-900 dark:text-gray-100">{formatCurrency(tx.approvedCharge, 'EGP', locale)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
