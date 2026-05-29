@@ -1,16 +1,23 @@
-FROM node:16-alpine AS builder
+FROM node:20-alpine AS builder
 WORKDIR /app
-COPY package.json pnpm-lock.yaml* ./
-RUN npm install -g pnpm@8 && pnpm install --frozen-lockfile
-COPY . .
-RUN pnpm build
+RUN npm install -g pnpm@8
 
-FROM node:16-alpine AS runner
+COPY pnpm-workspace.yaml pnpm-lock.yaml package.json tsconfig.base.json ./
+COPY shared/types/package.json ./shared/types/
+COPY services/notification-service/package.json ./services/notification-service/
+RUN pnpm install --no-frozen-lockfile
+
+COPY . .
+RUN pnpm --filter @fadl/types build
+RUN pnpm --filter @fadl/notification-service build
+RUN pnpm --filter @fadl/notification-service deploy --prod /deploy
+
+FROM node:20-alpine AS runner
 WORKDIR /app
 RUN addgroup -S fadl && adduser -S fadl -G fadl
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./
+COPY --from=builder /deploy/dist ./dist
+COPY --from=builder /deploy/node_modules ./node_modules
+COPY --from=builder /deploy/package.json ./
 USER fadl
 EXPOSE 3007
 CMD ["node", "dist/server.js"]
