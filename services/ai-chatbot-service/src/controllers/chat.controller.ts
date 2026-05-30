@@ -207,13 +207,34 @@ async function executeAction(
     }
 
     const apptData = await apptRes.json() as { data?: { id: string } };
-    const apptId = apptData.data?.id ?? 'unknown';
+    const apptId = apptData.data?.id;
     const patientName = foundPatient.nameAr ?? foundPatient.nameEn;
     const doctorName  = foundDoctor.nameAr  ?? foundDoctor.nameEn;
 
+    if (!apptId) {
+      return lang === 'ar'
+        ? '✅ تم إرسال طلب الحجز لكن تعذّر استرداد تفاصيله.'
+        : '✅ Booking request sent but could not retrieve appointment details.';
+    }
+
+    // Verify the appointment is persisted by fetching it back
+    const verifyRes = await fetch(
+      `${config.APPOINTMENT_SERVICE_URL}/appointments/${apptId}`,
+      { headers },
+    );
+    const verifiedData = verifyRes.ok
+      ? (await verifyRes.json() as { data?: { status: string; queueNumber?: number } }).data
+      : null;
+
+    const queueInfo = verifiedData?.queueNumber != null
+      ? (lang === 'ar'
+          ? `\n• رقم الدور: ${verifiedData.queueNumber}`
+          : `\n• Queue #: ${verifiedData.queueNumber}`)
+      : '';
+
     return lang === 'ar'
-      ? `✅ تم الحجز بنجاح!\n\nتفاصيل الموعد:\n• المريض: ${patientName}\n• الطبيب: ${doctorName}\n• التاريخ: ${date}\n• الوقت: ${time}\n• رقم الموعد: ${apptId.slice(-8).toUpperCase()}`
-      : `✅ Appointment booked successfully!\n\nDetails:\n• Patient: ${foundPatient.nameEn}\n• Doctor: ${foundDoctor.nameEn}\n• Date: ${date}\n• Time: ${time}\n• Appointment ID: ${apptId.slice(-8).toUpperCase()}`;
+      ? `✅ تم الحجز بنجاح! ✓ مؤكد\n\nتفاصيل الموعد:\n• المريض: ${patientName}\n• الطبيب: ${doctorName}\n• التاريخ: ${date}\n• الوقت: ${time}${queueInfo}\n• رقم الموعد: ${apptId.slice(-8).toUpperCase()}`
+      : `✅ Appointment booked successfully! ✓ verified\n\nDetails:\n• Patient: ${foundPatient.nameEn}\n• Doctor: ${foundDoctor.nameEn}\n• Date: ${date}\n• Time: ${time}${queueInfo}\n• Appointment ID: ${apptId.slice(-8).toUpperCase()}`;
   }
 
   if (action.action === 'get_appointments') {
