@@ -14,7 +14,7 @@ const envSchema = z.object({
   ANTHROPIC_API_KEY: z.string().optional().default(''),
   ANTHROPIC_MODEL: z.string().default('claude-haiku-4-5-20251001'),
   OPENROUTER_API_KEY: z.string().optional().default(''),
-  OPENROUTER_MODEL: z.string().default('google/gemini-2.0-flash-exp:free'),
+  OPENROUTER_MODEL: z.string().default('deepseek/deepseek-v4-flash:free'),
   MAX_HISTORY_TURNS: z.coerce.number().default(10),
   PATIENT_SERVICE_URL: z.string().default('http://localhost:3002/api/v1'),
   DOCTOR_SERVICE_URL: z.string().default('http://localhost:3003/api/v1'),
