@@ -7,7 +7,7 @@ import type {
   PatientSearchParams,
   PaginatedResponse,
 } from '@fadl/types';
-import { withRlsContext, withTransaction, pool } from '../config/database';
+import { withRlsContext, withTransaction } from '../config/database';
 
 function rowToPatient(row: Record<string, unknown>): Patient {
   return {
@@ -39,8 +39,8 @@ function rowToPatient(row: Record<string, unknown>): Patient {
   };
 }
 
-export async function findPatientById(patientId: string): Promise<Patient | null> {
-  return withRlsContext(async (client) => {
+export async function findPatientById(branchId: number, patientId: string): Promise<Patient | null> {
+  return withRlsContext(branchId, async (client) => {
     const { rows } = await client.query(
       `SELECT * FROM patients WHERE patient_id = $1 AND deleted_at IS NULL`,
       [patientId],
@@ -49,8 +49,8 @@ export async function findPatientById(patientId: string): Promise<Patient | null
   });
 }
 
-export async function findPatientByMobile(mobile: string): Promise<Patient | null> {
-  return withRlsContext(async (client) => {
+export async function findPatientByMobile(branchId: number, mobile: string): Promise<Patient | null> {
+  return withRlsContext(branchId, async (client) => {
     const { rows } = await client.query(
       `SELECT * FROM patients WHERE mobile = $1 AND deleted_at IS NULL`,
       [mobile],
@@ -60,10 +60,11 @@ export async function findPatientByMobile(mobile: string): Promise<Patient | nul
 }
 
 export async function findPatientsByIds(
+  branchId: number,
   ids: string[],
 ): Promise<Array<{ patientId: string; nameEn: string; nameAr: string | null }>> {
   if (!ids.length) return [];
-  return withRlsContext(async (client) => {
+  return withRlsContext(branchId, async (client) => {
     const { rows } = await client.query(
       `SELECT patient_id, name_en, name_ar FROM patients
        WHERE patient_id = ANY($1::uuid[]) AND deleted_at IS NULL`,
@@ -81,13 +82,14 @@ export async function findPatientsByIds(
 }
 
 export async function searchPatients(
+  branchId: number,
   params: PatientSearchParams,
 ): Promise<PaginatedResponse<Patient>> {
   const page = params.page ?? 1;
   const limit = Math.min(params.limit ?? 20, 100);
   const offset = (page - 1) * limit;
 
-  return withRlsContext(async (client) => {
+  return withRlsContext(branchId, async (client) => {
     const conditions: string[] = ['deleted_at IS NULL'];
     const values: unknown[] = [];
     let idx = 1;
@@ -150,7 +152,7 @@ export async function createPatient(
   createdBy: string,
   branchId: number,
 ): Promise<Patient> {
-  return withTransaction(async (client: PoolClient) => {
+  return withTransaction(branchId, async (client: PoolClient) => {
     const patientId = uuidv4();
     const isFutureSource = input.isFutureSource === true && input.sourceFirstVisit !== "Cl.'s";
     const { rows } = await client.query(
@@ -193,11 +195,12 @@ export async function createPatient(
 }
 
 export async function updatePatient(
+  branchId: number,
   patientId: string,
   input: UpdatePatientInput,
   updatedBy: string,
 ): Promise<Patient> {
-  return withTransaction(async (client: PoolClient) => {
+  return withTransaction(branchId, async (client: PoolClient) => {
     // Optimistic concurrency check
     const { rows: existing } = await client.query(
       `SELECT version FROM patients WHERE patient_id = $1 AND deleted_at IS NULL FOR UPDATE`,
@@ -277,12 +280,18 @@ export async function updatePatient(
   });
 }
 
-export async function softDeletePatient(patientId: string, deletedBy: string): Promise<void> {
-  const result = await pool.query(
-    `UPDATE patients SET deleted_at = NOW(), updated_by = $2 WHERE patient_id = $1 AND deleted_at IS NULL`,
-    [patientId, deletedBy],
-  );
-  if (result.rowCount === 0) {
-    throw Object.assign(new Error('Patient not found'), { code: 'PATIENT_NOT_FOUND', statusCode: 404 });
-  }
+export async function softDeletePatient(
+  branchId: number,
+  patientId: string,
+  deletedBy: string,
+): Promise<void> {
+  await withRlsContext(branchId, async (client) => {
+    const result = await client.query(
+      `UPDATE patients SET deleted_at = NOW(), updated_by = $2 WHERE patient_id = $1 AND deleted_at IS NULL`,
+      [patientId, deletedBy],
+    );
+    if (result.rowCount === 0) {
+      throw Object.assign(new Error('Patient not found'), { code: 'PATIENT_NOT_FOUND', statusCode: 404 });
+    }
+  });
 }

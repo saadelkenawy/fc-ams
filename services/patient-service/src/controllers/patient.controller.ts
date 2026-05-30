@@ -45,7 +45,8 @@ const searchSchema = z.object({
 
 export async function getPatient(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { id } = request.params as { id: string };
-  const patient = await repo.findPatientById(id);
+  const user = request.user as JwtPayload;
+  const patient = await repo.findPatientById(user.branchId, id);
   if (!patient) {
     void reply.status(404).send({ success: false, error: { code: 'PATIENT_NOT_FOUND', message: 'Patient not found' } });
     return;
@@ -55,7 +56,8 @@ export async function getPatient(request: FastifyRequest, reply: FastifyReply): 
 
 export async function searchPatients(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const params = searchSchema.parse(request.query);
-  const result = await repo.searchPatients(params);
+  const user = request.user as JwtPayload;
+  const result = await repo.searchPatients(user.branchId, params);
   void reply.send({ success: true, ...result });
 }
 
@@ -65,11 +67,12 @@ const batchSchema = z.object({
 
 export async function batchGetPatients(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { ids } = batchSchema.parse(request.query);
+  const user = request.user as JwtPayload;
   if (ids.length > 200) {
     void reply.status(400).send({ success: false, error: { code: 'TOO_MANY_IDS', message: 'Max 200 IDs per request' } });
     return;
   }
-  const patients = await repo.findPatientsByIds(ids);
+  const patients = await repo.findPatientsByIds(user.branchId, ids);
   void reply.send({ success: true, data: patients });
 }
 
@@ -77,7 +80,7 @@ export async function createPatient(request: FastifyRequest, reply: FastifyReply
   const input = createSchema.parse(request.body) as CreatePatientInput;
   const user = request.user as JwtPayload;
 
-  const existing = await repo.findPatientByMobile(input.mobile);
+  const existing = await repo.findPatientByMobile(user.branchId, input.mobile);
   if (existing) {
     void reply.status(409).send({
       success: false,
@@ -94,13 +97,13 @@ export async function updatePatient(request: FastifyRequest, reply: FastifyReply
   const { id } = request.params as { id: string };
   const input = updateSchema.parse(request.body) as UpdatePatientInput;
   const user = request.user as JwtPayload;
-  const patient = await repo.updatePatient(id, input, user.sub);
+  const patient = await repo.updatePatient(user.branchId, id, input, user.sub);
   void reply.send({ success: true, data: patient });
 }
 
 export async function deletePatient(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { id } = request.params as { id: string };
   const user = request.user as JwtPayload;
-  await repo.softDeletePatient(id, user.sub);
+  await repo.softDeletePatient(user.branchId, id, user.sub);
   void reply.status(204).send();
 }

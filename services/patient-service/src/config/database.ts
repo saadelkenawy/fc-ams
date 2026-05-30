@@ -14,14 +14,35 @@ pool.on('error', (err) => {
   console.error('Unexpected database pool error:', err);
 });
 
+/**
+ * Bind the RLS branch context for the lifetime of the surrounding transaction.
+ * Uses set_config(..., true) so the setting is scoped to the current tx and is
+ * reset on COMMIT/ROLLBACK — this prevents the value from leaking to the next
+ * client that checks out the same pooled server connection.
+ *
+ * The branch id is bound as a parameter (no string interpolation) to defeat
+ * injection if a caller ever sources it from untrusted input.
+ */
+async function setBranchContext(client: PoolClient, branchId: number): Promise<void> {
+  if (!Number.isInteger(branchId) || branchId <= 0) {
+    throw new Error(`Invalid branchId for RLS context: ${branchId}`);
+  }
+  await client.query(`SELECT set_config('app.current_branch_id', $1::text, true)`, [String(branchId)]);
+}
+
+/**
+ * Run `fn` inside an explicit transaction with the RLS branch context bound.
+ * If `branchId` is omitted, falls back to the service-level config (legacy).
+ */
 export async function withTransaction<T>(
-  fn: (client: PoolClient) => Promise<T>,
+  branchIdOrFn: number | ((client: PoolClient) => Promise<T>),
+  maybeFn?: (client: PoolClient) => Promise<T>,
 ): Promise<T> {
+  const { branchId, fn } = resolveArgs(branchIdOrFn, maybeFn);
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    // Set branch context for Row Level Security
-    await client.query(`SET app.current_branch_id = '${config.BRANCH_ID}'`);
+    await setBranchContext(client, branchId);
     const result = await fn(client);
     await client.query('COMMIT');
     return result;
@@ -33,12 +54,37 @@ export async function withTransaction<T>(
   }
 }
 
-export async function withRlsContext<T>(fn: (client: PoolClient) => Promise<T>): Promise<T> {
+/**
+ * Run `fn` with the RLS branch context bound. Wraps in a transaction so that
+ * `set_config(..., true)` is scoped correctly — even for read-only work.
+ */
+export async function withRlsContext<T>(
+  branchIdOrFn: number | ((client: PoolClient) => Promise<T>),
+  maybeFn?: (client: PoolClient) => Promise<T>,
+): Promise<T> {
+  const { branchId, fn } = resolveArgs(branchIdOrFn, maybeFn);
   const client = await pool.connect();
   try {
-    await client.query(`SET app.current_branch_id = '${config.BRANCH_ID}'`);
-    return await fn(client);
+    await client.query('BEGIN');
+    await setBranchContext(client, branchId);
+    const result = await fn(client);
+    await client.query('COMMIT');
+    return result;
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
   } finally {
     client.release();
   }
+}
+
+function resolveArgs<T>(
+  branchIdOrFn: number | ((client: PoolClient) => Promise<T>),
+  maybeFn?: (client: PoolClient) => Promise<T>,
+): { branchId: number; fn: (client: PoolClient) => Promise<T> } {
+  if (typeof branchIdOrFn === 'function') {
+    return { branchId: config.BRANCH_ID, fn: branchIdOrFn };
+  }
+  if (!maybeFn) throw new Error('withRlsContext/withTransaction: callback is required');
+  return { branchId: branchIdOrFn, fn: maybeFn };
 }
