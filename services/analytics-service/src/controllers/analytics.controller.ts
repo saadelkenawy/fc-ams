@@ -26,6 +26,9 @@ interface TxRow {
   patientSource?: string;
   transactionDate?: string;
   doctorId?: string;
+  patientId?: string;
+  sourceFeeAmount?: string | number;
+  paymentStatus?: string;
 }
 
 interface ApptRow {
@@ -49,12 +52,15 @@ interface MonthlyRevenue {
 }
 
 interface SourceStat {
-  sourceCode:   string;
-  sourceNameEn: string;
-  sourceNameAr: string;
-  count:        number;
-  pct:          number;
-  revenue:      number;
+  sourceCode:     string;
+  sourceNameEn:   string;
+  sourceNameAr:   string;
+  count:          number;
+  pct:            number;
+  revenue:        number;
+  sourceFees:     number;
+  uniquePatients: number;
+  patientPct:     number;
 }
 
 interface DoctorStat {
@@ -240,30 +246,51 @@ export async function getMonthlyRevenue(req: FastifyRequest, reply: FastifyReply
   void reply.send({ success: true, data: sorted });
 }
 
-export async function getSourceBreakdown(_req: FastifyRequest, reply: FastifyReply): Promise<void> {
-  const transactions = await fetchTransactions(1000);
+const sourceDateSchema = z.object({
+  dateFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  dateTo:   z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+});
 
-  const map = new Map<string, { count: number; revenue: number }>();
+export async function getSourceBreakdown(req: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { dateFrom, dateTo } = sourceDateSchema.parse(req.query);
+
+  const allTxns = (dateFrom && dateTo)
+    ? await fetchTransactionsForPeriod(dateFrom, dateTo, 2000)
+    : await fetchTransactions(1000);
+
+  const transactions = allTxns.filter((t) =>
+    t.paymentStatus === 'approved' || t.paymentStatus === 'paid' || t.paymentStatus === 'reconciled',
+  );
+
+  const map = new Map<string, { count: number; revenue: number; sourceFees: number; patients: Set<string> }>();
 
   for (const tx of transactions) {
     const src = tx.patientSource ?? 'Unknown';
-    if (!map.has(src)) map.set(src, { count: 0, revenue: 0 });
+    if (!map.has(src)) map.set(src, { count: 0, revenue: 0, sourceFees: 0, patients: new Set() });
     const entry = map.get(src)!;
-    entry.count   += 1;
-    entry.revenue += toNum(tx.approvedCharge);
+    entry.count      += 1;
+    entry.revenue    += toNum(tx.approvedCharge);
+    entry.sourceFees += toNum(tx.sourceFeeAmount);
+    if (tx.patientId) entry.patients.add(tx.patientId);
   }
 
-  const total = transactions.length;
+  const totalTxns = transactions.length;
+  const totalUniquePatients = new Set(
+    transactions.map((t) => t.patientId).filter(Boolean),
+  ).size;
 
   const data: SourceStat[] = Array.from(map.entries()).map(([source, stats]) => {
     const label = SOURCE_LABELS[source] ?? { en: source, ar: source };
     return {
-      sourceCode:   source,
-      sourceNameEn: label.en,
-      sourceNameAr: label.ar,
-      count:        stats.count,
-      pct:          total === 0 ? 0 : Math.round((stats.count / total) * 1000) / 10,
-      revenue:      stats.revenue,
+      sourceCode:     source,
+      sourceNameEn:   label.en,
+      sourceNameAr:   label.ar,
+      count:          stats.count,
+      pct:            totalTxns === 0 ? 0 : Math.round((stats.count / totalTxns) * 1000) / 10,
+      revenue:        stats.revenue,
+      sourceFees:     stats.sourceFees,
+      uniquePatients: stats.patients.size,
+      patientPct:     totalUniquePatients === 0 ? 0 : Math.round((stats.patients.size / totalUniquePatients) * 1000) / 10,
     };
   });
 
@@ -660,9 +687,7 @@ export async function getInvoicePdf(
 interface TxFull extends TxRow {
   id?: string;
   paymentMethod?: string;
-  paymentStatus?: string;
   visitType?: string;
-  patientId?: string;
 }
 
 interface ProcurementReceipt {

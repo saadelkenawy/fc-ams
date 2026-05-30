@@ -17,12 +17,15 @@ export interface MonthlyRevenue {
 }
 
 export interface SourceStat {
-  sourceCode:   string;
-  sourceNameEn: string;
-  sourceNameAr: string;
-  count:        number;
-  revenue:      number;
-  pct:          number;
+  sourceCode:     string;
+  sourceNameEn:   string;
+  sourceNameAr:   string;
+  count:          number;
+  revenue:        number;
+  pct:            number;
+  sourceFees:     number;
+  uniquePatients: number;
+  patientPct:     number;
 }
 
 export function useAnalyticsOverview() {
@@ -47,11 +50,17 @@ export function useMonthlyRevenue(months = 7) {
   });
 }
 
-export function useSourceBreakdown() {
+export function useSourceBreakdown(dateFrom?: string, dateTo?: string) {
   return useQuery({
-    queryKey: ['analytics', 'sources'],
+    queryKey: ['analytics', 'sources', dateFrom, dateTo],
     queryFn: async () => {
-      const { data } = await analyticsApi.get<{ success: boolean; data: SourceStat[] }>('/analytics/sources');
+      const params: Record<string, string> = {};
+      if (dateFrom) params.dateFrom = dateFrom;
+      if (dateTo)   params.dateTo   = dateTo;
+      const { data } = await analyticsApi.get<{ success: boolean; data: SourceStat[] }>(
+        '/analytics/sources',
+        { params },
+      );
       return data.data;
     },
     staleTime: 60_000,

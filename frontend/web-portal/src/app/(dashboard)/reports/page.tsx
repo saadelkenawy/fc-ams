@@ -15,8 +15,9 @@ import { Badge } from '@/components/ui/Badge';
 import { useLang } from '@/contexts/LanguageContext';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 import { useTransactions, useSettlements } from '@/hooks/useBilling';
-import { useDoctors } from '@/hooks/useDoctors';
-import { useMonthlyRevenue, useSpecialtyBreakdown, useFinancialSummary } from '@/hooks/useAnalytics';
+import { useDoctors, useSpecialties } from '@/hooks/useDoctors';
+import { useMonthlyRevenue, useSpecialtyBreakdown, useFinancialSummary, useSourceBreakdown } from '@/hooks/useAnalytics';
+import { useSources } from '@/hooks/useSources';
 import type { DoctorSettlement } from '@fadl/types';
 
 const REPORT_TABS = [
@@ -431,89 +432,191 @@ function SettlementsReport({ lang, locale, from, to }: { lang: string; locale: s
 
 /* ──────────────── Source Breakdown ──────────────── */
 const SOURCE_COLORS: Record<string, string> = {
-  VEZ:  '#D97706', EKF:  '#F87171', DO:   '#6366F1',
-  SHL:  '#10B981', 'Cl.s':'#F59E0B', 'Ref.':'#8B5CF6',
+  VEZ:     '#D97706',
+  EKF:     '#F87171',
+  DO:      '#6366F1',
+  SHL:     '#10B981',
+  "Cl.'s": '#F59E0B',
+  "Dr.'s": '#8B5CF6',
 };
 
 function SourcesReport({ lang, locale, from, to }: { lang: string; locale: string; from: string; to: string }) {
-  const { data, isLoading, isError } = useTransactions({ limit: 500, dateFrom: from, dateTo: to });
-  const txns = (data?.data ?? []).filter((t) =>
-    t.paymentStatus === 'approved' || t.paymentStatus === 'paid' || t.paymentStatus === 'reconciled',
-  );
+  const { data: sources, isLoading, isError } = useSourceBreakdown(from, to);
+  const { data: feeRules }   = useSources();
+  const { data: specialties } = useSpecialties();
 
-  const bySource: Record<string, { count: number; revenue: number }> = {};
-  txns.forEach((t) => {
-    if (!bySource[t.patientSource]) bySource[t.patientSource] = { count: 0, revenue: 0 };
-    bySource[t.patientSource].count++;
-    bySource[t.patientSource].revenue += t.approvedCharge;
-  });
-  const total  = Object.values(bySource).reduce((s, v) => s + v.count, 0);
-  const sorted = Object.entries(bySource).sort((a, b) => b[1].count - a[1].count);
+  const specialtyMap = new Map<number, string>();
+  specialties?.forEach((s) => specialtyMap.set(s.id, lang === 'ar' ? s.nameAr : s.nameEn));
+
+  const sorted = (sources ?? []).slice().sort((a, b) => b.uniquePatients - a.uniquePatients);
+  const totalPatients = sorted.reduce((s, r) => s + r.uniquePatients, 0);
 
   if (isLoading) return <div className="flex items-center justify-center py-20 text-gray-400"><Loader2 className="w-5 h-5 animate-spin me-2" /></div>;
-  if (isError)   return <div className="flex items-center justify-center py-20 text-red-400 text-sm">Failed to load source data — please refresh the page.</div>;
+  if (isError)   return <div className="flex items-center justify-center py-20 text-red-400 text-sm">{lang === 'ar' ? 'تعذّر تحميل بيانات المصادر' : 'Failed to load source data — please refresh the page.'}</div>;
 
   return (
     <div className="animate-fade-in space-y-5">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <Card>
-          <CardHeader><CardTitle>{lang === 'ar' ? 'توزيع المصادر' : 'Source Distribution'}</CardTitle></CardHeader>
-          <CardContent>
-            <div className="flex h-4 rounded-full overflow-hidden gap-0.5 mb-4">
-              {sorted.map(([src, stats]) => {
-                const pct = total > 0 ? (stats.count / total) * 100 : 0;
-                return <div key={src} style={{ width: `${pct}%`, backgroundColor: SOURCE_COLORS[src] ?? '#94A3B8' }} title={`${src}: ${pct.toFixed(1)}%`} />;
-              })}
-            </div>
-            <div className="space-y-3">
-              {sorted.map(([src, stats]) => {
-                const pct = total > 0 ? (stats.count / total) * 100 : 0;
-                return (
-                  <div key={src}>
-                    <div className="flex justify-between text-xs mb-1">
-                      <div className="flex items-center gap-2">
-                        <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: SOURCE_COLORS[src] ?? '#94A3B8' }} />
-                        <span className="font-medium text-gray-700 dark:text-gray-300">{src}</span>
-                      </div>
-                      <div className="flex gap-4">
-                        <span className="font-mono tabular-nums text-gray-500">{formatNumber(stats.count, locale)} {lang === 'ar' ? 'معاملة' : 'txns'}</span>
-                        <span className="font-mono tabular-nums font-semibold text-gray-900 dark:text-gray-100">{pct.toFixed(1)}%</span>
-                      </div>
-                    </div>
-                    <div className="h-2 bg-gray-100 dark:bg-neutral-700 rounded-full overflow-hidden">
-                      <div className="h-full w-full origin-left transition-transform duration-500" style={{ transform: `scaleX(${pct / 100})`, backgroundColor: SOURCE_COLORS[src] ?? '#94A3B8' }} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
 
-        <Card>
-          <CardHeader><CardTitle>{lang === 'ar' ? 'إيرادات حسب المصدر' : 'Revenue by Source'}</CardTitle></CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {sorted.map(([src, stats]) => {
-                const totalRev = Object.values(bySource).reduce((s, v) => s + v.revenue, 0);
-                const pct = totalRev > 0 ? (stats.revenue / totalRev) * 100 : 0;
-                return (
-                  <div key={src} className="flex items-center justify-between py-2 border-b border-gray-50 dark:border-neutral-700/50 last:border-0">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: SOURCE_COLORS[src] ?? '#94A3B8' }} />
-                      <span className="text-sm text-gray-700 dark:text-gray-300">{src}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs text-gray-400">{pct.toFixed(1)}%</span>
-                      <span className="text-sm font-mono tabular-nums font-medium text-gray-900 dark:text-gray-100">{formatCurrency(stats.revenue, 'EGP', locale)}</span>
-                    </div>
+      {/* ── Patient distribution ── */}
+      <Card>
+        <CardHeader>
+          <CardTitle>{lang === 'ar' ? 'توزيع المرضى حسب المصدر' : 'Patient Distribution by Source'}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex h-4 rounded-full overflow-hidden gap-0.5 mb-5">
+            {sorted.map((row) => (
+              <div
+                key={row.sourceCode}
+                style={{ width: `${row.patientPct}%`, backgroundColor: SOURCE_COLORS[row.sourceCode] ?? '#94A3B8' }}
+                title={`${row.sourceNameEn}: ${row.patientPct}%`}
+              />
+            ))}
+          </div>
+          <div className="space-y-3">
+            {sorted.map((row) => (
+              <div key={row.sourceCode}>
+                <div className="flex justify-between text-xs mb-1">
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: SOURCE_COLORS[row.sourceCode] ?? '#94A3B8' }} />
+                    <span className="font-medium text-gray-700 dark:text-gray-300">
+                      {lang === 'ar' ? row.sourceNameAr : row.sourceNameEn}
+                    </span>
                   </div>
-                );
-              })}
-            </div>
+                  <div className="flex gap-4 text-end">
+                    <span className="font-mono tabular-nums text-gray-500">
+                      {formatNumber(row.uniquePatients, locale)} {lang === 'ar' ? 'مريض' : 'pts'}
+                    </span>
+                    <span className="font-mono tabular-nums font-semibold text-gray-900 dark:text-gray-100 w-12">
+                      {row.patientPct.toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+                <div className="h-2 bg-gray-100 dark:bg-neutral-700 rounded-full overflow-hidden">
+                  <div
+                    className="h-full origin-left transition-transform duration-500"
+                    style={{ width: '100%', transform: `scaleX(${row.patientPct / 100})`, backgroundColor: SOURCE_COLORS[row.sourceCode] ?? '#94A3B8' }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+          {totalPatients > 0 && (
+            <p className="mt-4 text-xs text-gray-400">
+              {lang === 'ar'
+                ? `إجمالي المرضى الفريدين: ${formatNumber(totalPatients, locale)}`
+                : `Total unique patients: ${formatNumber(totalPatients, locale)}`}
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── Revenue & mediator fees ── */}
+      <Card>
+        <CardHeader>
+          <CardTitle>{lang === 'ar' ? 'الإيرادات ورسوم الوسيط' : 'Revenue & Mediator Fees'}</CardTitle>
+        </CardHeader>
+        <CardContent className="overflow-x-auto p-0">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-100 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-800/50">
+                <th className="px-5 py-3 text-start font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'المصدر' : 'Source'}</th>
+                <th className="px-5 py-3 text-end font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'المرضى' : 'Patients'}</th>
+                <th className="px-5 py-3 text-end font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'الإيرادات' : 'Revenue'}</th>
+                <th className="px-5 py-3 text-end font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'رسوم الوسيط' : 'Mediator Fee'}</th>
+                <th className="px-5 py-3 text-end font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'الصافي' : 'Net Revenue'}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((row) => (
+                <tr key={row.sourceCode} className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-800/30">
+                  <td className="px-5 py-3">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: SOURCE_COLORS[row.sourceCode] ?? '#94A3B8' }} />
+                      <span className="font-medium text-gray-900 dark:text-gray-100">
+                        {lang === 'ar' ? row.sourceNameAr : row.sourceNameEn}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-5 py-3 text-end font-mono tabular-nums text-gray-700 dark:text-gray-300">
+                    {formatNumber(row.uniquePatients, locale)}
+                  </td>
+                  <td className="px-5 py-3 text-end font-mono tabular-nums text-gray-900 dark:text-gray-100">
+                    {formatCurrency(row.revenue, 'EGP', locale)}
+                  </td>
+                  <td className="px-5 py-3 text-end font-mono tabular-nums text-amber-600 dark:text-amber-400">
+                    {row.sourceFees > 0 ? formatCurrency(row.sourceFees, 'EGP', locale) : '—'}
+                  </td>
+                  <td className="px-5 py-3 text-end font-mono tabular-nums font-semibold text-emerald-700 dark:text-emerald-400">
+                    {formatCurrency(row.revenue - row.sourceFees, 'EGP', locale)}
+                  </td>
+                </tr>
+              ))}
+              {sorted.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-5 py-12 text-center text-gray-400">
+                    {lang === 'ar' ? 'لا بيانات' : 'No data'}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
+
+      {/* ── Mediator rate configuration ── */}
+      {feeRules && feeRules.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{lang === 'ar' ? 'نسب رسوم الوسطاء حسب التخصص' : 'Mediator Fee Rates by Specialty'}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {feeRules.filter((r) => r.isActive).map((rule) => (
+              <div key={rule.sourceCode} className="rounded-lg border border-gray-100 dark:border-neutral-700 p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="w-3 h-3 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: SOURCE_COLORS[rule.sourceCode] ?? '#94A3B8' }}
+                    />
+                    <span className="font-semibold text-gray-900 dark:text-gray-100">
+                      {lang === 'ar' ? rule.sourceNameAr : rule.sourceNameEn}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="default" className="text-xs">
+                      {rule.feeType === 'percentage'
+                        ? `${rule.feeValue}%`
+                        : formatCurrency(rule.feeValue, 'EGP', locale)}
+                    </Badge>
+                    <Badge variant="outline" className="text-xs capitalize">
+                      {lang === 'ar'
+                        ? (rule.deductFrom === 'clinic' ? 'من العيادة' : rule.deductFrom === 'doctor' ? 'من الطبيب' : 'مشترك')
+                        : rule.deductFrom}
+                    </Badge>
+                  </div>
+                </div>
+                {rule.specialtyRates.length > 0 && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                    {rule.specialtyRates.map((sr) => (
+                      <div
+                        key={sr.specialtyId}
+                        className="flex items-center justify-between rounded-md bg-gray-50 dark:bg-neutral-800 px-3 py-1.5 text-xs"
+                      >
+                        <span className="text-gray-600 dark:text-gray-400 truncate me-2">
+                          {specialtyMap.get(sr.specialtyId) ?? `Specialty ${sr.specialtyId}`}
+                        </span>
+                        <span className="font-mono font-semibold text-amber-700 dark:text-amber-400 flex-shrink-0">
+                          {rule.feeType === 'percentage' ? `${sr.feeValue}%` : formatCurrency(sr.feeValue, 'EGP', locale)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
           </CardContent>
         </Card>
-      </div>
+      )}
     </div>
   );
 }
