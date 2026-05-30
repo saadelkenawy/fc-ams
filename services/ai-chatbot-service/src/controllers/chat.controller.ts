@@ -446,10 +446,18 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
   let actionResult: Record<string, unknown> | null = null;
 
   if (action && ['book_appointment', 'get_appointments', 'register_patient', 'register_doctor'].includes(String(action.action))) {
-    // The model returned a pure-JSON action — execute it
-    const executionResult = await executeAction(action, authToken, session.language);
-    finalReply  = executionResult ?? rawReply;
-    actionResult = executionResult ? { ...action, result: 'executed' } : action;
+    // Role guard: only admin and receptionist may book appointments
+    if (action.action === 'book_appointment' && !['admin', 'receptionist'].includes(user.role)) {
+      finalReply = session.language === 'ar'
+        ? 'عذراً، حجز المواعيد مقتصر على موظفي الاستقبال والمسؤولين.'
+        : 'Sorry, booking appointments is restricted to receptionists and admins.';
+      actionResult = { ...action, result: 'permission_denied' };
+    } else {
+      // The model returned a pure-JSON action — execute it
+      const executionResult = await executeAction(action, authToken, session.language);
+      finalReply  = executionResult ?? rawReply;
+      actionResult = executionResult ? { ...action, result: 'executed' } : action;
+    }
   } else {
     // Regular reply or suggest_specialty — strip inline JSON from visible text
     finalReply  = rawReply.replace(/\{[^{}]*"action"\s*:[^{}]*\}/g, '').trim();
