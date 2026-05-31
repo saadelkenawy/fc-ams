@@ -19,6 +19,8 @@ type Step =
   | 'get_doctor'
   | 'get_date'
   | 'get_time'
+  | 'get_fee'
+  | 'get_payment'
   | 'confirm'
   | 'done'
   | 'chat';
@@ -35,6 +37,8 @@ interface ConfirmCard {
   doctorName: string;
   dateLabel: string;
   time: string;
+  charge: string;
+  paymentMethod: string;
 }
 
 interface Message {
@@ -55,6 +59,8 @@ interface BookingState {
   date: string;
   dateLabel: string;
   time: string;
+  charge: string;
+  paymentMethod: string;
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -125,9 +131,31 @@ function getSessionId(): string | undefined {
   return localStorage.getItem('fadl_chat_session') ?? undefined;
 }
 
+function normalizeNumericInput(s: string): number | null {
+  const normalized = s.trim()
+    .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660))
+    .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 0x06F0));
+  const n = parseFloat(normalized);
+  return isFinite(n) && n >= 0 ? n : null;
+}
+
+const PAYMENT_OPTIONS = [
+  { label: '💵 نقداً / Cash',    value: 'cash',     icon: '💵' },
+  { label: '💳 بطاقة / Visa',    value: 'visa',     icon: '💳' },
+  { label: '📱 انستاباي / InstaPay', value: 'instapay', icon: '📱' },
+];
+
+function paymentLabel(method: string, lang: 'ar' | 'en'): string {
+  if (lang === 'ar') {
+    return method === 'visa' ? 'بطاقة ائتمانية' : method === 'instapay' ? 'انستاباي' : 'نقداً';
+  }
+  return method === 'visa' ? 'Card (Visa)' : method === 'instapay' ? 'InstaPay' : 'Cash';
+}
+
 const INITIAL_BOOKING: BookingState = {
   step: 'idle', patientName: '', specialtyId: null, specialtyName: '',
   doctorId: '', doctorName: '', date: '', dateLabel: '', time: '',
+  charge: '', paymentMethod: '',
 };
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
@@ -187,6 +215,8 @@ function ConfirmCardWidget({ card, lang, onConfirm, onCancel, loading }: {
           { icon: '👨‍⚕️', label: tl('الطبيب', 'Doctor'),   value: card.doctorName },
           { icon: '📅', label: tl('التاريخ', 'Date'),    value: card.dateLabel },
           { icon: '🕒', label: tl('الوقت', 'Time'),     value: card.time },
+          { icon: '💰', label: tl('التعرفة', 'Fee'),     value: card.charge ? `${card.charge} ${tl('ج.م', 'EGP')}` : tl('—', '—') },
+          { icon: '💳', label: tl('الدفع', 'Payment'),  value: card.paymentMethod ? paymentLabel(card.paymentMethod, lang) : tl('—', '—') },
         ].map((row) => (
           <div key={row.label} className="flex items-center gap-2.5">
             <span className="text-base w-6 flex-shrink-0">{row.icon}</span>
@@ -345,13 +375,41 @@ export default function ChatbotPage() {
     addBot(t('اختر الوقت المناسب:', 'Choose a suitable time:'), pills);
   }
 
-  function handleTimePick(s: Suggestion, currentBooking: BookingState) {
-    setBooking((b) => ({ ...b, time: s.value, step: 'confirm' }));
+  function handleTimePick(s: Suggestion) {
+    setBooking((b) => ({ ...b, time: s.value, step: 'get_fee' }));
+    addBot(t('كم تعرفة الجلسة؟ (أدخل المبلغ بالجنيه)', 'What is the session fee? (enter amount in EGP)'));
+  }
+
+  function handleFeeEntry(feeStr: string) {
+    const fee = normalizeNumericInput(feeStr);
+    if (fee === null) {
+      addBot(t('يرجى إدخال مبلغ صحيح. مثال: 200', 'Please enter a valid amount. Example: 200'));
+      return;
+    }
+    setBooking((b) => ({ ...b, charge: String(fee), step: 'get_payment' }));
+    const pills: Suggestion[] = PAYMENT_OPTIONS.map((p) => ({
+      label: lang === 'ar' ? (p.value === 'cash' ? '💵 نقداً' : p.value === 'visa' ? '💳 بطاقة (Visa)' : '📱 انستاباي')
+                           : (p.value === 'cash' ? '💵 Cash' : p.value === 'visa' ? '💳 Card (Visa)' : '📱 InstaPay'),
+      icon:  p.icon,
+      value: p.value,
+    }));
+    addBot(
+      t(`التعرفة: ${fee} ج.م ✓\n\nما طريقة الدفع المفضلة؟`, `Fee: ${fee} EGP ✓\n\nWhat is the preferred payment method?`),
+      pills,
+    );
+  }
+
+  function handlePaymentPick(s: Suggestion, currentBooking: BookingState) {
+    const method = s.value;
+    setBooking((b) => ({ ...b, paymentMethod: method, step: 'confirm' }));
+    const timeLabel = formatTimeLabel(currentBooking.time, locale);
     const card: ConfirmCard = {
-      patientName: currentBooking.patientName,
-      doctorName:  currentBooking.doctorName,
-      dateLabel:   currentBooking.dateLabel,
-      time:        s.label,
+      patientName:   currentBooking.patientName,
+      doctorName:    currentBooking.doctorName,
+      dateLabel:     currentBooking.dateLabel,
+      time:          timeLabel,
+      charge:        currentBooking.charge,
+      paymentMethod: method,
     };
     addBot(t('راجع تفاصيل الحجز وأكّد:', 'Review the booking details and confirm:'), undefined, card);
   }
@@ -373,6 +431,7 @@ export default function ChatbotPage() {
         return;
       }
 
+      const chargeNum = currentBooking.charge ? parseFloat(currentBooking.charge) : undefined;
       const { data } = await appointmentApi.post<{ data: { id: string } }>('/appointments', {
         patientId:       patient.patientId,
         doctorId:        currentBooking.doctorId,
@@ -383,6 +442,8 @@ export default function ChatbotPage() {
         patientSource:   "Cl.'s",
         specialtyId:     currentBooking.specialtyId,
         idempotencyKey:  `chat-${Date.now()}-${uid()}`,
+        ...(chargeNum !== undefined && chargeNum > 0 ? { approvedCharge: chargeNum } : {}),
+        ...(currentBooking.paymentMethod ? { paymentMethod: currentBooking.paymentMethod } : {}),
       });
 
       const apptId = data.data?.id?.slice(-8).toUpperCase() ?? '';
@@ -461,7 +522,8 @@ export default function ChatbotPage() {
     if (step === 'get_specialty') { handleSpecialtyPick(s); return; }
     if (step === 'get_doctor')    { handleDoctorPick(s); return; }
     if (step === 'get_date')      { handleDatePick(s); return; }
-    if (step === 'get_time')      { handleTimePick(s, booking); return; }
+    if (step === 'get_time')      { handleTimePick(s); return; }
+    if (step === 'get_payment')   { handlePaymentPick(s, booking); return; }
 
     setBooking((b) => ({ ...b, step: 'chat' }));
     void sendToLlm(s.value);
@@ -480,6 +542,7 @@ export default function ChatbotPage() {
     const step = booking.step;
 
     if (step === 'get_patient') { handlePatientName(text); return; }
+    if (step === 'get_fee')     { handleFeeEntry(text); return; }
 
     if (step === 'idle' || step === 'done' || step === 'chat') {
       setBooking((b) => ({ ...b, step: 'chat' }));
@@ -605,6 +668,11 @@ export default function ChatbotPage() {
           {booking.step === 'get_patient' && (
             <p className="text-xs text-primary-600 dark:text-primary-400 mb-2 font-medium animate-pulse">
               {t('✍️ اكتب اسم المريض ثم اضغط Enter', '✍️ Type the patient\'s name then press Enter')}
+            </p>
+          )}
+          {booking.step === 'get_fee' && (
+            <p className="text-xs text-primary-600 dark:text-primary-400 mb-2 font-medium animate-pulse">
+              {t('💰 اكتب تعرفة الجلسة (بالجنيه) ثم اضغط Enter', '💰 Type the session fee (EGP) then press Enter')}
             </p>
           )}
           <form onSubmit={handleSubmit} className="flex items-end gap-2">

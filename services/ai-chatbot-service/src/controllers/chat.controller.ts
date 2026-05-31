@@ -139,6 +139,15 @@ function addMinutes(time: string, mins: number): string {
   return `${hh}:${mm}`;
 }
 
+function normalizeNumericInput(s: string): number | null {
+  // Normalize Arabic-Indic (٠-٩) and Persian (۰-۹) digits to ASCII
+  const normalized = s.trim()
+    .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660))
+    .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 0x06F0));
+  const n = parseFloat(normalized);
+  return isFinite(n) && n >= 0 ? n : null;
+}
+
 // ── Action executor ───────────────────────────────────────────────────────────
 
 async function executeAction(
@@ -223,8 +232,9 @@ async function executeAction(
       idempotencyKey:  `chat-${Date.now()}-${Math.random().toString(36).slice(2)}`,
       specialtyId:     foundDoctor.specialtyId,
     };
-    if (action.paymentMethod) apptBody.paymentMethod = action.paymentMethod;
-    if (action.notes)         apptBody.notes         = action.notes;
+    if (action.approvedCharge) apptBody.approvedCharge = Number(action.approvedCharge);
+    if (action.paymentMethod)  apptBody.paymentMethod  = action.paymentMethod;
+    if (action.notes)          apptBody.notes          = action.notes;
 
     const apptRes = await fetch(`${config.APPOINTMENT_SERVICE_URL}/appointments`, {
       method: 'POST',
@@ -270,9 +280,16 @@ async function executeAction(
           : `\n• Queue #: ${verifiedData.queueNumber}`)
       : '';
 
+    const chargeInfo = action.approvedCharge
+      ? (lang === 'ar' ? `\n• التعرفة: ${action.approvedCharge} ج.م` : `\n• Fee: ${action.approvedCharge} EGP`)
+      : '';
+    const pmInfo = action.paymentMethod
+      ? (lang === 'ar' ? `\n• الدفع: ${paymentMethodLabel(String(action.paymentMethod), 'ar')}` : `\n• Payment: ${paymentMethodLabel(String(action.paymentMethod), 'en')}`)
+      : '';
+
     return lang === 'ar'
-      ? `✅ تم الحجز بنجاح! ✓ مؤكد\n\nتفاصيل الموعد:\n• المريض: ${patientName}\n• الطبيب: ${doctorName}\n• التاريخ: ${date}\n• الوقت: ${time}${queueInfo}\n• رقم الموعد: ${apptId.slice(-8).toUpperCase()}`
-      : `✅ Appointment booked successfully! ✓ verified\n\nDetails:\n• Patient: ${foundPatient.nameEn}\n• Doctor: ${foundDoctor.nameEn}\n• Date: ${date}\n• Time: ${time}${queueInfo}\n• Appointment ID: ${apptId.slice(-8).toUpperCase()}`;
+      ? `✅ تم الحجز بنجاح! ✓ مؤكد\n\nتفاصيل الموعد:\n• المريض: ${patientName}\n• الطبيب: ${doctorName}\n• التاريخ: ${date}\n• الوقت: ${time}${chargeInfo}${pmInfo}${queueInfo}\n• رقم الموعد: ${apptId.slice(-8).toUpperCase()}`
+      : `✅ Appointment booked successfully! ✓ verified\n\nDetails:\n• Patient: ${foundPatient.nameEn}\n• Doctor: ${foundDoctor.nameEn}\n• Date: ${date}\n• Time: ${time}${chargeInfo}${pmInfo}${queueInfo}\n• Appointment ID: ${apptId.slice(-8).toUpperCase()}`;
   }
 
   if (action.action === 'get_appointments') {
@@ -409,9 +426,10 @@ async function executeAction(
 // ── Pending-booking multi-turn types & helpers ────────────────────────────────
 
 interface PendingBooking {
-  stage: 'awaiting_payment' | 'awaiting_extras';
+  stage: 'awaiting_charge' | 'awaiting_payment' | 'awaiting_extras';
   action: Record<string, unknown>;
   paymentMethod?: 'cash' | 'visa' | 'instapay';
+  charge?: number;
 }
 
 interface PendingDoctorSearch {
@@ -696,18 +714,18 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
       return;
     }
 
-    // Unique match — proceed to payment collection (show full recap, same as normal path)
+    // Unique match — proceed to fee collection (show full recap, same as normal path)
     const foundPatient = candidates[0];
     const { pendingPatientDisambig: _removed, ...restCtx } = ctx;
     const origAction = pendingPatientDisambig.action;
     const bookAction = { ...origAction, preResolvedPatient: foundPatient };
-    const newPending: PendingBooking = { stage: 'awaiting_payment', action: bookAction };
+    const newPending: PendingBooking = { stage: 'awaiting_charge', action: bookAction };
     await repo.updateSessionContext(session.id, { ...restCtx, pendingBooking: newPending });
 
     const displayName = session.language === 'ar' ? (foundPatient.nameAr ?? foundPatient.nameEn) : foundPatient.nameEn;
     const paymentQ = session.language === 'ar'
-      ? `تم تحديد المريض: ${displayName}\n\nتفاصيل الموعد:\n• المريض: ${displayName}\n• الطبيب: ${origAction.doctor}\n• التاريخ: ${origAction.date}\n• الوقت: ${origAction.time}\n\nما طريقة الدفع المفضلة؟\n💵 نقداً | 💳 بطاقة (Visa) | 📱 انستاباي`
-      : `Patient confirmed: ${foundPatient.nameEn}\n\nAppointment details:\n• Patient: ${foundPatient.nameEn}\n• Doctor: ${origAction.doctor}\n• Date: ${origAction.date}\n• Time: ${origAction.time}\n\nWhat is the preferred payment method?\n💵 Cash | 💳 Card (Visa) | 📱 InstaPay`;
+      ? `تم تحديد المريض: ${displayName}\n\nتفاصيل الموعد:\n• المريض: ${displayName}\n• الطبيب: ${origAction.doctor}\n• التاريخ: ${origAction.date}\n• الوقت: ${origAction.time}\n\nكم تعرفة الجلسة؟ (أدخل المبلغ بالجنيه)`
+      : `Patient confirmed: ${foundPatient.nameEn}\n\nAppointment details:\n• Patient: ${foundPatient.nameEn}\n• Doctor: ${origAction.doctor}\n• Date: ${origAction.date}\n• Time: ${origAction.time}\n\nWhat is the session fee? (enter amount in EGP)`;
     await repo.saveMessage(session.id, 'assistant', paymentQ, {});
     void reply.send({ success: true, data: { sessionId: session.id, reply: paymentQ, action: null, language: session.language } });
     return;
@@ -740,8 +758,38 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
     return;
   }
 
-  // ── Pending booking: multi-turn payment + extras collection ──────────────
+  // ── Pending booking: multi-turn fee + payment + extras collection ────────
   const pending = ctx.pendingBooking as PendingBooking | undefined;
+
+  if (pending?.stage === 'awaiting_charge') {
+    if (!['admin', 'receptionist'].includes(user.role)) {
+      const { pendingBooking: _removed, ...restCtx } = ctx;
+      await repo.updateSessionContext(session.id, restCtx);
+      const denied = session.language === 'ar'
+        ? 'عذراً، حجز المواعيد مقتصر على موظفي الاستقبال والمسؤولين.'
+        : 'Sorry, booking appointments is restricted to receptionists and admins.';
+      await repo.saveMessage(session.id, 'assistant', denied, {});
+      void reply.send({ success: true, data: { sessionId: session.id, reply: denied, action: null, language: session.language } });
+      return;
+    }
+    const charge = normalizeNumericInput(input.message);
+    if (charge === null) {
+      const retry = session.language === 'ar'
+        ? 'يرجى إدخال مبلغ صحيح. مثال: 200'
+        : 'Please enter a valid amount. Example: 200';
+      await repo.saveMessage(session.id, 'assistant', retry, {});
+      void reply.send({ success: true, data: { sessionId: session.id, reply: retry, action: null, language: session.language } });
+      return;
+    }
+    const updatedAfterCharge: PendingBooking = { ...pending, stage: 'awaiting_payment', charge };
+    await repo.updateSessionContext(session.id, { ...ctx, pendingBooking: updatedAfterCharge });
+    const paymentQ = session.language === 'ar'
+      ? `التعرفة: ${charge} ج.م ✓\n\nما طريقة الدفع المفضلة؟\n💵 نقداً | 💳 بطاقة (Visa) | 📱 انستاباي`
+      : `Fee: ${charge} EGP ✓\n\nWhat is the preferred payment method?\n💵 Cash | 💳 Card (Visa) | 📱 InstaPay`;
+    await repo.saveMessage(session.id, 'assistant', paymentQ, {});
+    void reply.send({ success: true, data: { sessionId: session.id, reply: paymentQ, action: null, language: session.language } });
+    return;
+  }
 
   if (pending?.stage === 'awaiting_payment') {
     if (!['admin', 'receptionist'].includes(user.role)) {
@@ -782,7 +830,12 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
     const hasExtras = !noPattern.test(input.message.trim());
     const notes = hasExtras ? input.message.trim() : undefined;
 
-    const bookAction = { ...pending.action, paymentMethod: pending.paymentMethod, ...(notes ? { notes } : {}) };
+    const bookAction = {
+      ...pending.action,
+      ...(pending.charge !== undefined ? { approvedCharge: pending.charge } : {}),
+      paymentMethod: pending.paymentMethod,
+      ...(notes ? { notes } : {}),
+    };
     const { pendingBooking: _removed, ...restCtx } = ctx;
     await repo.updateSessionContext(session.id, restCtx);
 
@@ -908,16 +961,16 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
             : `Multiple patients found with the name "${patientName}":\n${candidateList}\n\nPlease enter the full name (first and last name) to identify the correct patient.`;
           actionResult = { ...action, result: 'awaiting_patient_disambiguation' };
         } else {
-          // Unique match — proceed to payment
+          // Unique match — proceed to fee collection
           const foundPatient = upfrontCandidates[0];
           const bookAction = { ...action, preResolvedPatient: foundPatient };
-          const pendingBooking: PendingBooking = { stage: 'awaiting_payment', action: bookAction };
+          const pendingBooking: PendingBooking = { stage: 'awaiting_charge', action: bookAction };
           await repo.updateSessionContext(session.id, { ...ctx, pendingBooking });
           const displayName = session.language === 'ar' ? (foundPatient.nameAr ?? foundPatient.nameEn) : foundPatient.nameEn;
           finalReply = session.language === 'ar'
-            ? `رائع! تفاصيل الموعد:\n• المريض: ${displayName}\n• الطبيب: ${action.doctor}\n• التاريخ: ${action.date}\n• الوقت: ${action.time}\n\nما طريقة الدفع المفضلة؟\n💵 نقداً | 💳 بطاقة (Visa) | 📱 انستاباي`
-            : `Great! Appointment details:\n• Patient: ${foundPatient.nameEn}\n• Doctor: ${action.doctor}\n• Date: ${action.date}\n• Time: ${action.time}\n\nWhat is the preferred payment method?\n💵 Cash | 💳 Card (Visa) | 📱 InstaPay`;
-          actionResult = { ...action, result: 'awaiting_payment' };
+            ? `رائع! تفاصيل الموعد:\n• المريض: ${displayName}\n• الطبيب: ${action.doctor}\n• التاريخ: ${action.date}\n• الوقت: ${action.time}\n\nكم تعرفة الجلسة؟ (أدخل المبلغ بالجنيه)`
+            : `Great! Appointment details:\n• Patient: ${foundPatient.nameEn}\n• Doctor: ${action.doctor}\n• Date: ${action.date}\n• Time: ${action.time}\n\nWhat is the session fee? (enter amount in EGP)`;
+          actionResult = { ...action, result: 'awaiting_charge' };
         }
       }
       } // end else (patientName non-empty)
