@@ -52,8 +52,10 @@ export async function createSession(patientId: string | undefined, language: 'ar
   return rowToSession(rows[0] as Record<string, unknown>);
 }
 
-export async function getSession(id: string): Promise<ChatSession | null> {
-  const { rows } = await pool.query(`SELECT * FROM chat_sessions WHERE id = $1`, [id]);
+export async function getSession(id: string, branchId?: number): Promise<ChatSession | null> {
+  const { rows } = branchId != null
+    ? await pool.query(`SELECT * FROM chat_sessions WHERE id = $1 AND branch_id = $2`, [id, branchId])
+    : await pool.query(`SELECT * FROM chat_sessions WHERE id = $1`, [id]);
   return rows.length ? rowToSession(rows[0] as Record<string, unknown>) : null;
 }
 

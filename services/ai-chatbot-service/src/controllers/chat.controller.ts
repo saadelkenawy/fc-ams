@@ -614,7 +614,7 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
   const authToken  = authHeader.replace(/^Bearer\s+/i, '');
 
   // Get or create session
-  let session = input.sessionId ? await repo.getSession(input.sessionId) : null;
+  let session = input.sessionId ? await repo.getSession(input.sessionId, user.branchId ?? 1) : null;
   if (!session) {
     session = await repo.createSession(input.patientId ?? user.sub, input.language, user.branchId ?? 1);
   }
@@ -633,12 +633,26 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
 
   if (pendingPatientDisambig?.stage === 'awaiting_patient_full_name') {
     const fullName = input.message.trim();
+
+    // Escape hatch — let user cancel or restart without being stuck in this state
+    const CANCEL_RE = /^(إلغاء|الغاء|cancel|exit|quit|stop|انتهى|خروج|back|رجوع|بداية|حجز\s*جديد|new\s*booking)$/i;
+    if (!fullName || CANCEL_RE.test(fullName)) {
+      const { pendingPatientDisambig: _removed, ...restCtx } = ctx;
+      await repo.updateSessionContext(session.id, restCtx);
+      const cancelMsg = !fullName
+        ? (session.language === 'ar' ? 'يرجى كتابة الاسم الكامل للمريض.' : 'Please enter the patient full name.')
+        : (session.language === 'ar' ? 'تم إلغاء البحث. كيف يمكنني مساعدتك؟' : 'Search cancelled. How can I help you?');
+      await repo.saveMessage(session.id, 'assistant', cancelMsg, {});
+      void reply.send({ success: true, data: { sessionId: session.id, reply: cancelMsg, action: null, language: session.language } });
+      return;
+    }
+
     const disambigHeaders = {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${authToken}`,
     };
     const patRes = await fetch(
-      `${config.PATIENT_SERVICE_URL}/patients?q=${encodeURIComponent(fullName)}&limit=5`,
+      `${config.PATIENT_SERVICE_URL}/patients?q=${encodeURIComponent(fullName)}&limit=10`,
       { headers: disambigHeaders },
     );
 
@@ -655,7 +669,7 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
     const candidates = patData.data ?? [];
 
     if (candidates.length === 0) {
-      const { pendingPatientDisambig: _r, ...restCtx } = ctx;
+      const { pendingPatientDisambig: _removed, ...restCtx } = ctx;
       await repo.updateSessionContext(session.id, restCtx);
       const notFound = session.language === 'ar'
         ? `لم يُعثر على مريض باسم "${fullName}". تحقق من الاسم أو سجّل المريض أولاً.`
@@ -668,24 +682,32 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
     if (candidates.length > 1) {
       const candidateList = candidates.map((c) => `• ${c.nameAr ?? c.nameEn}`).join('\n');
       await repo.updateSessionContext(session.id, { ...ctx, pendingPatientDisambig: { ...pendingPatientDisambig, candidates } });
+      // If we hit the limit cap, the name is too common — tell the user to be more specific
+      const tooMany = candidates.length >= 10;
       const stillAmbig = session.language === 'ar'
-        ? `لا يزال هناك أكثر من مريض بهذا الاسم:\n${candidateList}\n\nيرجى كتابة الاسم الكامل بدقة أكبر.`
-        : `Still multiple patients found:\n${candidateList}\n\nPlease enter the full name more precisely.`;
+        ? (tooMany
+            ? `الاسم شائع جداً. يرجى كتابة الاسم الثلاثي أو رباعي كاملاً للتضييق.`
+            : `لا يزال هناك أكثر من مريض بهذا الاسم:\n${candidateList}\n\nيرجى كتابة الاسم الكامل بدقة أكبر.`)
+        : (tooMany
+            ? `This name is very common. Please enter the full three- or four-part name to narrow it down.`
+            : `Still multiple patients found:\n${candidateList}\n\nPlease enter the full name more precisely.`);
       await repo.saveMessage(session.id, 'assistant', stillAmbig, {});
       void reply.send({ success: true, data: { sessionId: session.id, reply: stillAmbig, action: null, language: session.language } });
       return;
     }
 
-    // Unique match — proceed to payment collection
+    // Unique match — proceed to payment collection (show full recap, same as normal path)
     const foundPatient = candidates[0];
-    const { pendingPatientDisambig: _r, ...restCtx } = ctx;
-    const bookAction = { ...pendingPatientDisambig.action, preResolvedPatient: foundPatient };
+    const { pendingPatientDisambig: _removed, ...restCtx } = ctx;
+    const origAction = pendingPatientDisambig.action;
+    const bookAction = { ...origAction, preResolvedPatient: foundPatient };
     const newPending: PendingBooking = { stage: 'awaiting_payment', action: bookAction };
     await repo.updateSessionContext(session.id, { ...restCtx, pendingBooking: newPending });
 
+    const displayName = session.language === 'ar' ? (foundPatient.nameAr ?? foundPatient.nameEn) : foundPatient.nameEn;
     const paymentQ = session.language === 'ar'
-      ? `تم تحديد المريض: ${foundPatient.nameAr ?? foundPatient.nameEn}\n\nما طريقة الدفع المفضلة؟\n💵 نقداً | 💳 بطاقة (Visa) | 📱 انستاباي`
-      : `Patient confirmed: ${foundPatient.nameEn}\n\nWhat is the preferred payment method?\n💵 Cash | 💳 Card (Visa) | 📱 InstaPay`;
+      ? `تم تحديد المريض: ${displayName}\n\nتفاصيل الموعد:\n• المريض: ${displayName}\n• الطبيب: ${origAction.doctor}\n• التاريخ: ${origAction.date}\n• الوقت: ${origAction.time}\n\nما طريقة الدفع المفضلة؟\n💵 نقداً | 💳 بطاقة (Visa) | 📱 انستاباي`
+      : `Patient confirmed: ${foundPatient.nameEn}\n\nAppointment details:\n• Patient: ${foundPatient.nameEn}\n• Doctor: ${origAction.doctor}\n• Date: ${origAction.date}\n• Time: ${origAction.time}\n\nWhat is the preferred payment method?\n💵 Cash | 💳 Card (Visa) | 📱 InstaPay`;
     await repo.saveMessage(session.id, 'assistant', paymentQ, {});
     void reply.send({ success: true, data: { sessionId: session.id, reply: paymentQ, action: null, language: session.language } });
     return;
@@ -722,6 +744,16 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
   const pending = ctx.pendingBooking as PendingBooking | undefined;
 
   if (pending?.stage === 'awaiting_payment') {
+    if (!['admin', 'receptionist'].includes(user.role)) {
+      const { pendingBooking: _removed, ...restCtx } = ctx;
+      await repo.updateSessionContext(session.id, restCtx);
+      const denied = session.language === 'ar'
+        ? 'عذراً، حجز المواعيد مقتصر على موظفي الاستقبال والمسؤولين.'
+        : 'Sorry, booking appointments is restricted to receptionists and admins.';
+      await repo.saveMessage(session.id, 'assistant', denied, {});
+      void reply.send({ success: true, data: { sessionId: session.id, reply: denied, action: null, language: session.language } });
+      return;
+    }
     const paymentMethod = normalizePaymentMethod(input.message);
     const updated: PendingBooking = { ...pending, stage: 'awaiting_extras', paymentMethod };
     await repo.updateSessionContext(session.id, { ...ctx, pendingBooking: updated });
@@ -736,6 +768,16 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
   }
 
   if (pending?.stage === 'awaiting_extras') {
+    if (!['admin', 'receptionist'].includes(user.role)) {
+      const { pendingBooking: _removed, ...restCtx } = ctx;
+      await repo.updateSessionContext(session.id, restCtx);
+      const denied = session.language === 'ar'
+        ? 'عذراً، حجز المواعيد مقتصر على موظفي الاستقبال والمسؤولين.'
+        : 'Sorry, booking appointments is restricted to receptionists and admins.';
+      await repo.saveMessage(session.id, 'assistant', denied, {});
+      void reply.send({ success: true, data: { sessionId: session.id, reply: denied, action: null, language: session.language } });
+      return;
+    }
     const noPattern = /^(لا|لأ|no|none|nothing|لا\s*شيء|لاشيء)$/i;
     const hasExtras = !noPattern.test(input.message.trim());
     const notes = hasExtras ? input.message.trim() : undefined;
@@ -748,8 +790,10 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
     const finalReply = executionResult ?? (session.language === 'ar' ? 'حدث خطأ أثناء الحجز.' : 'Booking error.');
 
     const actionResult = { ...bookAction, result: 'executed' };
+    // Strip PII (preResolvedPatient, notes) from the long-lived lastAction context entry
+    const { preResolvedPatient: _p, notes: _n, ...auditAction } = bookAction as Record<string, unknown>;
     await repo.saveMessage(session.id, 'assistant', finalReply, { action: actionResult });
-    await repo.updateSessionContext(session.id, { ...restCtx, lastAction: actionResult });
+    await repo.updateSessionContext(session.id, { ...restCtx, lastAction: { ...auditAction, result: 'executed' } });
 
     void reply.send({ success: true, data: { sessionId: session.id, reply: finalReply, action: actionResult, language: session.language } });
     return;
@@ -820,13 +864,19 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
       actionResult = { ...action, result: 'permission_denied' };
     } else if (action.action === 'book_appointment') {
       // Resolve patient upfront so we catch ambiguity before asking for payment
-      const patientName = String(action.patient ?? '');
+      const patientName = String(action.patient ?? '').trim();
+      if (!patientName) {
+        finalReply = session.language === 'ar'
+          ? 'يرجى تحديد اسم المريض لإتمام الحجز.'
+          : 'Please provide a patient name to complete the booking.';
+        actionResult = { ...action, result: 'missing_patient_name' };
+      } else {
       const upfrontHeaders = {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${authToken}`,
       };
       const upfrontPatRes = await fetch(
-        `${config.PATIENT_SERVICE_URL}/patients?q=${encodeURIComponent(patientName)}&limit=5`,
+        `${config.PATIENT_SERVICE_URL}/patients?q=${encodeURIComponent(patientName)}&limit=10`,
         { headers: upfrontHeaders },
       );
 
@@ -870,6 +920,7 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
           actionResult = { ...action, result: 'awaiting_payment' };
         }
       }
+      } // end else (patientName non-empty)
     } else if (action.action === 'ask_specialty') {
       // Save pending state and ask user to choose specialty
       const pendingSearch: PendingDoctorSearch = { stage: 'awaiting_specialty' };
