@@ -178,20 +178,24 @@ async function executeAction(
     }
 
     // Create appointment
+    const apptBody: Record<string, unknown> = {
+      patientId:       foundPatient.patientId,
+      doctorId:        foundDoctor.id,
+      appointmentDate: date,
+      startTime:       time,
+      endTime:         addMinutes(time, 30),
+      appointmentType: 'in_person',
+      patientSource:   "Cl.'s",
+      idempotencyKey:  `chat-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      specialtyId:     foundDoctor.specialtyId,
+    };
+    if (action.paymentMethod) apptBody.paymentMethod = action.paymentMethod;
+    if (action.notes)         apptBody.notes         = action.notes;
+
     const apptRes = await fetch(`${config.APPOINTMENT_SERVICE_URL}/appointments`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({
-        patientId:       foundPatient.patientId,
-        doctorId:        foundDoctor.id,
-        appointmentDate: date,
-        startTime:       time,
-        endTime:         addMinutes(time, 30),
-        appointmentType: 'in_person',
-        patientSource:   "Cl.'s",
-        idempotencyKey:  `chat-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        specialtyId:     foundDoctor.specialtyId,
-      }),
+      body: JSON.stringify(apptBody),
     });
 
     if (!apptRes.ok) {
@@ -368,6 +372,29 @@ async function executeAction(
   return null;
 }
 
+// ── Pending-booking multi-turn types & helpers ────────────────────────────────
+
+interface PendingBooking {
+  stage: 'awaiting_payment' | 'awaiting_extras';
+  action: Record<string, unknown>;
+  paymentMethod?: 'cash' | 'visa' | 'instapay';
+}
+
+function normalizePaymentMethod(input: string): 'cash' | 'visa' | 'instapay' {
+  const lower = input.toLowerCase();
+  if (/cash|نقد|كاش|نقداً|نقدا/.test(lower)) return 'cash';
+  if (/visa|card|بطاق|كارت|فيزا|credit|debit/.test(lower)) return 'visa';
+  if (/instapay|insta|انستا|إنستا/.test(lower)) return 'instapay';
+  return 'cash'; // default
+}
+
+function paymentMethodLabel(method: string, lang: 'ar' | 'en'): string {
+  if (lang === 'ar') {
+    return method === 'visa' ? 'بطاقة ائتمانية' : method === 'instapay' ? 'انستاباي' : 'نقداً';
+  }
+  return method === 'visa' ? 'Card (Visa)' : method === 'instapay' ? 'InstaPay' : 'Cash';
+}
+
 // ── Controllers ───────────────────────────────────────────────────────────────
 
 export async function sendMessage(request: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -389,6 +416,45 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
 
   // Save user message
   await repo.saveMessage(session.id, 'user', input.message);
+
+  // ── Pending booking: multi-turn payment + extras collection ──────────────
+  const ctx = (session.context ?? {}) as Record<string, unknown>;
+  const pending = ctx.pendingBooking as PendingBooking | undefined;
+
+  if (pending?.stage === 'awaiting_payment') {
+    const paymentMethod = normalizePaymentMethod(input.message);
+    const updated: PendingBooking = { ...pending, stage: 'awaiting_extras', paymentMethod };
+    await repo.updateSessionContext(session.id, { ...ctx, pendingBooking: updated });
+
+    const extrasQ = session.language === 'ar'
+      ? `شكراً! طريقة الدفع: ${paymentMethodLabel(paymentMethod, 'ar')}.\n\nهل هناك خدمات إضافية مطلوبة أو مستندات للرفع للطبيب؟\n(مثلاً: تحاليل، أشعة، تقارير طبية)\nأو اكتب "لا" إذا لم يكن هناك شيء إضافي.`
+      : `Thank you! Payment method: ${paymentMethodLabel(paymentMethod, 'en')}.\n\nAre there any additional services needed or documents to upload for the doctor?\n(e.g., lab results, X-rays, medical reports)\nOr type "no" if nothing else is needed.`;
+
+    await repo.saveMessage(session.id, 'assistant', extrasQ, {});
+    void reply.send({ success: true, data: { sessionId: session.id, reply: extrasQ, action: null, language: session.language } });
+    return;
+  }
+
+  if (pending?.stage === 'awaiting_extras') {
+    const noPattern = /^(لا|لأ|no|none|nothing|لا\s*شيء|لاشيء)$/i;
+    const hasExtras = !noPattern.test(input.message.trim());
+    const notes = hasExtras ? input.message.trim() : undefined;
+
+    const bookAction = { ...pending.action, paymentMethod: pending.paymentMethod, ...(notes ? { notes } : {}) };
+    const { pendingBooking: _removed, ...restCtx } = ctx;
+    await repo.updateSessionContext(session.id, restCtx);
+
+    const executionResult = await executeAction(bookAction, authToken, session.language);
+    const finalReply = executionResult ?? (session.language === 'ar' ? 'حدث خطأ أثناء الحجز.' : 'Booking error.');
+
+    const actionResult = { ...bookAction, result: 'executed' };
+    await repo.saveMessage(session.id, 'assistant', finalReply, { action: actionResult });
+    await repo.updateSessionContext(session.id, { ...restCtx, lastAction: actionResult });
+
+    void reply.send({ success: true, data: { sessionId: session.id, reply: finalReply, action: actionResult, language: session.language } });
+    return;
+  }
+  // ─────────────────────────────────────────────────────────────────────────
 
   // Build messages
   const chatMessages = [
@@ -452,6 +518,15 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
         ? 'عذراً، حجز المواعيد مقتصر على موظفي الاستقبال والمسؤولين.'
         : 'Sorry, booking appointments is restricted to receptionists and admins.';
       actionResult = { ...action, result: 'permission_denied' };
+    } else if (action.action === 'book_appointment') {
+      // Start multi-turn collection: ask for payment method first
+      const pendingBooking: PendingBooking = { stage: 'awaiting_payment', action: { ...action } };
+      await repo.updateSessionContext(session.id, { ...ctx, pendingBooking });
+
+      finalReply = session.language === 'ar'
+        ? `رائع! تفاصيل الموعد:\n• المريض: ${action.patient}\n• الطبيب: ${action.doctor}\n• التاريخ: ${action.date}\n• الوقت: ${action.time}\n\nما طريقة الدفع المفضلة؟\n💵 نقداً | 💳 بطاقة (Visa) | 📱 انستاباي`
+        : `Great! Appointment details:\n• Patient: ${action.patient}\n• Doctor: ${action.doctor}\n• Date: ${action.date}\n• Time: ${action.time}\n\nWhat is the preferred payment method?\n💵 Cash | 💳 Card (Visa) | 📱 InstaPay`;
+      actionResult = { ...action, result: 'awaiting_payment' };
     } else {
       // The model returned a pure-JSON action — execute it
       const executionResult = await executeAction(action, authToken, session.language);
@@ -469,7 +544,7 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
 
   // Update session context with latest action
   if (actionResult) {
-    await repo.updateSessionContext(session.id, { ...session.context, lastAction: actionResult });
+    await repo.updateSessionContext(session.id, { ...ctx, lastAction: actionResult });
   }
 
   void reply.send({
