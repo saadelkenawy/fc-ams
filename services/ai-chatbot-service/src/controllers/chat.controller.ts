@@ -169,22 +169,28 @@ async function executeAction(
         : 'Invalid time format. Use HH:MM, e.g. 09:00.';
     }
 
-    // Resolve patient by name search
-    const patRes = await fetch(
-      `${config.PATIENT_SERVICE_URL}/patients?q=${encodeURIComponent(patient)}&limit=1`,
-      { headers },
-    );
-    if (!patRes.ok) {
-      return lang === 'ar'
-        ? `تعذّر البحث عن المريض "${patient}". يرجى التحقق من الاسم.`
-        : `Could not find patient "${patient}". Please check the name.`;
-    }
-    const patData = await patRes.json() as { data?: { patientId: string; nameEn: string; nameAr?: string }[] };
-    const foundPatient = patData.data?.[0];
-    if (!foundPatient) {
-      return lang === 'ar'
-        ? `لم يُعثر على مريض باسم "${patient}". تحقق من الاسم أو سجّل المريض أولاً.`
-        : `No patient found with name "${patient}". Please verify or register the patient first.`;
+    // Resolve patient — use pre-resolved candidate when available (set during disambiguation)
+    let foundPatient: PatientCandidate;
+    if (action.preResolvedPatient) {
+      foundPatient = action.preResolvedPatient as PatientCandidate;
+    } else {
+      const patRes = await fetch(
+        `${config.PATIENT_SERVICE_URL}/patients?q=${encodeURIComponent(patient)}&limit=1`,
+        { headers },
+      );
+      if (!patRes.ok) {
+        return lang === 'ar'
+          ? `تعذّر البحث عن المريض "${patient}". يرجى التحقق من الاسم.`
+          : `Could not find patient "${patient}". Please check the name.`;
+      }
+      const patData = await patRes.json() as { data?: PatientCandidate[] };
+      const resolved = patData.data?.[0];
+      if (!resolved) {
+        return lang === 'ar'
+          ? `لم يُعثر على مريض باسم "${patient}". تحقق من الاسم أو سجّل المريض أولاً.`
+          : `No patient found with name "${patient}". Please verify or register the patient first.`;
+      }
+      foundPatient = resolved;
     }
 
     // Resolve doctor by name search
@@ -412,6 +418,18 @@ interface PendingDoctorSearch {
   stage: 'awaiting_specialty';
 }
 
+interface PatientCandidate {
+  patientId: string;
+  nameEn: string;
+  nameAr?: string;
+}
+
+interface PendingPatientDisambiguation {
+  stage: 'awaiting_patient_full_name';
+  action: Record<string, unknown>;
+  candidates: PatientCandidate[];
+}
+
 function normalizePaymentMethod(input: string): 'cash' | 'visa' | 'instapay' {
   const lower = input.toLowerCase();
   if (/cash|نقد|كاش|نقداً|نقدا/.test(lower)) return 'cash';
@@ -609,6 +627,70 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
 
   // ── Pending doctor search: specialty selection ────────────────────────────
   const ctx = (session.context ?? {}) as Record<string, unknown>;
+
+  // ── Pending patient disambiguation: full-name collection ─────────────────
+  const pendingPatientDisambig = ctx.pendingPatientDisambig as PendingPatientDisambiguation | undefined;
+
+  if (pendingPatientDisambig?.stage === 'awaiting_patient_full_name') {
+    const fullName = input.message.trim();
+    const disambigHeaders = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${authToken}`,
+    };
+    const patRes = await fetch(
+      `${config.PATIENT_SERVICE_URL}/patients?q=${encodeURIComponent(fullName)}&limit=5`,
+      { headers: disambigHeaders },
+    );
+
+    if (!patRes.ok) {
+      const errMsg = session.language === 'ar'
+        ? 'تعذّر البحث. يرجى المحاولة مرة أخرى.'
+        : 'Search failed. Please try again.';
+      await repo.saveMessage(session.id, 'assistant', errMsg, {});
+      void reply.send({ success: true, data: { sessionId: session.id, reply: errMsg, action: null, language: session.language } });
+      return;
+    }
+
+    const patData = await patRes.json() as { data?: PatientCandidate[] };
+    const candidates = patData.data ?? [];
+
+    if (candidates.length === 0) {
+      const { pendingPatientDisambig: _r, ...restCtx } = ctx;
+      await repo.updateSessionContext(session.id, restCtx);
+      const notFound = session.language === 'ar'
+        ? `لم يُعثر على مريض باسم "${fullName}". تحقق من الاسم أو سجّل المريض أولاً.`
+        : `No patient found with name "${fullName}". Please verify or register the patient first.`;
+      await repo.saveMessage(session.id, 'assistant', notFound, {});
+      void reply.send({ success: true, data: { sessionId: session.id, reply: notFound, action: null, language: session.language } });
+      return;
+    }
+
+    if (candidates.length > 1) {
+      const candidateList = candidates.map((c) => `• ${c.nameAr ?? c.nameEn}`).join('\n');
+      await repo.updateSessionContext(session.id, { ...ctx, pendingPatientDisambig: { ...pendingPatientDisambig, candidates } });
+      const stillAmbig = session.language === 'ar'
+        ? `لا يزال هناك أكثر من مريض بهذا الاسم:\n${candidateList}\n\nيرجى كتابة الاسم الكامل بدقة أكبر.`
+        : `Still multiple patients found:\n${candidateList}\n\nPlease enter the full name more precisely.`;
+      await repo.saveMessage(session.id, 'assistant', stillAmbig, {});
+      void reply.send({ success: true, data: { sessionId: session.id, reply: stillAmbig, action: null, language: session.language } });
+      return;
+    }
+
+    // Unique match — proceed to payment collection
+    const foundPatient = candidates[0];
+    const { pendingPatientDisambig: _r, ...restCtx } = ctx;
+    const bookAction = { ...pendingPatientDisambig.action, preResolvedPatient: foundPatient };
+    const newPending: PendingBooking = { stage: 'awaiting_payment', action: bookAction };
+    await repo.updateSessionContext(session.id, { ...restCtx, pendingBooking: newPending });
+
+    const paymentQ = session.language === 'ar'
+      ? `تم تحديد المريض: ${foundPatient.nameAr ?? foundPatient.nameEn}\n\nما طريقة الدفع المفضلة؟\n💵 نقداً | 💳 بطاقة (Visa) | 📱 انستاباي`
+      : `Patient confirmed: ${foundPatient.nameEn}\n\nWhat is the preferred payment method?\n💵 Cash | 💳 Card (Visa) | 📱 InstaPay`;
+    await repo.saveMessage(session.id, 'assistant', paymentQ, {});
+    void reply.send({ success: true, data: { sessionId: session.id, reply: paymentQ, action: null, language: session.language } });
+    return;
+  }
+
   const pendingDoctorSearch = ctx.pendingDoctorSearch as PendingDoctorSearch | undefined;
 
   if (pendingDoctorSearch?.stage === 'awaiting_specialty') {
@@ -737,14 +819,57 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
         : 'Sorry, booking appointments is restricted to receptionists and admins.';
       actionResult = { ...action, result: 'permission_denied' };
     } else if (action.action === 'book_appointment') {
-      // Start multi-turn collection: ask for payment method first
-      const pendingBooking: PendingBooking = { stage: 'awaiting_payment', action: { ...action } };
-      await repo.updateSessionContext(session.id, { ...ctx, pendingBooking });
+      // Resolve patient upfront so we catch ambiguity before asking for payment
+      const patientName = String(action.patient ?? '');
+      const upfrontHeaders = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`,
+      };
+      const upfrontPatRes = await fetch(
+        `${config.PATIENT_SERVICE_URL}/patients?q=${encodeURIComponent(patientName)}&limit=5`,
+        { headers: upfrontHeaders },
+      );
 
-      finalReply = session.language === 'ar'
-        ? `رائع! تفاصيل الموعد:\n• المريض: ${action.patient}\n• الطبيب: ${action.doctor}\n• التاريخ: ${action.date}\n• الوقت: ${action.time}\n\nما طريقة الدفع المفضلة؟\n💵 نقداً | 💳 بطاقة (Visa) | 📱 انستاباي`
-        : `Great! Appointment details:\n• Patient: ${action.patient}\n• Doctor: ${action.doctor}\n• Date: ${action.date}\n• Time: ${action.time}\n\nWhat is the preferred payment method?\n💵 Cash | 💳 Card (Visa) | 📱 InstaPay`;
-      actionResult = { ...action, result: 'awaiting_payment' };
+      if (!upfrontPatRes.ok) {
+        finalReply = session.language === 'ar'
+          ? `تعذّر البحث عن المريض "${patientName}". يرجى التحقق من الاسم.`
+          : `Could not search for patient "${patientName}". Please check the name.`;
+        actionResult = { ...action, result: 'patient_search_failed' };
+      } else {
+        const upfrontPatData = await upfrontPatRes.json() as { data?: PatientCandidate[] };
+        const upfrontCandidates = upfrontPatData.data ?? [];
+
+        if (upfrontCandidates.length === 0) {
+          finalReply = session.language === 'ar'
+            ? `لم يُعثر على مريض باسم "${patientName}". تحقق من الاسم أو سجّل المريض أولاً.`
+            : `No patient found with name "${patientName}". Please verify or register the patient first.`;
+          actionResult = { ...action, result: 'patient_not_found' };
+        } else if (upfrontCandidates.length > 1) {
+          // Ambiguous — save disambiguation state and ask for full name
+          const candidateList = upfrontCandidates.map((c) => `• ${c.nameAr ?? c.nameEn}`).join('\n');
+          const pendingDisambig: PendingPatientDisambiguation = {
+            stage: 'awaiting_patient_full_name',
+            action: { ...action },
+            candidates: upfrontCandidates,
+          };
+          await repo.updateSessionContext(session.id, { ...ctx, pendingPatientDisambig: pendingDisambig });
+          finalReply = session.language === 'ar'
+            ? `وُجد أكثر من مريض باسم "${patientName}":\n${candidateList}\n\nيرجى كتابة الاسم الكامل (الاسم الأول والأخير) لتحديد المريض بدقة.`
+            : `Multiple patients found with the name "${patientName}":\n${candidateList}\n\nPlease enter the full name (first and last name) to identify the correct patient.`;
+          actionResult = { ...action, result: 'awaiting_patient_disambiguation' };
+        } else {
+          // Unique match — proceed to payment
+          const foundPatient = upfrontCandidates[0];
+          const bookAction = { ...action, preResolvedPatient: foundPatient };
+          const pendingBooking: PendingBooking = { stage: 'awaiting_payment', action: bookAction };
+          await repo.updateSessionContext(session.id, { ...ctx, pendingBooking });
+          const displayName = session.language === 'ar' ? (foundPatient.nameAr ?? foundPatient.nameEn) : foundPatient.nameEn;
+          finalReply = session.language === 'ar'
+            ? `رائع! تفاصيل الموعد:\n• المريض: ${displayName}\n• الطبيب: ${action.doctor}\n• التاريخ: ${action.date}\n• الوقت: ${action.time}\n\nما طريقة الدفع المفضلة؟\n💵 نقداً | 💳 بطاقة (Visa) | 📱 انستاباي`
+            : `Great! Appointment details:\n• Patient: ${foundPatient.nameEn}\n• Doctor: ${action.doctor}\n• Date: ${action.date}\n• Time: ${action.time}\n\nWhat is the preferred payment method?\n💵 Cash | 💳 Card (Visa) | 📱 InstaPay`;
+          actionResult = { ...action, result: 'awaiting_payment' };
+        }
+      }
     } else if (action.action === 'ask_specialty') {
       // Save pending state and ask user to choose specialty
       const pendingSearch: PendingDoctorSearch = { stage: 'awaiting_specialty' };
