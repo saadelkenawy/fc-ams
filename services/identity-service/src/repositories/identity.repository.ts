@@ -179,6 +179,14 @@ export async function revokeAllUserTokens(userId: string): Promise<void> {
   );
 }
 
+export async function findUserByDoctorId(doctorId: string): Promise<UserRow | null> {
+  const { rows } = await pool.query(
+    `SELECT * FROM users WHERE doctor_id = $1 AND role = 'doctor' LIMIT 1`,
+    [doctorId],
+  );
+  return rows.length ? rowToUser(rows[0] as Record<string, unknown>) : null;
+}
+
 export async function deleteUser(userId: string): Promise<void> {
   await pool.query(`DELETE FROM users WHERE id = $1`, [userId]);
 }

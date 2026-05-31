@@ -16,6 +16,7 @@ import { useLang } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { ThemeId } from '@/lib/theme.config';
+import { doctorApi } from '@/lib/api';
 
 function getUser() {
   if (typeof window === 'undefined') return {} as Record<string, string>;
@@ -43,6 +44,13 @@ interface PlatformUser {
   isActive:    boolean;
   lastLoginAt?: string | null;
   branchId:    number;
+  doctorId?:   string;
+}
+
+interface DoctorOption {
+  id:     string;
+  nameEn: string;
+  nameAr?: string;
 }
 
 const SECTIONS = [
@@ -157,21 +165,53 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
 
 /* ──────────────── Create User Modal ──────────────── */
 function CreateUserModal({
-  lang, t, onClose, onDone,
+  lang, t, onClose, onDone, occupiedDoctorIds,
 }: {
   lang: 'ar' | 'en';
   t: (ar: string, en: string) => string;
   onClose: () => void;
   onDone: () => void;
+  occupiedDoctorIds: Set<string>;
 }) {
-  const [form, setForm] = useState({ nameEn: '', nameAr: '', email: '', password: '', role: 'receptionist' as Role });
+  const [form, setForm] = useState({ nameEn: '', nameAr: '', email: '', password: '', role: 'receptionist' as Role, doctorId: '' });
   const [err, setErr] = useState('');
   const [ok, setOk]   = useState(false);
   const { translate, translating } = useTranslateName();
 
+  const { data: doctorsData, isLoading: doctorsLoading } = useQuery({
+    queryKey: ['doctors-unlinked'],
+    queryFn: async () => {
+      const { data: res } = await doctorApi.get<{ success: boolean; data: DoctorOption[] }>(
+        '/doctors?isActive=true&limit=500',
+      );
+      return res.data;
+    },
+    enabled: form.role === 'doctor',
+    staleTime: 60_000,
+  });
+
+  const availableDoctors = (doctorsData ?? []).filter((d) => !occupiedDoctorIds.has(d.id));
+
+  function handleRoleChange(role: Role) {
+    setForm((f) => ({ ...f, role, doctorId: '' }));
+  }
+
+  function handleDoctorSelect(doctorId: string) {
+    const doc = (doctorsData ?? []).find((d) => d.id === doctorId);
+    if (!doc) { setForm((f) => ({ ...f, doctorId: '' })); return; }
+    setForm((f) => ({
+      ...f,
+      doctorId: doc.id,
+      nameEn:   doc.nameEn,
+      nameAr:   doc.nameAr ?? f.nameAr,
+    }));
+  }
+
   const mutation = useMutation({
     mutationFn: async () => {
-      await identityApi.post('/users', form);
+      const payload: Record<string, unknown> = { ...form };
+      if (form.role !== 'doctor') delete payload.doctorId;
+      await identityApi.post('/users', payload);
     },
     onSuccess: () => {
       setOk(true);
@@ -186,6 +226,7 @@ function CreateUserModal({
     setErr('');
     if (!form.nameEn || !form.email || !form.password) { setErr(t('جميع الحقول مطلوبة', 'All fields required')); return; }
     if (form.password.length < 8) { setErr(t('كلمة المرور 8 أحرف على الأقل', 'Password must be at least 8 characters')); return; }
+    if (form.role === 'doctor' && !form.doctorId) { setErr(t('يجب اختيار الطبيب من القائمة', 'Please select the doctor from the list')); return; }
     mutation.mutate();
   }
 
@@ -195,6 +236,55 @@ function CreateUserModal({
         <p className="text-center text-emerald-600 py-4">{t('✅ تم إنشاء المستخدم', '✅ User created')}</p>
       ) : (
         <>
+          {/* Role first so doctor picker can appear before name fields */}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1.5">
+              {lang === 'ar' ? 'الدور' : 'Role'}
+            </label>
+            <select
+              value={form.role}
+              onChange={(e) => handleRoleChange(e.target.value as Role)}
+              className="w-full h-9 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-700 text-gray-800 dark:text-gray-100 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600"
+            >
+              {ROLES.map((r) => (
+                <option key={r} value={r}>{lang === 'ar' ? ROLE_META[r].labelAr : ROLE_META[r].labelEn}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Doctor picker — only shown when role is doctor */}
+          {form.role === 'doctor' && (
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1.5">
+                {lang === 'ar' ? 'اختر الطبيب' : 'Select Doctor'}
+                <span className="text-red-500 ms-0.5">*</span>
+              </label>
+              {doctorsLoading ? (
+                <div className="flex items-center gap-2 h-9 px-3 rounded-lg border border-gray-200 dark:border-neutral-600 text-sm text-gray-400">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  {t('جاري تحميل الأطباء...', 'Loading doctors...')}
+                </div>
+              ) : availableDoctors.length === 0 ? (
+                <p className="text-xs text-amber-600 dark:text-amber-400 py-2">
+                  {t('لا يوجد أطباء متاحون — جميع الأطباء مرتبطون بحسابات مستخدمين', 'No doctors available — all doctors are already linked to user accounts')}
+                </p>
+              ) : (
+                <select
+                  value={form.doctorId}
+                  onChange={(e) => handleDoctorSelect(e.target.value)}
+                  className="w-full h-9 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-700 text-gray-800 dark:text-gray-100 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600"
+                >
+                  <option value="">{lang === 'ar' ? '— اختر طبيباً —' : '— Choose a doctor —'}</option>
+                  {availableDoctors.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {lang === 'ar' ? (d.nameAr ?? d.nameEn) : d.nameEn}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <div className="relative">
               <Input
@@ -229,20 +319,6 @@ function CreateUserModal({
           </div>
           <Input label="Email" labelAr="البريد الإلكتروني" type="email" lang={lang} value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
           <Input label="Initial Password" labelAr="كلمة المرور الأولية" type="password" lang={lang} value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} />
-          <div>
-            <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1.5">
-              {lang === 'ar' ? 'الدور' : 'Role'}
-            </label>
-            <select
-              value={form.role}
-              onChange={(e) => setForm((f) => ({ ...f, role: e.target.value as Role }))}
-              className="w-full h-9 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-700 text-gray-800 dark:text-gray-100 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600"
-            >
-              {ROLES.map((r) => (
-                <option key={r} value={r}>{lang === 'ar' ? ROLE_META[r].labelAr : ROLE_META[r].labelEn}</option>
-              ))}
-            </select>
-          </div>
           {err && <p className="text-xs text-red-500">{err}</p>}
           <div className="flex gap-2 pt-1">
             <Button className="flex-1" onClick={submit} disabled={mutation.isPending}>
@@ -513,7 +589,14 @@ function UsersContent({ t, lang }: { t: (ar: string, en: string) => string; lang
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['platform-users'] }),
   });
 
-  function invalidate() { void qc.invalidateQueries({ queryKey: ['platform-users'] }); }
+  function invalidate() {
+    void qc.invalidateQueries({ queryKey: ['platform-users'] });
+    void qc.invalidateQueries({ queryKey: ['doctors-unlinked'] });
+  }
+
+  const occupiedDoctorIds = new Set(
+    (data ?? []).filter((u) => u.role === 'doctor' && u.doctorId).map((u) => u.doctorId!),
+  );
 
   const users = (data ?? []).filter((u) => {
     const q = search.toLowerCase();
@@ -705,7 +788,7 @@ function UsersContent({ t, lang }: { t: (ar: string, en: string) => string; lang
         </div>
       </div>
 
-      {showCreate        && <CreateUserModal    lang={lang} t={t} onClose={() => setShowCreate(false)}      onDone={invalidate} />}
+      {showCreate        && <CreateUserModal    lang={lang} t={t} onClose={() => setShowCreate(false)}      onDone={invalidate} occupiedDoctorIds={occupiedDoctorIds} />}
       {editRoleUser      && <EditRoleModal      lang={lang} t={t} user={editRoleUser}      onClose={() => setEditRoleUser(null)}   onDone={invalidate} />}
       {resetPwUser       && <ResetPasswordModal lang={lang} t={t} user={resetPwUser}       onClose={() => setResetPwUser(null)} />}
       {deleteConfirmUser && <DeleteUserModal    lang={lang} t={t} user={deleteConfirmUser} onClose={() => setDeleteConfirm(null)}  onDone={invalidate} />}

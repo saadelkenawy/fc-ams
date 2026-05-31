@@ -220,6 +220,23 @@ export async function logout(request: FastifyRequest, reply: FastifyReply): Prom
 
 export async function createUser(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const input = createUserSchema.parse(request.body);
+
+  if (input.role === 'doctor') {
+    if (!input.doctorId) {
+      throw Object.assign(
+        new Error('doctorId is required when role is doctor'),
+        { statusCode: 400, code: 'DOCTOR_ID_REQUIRED' },
+      );
+    }
+    const linked = await repo.findUserByDoctorId(input.doctorId);
+    if (linked) {
+      throw Object.assign(
+        new Error('This doctor already has a user account'),
+        { statusCode: 409, code: 'DOCTOR_ALREADY_LINKED' },
+      );
+    }
+  }
+
   const hash  = await hashPassword(input.password);
 
   const user = await repo.createUser({
