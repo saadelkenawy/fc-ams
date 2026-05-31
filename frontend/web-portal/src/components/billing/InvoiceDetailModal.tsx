@@ -4,6 +4,7 @@ import { X, Printer, Download, CreditCard } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { useLang } from '@/contexts/LanguageContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { formatCurrency } from '@/lib/utils';
 import type { FinancialTransaction } from '@fadl/types';
 
@@ -57,7 +58,9 @@ const PAYMENT_LABEL: Record<string, { ar: string; en: string }> = {
 
 export function InvoiceDetailModal({ open, transaction: tx, patientName, doctorName, onClose }: Props) {
   const { lang, t } = useLang();
+  const { theme } = useTheme();
   const locale = lang === 'ar' ? 'ar-EG' : 'en-US';
+  const logoSrc = theme === 'dark' ? '/images/fadiclinic_dark.png' : '/images/fadiclinic_transparent.png';
 
   if (!open || !tx) return null;
 
@@ -137,7 +140,7 @@ export function InvoiceDetailModal({ open, transaction: tx, patientName, doctorN
               <div className="mb-1">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src="/images/logo-wordmark.png"
+                  src={logoSrc}
                   alt="Fadl Clinic"
                   className="h-9 object-contain"
                   onError={(e) => {

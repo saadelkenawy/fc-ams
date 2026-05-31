@@ -56,7 +56,7 @@ export async function buildPdf<T extends Record<string, unknown>>(opts: ReportOp
   // Full-bleed dark header band with logo
   const BAND   = 58;
   const logoW  = 148;
-  const logoH  = Math.round(logoW * 79 / 358);
+  const logoH  = Math.round(logoW * 396 / 1758);
   doc.rect(0, 0, 595, BAND).fill(INK);
   doc.image(Buffer.from(LOGO_WHITE_BASE64, 'base64'), ML, Math.round((BAND - logoH) / 2), { width: logoW });
   doc.fillColor('#FFFFFF').fontSize(8).font('Helvetica')
@@ -185,7 +185,7 @@ export async function buildInvoicePdf(opts: InvoiceOptions): Promise<Buffer> {
   // Full-bleed dark header band with logo
   const BAND   = 58;
   const logoW  = 148;
-  const logoH  = Math.round(logoW * 79 / 358);
+  const logoH  = Math.round(logoW * 396 / 1758);
   doc.rect(0, 0, 595, BAND).fill(INK);
   doc.image(Buffer.from(LOGO_WHITE_BASE64, 'base64'), ML, Math.round((BAND - logoH) / 2), { width: logoW });
   doc.fillColor('#FFFFFF').fontSize(8).font('Helvetica')

@@ -105,7 +105,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const { lang, t }    = useLang();
   const { theme }      = useTheme();
   const navGroups      = getNavForRole(user?.role ?? 'receptionist');
-  const logoSrc        = theme === 'dark' ? '/images/logo-dark-mode.png' : '/images/logo-wordmark.png';
+  const logoSrc        = theme === 'dark' ? '/images/fadiclinic_dark.png' : '/images/fadiclinic_transparent.png';
 
   const [width, setWidth]       = useState(SNAP_FULL);
   const [snapping, setSnapping] = useState(false);
