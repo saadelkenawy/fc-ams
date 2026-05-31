@@ -334,26 +334,64 @@ function CreateUserModal({
 
 /* ──────────────── Edit Role Modal ──────────────── */
 function EditRoleModal({
-  user, lang, t, onClose, onDone,
+  user, lang, t, onClose, onDone, occupiedDoctorIds,
 }: {
   user: PlatformUser;
   lang: 'ar' | 'en';
   t: (ar: string, en: string) => string;
   onClose: () => void;
   onDone: () => void;
+  occupiedDoctorIds: Set<string>;
 }) {
-  const [role, setRole] = useState<Role>(user.role as Role);
-  const [err, setErr]   = useState('');
+  const [role, setRole]       = useState<Role>(user.role as Role);
+  const [doctorId, setDoctorId] = useState(user.doctorId ?? '');
+  const [err, setErr]           = useState('');
+
+  const { data: doctorsData, isLoading: doctorsLoading } = useQuery({
+    queryKey: ['doctors-unlinked'],
+    queryFn: async () => {
+      const { data: res } = await doctorApi.get<{ success: boolean; data: DoctorOption[] }>(
+        '/doctors?isActive=true&limit=500',
+      );
+      return res.data;
+    },
+    enabled: role === 'doctor',
+    staleTime: 60_000,
+  });
+
+  // Exclude doctors already linked to OTHER users (keep current user's own doctor selectable)
+  const availableDoctors = (doctorsData ?? []).filter(
+    (d) => !occupiedDoctorIds.has(d.id) || d.id === user.doctorId,
+  );
+
+  function handleRoleChange(r: Role) {
+    setRole(r);
+    if (r !== 'doctor') setDoctorId('');
+    else setDoctorId(user.doctorId ?? '');
+  }
+
+  const noChange = role === user.role && (role !== 'doctor' || doctorId === (user.doctorId ?? ''));
 
   const mutation = useMutation({
     mutationFn: async () => {
-      await identityApi.patch(`/users/${user.id}`, { role });
+      const body: Record<string, unknown> = { role };
+      if (role === 'doctor') body.doctorId = doctorId;
+      await identityApi.patch(`/users/${user.id}`, body);
     },
     onSuccess: () => { onDone(); onClose(); },
     onError: (e: unknown) => {
       setErr((e as { response?: { data?: { message?: string } } }).response?.data?.message ?? t('فشل التحديث', 'Update failed'));
     },
   });
+
+  function submit() {
+    setErr('');
+    if (role === 'doctor' && !doctorId) {
+      setErr(t('يجب اختيار الطبيب من القائمة', 'Please select the doctor from the list'));
+      return;
+    }
+    mutation.mutate();
+  }
 
   return (
     <Modal title={t('تغيير دور المستخدم', 'Change User Role')} onClose={onClose}>
@@ -364,7 +402,7 @@ function EditRoleModal({
           {ROLES.map((r) => (
             <button
               key={r}
-              onClick={() => setRole(r)}
+              onClick={() => handleRoleChange(r)}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all text-sm font-medium ${
                 role === r
                   ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
@@ -379,9 +417,43 @@ function EditRoleModal({
           ))}
         </div>
       </div>
+
+      {/* Doctor picker — only shown when role is doctor */}
+      {role === 'doctor' && (
+        <div>
+          <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1.5">
+            {lang === 'ar' ? 'اختر الطبيب' : 'Select Doctor'}
+            <span className="text-red-500 ms-0.5">*</span>
+          </label>
+          {doctorsLoading ? (
+            <div className="flex items-center gap-2 h-9 px-3 rounded-lg border border-gray-200 dark:border-neutral-600 text-sm text-gray-400">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              {t('جاري تحميل الأطباء...', 'Loading doctors...')}
+            </div>
+          ) : availableDoctors.length === 0 ? (
+            <p className="text-xs text-amber-600 dark:text-amber-400 py-2">
+              {t('لا يوجد أطباء متاحون', 'No doctors available')}
+            </p>
+          ) : (
+            <select
+              value={doctorId}
+              onChange={(e) => setDoctorId(e.target.value)}
+              className="w-full h-9 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-700 text-gray-800 dark:text-gray-100 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600"
+            >
+              <option value="">{lang === 'ar' ? '— اختر طبيباً —' : '— Choose a doctor —'}</option>
+              {availableDoctors.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {lang === 'ar' ? (d.nameAr ?? d.nameEn) : d.nameEn}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+      )}
+
       {err && <p className="text-xs text-red-500">{err}</p>}
       <div className="flex gap-2">
-        <Button className="flex-1" disabled={mutation.isPending || role === user.role} onClick={() => mutation.mutate()}>
+        <Button className="flex-1" disabled={mutation.isPending || noChange} onClick={submit}>
           {mutation.isPending ? t('جاري الحفظ...', 'Saving...') : t('حفظ', 'Save')}
         </Button>
         <Button variant="ghost" onClick={onClose}>{t('إلغاء', 'Cancel')}</Button>
@@ -789,7 +861,7 @@ function UsersContent({ t, lang }: { t: (ar: string, en: string) => string; lang
       </div>
 
       {showCreate        && <CreateUserModal    lang={lang} t={t} onClose={() => setShowCreate(false)}      onDone={invalidate} occupiedDoctorIds={occupiedDoctorIds} />}
-      {editRoleUser      && <EditRoleModal      lang={lang} t={t} user={editRoleUser}      onClose={() => setEditRoleUser(null)}   onDone={invalidate} />}
+      {editRoleUser      && <EditRoleModal      lang={lang} t={t} user={editRoleUser}      onClose={() => setEditRoleUser(null)}   onDone={invalidate} occupiedDoctorIds={occupiedDoctorIds} />}
       {resetPwUser       && <ResetPasswordModal lang={lang} t={t} user={resetPwUser}       onClose={() => setResetPwUser(null)} />}
       {deleteConfirmUser && <DeleteUserModal    lang={lang} t={t} user={deleteConfirmUser} onClose={() => setDeleteConfirm(null)}  onDone={invalidate} />}
     </div>

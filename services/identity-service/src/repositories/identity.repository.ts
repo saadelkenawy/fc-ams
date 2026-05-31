@@ -115,15 +115,16 @@ export async function updatePasswordHash(userId: string, passwordHash: string): 
 
 export async function updateUser(
   userId: string,
-  patch: { role?: string; isActive?: boolean; nameEn?: string; nameAr?: string },
+  patch: { role?: string; isActive?: boolean; nameEn?: string; nameAr?: string; doctorId?: string | null },
 ): Promise<UserRow> {
   const sets: string[] = [];
   const vals: unknown[] = [];
   let idx = 1;
-  if (patch.role      !== undefined) { sets.push(`role = $${idx++}`);      vals.push(patch.role); }
-  if (patch.isActive  !== undefined) { sets.push(`is_active = $${idx++}`); vals.push(patch.isActive); }
-  if (patch.nameEn    !== undefined) { sets.push(`name_en = $${idx++}`);   vals.push(patch.nameEn); }
-  if (patch.nameAr    !== undefined) { sets.push(`name_ar = $${idx++}`);   vals.push(patch.nameAr); }
+  if (patch.role      !== undefined) { sets.push(`role = $${idx++}`);       vals.push(patch.role); }
+  if (patch.isActive  !== undefined) { sets.push(`is_active = $${idx++}`);  vals.push(patch.isActive); }
+  if (patch.nameEn    !== undefined) { sets.push(`name_en = $${idx++}`);    vals.push(patch.nameEn); }
+  if (patch.nameAr    !== undefined) { sets.push(`name_ar = $${idx++}`);    vals.push(patch.nameAr); }
+  if ('doctorId' in patch)           { sets.push(`doctor_id = $${idx++}`);  vals.push(patch.doctorId ?? null); }
   if (!sets.length) throw new Error('No fields to update');
   sets.push(`updated_at = NOW()`);
   vals.push(userId);

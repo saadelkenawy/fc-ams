@@ -314,6 +314,7 @@ const updateUserSchema = z.object({
   isActive: z.boolean().optional(),
   nameEn:   z.string().min(1).max(200).optional(),
   nameAr:   z.string().max(200).optional(),
+  doctorId: z.string().uuid().nullable().optional(),
 });
 
 export async function updateUser(request: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -326,11 +327,30 @@ export async function updateUser(request: FastifyRequest, reply: FastifyReply): 
     throw Object.assign(new Error('Cannot deactivate your own account'), { statusCode: 400, code: 'SELF_DEACTIVATE' });
   }
 
-  const updated = await repo.updateUser(id, input);
+  if (input.role === 'doctor') {
+    if (!input.doctorId) {
+      throw Object.assign(
+        new Error('doctorId is required when role is doctor'),
+        { statusCode: 400, code: 'DOCTOR_ID_REQUIRED' },
+      );
+    }
+    const linked = await repo.findUserByDoctorId(input.doctorId);
+    if (linked && linked.id !== id) {
+      throw Object.assign(
+        new Error('This doctor already has a user account'),
+        { statusCode: 409, code: 'DOCTOR_ALREADY_LINKED' },
+      );
+    }
+  }
+
+  // When switching away from doctor role, clear the doctor link
+  const patch = { ...input, ...(input.role && input.role !== 'doctor' ? { doctorId: null } : {}) };
+
+  const updated = await repo.updateUser(id, patch);
   if (input.isActive === false) {
     await repo.revokeAllUserTokens(id);
   }
-  await repo.auditLog({ userId: actor.sub, email: actor.sub, event: 'user_updated', meta: { targetUserId: id, patch: input } });
+  await repo.auditLog({ userId: actor.sub, email: actor.sub, event: 'user_updated', meta: { targetUserId: id, patch } });
 
   void reply.send({
     success: true,
