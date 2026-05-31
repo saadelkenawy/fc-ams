@@ -11,14 +11,14 @@ export async function requireAuth(request: FastifyRequest, reply: FastifyReply):
   try {
     await request.jwtVerify();
   } catch {
-    void reply.status(401).send({ success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
+    return reply.status(401).send({ success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
   }
 }
 
 export function requireRole(...roles: JwtPayload['role'][]) {
   return async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
     if (!roles.includes(request.user.role)) {
-      void reply.status(403).send({ success: false, error: { code: 'FORBIDDEN', message: 'Insufficient permissions' } });
+      return reply.status(403).send({ success: false, error: { code: 'FORBIDDEN', message: 'Insufficient permissions' } });
     }
   };
 }

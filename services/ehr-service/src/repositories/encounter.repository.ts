@@ -201,7 +201,7 @@ export async function updateEncounter(
 ): Promise<Encounter> {
   return withTransaction(async (client: PoolClient) => {
     const { rows: existing } = await client.query(
-      `SELECT version FROM encounters WHERE id = $1 FOR UPDATE`,
+      `SELECT version, status FROM encounters WHERE id = $1 FOR UPDATE`,
       [id],
     );
 
@@ -212,7 +212,16 @@ export async function updateEncounter(
       });
     }
 
-    const currentVersion = (existing[0] as { version: number }).version;
+    const existingRow = existing[0] as { version: number; status: string };
+
+    if (existingRow.status === 'signed_off') {
+      throw Object.assign(new Error('Cannot modify a signed-off encounter'), {
+        code: 'ENCOUNTER_SIGNED_OFF',
+        statusCode: 422,
+      });
+    }
+
+    const currentVersion = existingRow.version;
     if (currentVersion !== input.version) {
       throw Object.assign(new Error('Conflict: encounter was modified by another request'), {
         code: 'VERSION_CONFLICT',

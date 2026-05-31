@@ -184,7 +184,7 @@ async function executeAction(
       foundPatient = action.preResolvedPatient as PatientCandidate;
     } else {
       const patRes = await fetch(
-        `${config.PATIENT_SERVICE_URL}/patients?q=${encodeURIComponent(patient)}&limit=1`,
+        `${config.PATIENT_SERVICE_URL}/patients?query=${encodeURIComponent(patient)}&limit=1`,
         { headers },
       );
       if (!patRes.ok) {
@@ -347,7 +347,7 @@ async function executeAction(
     const body: Record<string, unknown> = {
       nameEn,
       mobile,
-      patientSource: String(action.patientSource ?? "Cl.'s"),
+      sourceFirstVisit: String(action.patientSource ?? action.sourceFirstVisit ?? "Cl.'s"),
     };
     if (action.nameAr)  body.nameAr  = String(action.nameAr);
     if (gender)         body.gender  = gender;
@@ -446,6 +446,24 @@ interface PendingPatientDisambiguation {
   stage: 'awaiting_patient_full_name';
   action: Record<string, unknown>;
   candidates: PatientCandidate[];
+}
+
+interface PendingPatientCreation {
+  stage: 'awaiting_mobile_for_new_patient' | 'confirming_existing_patient';
+  action: Record<string, unknown>;
+  nameEn: string;
+  conflictPatient?: PatientCandidate;
+}
+
+// Egyptian mobile: 010/011/012/015 XXXXXXXX (with or without +20 prefix)
+const MOBILE_INPUT_RE = /^(?:\+?20)?0?1[0-25]\d{8}$/;
+
+function normalizeMobile(raw: string): string {
+  const s = raw.replace(/[\s\-]/g, '');
+  if (s.startsWith('+20')) return s;
+  if (s.startsWith('20'))  return `+${s}`;
+  if (s.startsWith('0'))   return `+2${s}`;
+  return `+20${s}`;
 }
 
 function normalizePaymentMethod(input: string): 'cash' | 'visa' | 'instapay' {
@@ -669,10 +687,24 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${authToken}`,
     };
-    const patRes = await fetch(
-      `${config.PATIENT_SERVICE_URL}/patients?q=${encodeURIComponent(fullName)}&limit=10`,
-      { headers: disambigHeaders },
-    );
+
+    // Detect if the user provided a mobile number instead of a name
+    const cleanedDisambigInput = fullName.replace(/[\s\-]/g, '');
+    const isDisambigMobile = MOBILE_INPUT_RE.test(cleanedDisambigInput);
+
+    let patRes: Response;
+    if (isDisambigMobile) {
+      const normalizedMobile = normalizeMobile(cleanedDisambigInput);
+      patRes = await fetch(
+        `${config.PATIENT_SERVICE_URL}/patients?mobile=${encodeURIComponent(normalizedMobile)}&limit=1`,
+        { headers: disambigHeaders },
+      );
+    } else {
+      patRes = await fetch(
+        `${config.PATIENT_SERVICE_URL}/patients?query=${encodeURIComponent(fullName)}&limit=10`,
+        { headers: disambigHeaders },
+      );
+    }
 
     if (!patRes.ok) {
       const errMsg = session.language === 'ar'
@@ -688,27 +720,50 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
 
     if (candidates.length === 0) {
       const { pendingPatientDisambig: _removed, ...restCtx } = ctx;
-      await repo.updateSessionContext(session.id, restCtx);
-      const notFound = session.language === 'ar'
-        ? `لم يُعثر على مريض باسم "${fullName}". تحقق من الاسم أو سجّل المريض أولاً.`
-        : `No patient found with name "${fullName}". Please verify or register the patient first.`;
-      await repo.saveMessage(session.id, 'assistant', notFound, {});
-      void reply.send({ success: true, data: { sessionId: session.id, reply: notFound, action: null, language: session.language } });
+      const origPatientName = String(pendingPatientDisambig.action.patient ?? fullName);
+
+      if (isDisambigMobile) {
+        // Mobile searched — no patient found, offer to create with this mobile
+        const pendingCreation: PendingPatientCreation = {
+          stage: 'awaiting_mobile_for_new_patient',
+          action: pendingPatientDisambig.action,
+          nameEn: origPatientName,
+        };
+        await repo.updateSessionContext(session.id, { ...restCtx, pendingPatientCreation: pendingCreation });
+        const notFoundMsg = session.language === 'ar'
+          ? `لم يُعثر على مريض برقم الجوال هذا.\n\nيمكنك تسجيل "${origPatientName}" كمريض جديد. أدخل رقم جواله (أو رقماً مختلفاً)، أو اكتب "إلغاء" للرجوع.`
+          : `No patient found with that mobile.\n\nYou can register "${origPatientName}" as a new patient. Enter their mobile number (or a different one), or type "cancel" to go back.`;
+        await repo.saveMessage(session.id, 'assistant', notFoundMsg, {});
+        void reply.send({ success: true, data: { sessionId: session.id, reply: notFoundMsg, action: null, language: session.language } });
+        return;
+      }
+
+      // Name search returned 0 — offer to create
+      const pendingCreation: PendingPatientCreation = {
+        stage: 'awaiting_mobile_for_new_patient',
+        action: pendingPatientDisambig.action,
+        nameEn: fullName,
+      };
+      await repo.updateSessionContext(session.id, { ...restCtx, pendingPatientCreation: pendingCreation });
+      const createPrompt = session.language === 'ar'
+        ? `لم يُعثر على مريض باسم "${fullName}".\n\nهل تريد تسجيله كمريض جديد؟ أدخل رقم جواله لإتمام التسجيل.\n(أو اكتب "إلغاء" للرجوع)`
+        : `No patient found with name "${fullName}".\n\nWould you like to register them as a new patient? Enter their mobile number to proceed.\n(Or type "cancel" to go back)`;
+      await repo.saveMessage(session.id, 'assistant', createPrompt, {});
+      void reply.send({ success: true, data: { sessionId: session.id, reply: createPrompt, action: null, language: session.language } });
       return;
     }
 
     if (candidates.length > 1) {
       const candidateList = candidates.map((c) => `• ${c.nameAr ?? c.nameEn}`).join('\n');
       await repo.updateSessionContext(session.id, { ...ctx, pendingPatientDisambig: { ...pendingPatientDisambig, candidates } });
-      // If we hit the limit cap, the name is too common — tell the user to be more specific
       const tooMany = candidates.length >= 10;
       const stillAmbig = session.language === 'ar'
         ? (tooMany
-            ? `الاسم شائع جداً. يرجى كتابة الاسم الثلاثي أو رباعي كاملاً للتضييق.`
-            : `لا يزال هناك أكثر من مريض بهذا الاسم:\n${candidateList}\n\nيرجى كتابة الاسم الكامل بدقة أكبر.`)
+            ? `الاسم شائع جداً. يرجى كتابة الاسم الثلاثي أو رباعي كاملاً، أو أدخل رقم جوال المريض للبحث المباشر.`
+            : `لا يزال هناك أكثر من مريض بهذا الاسم:\n${candidateList}\n\nيرجى كتابة الاسم الكامل بدقة أكبر، أو أدخل رقم جوال المريض للبحث المباشر.`)
         : (tooMany
-            ? `This name is very common. Please enter the full three- or four-part name to narrow it down.`
-            : `Still multiple patients found:\n${candidateList}\n\nPlease enter the full name more precisely.`);
+            ? `This name is very common. Please enter the full three- or four-part name, or enter the patient's mobile number to search directly.`
+            : `Still multiple patients found:\n${candidateList}\n\nPlease enter the full name more precisely, or enter the patient's mobile number to search directly.`);
       await repo.saveMessage(session.id, 'assistant', stillAmbig, {});
       void reply.send({ success: true, data: { sessionId: session.id, reply: stillAmbig, action: null, language: session.language } });
       return;
@@ -730,6 +785,149 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
     void reply.send({ success: true, data: { sessionId: session.id, reply: paymentQ, action: null, language: session.language } });
     return;
   }
+
+  // ── Pending patient creation: collect mobile → register → resume booking ──
+  const pendingPatientCreation = ctx.pendingPatientCreation as PendingPatientCreation | undefined;
+
+  if (pendingPatientCreation?.stage === 'confirming_existing_patient') {
+    const YES_RE = /^(yes|نعم|أيوه|ايوه|موافق|ok|okay|تأكيد|confirm|y|ي)$/i;
+    const NO_RE  = /^(no|لا|لأ|cancel|إلغاء|الغاء|n)$/i;
+    const conflictPatient = pendingPatientCreation.conflictPatient!;
+    const conflictName = session.language === 'ar' ? (conflictPatient.nameAr ?? conflictPatient.nameEn) : conflictPatient.nameEn;
+
+    if (YES_RE.test(input.message.trim())) {
+      const { pendingPatientCreation: _removed, ...restCtx } = ctx;
+      const origAction = pendingPatientCreation.action;
+      const bookAction = { ...origAction, preResolvedPatient: conflictPatient };
+      const newPending: PendingBooking = { stage: 'awaiting_charge', action: bookAction };
+      await repo.updateSessionContext(session.id, { ...restCtx, pendingBooking: newPending });
+      const paymentQ = session.language === 'ar'
+        ? `تم تحديد المريض: ${conflictName}\n\nتفاصيل الموعد:\n• المريض: ${conflictName}\n• الطبيب: ${origAction.doctor}\n• التاريخ: ${origAction.date}\n• الوقت: ${origAction.time}\n\nكم تعرفة الجلسة؟ (أدخل المبلغ بالجنيه)`
+        : `Patient confirmed: ${conflictPatient.nameEn}\n\nAppointment details:\n• Patient: ${conflictPatient.nameEn}\n• Doctor: ${origAction.doctor}\n• Date: ${origAction.date}\n• Time: ${origAction.time}\n\nWhat is the session fee? (enter amount in EGP)`;
+      await repo.saveMessage(session.id, 'assistant', paymentQ, {});
+      void reply.send({ success: true, data: { sessionId: session.id, reply: paymentQ, action: null, language: session.language } });
+      return;
+    }
+
+    if (NO_RE.test(input.message.trim())) {
+      const updatedCreation: PendingPatientCreation = {
+        stage: 'awaiting_mobile_for_new_patient',
+        action: pendingPatientCreation.action,
+        nameEn: pendingPatientCreation.nameEn,
+      };
+      await repo.updateSessionContext(session.id, { ...ctx, pendingPatientCreation: updatedCreation });
+      const askDiff = session.language === 'ar'
+        ? 'يرجى إدخال رقم جوال مختلف للمريض الجديد.'
+        : 'Please enter a different mobile number for the new patient.';
+      await repo.saveMessage(session.id, 'assistant', askDiff, {});
+      void reply.send({ success: true, data: { sessionId: session.id, reply: askDiff, action: null, language: session.language } });
+      return;
+    }
+
+    // Unclear answer — ask again
+    const clarify = session.language === 'ar'
+      ? `يرجى الرد بـ "نعم" لحجز الموعد للمريض "${conflictName}" أو "لا" لإدخال رقم جوال مختلف.`
+      : `Please reply "yes" to book for patient "${conflictPatient.nameEn}" or "no" to enter a different mobile number.`;
+    await repo.saveMessage(session.id, 'assistant', clarify, {});
+    void reply.send({ success: true, data: { sessionId: session.id, reply: clarify, action: null, language: session.language } });
+    return;
+  }
+
+  if (pendingPatientCreation?.stage === 'awaiting_mobile_for_new_patient') {
+    const rawInput = input.message.trim();
+    const CANCEL_RE = /^(إلغاء|الغاء|cancel|exit|quit|stop|خروج|back|رجوع)$/i;
+
+    if (CANCEL_RE.test(rawInput)) {
+      const { pendingPatientCreation: _removed, ...restCtx } = ctx;
+      await repo.updateSessionContext(session.id, restCtx);
+      const cancelMsg = session.language === 'ar'
+        ? 'تم إلغاء التسجيل. كيف يمكنني مساعدتك؟'
+        : 'Registration cancelled. How can I help you?';
+      await repo.saveMessage(session.id, 'assistant', cancelMsg, {});
+      void reply.send({ success: true, data: { sessionId: session.id, reply: cancelMsg, action: null, language: session.language } });
+      return;
+    }
+
+    const mobile = normalizeMobile(rawInput.replace(/[\s\-]/g, ''));
+    if (!/^\+20\d{10}$/.test(mobile)) {
+      const retry = session.language === 'ar'
+        ? 'رقم الجوال غير صحيح. يرجى إدخال رقم مصري صحيح (مثال: 01012345678).'
+        : 'Invalid mobile number. Please enter a valid Egyptian number (e.g., 01012345678).';
+      await repo.saveMessage(session.id, 'assistant', retry, {});
+      void reply.send({ success: true, data: { sessionId: session.id, reply: retry, action: null, language: session.language } });
+      return;
+    }
+
+    const createHeaders = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` };
+    const regRes = await fetch(`${config.PATIENT_SERVICE_URL}/patients`, {
+      method: 'POST',
+      headers: createHeaders,
+      body: JSON.stringify({
+        nameEn: pendingPatientCreation.nameEn,
+        mobile,
+        sourceFirstVisit: "Cl.'s",
+      }),
+    });
+
+    if (regRes.ok) {
+      const regData = await regRes.json() as { data?: { patientId?: string; id?: string; nameEn: string; nameAr?: string } };
+      const raw = regData.data!;
+      const newPatient: PatientCandidate = {
+        patientId: raw.patientId ?? raw.id ?? '',
+        nameEn: raw.nameEn,
+        nameAr: raw.nameAr,
+      };
+      const { pendingPatientCreation: _removed, ...restCtx } = ctx;
+      const origAction = pendingPatientCreation.action;
+      const bookAction = { ...origAction, preResolvedPatient: newPatient };
+      const newPending: PendingBooking = { stage: 'awaiting_charge', action: bookAction };
+      await repo.updateSessionContext(session.id, { ...restCtx, pendingBooking: newPending });
+      const displayName = session.language === 'ar' ? (newPatient.nameAr ?? newPatient.nameEn) : newPatient.nameEn;
+      const paymentQ = session.language === 'ar'
+        ? `✅ تم تسجيل المريض "${displayName}" بنجاح!\n\nتفاصيل الموعد:\n• المريض: ${displayName}\n• الطبيب: ${origAction.doctor}\n• التاريخ: ${origAction.date}\n• الوقت: ${origAction.time}\n\nكم تعرفة الجلسة؟ (أدخل المبلغ بالجنيه)`
+        : `✅ Patient "${newPatient.nameEn}" registered successfully!\n\nAppointment details:\n• Patient: ${newPatient.nameEn}\n• Doctor: ${origAction.doctor}\n• Date: ${origAction.date}\n• Time: ${origAction.time}\n\nWhat is the session fee? (enter amount in EGP)`;
+      await repo.saveMessage(session.id, 'assistant', paymentQ, {});
+      void reply.send({ success: true, data: { sessionId: session.id, reply: paymentQ, action: null, language: session.language } });
+      return;
+    }
+
+    const regErrData = await regRes.json() as { error?: { code?: string; message?: string } };
+    if (regRes.status === 409 && regErrData.error?.code === 'MOBILE_ALREADY_EXISTS') {
+      const mobileSearchRes = await fetch(
+        `${config.PATIENT_SERVICE_URL}/patients?mobile=${encodeURIComponent(mobile)}&limit=1`,
+        { headers: createHeaders },
+      );
+      if (mobileSearchRes.ok) {
+        const mobileData = await mobileSearchRes.json() as { data?: PatientCandidate[] };
+        const existingPatient = mobileData.data?.[0];
+        if (existingPatient) {
+          const existingName = session.language === 'ar' ? (existingPatient.nameAr ?? existingPatient.nameEn) : existingPatient.nameEn;
+          const updatedCreation: PendingPatientCreation = {
+            stage: 'confirming_existing_patient',
+            action: pendingPatientCreation.action,
+            nameEn: pendingPatientCreation.nameEn,
+            conflictPatient: existingPatient,
+          };
+          await repo.updateSessionContext(session.id, { ...ctx, pendingPatientCreation: updatedCreation });
+          const conflictMsg = session.language === 'ar'
+            ? `رقم الجوال ${mobile} مسجل بالفعل للمريض "${existingName}".\nهل تريد حجز الموعد لهذا المريض؟ (نعم / لا — أو أدخل رقماً مختلفاً)`
+            : `Mobile ${mobile} is already registered to patient "${existingPatient.nameEn}".\nBook for this patient instead? (yes / no — or enter a different mobile)`;
+          await repo.saveMessage(session.id, 'assistant', conflictMsg, {});
+          void reply.send({ success: true, data: { sessionId: session.id, reply: conflictMsg, action: null, language: session.language } });
+          return;
+        }
+      }
+    }
+
+    const errMsg = regErrData.error?.message ?? (session.language === 'ar' ? 'خطأ غير معروف' : 'Unknown error');
+    const errReply = session.language === 'ar'
+      ? `فشل تسجيل المريض: ${errMsg}. يرجى المحاولة مرة أخرى أو اكتب "إلغاء".`
+      : `Patient registration failed: ${errMsg}. Please try again or type "cancel".`;
+    await repo.saveMessage(session.id, 'assistant', errReply, {});
+    void reply.send({ success: true, data: { sessionId: session.id, reply: errReply, action: null, language: session.language } });
+    return;
+  }
+  // ─────────────────────────────────────────────────────────────────────────
 
   const pendingDoctorSearch = ctx.pendingDoctorSearch as PendingDoctorSearch | undefined;
 
@@ -929,7 +1127,7 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
         'Authorization': `Bearer ${authToken}`,
       };
       const upfrontPatRes = await fetch(
-        `${config.PATIENT_SERVICE_URL}/patients?q=${encodeURIComponent(patientName)}&limit=10`,
+        `${config.PATIENT_SERVICE_URL}/patients?query=${encodeURIComponent(patientName)}&limit=10`,
         { headers: upfrontHeaders },
       );
 
@@ -943,10 +1141,17 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
         const upfrontCandidates = upfrontPatData.data ?? [];
 
         if (upfrontCandidates.length === 0) {
+          // No patient found — offer to create inline
+          const pendingCreation: PendingPatientCreation = {
+            stage: 'awaiting_mobile_for_new_patient',
+            action: { ...action },
+            nameEn: patientName,
+          };
+          await repo.updateSessionContext(session.id, { ...ctx, pendingPatientCreation: pendingCreation });
           finalReply = session.language === 'ar'
-            ? `لم يُعثر على مريض باسم "${patientName}". تحقق من الاسم أو سجّل المريض أولاً.`
-            : `No patient found with name "${patientName}". Please verify or register the patient first.`;
-          actionResult = { ...action, result: 'patient_not_found' };
+            ? `لم يُعثر على مريض باسم "${patientName}" في النظام.\n\nهل تريد تسجيله الآن؟ أدخل رقم جواله (مثال: 01012345678) لإتمام التسجيل والمتابعة مع الحجز.\n(أو اكتب "إلغاء" للرجوع)`
+            : `No patient found with name "${patientName}" in the system.\n\nWould you like to register them now? Enter their mobile number (e.g., 01012345678) to complete registration and continue with the booking.\n(Or type "cancel" to go back)`;
+          actionResult = { ...action, result: 'awaiting_patient_creation' };
         } else if (upfrontCandidates.length > 1) {
           // Ambiguous — save disambiguation state and ask for full name
           const candidateList = upfrontCandidates.map((c) => `• ${c.nameAr ?? c.nameEn}`).join('\n');

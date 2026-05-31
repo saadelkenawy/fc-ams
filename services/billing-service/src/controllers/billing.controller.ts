@@ -173,6 +173,11 @@ export async function updateStatus(request: FastifyRequest, reply: FastifyReply)
 
 export async function getDoctorSettlement(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { doctorId, from, to } = settlementQuerySchema.parse(request.query);
+  const user = request.user as JwtPayload;
+  if (user.role === 'doctor' && user.doctorId !== doctorId) {
+    void reply.status(403).send({ success: false, error: { code: 'FORBIDDEN', message: 'Insufficient permissions' } });
+    return;
+  }
   const settlement = await repo.getDoctorSettlement(doctorId, from, to);
   void reply.send({ success: true, data: settlement });
 }

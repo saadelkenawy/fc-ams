@@ -163,7 +163,13 @@ export async function createAppointment(
       );
       if (existing.length) {
         const appt = rowToAppointment(existing[0] as Record<string, unknown>);
-        return { ...appt, doctorSplitDoctor: 50, doctorSplitClinic: 50 };
+        const { rows: docRows } = await client.query(
+          `SELECT consultation_split_doctor, consultation_split_clinic FROM doctors WHERE id = $1`,
+          [appt.doctorId],
+        );
+        const doctorSplitDoctor = docRows.length ? Number((docRows[0] as Record<string, unknown>).consultation_split_doctor) : 50;
+        const doctorSplitClinic = docRows.length ? Number((docRows[0] as Record<string, unknown>).consultation_split_clinic) : 50;
+        return { ...appt, doctorSplitDoctor, doctorSplitClinic };
       }
     }
 

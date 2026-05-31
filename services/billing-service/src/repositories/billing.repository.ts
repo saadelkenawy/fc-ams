@@ -928,17 +928,21 @@ export async function deleteSource(sourceCode: string): Promise<void> {
 }
 
 export async function updatePaymentStatusByAppointmentId(appointmentId: string, status: string): Promise<void> {
-  await pool.query(
-    `UPDATE financial_transactions SET payment_status = $2 WHERE appointment_id = $1`,
-    [appointmentId, status],
-  );
+  await withTransaction(async (client: PoolClient) => {
+    await client.query(
+      `UPDATE financial_transactions SET payment_status = $2 WHERE appointment_id = $1`,
+      [appointmentId, status],
+    );
+  });
 }
 
 export async function refundTransactionByAppointmentId(appointmentId: string): Promise<void> {
-  await pool.query(
-    `UPDATE financial_transactions SET payment_status = 'refunded' WHERE appointment_id = $1`,
-    [appointmentId],
-  );
+  await withTransaction(async (client: PoolClient) => {
+    await client.query(
+      `UPDATE financial_transactions SET payment_status = 'refunded' WHERE appointment_id = $1`,
+      [appointmentId],
+    );
+  });
 }
 
 export async function updateApprovedChargeByAppointmentId(

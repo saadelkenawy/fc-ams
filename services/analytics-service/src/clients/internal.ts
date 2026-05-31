@@ -28,14 +28,19 @@ function makeServiceToken(): string {
 }
 
 function makeClient(baseURL: string): AxiosInstance {
-  return axios.create({
+  const instance = axios.create({
     baseURL,
     timeout: 8_000,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${makeServiceToken()}`,
-    },
+    headers: { 'Content-Type': 'application/json' },
   });
+
+  // Refresh the service token on every request so it never expires mid-deployment
+  instance.interceptors.request.use((reqConfig) => {
+    reqConfig.headers.Authorization = `Bearer ${makeServiceToken()}`;
+    return reqConfig;
+  });
+
+  return instance;
 }
 
 export const billingClient      = makeClient(config.BILLING_SERVICE_URL);

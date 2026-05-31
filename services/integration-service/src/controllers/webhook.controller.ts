@@ -1,5 +1,6 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
+import { createHash, timingSafeEqual } from 'crypto';
 import { config } from '../config';
 import { appointmentClient, patientClient } from '../clients/internal';
 import * as repo from '../repositories/event.repository';
@@ -8,7 +9,10 @@ import * as repo from '../repositories/event.repository';
 
 function verifySecret(header: string | undefined, expected: string): boolean {
   if (!expected) return true; // dev mode: skip verification
-  return header === expected;
+  if (!header) return false;
+  const a = createHash('sha256').update(header).digest();
+  const b = createHash('sha256').update(expected).digest();
+  return timingSafeEqual(a, b);
 }
 
 // ── Normalised appointment shape ──────────────────────────────────────────

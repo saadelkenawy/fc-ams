@@ -116,10 +116,10 @@ export async function deleteFile(request: FastifyRequest, reply: FastifyReply): 
     return;
   }
 
+  // Soft delete in DB first — prevents orphaned MinIO objects if subsequent call fails
+  await repo.softDeleteFile(id);
+
   // Delete from MinIO
   await s3.send(new DeleteObjectCommand({ Bucket: config.MINIO_BUCKET, Key: record.fileKey }));
-
-  // Soft delete in DB
-  await repo.softDeleteFile(id);
   void reply.status(204).send();
 }
