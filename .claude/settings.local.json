@@ -239,7 +239,19 @@
       "Bash(pnpm -r build)",
       "Bash(pnpm exec *)",
       "Bash(python3 -c \"import json,sys; cfg=json.load\\(sys.stdin\\); print\\('Logged in to:', list\\(cfg.get\\('auths',{}\\).keys\\(\\)\\)\\)\")",
-      "Bash(docker push *)"
+      "Bash(docker push *)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('Result:', d.get\\('result'\\)\\); print\\('Duration:', d.get\\('duration',0\\)//1000, 's'\\); [print\\(s['name'],'-',s.get\\('status','?'\\)\\) for s in d.get\\('stages',[]\\)]\")",
+      "Bash(docker port *)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(j['name']\\) for j in d.get\\('jobs',[]\\)]\")",
+      "Bash(identify /root/fcms/frontend/web-portal/public/images/logo-wordmark.png)",
+      "Bash(awk '/^export const/' /root/fcms/services/analytics-service/src/utils/pdf-assets.ts)",
+      "Bash(python3 *)",
+      "Bash(npm view *)",
+      "Bash(pnpm list *)",
+      "Bash(awk 'NR==78 || /build.*78/ || / 78 /')",
+      "Bash(pnpm --filter @fadl/analytics-service build)",
+      "Bash(xargs -I{} head -60 {})",
+      "Bash(xargs -I{} grep -n \"JWT_SECRET\\\\|DATABASE_URL\\\\|default\\\\|fallback\\\\|OPENROUTER\\\\|API_KEY\\\\|SECRET\\\\|PASSWORD\" {})"
     ]
   },
   "enableAllProjectMcpServers": true,
