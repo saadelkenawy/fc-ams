@@ -67,10 +67,14 @@ export default function LoginPage() {
 
       const returnedRole = res.data.data.user.role;
       if (returnedRole !== role) {
+        const returnedLabel = ROLE_OPTIONS.find((r) => r.key === returnedRole);
+        const selectedLabel = ROLE_OPTIONS.find((r) => r.key === role);
+        const returnedName = returnedLabel ? t(returnedLabel.labelAr, returnedLabel.labelEn) : returnedRole;
+        const selectedName = selectedLabel ? t(selectedLabel.labelAr, selectedLabel.labelEn) : role;
         setError(
           t(
-            `هذا الحساب مسجّل كـ "${returnedRole}" وليس كـ "${role}". اختر الدور الصحيح.`,
-            `This account is registered as "${returnedRole}", not "${role}". Please select the correct role.`,
+            `هذا الحساب مسجّل كـ "${returnedName}" وليس كـ "${selectedName}". اختر الدور الصحيح.`,
+            `This account is registered as "${returnedName}", not "${selectedName}". Please select the correct role.`,
           ),
         );
         setShakeKey((k) => k + 1);
@@ -265,6 +269,7 @@ export default function LoginPage() {
                     id="email"
                     type="email"
                     autoComplete="email"
+                    dir="ltr"
                     placeholder="admin@fadlclinic.com"
                     className={cn(
                       'w-full h-11 rounded-lg border ps-10 pe-4 text-sm bg-[var(--color-bg-input)] text-[var(--color-text-primary)]',
@@ -276,7 +281,7 @@ export default function LoginPage() {
                 </div>
                 {errors.email && (
                   <p className="text-xs text-red-500 flex items-center gap-1 mt-1">
-                    <Info className="w-3 h-3" /> {errors.email.message}
+                    <Info className="w-3 h-3" /> {t('أدخل بريداً إلكترونياً صحيحاً', 'Enter a valid email address')}
                   </p>
                 )}
               </div>
@@ -301,6 +306,7 @@ export default function LoginPage() {
                     id="password"
                     type={showPass ? 'text' : 'password'}
                     autoComplete="current-password"
+                    dir="ltr"
                     placeholder="••••••••"
                     className={cn(
                       'w-full h-11 rounded-lg border ps-10 pe-11 text-sm bg-[var(--color-bg-input)] text-[var(--color-text-primary)]',
@@ -319,7 +325,7 @@ export default function LoginPage() {
                 </div>
                 {errors.password && (
                   <p className="text-xs text-red-500 flex items-center gap-1 mt-1">
-                    <Info className="w-3 h-3" /> {errors.password.message}
+                    <Info className="w-3 h-3" /> {t('كلمة المرور 6 أحرف على الأقل', 'Password must be at least 6 characters')}
                   </p>
                 )}
               </div>
