@@ -14,7 +14,6 @@ import {
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLang } from '@/contexts/LanguageContext';
-import { useTheme } from '@/contexts/ThemeContext';
 import { getNavForRole, NavItem } from './nav-config';
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -112,10 +111,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const pathname       = usePathname();
   const { user, logout } = useAuth();
   const { lang, t }    = useLang();
-  const { theme }      = useTheme();
   const navGroups      = getNavForRole(user?.role ?? 'receptionist');
-  const isDarkTheme    = theme === 'dark' || theme === 'high-contrast';
-  const logoSrc        = isDarkTheme ? '/images/fadiclinic_transparent.png' : '/images/fadiclinic_light.jpeg';
 
   const [width, setWidth]       = useState(SNAP_FULL);
   const [snapping, setSnapping] = useState(false);
@@ -201,25 +197,21 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
       )}
       style={isMobile ? undefined : { width }}
     >
-      {/* Logo card — white card on slate sidebar */}
-      <div className={cn('pt-5 pb-4 border-b border-white/10', collapsed ? 'px-2' : 'px-4')}>
-        <div className={cn(
-          'logo-card bg-white rounded-xl flex items-center justify-center transition-all duration-200',
-          collapsed ? 'p-2' : 'w-full px-4 py-2.5',
-        )}>
+      {/* Logo */}
+      <div className={cn('pt-5 pb-4 border-b border-white/10', collapsed ? 'px-3' : 'px-4')}>
+        <div className="flex items-center justify-center">
           {collapsed ? (
-            <HeartPulse className="w-6 h-6 text-primary-600 flex-shrink-0" />
+            <HeartPulse className="w-6 h-6 text-primary-400 flex-shrink-0" />
           ) : (
             <img
-              src={logoSrc}
+              src="/images/logo-dark-transparent.png"
               alt="Fadl Clinic"
-              className="logo-img h-7 w-auto object-contain"
-              style={!isDarkTheme ? { mixBlendMode: 'multiply' } : undefined}
+              className="h-8 w-auto object-contain"
             />
           )}
         </div>
         {!collapsed && (
-          <p className="text-slate-400 text-[11px] text-center mt-2.5 font-medium tracking-wide uppercase">
+          <p className="text-slate-500 text-[11px] text-center mt-2 font-medium tracking-wide uppercase">
             {lang === 'ar' ? 'نظام الإدارة' : 'Management System'}
           </p>
         )}
