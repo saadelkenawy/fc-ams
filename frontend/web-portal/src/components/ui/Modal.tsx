@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useId, type ReactNode } from 'react';
+import { useReducedMotion } from 'framer-motion';
 import { X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -38,9 +39,10 @@ const EASE = [0.25, 0.46, 0.45, 0.94] as const;
 
 export function Modal({ open, onClose, title, subtitle, children, maxWidth = 'xl', stretch = false, footer }: ModalProps) {
   const { t } = useLang();
-  const labelId   = useId();
-  const panelRef  = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<Element | null>(null);
+  const labelId      = useId();
+  const panelRef     = useRef<HTMLDivElement>(null);
+  const triggerRef   = useRef<Element | null>(null);
+  const reducedMotion = useReducedMotion();
 
   // Capture the element that opened the modal; restore focus on close
   useEffect(() => {
@@ -99,7 +101,7 @@ export function Modal({ open, onClose, title, subtitle, children, maxWidth = 'xl
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.18 }}
+          transition={{ duration: reducedMotion ? 0 : 0.18 }}
         >
           <motion.div
             ref={panelRef}
@@ -107,10 +109,10 @@ export function Modal({ open, onClose, title, subtitle, children, maxWidth = 'xl
             aria-modal="true"
             aria-labelledby={labelId}
             className={cn('modal-panel', MAX_WIDTH[maxWidth], stretch && 'flex flex-col h-[90vh]')}
-            initial={{ opacity: 0, scale: 0.96, y: 12 }}
+            initial={{ opacity: 0, scale: reducedMotion ? 1 : 0.96, y: reducedMotion ? 0 : 12 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96, y: 12 }}
-            transition={{ duration: 0.2, ease: EASE }}
+            exit={{ opacity: 0, scale: reducedMotion ? 1 : 0.96, y: reducedMotion ? 0 : 12 }}
+            transition={{ duration: reducedMotion ? 0 : 0.2, ease: EASE }}
           >
             {/* Header */}
             <div className="flex items-start justify-between px-6 pt-6 pb-4 border-b border-[var(--color-gray-100)]">
