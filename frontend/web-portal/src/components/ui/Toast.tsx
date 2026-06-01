@@ -1,11 +1,11 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { CheckCircle, XCircle, AlertTriangle, X } from 'lucide-react';
+import { CheckCircle, XCircle, AlertTriangle, Info, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
-type ToastType = 'success' | 'error' | 'warning';
+type ToastType = 'success' | 'error' | 'warning' | 'info';
 
 interface Toast {
   id: number;
@@ -75,6 +75,14 @@ const TYPE_CONFIG = {
     accentBorder:'border-s-amber-400 dark:border-s-amber-500/50',
     bar:         'bg-amber-400 dark:bg-amber-500',
     glow:        '0 0 0 1px rgba(245,158,11,0.12), 0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)',
+  },
+  info: {
+    Icon:        Info,
+    iconColor:   'text-blue-500',
+    iconBg:      'bg-blue-50 dark:bg-blue-500/10',
+    accentBorder:'border-s-blue-400 dark:border-s-blue-500/50',
+    bar:         'bg-blue-400 dark:bg-blue-500',
+    glow:        '0 0 0 1px rgba(59,130,246,0.12), 0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)',
   },
 } satisfies Record<ToastType, object>;
 

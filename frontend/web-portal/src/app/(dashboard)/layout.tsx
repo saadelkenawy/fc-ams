@@ -1,11 +1,32 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
 import { GlobalSearchOverlay } from '@/components/layout/GlobalSearchOverlay';
 import { useAuth } from '@/contexts/AuthContext';
+
+const PAGE_EASE = [0.25, 0.46, 0.45, 0.94] as const;
+
+function PageTransition({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const reduced  = useReducedMotion();
+  return (
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.div
+        key={pathname}
+        initial={{ opacity: 0, y: reduced ? 0 : 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: reduced ? 0 : -6 }}
+        transition={{ duration: reduced ? 0 : 0.2, ease: PAGE_EASE }}
+      >
+        {children}
+      </motion.div>
+    </AnimatePresence>
+  );
+}
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -69,7 +90,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className="flex flex-col flex-1 min-w-0">
         <Header onMobileMenuToggle={() => setMobileOpen((o) => !o)} onSearchOpen={() => setSearchOpen(true)} />
         <main id="main-content" className="flex-1 p-4 lg:p-6 overflow-auto" tabIndex={-1}>
-          {children}
+          <PageTransition>{children}</PageTransition>
         </main>
       </div>
 

@@ -6,6 +6,7 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { ToastProvider } from '@/components/ui/Toast';
+import { AlertPopupProvider } from '@/components/ui/AlertPopup';
 
 export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(
@@ -22,7 +23,9 @@ export function Providers({ children }: { children: ReactNode }) {
       <ThemeProvider>
         <LanguageProvider>
           <ToastProvider>
-            <AuthProvider>{children}</AuthProvider>
+            <AlertPopupProvider>
+              <AuthProvider>{children}</AuthProvider>
+            </AlertPopupProvider>
           </ToastProvider>
         </LanguageProvider>
       </ThemeProvider>

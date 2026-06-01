@@ -3,6 +3,7 @@
 import { Bell, Search, Sun, Moon, Globe, LayoutGrid, Minus, Plus, X, User, CheckCircle2, AlertCircle, Clock, MessageSquare, Menu } from 'lucide-react';
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { useLang } from '@/contexts/LanguageContext';
@@ -13,6 +14,14 @@ import { usePatients } from '@/hooks/usePatients';
 import { useDebounce } from '@/hooks/useDebounce';
 import { notificationApi } from '@/lib/api';
 import type { Patient } from '@fadl/types';
+
+const DROPDOWN_EASE = [0.25, 0.46, 0.45, 0.94] as const;
+const dropdownVariants = {
+  hidden:  { opacity: 0, y: -8, scale: 0.97 },
+  visible: { opacity: 1, y: 0,  scale: 1    },
+  exit:    { opacity: 0, y: -8, scale: 0.97 },
+} as const;
+const dropdownTransition = { duration: 0.18, ease: DROPDOWN_EASE } as const;
 
 // ─── Notification types ───────────────────────────────────────────────────────
 
@@ -120,77 +129,96 @@ function NotificationBell() {
         )}
       </Button>
 
-      {open && (
-        <div className="absolute top-10 end-0 z-50 w-80 max-w-[calc(100vw-2rem)] bg-white dark:bg-neutral-800 rounded-xl shadow-xl border border-gray-100 dark:border-neutral-700 overflow-hidden animate-slide-down">
-          <div className="px-4 py-3 border-b border-gray-100 dark:border-neutral-700 flex items-center justify-between">
-            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-              {t('الإشعارات', 'Notifications')}
-            </p>
-            {data?.total !== undefined && (
-              <span className="text-xs text-gray-400">{data.total} {t('إجمالي', 'total')}</span>
-            )}
-          </div>
-
-          {notifications.length === 0 ? (
-            <div className="px-4 py-8 text-center">
-              <MessageSquare className="w-8 h-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
-              <p className="text-sm text-gray-400 dark:text-gray-500">{t('لا توجد إشعارات', 'No notifications')}</p>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            className="absolute top-10 end-0 z-50 w-80 max-w-[calc(100vw-2rem)] bg-white dark:bg-neutral-800 rounded-xl shadow-xl border border-gray-100 dark:border-neutral-700 overflow-hidden"
+            variants={dropdownVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            transition={dropdownTransition}
+          >
+            <div className="px-4 py-3 border-b border-gray-100 dark:border-neutral-700 flex items-center justify-between">
+              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                {t('الإشعارات', 'Notifications')}
+              </p>
+              {data?.total !== undefined && (
+                <span className="text-xs text-gray-400">{data.total} {t('إجمالي', 'total')}</span>
+              )}
             </div>
-          ) : (
-            <ul className="divide-y divide-gray-50 dark:divide-neutral-700 max-h-80 overflow-y-auto list-none" role="list" aria-label={t('قائمة الإشعارات', 'Notification list')}>
-              {notifications.map((n) => {
-                const Icon = NOTIF_ICON[n.status] ?? Bell;
-                const isNew = n.createdAt > seenAt;
-                return (
-                  <li key={n.id}>
-                    <button
-                      className={cn(
-                        'w-full px-4 py-3 flex gap-3 items-start transition-colors text-start cursor-pointer',
-                        isNew ? 'bg-primary-50/50 dark:bg-primary-900/10 hover:bg-primary-50 dark:hover:bg-primary-900/20' : 'hover:bg-gray-50 dark:hover:bg-neutral-700/40',
-                      )}
-                      aria-label={`${n.body} — ${n.channel} — ${formatRelative(n.createdAt)}${isNew ? ` — ${t('جديد', 'new')}` : ''}`}
-                    >
-                      <Icon className={cn('w-4 h-4 mt-0.5 flex-shrink-0', NOTIF_COLOR[n.status] ?? 'text-gray-400')} aria-hidden="true" />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs text-gray-800 dark:text-gray-200 line-clamp-2">{n.body}</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-[10px] text-gray-400 capitalize">{n.channel}</span>
-                          <span className="text-[10px] text-gray-300 dark:text-gray-600" aria-hidden="true">·</span>
-                          <span className="text-[10px] text-gray-400">{formatRelative(n.createdAt)}</span>
-                        </div>
-                      </div>
-                      {isNew && <span className="w-1.5 h-1.5 rounded-full bg-primary-500 flex-shrink-0 mt-1.5" aria-hidden="true" />}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
 
-          {!canSee && (
-            <div className="px-4 py-6 text-center text-xs text-gray-400 dark:text-gray-500">
-              {t('غير متاح لدورك', 'Not available for your role')}
-            </div>
-          )}
-
-          {/* Footer */}
-          {canSee && notifications.length > 0 && (
-            <div className="px-4 py-2.5 border-t border-gray-100 dark:border-neutral-700 flex items-center justify-between">
-              <button
-                onClick={() => {
-                  const now = new Date().toISOString();
-                  setSeenAt(now);
-                  localStorage.setItem('fcms_notif_seen', now);
-                }}
-                className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+            {notifications.length === 0 ? (
+              <motion.div
+                className="px-4 py-8 text-center"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.08, duration: 0.18, ease: DROPDOWN_EASE }}
               >
-                {t('تعليم الكل كمقروء', 'Mark all as read')}
-              </button>
-              <span className="text-xs text-gray-300 dark:text-gray-600">{data?.total ?? 0} {t('إجمالي', 'total')}</span>
-            </div>
-          )}
-        </div>
-      )}
+                <MessageSquare className="w-8 h-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+                <p className="text-sm text-gray-400 dark:text-gray-500">{t('لا توجد إشعارات', 'No notifications')}</p>
+              </motion.div>
+            ) : (
+              <ul className="divide-y divide-gray-50 dark:divide-neutral-700 max-h-80 overflow-y-auto list-none" role="list" aria-label={t('قائمة الإشعارات', 'Notification list')}>
+                {notifications.map((n, idx) => {
+                  const Icon = NOTIF_ICON[n.status] ?? Bell;
+                  const isNew = n.createdAt > seenAt;
+                  return (
+                    <motion.li
+                      key={n.id}
+                      initial={{ opacity: 0, x: 8 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.06 + idx * 0.04, duration: 0.16, ease: DROPDOWN_EASE }}
+                    >
+                      <button
+                        className={cn(
+                          'w-full px-4 py-3 flex gap-3 items-start transition-colors text-start cursor-pointer',
+                          isNew ? 'bg-primary-50/50 dark:bg-primary-900/10 hover:bg-primary-50 dark:hover:bg-primary-900/20' : 'hover:bg-gray-50 dark:hover:bg-neutral-700/40',
+                        )}
+                        aria-label={`${n.body} — ${n.channel} — ${formatRelative(n.createdAt)}${isNew ? ` — ${t('جديد', 'new')}` : ''}`}
+                      >
+                        <Icon className={cn('w-4 h-4 mt-0.5 flex-shrink-0', NOTIF_COLOR[n.status] ?? 'text-gray-400')} aria-hidden="true" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs text-gray-800 dark:text-gray-200 line-clamp-2">{n.body}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-[10px] text-gray-400 capitalize">{n.channel}</span>
+                            <span className="text-[10px] text-gray-300 dark:text-gray-600" aria-hidden="true">·</span>
+                            <span className="text-[10px] text-gray-400">{formatRelative(n.createdAt)}</span>
+                          </div>
+                        </div>
+                        {isNew && <span className="w-1.5 h-1.5 rounded-full bg-primary-500 flex-shrink-0 mt-1.5" aria-hidden="true" />}
+                      </button>
+                    </motion.li>
+                  );
+                })}
+              </ul>
+            )}
+
+            {!canSee && (
+              <div className="px-4 py-6 text-center text-xs text-gray-400 dark:text-gray-500">
+                {t('غير متاح لدورك', 'Not available for your role')}
+              </div>
+            )}
+
+            {/* Footer */}
+            {canSee && notifications.length > 0 && (
+              <div className="px-4 py-2.5 border-t border-gray-100 dark:border-neutral-700 flex items-center justify-between">
+                <button
+                  onClick={() => {
+                    const now = new Date().toISOString();
+                    setSeenAt(now);
+                    localStorage.setItem('fcms_notif_seen', now);
+                  }}
+                  className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors cursor-pointer"
+                >
+                  {t('تعليم الكل كمقروء', 'Mark all as read')}
+                </button>
+                <span className="text-xs text-gray-300 dark:text-gray-600">{data?.total ?? 0} {t('إجمالي', 'total')}</span>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -334,13 +362,18 @@ function QuickSearch({ onOpenGlobal }: { onOpenGlobal?: () => void }) {
         )}
       </div>
 
+      <AnimatePresence>
       {showDropdown && (
-        <div
+        <motion.div
           ref={listRef}
           id={listboxId}
           role="listbox"
           aria-label={t('نتائج البحث', 'Search results')}
-          className="absolute top-10 inset-x-0 z-50 bg-white dark:bg-neutral-800 rounded-xl shadow-xl border border-gray-100 dark:border-neutral-700 overflow-hidden animate-slide-down max-h-72 overflow-y-auto"
+          className="absolute top-10 inset-x-0 z-50 bg-white dark:bg-neutral-800 rounded-xl shadow-xl border border-gray-100 dark:border-neutral-700 overflow-hidden max-h-72 overflow-y-auto"
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -6 }}
+          transition={{ duration: 0.15, ease: DROPDOWN_EASE }}
         >
           {isFetching && results.length === 0 && (
             <div className="px-4 py-3 text-xs text-gray-400 text-center" role="status" aria-live="polite">
@@ -400,8 +433,9 @@ function QuickSearch({ onOpenGlobal }: { onOpenGlobal?: () => void }) {
               {t(`عرض كل النتائج لـ "${dq}"`, `View all results for "${dq}"`)}
             </button>
           )}
-        </div>
+        </motion.div>
       )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -491,8 +525,16 @@ export function Header({ onMobileMenuToggle, onSearchOpen }: HeaderProps) {
             <LayoutGrid className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">{t(DENSITIES.find((d) => d.key === density)!.labelAr, DENSITIES.find((d) => d.key === density)!.labelEn)}</span>
           </button>
+          <AnimatePresence>
           {showDensity && (
-            <div className="absolute top-10 end-0 z-50 bg-white dark:bg-neutral-800 rounded-xl shadow-lg border border-gray-100 dark:border-neutral-700 overflow-hidden min-w-[180px] animate-slide-down">
+            <motion.div
+              className="absolute top-10 end-0 z-50 bg-white dark:bg-neutral-800 rounded-xl shadow-lg border border-gray-100 dark:border-neutral-700 overflow-hidden min-w-[180px]"
+              variants={dropdownVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              transition={dropdownTransition}
+            >
               {/* Density section */}
               <div className="px-3 pt-2.5 pb-1">
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-1.5">
@@ -540,8 +582,9 @@ export function Header({ onMobileMenuToggle, onSearchOpen }: HeaderProps) {
                   </button>
                 </div>
               </div>
-            </div>
+            </motion.div>
           )}
+          </AnimatePresence>
         </div>
 
         {/* Language toggle */}
