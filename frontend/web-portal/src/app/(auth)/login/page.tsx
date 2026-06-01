@@ -114,11 +114,16 @@ export default function LoginPage() {
           }}
         />
 
-        {/* Logo card */}
-        <div className="relative z-10 flex items-center gap-3">
-          <div className="rounded-xl overflow-hidden shadow-lg">
-            <img src="/images/fadiclinic_dark.png" alt="Fadl Clinic" className="h-10 w-auto object-contain block" />
-          </div>
+        {/* Logo */}
+        <div className="relative z-10">
+          <Image
+            src="/images/logo-dark-transparent.png"
+            alt="Fadl Clinic"
+            width={180}
+            height={40}
+            className="h-10 w-auto object-contain"
+            priority
+          />
         </div>
 
         {/* Headline */}
@@ -211,12 +216,14 @@ export default function LoginPage() {
       {/* ── Right form panel ──────────────────────────────────────────────── */}
       <div className="flex-1 flex flex-col bg-[var(--color-bg)]">
         <header className="flex items-center justify-end gap-2 p-6">
-          {/* Mobile logo — swaps based on current theme */}
-          <img
-            src={isDarkTheme ? '/images/fadiclinic_transparent.png' : '/images/fadiclinic_light.jpeg'}
+          {/* Mobile logo — transparent PNG for dark, wordmark for light */}
+          <Image
+            src={isDarkTheme ? '/images/logo-dark-transparent.png' : '/images/logo-wordmark.png'}
             alt="Fadl Clinic"
+            width={120}
+            height={28}
             className="h-7 w-auto object-contain me-auto lg:hidden"
-            style={isDarkTheme ? undefined : { mixBlendMode: 'multiply' }}
+            priority
           />
 
           {/* Language toggle */}
