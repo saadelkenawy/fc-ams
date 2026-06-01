@@ -113,7 +113,7 @@ export default function LoginPage() {
         {/* Logo card */}
         <div className="relative z-10 flex items-center gap-3">
           <div className="rounded-xl overflow-hidden shadow-lg">
-            <img src="/images/logo-dark-mode.png" alt="Fadl Clinic" className="h-10 w-auto object-contain block" />
+            <img src="/images/fadiclinic_dark.png" alt="Fadl Clinic" className="h-10 w-auto object-contain block" />
           </div>
         </div>
 
@@ -209,7 +209,7 @@ export default function LoginPage() {
         <header className="flex items-center justify-end gap-2 p-6">
           {/* Mobile logo — swaps based on current theme */}
           <img
-            src={isDarkTheme ? '/images/logo-dark-mode.png' : '/images/logo-wordmark.png'}
+            src={isDarkTheme ? '/images/fadiclinic_dark.png' : '/images/logo-wordmark.png'}
             alt="Fadl Clinic"
             className="h-7 w-auto object-contain me-auto lg:hidden"
           />
