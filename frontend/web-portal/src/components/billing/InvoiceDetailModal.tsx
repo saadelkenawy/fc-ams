@@ -60,7 +60,7 @@ export function InvoiceDetailModal({ open, transaction: tx, patientName, doctorN
   const { lang, t } = useLang();
   const { theme } = useTheme();
   const locale = lang === 'ar' ? 'ar-EG' : 'en-US';
-  const logoSrc = theme === 'dark' ? '/images/fadiclinic_dark.png' : '/images/fadiclinic_transparent.png';
+  const logoSrc = theme === 'dark' ? '/images/fadiclinic_transparent.png' : '/images/fadiclinic_dark.png';
 
   if (!open || !tx) return null;
 
