@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -203,10 +204,13 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
           {collapsed ? (
             <HeartPulse className="w-6 h-6 text-primary-400 flex-shrink-0" />
           ) : (
-            <img
+            <Image
               src="/images/logo-dark-transparent.png"
               alt="Fadl Clinic"
+              width={160}
+              height={36}
               className="h-8 w-auto object-contain"
+              priority
             />
           )}
         </div>
