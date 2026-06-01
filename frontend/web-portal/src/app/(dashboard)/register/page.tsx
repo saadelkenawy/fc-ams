@@ -299,7 +299,7 @@ export default function RegisterPage() {
                     />
                     {errors.firstNameEn && (
                       <p className="text-[11px] text-red-500 mt-1 flex items-center gap-1">
-                        <Info className="w-3 h-3 flex-shrink-0" />{errors.firstNameEn.message}
+                        <Info className="w-3 h-3 flex-shrink-0" />{t('الاسم الأول مطلوب', 'First name is required')}
                       </p>
                     )}
                   </div>
@@ -325,7 +325,7 @@ export default function RegisterPage() {
                     />
                     {errors.lastNameEn && (
                       <p className="text-[11px] text-red-500 mt-1 flex items-center gap-1">
-                        <Info className="w-3 h-3 flex-shrink-0" />{errors.lastNameEn.message}
+                        <Info className="w-3 h-3 flex-shrink-0" />{t('اسم العائلة مطلوب', 'Last name is required')}
                       </p>
                     )}
                   </div>
@@ -349,6 +349,7 @@ export default function RegisterPage() {
                   <Mail className="absolute start-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                   <input
                     type="email" autoComplete="off"
+                    dir="ltr"
                     placeholder="staff@fadlclinic.com"
                     className={cn(
                       'w-full h-11 rounded-lg border ps-10 pe-4 text-sm bg-white dark:bg-neutral-800 text-gray-900 dark:text-gray-100',
@@ -360,7 +361,7 @@ export default function RegisterPage() {
                 </div>
                 {errors.email && (
                   <p className="text-xs text-red-500 flex items-center gap-1">
-                    <Info className="w-3 h-3 flex-shrink-0" />{errors.email.message}
+                    <Info className="w-3 h-3 flex-shrink-0" />{t('أدخل بريداً إلكترونياً صحيحاً', 'Enter a valid email address')}
                   </p>
                 )}
               </div>
@@ -378,6 +379,7 @@ export default function RegisterPage() {
                     <input
                       type={showPass ? 'text' : 'password'}
                       placeholder="••••••••" autoComplete="new-password"
+                      dir="ltr"
                       className={cn(
                         'w-full h-11 rounded-lg border ps-10 pe-11 text-sm bg-white dark:bg-neutral-800 text-gray-900 dark:text-gray-100',
                         'focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent transition-all',
@@ -402,7 +404,7 @@ export default function RegisterPage() {
                   )}
                   {errors.password && (
                     <p className="text-xs text-red-500 flex items-center gap-1">
-                      <Info className="w-3 h-3 flex-shrink-0" />{errors.password.message}
+                      <Info className="w-3 h-3 flex-shrink-0" />{t('كلمة المرور 8 أحرف على الأقل', 'Password must be at least 8 characters')}
                     </p>
                   )}
                 </div>
@@ -417,6 +419,7 @@ export default function RegisterPage() {
                     <input
                       type={showConfirm ? 'text' : 'password'}
                       placeholder="••••••••" autoComplete="new-password"
+                      dir="ltr"
                       className={cn(
                         'w-full h-11 rounded-lg border ps-10 pe-11 text-sm bg-white dark:bg-neutral-800 text-gray-900 dark:text-gray-100',
                         'focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent transition-all',
@@ -431,7 +434,7 @@ export default function RegisterPage() {
                   </div>
                   {errors.confirm && (
                     <p className="text-xs text-red-500 flex items-center gap-1">
-                      <Info className="w-3 h-3 flex-shrink-0" />{errors.confirm.message}
+                      <Info className="w-3 h-3 flex-shrink-0" />{t('كلمتا المرور غير متطابقتين', 'Passwords do not match')}
                     </p>
                   )}
                 </div>

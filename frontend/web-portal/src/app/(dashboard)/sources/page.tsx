@@ -214,7 +214,7 @@ function SourceModal({
                   errors.feeValue && 'border-red-400',
                 )}
               />
-              {errors.feeValue && <p className="text-xs text-red-500">{errors.feeValue.message}</p>}
+              {errors.feeValue && <p className="text-xs text-red-500">{t('يجب أن تكون القيمة 0 أو أكثر', 'Must be ≥ 0')}</p>}
             </div>
           </div>
 
