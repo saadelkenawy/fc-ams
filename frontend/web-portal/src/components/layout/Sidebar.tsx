@@ -105,7 +105,8 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const { lang, t }    = useLang();
   const { theme }      = useTheme();
   const navGroups      = getNavForRole(user?.role ?? 'receptionist');
-  const logoSrc        = theme === 'dark' ? '/images/fadiclinic_transparent.png' : '/images/fadiclinic_dark.png';
+  const isDarkTheme    = theme === 'dark' || theme === 'high-contrast';
+  const logoSrc        = isDarkTheme ? '/images/fadiclinic_transparent.png' : '/images/fadiclinic_light.jpeg';
 
   const [width, setWidth]       = useState(SNAP_FULL);
   const [snapping, setSnapping] = useState(false);
@@ -194,7 +195,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
       {/* Logo card — white card on slate sidebar */}
       <div className={cn('pt-5 pb-4 border-b border-white/10', collapsed ? 'px-2' : 'px-4')}>
         <div className={cn(
-          'logo-card bg-white rounded-xl flex items-center justify-center transition-all duration-200 shadow-2',
+          'logo-card bg-white rounded-xl flex items-center justify-center transition-all duration-200',
           collapsed ? 'p-2' : 'w-full px-4 py-2.5',
         )}>
           {collapsed ? (
@@ -204,6 +205,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
               src={logoSrc}
               alt="Fadl Clinic"
               className="logo-img h-7 w-auto object-contain"
+              style={!isDarkTheme ? { mixBlendMode: 'multiply' } : undefined}
             />
           )}
         </div>
