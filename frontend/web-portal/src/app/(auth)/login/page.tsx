@@ -212,6 +212,7 @@ export default function LoginPage() {
             src={isDarkTheme ? '/images/fadiclinic_transparent.png' : '/images/fadiclinic_light.jpeg'}
             alt="Fadl Clinic"
             className="h-7 w-auto object-contain me-auto lg:hidden"
+            style={isDarkTheme ? undefined : { mixBlendMode: 'multiply' }}
           />
 
           {/* Language toggle */}
