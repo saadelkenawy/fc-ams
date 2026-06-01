@@ -137,37 +137,56 @@ function NotificationBell() {
               <p className="text-sm text-gray-400 dark:text-gray-500">{t('لا توجد إشعارات', 'No notifications')}</p>
             </div>
           ) : (
-            <div className="divide-y divide-gray-50 dark:divide-neutral-700 max-h-80 overflow-y-auto">
+            <ul className="divide-y divide-gray-50 dark:divide-neutral-700 max-h-80 overflow-y-auto list-none" role="list" aria-label={t('قائمة الإشعارات', 'Notification list')}>
               {notifications.map((n) => {
                 const Icon = NOTIF_ICON[n.status] ?? Bell;
                 const isNew = n.createdAt > seenAt;
                 return (
-                  <div
-                    key={n.id}
-                    className={cn(
-                      'px-4 py-3 flex gap-3 items-start transition-colors',
-                      isNew ? 'bg-primary-50/50 dark:bg-primary-900/10' : 'hover:bg-gray-50 dark:hover:bg-neutral-700/40',
-                    )}
-                  >
-                    <Icon className={cn('w-4 h-4 mt-0.5 flex-shrink-0', NOTIF_COLOR[n.status] ?? 'text-gray-400')} />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs text-gray-800 dark:text-gray-200 line-clamp-2">{n.body}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-[10px] text-gray-400 capitalize">{n.channel}</span>
-                        <span className="text-[10px] text-gray-300 dark:text-gray-600">·</span>
-                        <span className="text-[10px] text-gray-400">{formatRelative(n.createdAt)}</span>
+                  <li key={n.id}>
+                    <button
+                      className={cn(
+                        'w-full px-4 py-3 flex gap-3 items-start transition-colors text-start cursor-pointer',
+                        isNew ? 'bg-primary-50/50 dark:bg-primary-900/10 hover:bg-primary-50 dark:hover:bg-primary-900/20' : 'hover:bg-gray-50 dark:hover:bg-neutral-700/40',
+                      )}
+                      aria-label={`${n.body} — ${n.channel} — ${formatRelative(n.createdAt)}${isNew ? ` — ${t('جديد', 'new')}` : ''}`}
+                    >
+                      <Icon className={cn('w-4 h-4 mt-0.5 flex-shrink-0', NOTIF_COLOR[n.status] ?? 'text-gray-400')} aria-hidden="true" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs text-gray-800 dark:text-gray-200 line-clamp-2">{n.body}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-[10px] text-gray-400 capitalize">{n.channel}</span>
+                          <span className="text-[10px] text-gray-300 dark:text-gray-600" aria-hidden="true">·</span>
+                          <span className="text-[10px] text-gray-400">{formatRelative(n.createdAt)}</span>
+                        </div>
                       </div>
-                    </div>
-                    {isNew && <span className="w-1.5 h-1.5 rounded-full bg-primary-500 flex-shrink-0 mt-1.5" />}
-                  </div>
+                      {isNew && <span className="w-1.5 h-1.5 rounded-full bg-primary-500 flex-shrink-0 mt-1.5" aria-hidden="true" />}
+                    </button>
+                  </li>
                 );
               })}
-            </div>
+            </ul>
           )}
 
           {!canSee && (
             <div className="px-4 py-6 text-center text-xs text-gray-400 dark:text-gray-500">
               {t('غير متاح لدورك', 'Not available for your role')}
+            </div>
+          )}
+
+          {/* Footer */}
+          {canSee && notifications.length > 0 && (
+            <div className="px-4 py-2.5 border-t border-gray-100 dark:border-neutral-700 flex items-center justify-between">
+              <button
+                onClick={() => {
+                  const now = new Date().toISOString();
+                  setSeenAt(now);
+                  localStorage.setItem('fcms_notif_seen', now);
+                }}
+                className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+              >
+                {t('تعليم الكل كمقروء', 'Mark all as read')}
+              </button>
+              <span className="text-xs text-gray-300 dark:text-gray-600">{data?.total ?? 0} {t('إجمالي', 'total')}</span>
             </div>
           )}
         </div>
@@ -185,55 +204,107 @@ const DENSITIES: { key: Density; labelAr: string; labelEn: string }[] = [
 const TEXT_SIZES = ['sm', 'md', 'lg', 'xl'] as const;
 type TextSize = typeof TEXT_SIZES[number];
 
+const DENSITY_KEY = 'fadl_density';
+
 function QuickSearch({ onOpenGlobal }: { onOpenGlobal?: () => void }) {
   const { lang, t } = useLang();
   const router = useRouter();
-  const [value, setValue] = useState('');
-  const [open, setOpen] = useState(false);
-  const dq = useDebounce(value, 280);
-  const wrapRef = useRef<HTMLDivElement>(null);
+  const [value, setValue]           = useState('');
+  const [open, setOpen]             = useState(false);
+  const [activeIdx, setActiveIdx]   = useState(-1);
+  const dq       = useDebounce(value, 280);
+  const wrapRef  = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const listRef  = useRef<HTMLDivElement>(null);
 
   const { data, isFetching } = usePatients(
     dq.trim().length >= 2 ? { query: dq.trim(), limit: 6 } : {},
   );
   const results: Patient[] = data?.data ?? [];
 
+  // total navigable items = results + optional "view all" row
+  const totalItems = results.length + (results.length > 0 ? 1 : 0);
+
+  // reset active index when results change
+  useEffect(() => { setActiveIdx(-1); }, [dq]);
+
   // close on outside click
   useEffect(() => {
     function handler(e: MouseEvent) {
       if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
         setOpen(false);
+        setActiveIdx(-1);
       }
     }
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  // scroll active item into view
+  useEffect(() => {
+    if (activeIdx < 0 || !listRef.current) return;
+    const item = listRef.current.querySelector<HTMLElement>(`[data-idx="${activeIdx}"]`);
+    item?.scrollIntoView({ block: 'nearest' });
+  }, [activeIdx]);
+
   function handleSelect(patient: Patient) {
     setOpen(false);
+    setActiveIdx(-1);
     setValue('');
     router.push(`/patients/${patient.patientId}`);
   }
 
   function handleViewAll() {
     setOpen(false);
+    setActiveIdx(-1);
     router.push(`/patients?query=${encodeURIComponent(value.trim())}`);
     setValue('');
   }
 
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (!open || totalItems === 0) {
+      if (e.key === 'Escape') { setOpen(false); return; }
+      return;
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveIdx((i) => Math.min(i + 1, totalItems - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveIdx((i) => Math.max(i - 1, -1));
+      if (activeIdx <= 0) inputRef.current?.focus();
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (activeIdx >= 0 && activeIdx < results.length) {
+        handleSelect(results[activeIdx]);
+      } else if (activeIdx === results.length) {
+        handleViewAll();
+      }
+    } else if (e.key === 'Escape') {
+      setOpen(false);
+      setActiveIdx(-1);
+    }
+  }
+
   const showDropdown = open && dq.trim().length >= 2;
+  const listboxId = 'quick-search-listbox';
 
   return (
     <div ref={wrapRef} className="flex-1 max-w-xs relative">
       <div className="relative">
-        <Search className={cn(
-          'absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none start-2.5',
-        )} />
+        <Search className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none start-2.5" aria-hidden="true" />
         <input
+          ref={inputRef}
           type="text"
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={showDropdown}
+          aria-controls={showDropdown ? listboxId : undefined}
+          aria-activedescendant={activeIdx >= 0 ? `qsr-${activeIdx}` : undefined}
           value={value}
-          onChange={(e) => { setValue(e.target.value); setOpen(true); }}
+          onChange={(e) => { setValue(e.target.value); setOpen(true); setActiveIdx(-1); }}
           onFocus={() => { if (dq.trim().length >= 2) setOpen(true); }}
+          onKeyDown={handleKeyDown}
           placeholder={t('بحث سريع...', 'Quick search...')}
           className={cn(
             'w-full h-8 text-xs bg-white/80 dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-full',
@@ -242,23 +313,21 @@ function QuickSearch({ onOpenGlobal }: { onOpenGlobal?: () => void }) {
             'ps-8 pe-16',
           )}
         />
-        {/* Cmd+K badge — opens global overlay */}
         {!value && onOpenGlobal && (
           <button
             onClick={onOpenGlobal}
             className="absolute top-1/2 -translate-y-1/2 end-2 flex items-center gap-0.5"
             tabIndex={-1}
+            aria-hidden="true"
           >
             <kbd className="px-1 py-0.5 rounded text-[9px] font-mono text-gray-400 bg-gray-100 dark:bg-neutral-700 border border-gray-200 dark:border-neutral-600 leading-none">⌘K</kbd>
           </button>
         )}
         {value && (
           <button
-            onClick={() => { setValue(''); setOpen(false); }}
-            className={cn(
-              'absolute top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600',
-              'end-2',
-            )}
+            onClick={() => { setValue(''); setOpen(false); setActiveIdx(-1); }}
+            className="absolute top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 end-2"
+            aria-label={t('مسح البحث', 'Clear search')}
           >
             <X className="w-3 h-3" />
           </button>
@@ -266,28 +335,42 @@ function QuickSearch({ onOpenGlobal }: { onOpenGlobal?: () => void }) {
       </div>
 
       {showDropdown && (
-        <div className="absolute top-10 inset-x-0 z-50 bg-white dark:bg-neutral-800 rounded-xl shadow-xl border border-gray-100 dark:border-neutral-700 overflow-hidden animate-slide-down">
+        <div
+          ref={listRef}
+          id={listboxId}
+          role="listbox"
+          aria-label={t('نتائج البحث', 'Search results')}
+          className="absolute top-10 inset-x-0 z-50 bg-white dark:bg-neutral-800 rounded-xl shadow-xl border border-gray-100 dark:border-neutral-700 overflow-hidden animate-slide-down max-h-72 overflow-y-auto"
+        >
           {isFetching && results.length === 0 && (
-            <div className="px-4 py-3 text-xs text-gray-400 text-center">
+            <div className="px-4 py-3 text-xs text-gray-400 text-center" role="status" aria-live="polite">
               {t('جارٍ البحث...', 'Searching...')}
             </div>
           )}
 
           {!isFetching && results.length === 0 && (
-            <div className="px-4 py-3 text-xs text-gray-400 text-center">
+            <div className="px-4 py-3 text-xs text-gray-400 text-center" role="status" aria-live="polite">
               {t('لا توجد نتائج', 'No results found')}
             </div>
           )}
 
-          {results.map((p) => {
+          {results.map((p, i) => {
             const name = lang === 'ar' ? (p.nameAr ?? p.nameEn) : p.nameEn;
+            const isActive = activeIdx === i;
             return (
               <button
                 key={p.patientId}
+                id={`qsr-${i}`}
+                data-idx={i}
+                role="option"
+                aria-selected={isActive}
                 onClick={() => handleSelect(p)}
-                className="w-full flex items-center gap-2.5 px-3.5 py-2.5 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors text-start"
+                className={cn(
+                  'w-full flex items-center gap-2.5 px-3.5 py-2.5 transition-colors text-start',
+                  isActive ? 'bg-primary-50 dark:bg-primary-900/20' : 'hover:bg-gray-50 dark:hover:bg-neutral-700',
+                )}
               >
-                <div className="w-7 h-7 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center flex-shrink-0">
+                <div className="w-7 h-7 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center flex-shrink-0" aria-hidden="true">
                   <User className="w-3.5 h-3.5 text-primary-600 dark:text-primary-400" />
                 </div>
                 <div className="min-w-0">
@@ -302,8 +385,17 @@ function QuickSearch({ onOpenGlobal }: { onOpenGlobal?: () => void }) {
 
           {results.length > 0 && (
             <button
+              id={`qsr-${results.length}`}
+              data-idx={results.length}
+              role="option"
+              aria-selected={activeIdx === results.length}
               onClick={handleViewAll}
-              className="w-full px-3.5 py-2 text-xs text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 border-t border-gray-100 dark:border-neutral-700 transition-colors font-medium"
+              className={cn(
+                'w-full px-3.5 py-2 text-xs text-primary-600 dark:text-primary-400 border-t border-gray-100 dark:border-neutral-700 transition-colors font-medium',
+                activeIdx === results.length
+                  ? 'bg-primary-50 dark:bg-primary-900/20'
+                  : 'hover:bg-primary-50 dark:hover:bg-primary-900/20',
+              )}
             >
               {t(`عرض كل النتائج لـ "${dq}"`, `View all results for "${dq}"`)}
             </button>
@@ -327,10 +419,17 @@ export function Header({ onMobileMenuToggle, onSearchOpen }: HeaderProps) {
   const [textSize, setTextSize] = useState<TextSize>('md');
   const [showDensity, setShowDensity] = useState(false);
 
+  // Restore persisted density + text size on mount
   useEffect(() => {
-    const stored = localStorage.getItem('fadl_text_size') as TextSize | null;
-    if (stored && (TEXT_SIZES as readonly string[]).includes(stored)) {
-      setTextSize(stored);
+    const storedDensity = localStorage.getItem(DENSITY_KEY) as Density | null;
+    if (storedDensity && DENSITIES.some((d) => d.key === storedDensity)) {
+      document.documentElement.setAttribute('data-density', storedDensity);
+      setDensity(storedDensity);
+    }
+    const storedSize = localStorage.getItem('fadl_text_size') as TextSize | null;
+    if (storedSize && (TEXT_SIZES as readonly string[]).includes(storedSize)) {
+      document.documentElement.setAttribute('data-text-size', storedSize);
+      setTextSize(storedSize);
     }
   }, []);
 
@@ -340,6 +439,7 @@ export function Header({ onMobileMenuToggle, onSearchOpen }: HeaderProps) {
 
   const applyDensity = useCallback((d: Density) => {
     document.documentElement.setAttribute('data-density', d);
+    localStorage.setItem(DENSITY_KEY, d);
     setDensity(d);
     setShowDensity(false);
   }, []);
@@ -380,53 +480,66 @@ export function Header({ onMobileMenuToggle, onSearchOpen }: HeaderProps) {
       <QuickSearch onOpenGlobal={onSearchOpen} />
 
       <div className="flex items-center gap-1 ms-auto">
-        {/* Zoom controls — hidden below sm to preserve header space */}
-        <div className="hidden sm:flex items-center gap-0 bg-gray-100 dark:bg-neutral-800 rounded-lg overflow-hidden me-1">
-          <button
-            onClick={zoomOut}
-            disabled={textSize === 'sm'}
-            className="px-2 py-1.5 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-neutral-700 disabled:opacity-30 transition-colors"
-            aria-label={t('تصغير النص', 'Decrease font')}
-          >
-            <Minus className="w-3.5 h-3.5" />
-          </button>
-          <span className="px-2 text-xs font-mono text-gray-600 dark:text-gray-300 select-none border-x border-gray-200 dark:border-neutral-700">{textSize.toUpperCase()}</span>
-          <button
-            onClick={zoomIn}
-            disabled={textSize === 'xl'}
-            className="px-2 py-1.5 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-neutral-700 disabled:opacity-30 transition-colors"
-            aria-label={t('تكبير النص', 'Increase font')}
-          >
-            <Plus className="w-3.5 h-3.5" />
-          </button>
-        </div>
-
-        {/* Density picker */}
+        {/* Display settings — density + font size, always visible */}
         <div className="relative me-1">
           <button
             onClick={() => setShowDensity((s) => !s)}
             className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg bg-gray-100 dark:bg-neutral-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-neutral-700 transition-colors text-xs font-medium"
-            aria-label={t('كثافة العرض', 'Display density')}
+            aria-label={t('إعدادات العرض', 'Display settings')}
+            aria-expanded={showDensity}
           >
             <LayoutGrid className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">{t(DENSITIES.find((d) => d.key === density)!.labelAr, DENSITIES.find((d) => d.key === density)!.labelEn)}</span>
           </button>
           {showDensity && (
-            <div className="absolute top-10 end-0 z-50 bg-white dark:bg-neutral-800 rounded-xl shadow-lg border border-gray-100 dark:border-neutral-700 overflow-hidden min-w-[140px] animate-slide-down">
-              {DENSITIES.map((d) => (
-                <button
-                  key={d.key}
-                  onClick={() => applyDensity(d.key)}
-                  className={cn(
-                    'w-full text-start px-4 py-2.5 text-sm transition-colors',
-                    density === d.key
-                      ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 font-medium'
-                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-neutral-700',
-                  )}
-                >
-                  {lang === 'ar' ? d.labelAr : d.labelEn}
-                </button>
-              ))}
+            <div className="absolute top-10 end-0 z-50 bg-white dark:bg-neutral-800 rounded-xl shadow-lg border border-gray-100 dark:border-neutral-700 overflow-hidden min-w-[180px] animate-slide-down">
+              {/* Density section */}
+              <div className="px-3 pt-2.5 pb-1">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-1.5">
+                  {t('كثافة العرض', 'Density')}
+                </p>
+                {DENSITIES.map((d) => (
+                  <button
+                    key={d.key}
+                    onClick={() => applyDensity(d.key)}
+                    className={cn(
+                      'w-full text-start px-3 py-2 text-sm rounded-lg transition-colors',
+                      density === d.key
+                        ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 font-medium'
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-neutral-700',
+                    )}
+                  >
+                    {lang === 'ar' ? d.labelAr : d.labelEn}
+                  </button>
+                ))}
+              </div>
+              {/* Font size section */}
+              <div className="px-3 pt-1 pb-2.5 border-t border-gray-100 dark:border-neutral-700 mt-1">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-2">
+                  {t('حجم النص', 'Text Size')}
+                </p>
+                <div className="flex items-center gap-0 bg-gray-100 dark:bg-neutral-700 rounded-lg overflow-hidden">
+                  <button
+                    onClick={zoomOut}
+                    disabled={textSize === 'sm'}
+                    className="flex-1 py-1.5 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-neutral-600 disabled:opacity-30 transition-colors flex items-center justify-center"
+                    aria-label={t('تصغير النص', 'Decrease font size')}
+                  >
+                    <Minus className="w-3.5 h-3.5" />
+                  </button>
+                  <span className="px-3 text-xs font-mono text-gray-600 dark:text-gray-300 select-none border-x border-gray-200 dark:border-neutral-600">
+                    {textSize.toUpperCase()}
+                  </span>
+                  <button
+                    onClick={zoomIn}
+                    disabled={textSize === 'xl'}
+                    className="flex-1 py-1.5 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-neutral-600 disabled:opacity-30 transition-colors flex items-center justify-center"
+                    aria-label={t('تكبير النص', 'Increase font size')}
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>

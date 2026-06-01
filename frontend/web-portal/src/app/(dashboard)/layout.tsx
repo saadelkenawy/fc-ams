@@ -47,6 +47,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex min-h-screen bg-atmospheric">
+      {/* Skip to main content — visible on keyboard focus only */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:start-2 focus:z-[60] focus:px-4 focus:py-2 focus:bg-primary-600 focus:text-white focus:rounded-lg focus:text-sm focus:font-medium focus:shadow-lg"
+      >
+        تخطي للمحتوى / Skip to main content
+      </a>
+
       {/* Mobile backdrop — tap to close drawer */}
       {mobileOpen && (
         <div
@@ -60,7 +68,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       <div className="flex flex-col flex-1 min-w-0">
         <Header onMobileMenuToggle={() => setMobileOpen((o) => !o)} onSearchOpen={() => setSearchOpen(true)} />
-        <main className="flex-1 p-4 lg:p-6 overflow-auto">
+        <main id="main-content" className="flex-1 p-4 lg:p-6 overflow-auto" tabIndex={-1}>
           {children}
         </main>
       </div>

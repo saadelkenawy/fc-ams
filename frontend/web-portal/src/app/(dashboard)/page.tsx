@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Users, CalendarDays, TrendingUp, Clock, Stethoscope, Activity, CalendarPlus, RefreshCw } from 'lucide-react';
 import { StatCard } from '@/components/ui/StatCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { AppointmentStatusBadge } from '@/components/ui/Badge';
+import { AppointmentStatusBadge, Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { useLang } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -41,6 +42,7 @@ function SkeletonRow({ cols }: { cols: number }) {
 export default function DashboardPage() {
   const { lang, t } = useLang();
   const { user }    = useAuth();
+  const router      = useRouter();
   const [addOpen, setAddOpen] = useState(false);
   const now  = new Date();
   const hour = now.getHours();
@@ -83,7 +85,7 @@ export default function DashboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-2 pt-1">
-          <Button variant="outline" size="sm" onClick={() => void refetch()} title={t('تحديث', 'Refresh')}>
+          <Button variant="outline" size="sm" onClick={() => void refetch()} title={t('تحديث', 'Refresh')} aria-label={t('تحديث البيانات', 'Refresh data')}>
             <RefreshCw className="w-4 h-4" />
           </Button>
           <Button size="sm" onClick={() => setAddOpen(true)} className="gap-1.5">
@@ -101,7 +103,6 @@ export default function DashboardPage() {
           icon={<Stethoscope className="w-5 h-5" />}
           color="blue"
           description={t('طبيب مسجل', 'registered doctors')}
-          sparkline={[14, 15, 16, 17, 17, 18, 20]}
         />
         <StatCard
           title={t('المرضى', 'Total Patients')}
@@ -109,7 +110,6 @@ export default function DashboardPage() {
           icon={<Users className="w-5 h-5" />}
           color="emerald"
           description={t('مريض مسجل', 'registered patients')}
-          sparkline={[210, 248, 271, 295, 318, 340, 365]}
         />
         <StatCard
           title={t('مواعيد اليوم', "Today's Appointments")}
@@ -117,7 +117,6 @@ export default function DashboardPage() {
           icon={<CalendarDays className="w-5 h-5" />}
           color="amber"
           description={`${confirmedCount} ${t('مؤكد', 'confirmed')}`}
-          sparkline={[8, 12, 9, 14, 11, 15, appointments.length || 13]}
         />
         <StatCard
           title={t('بانتظار التأكيد', 'Pending Confirm')}
@@ -125,7 +124,6 @@ export default function DashboardPage() {
           icon={<Clock className="w-5 h-5" />}
           color="violet"
           description={t('تحتاج مراجعة', 'need review')}
-          sparkline={[7, 6, 5, 6, 4, 5, pendingConfirm || 4]}
         />
       </div>
 
@@ -147,7 +145,14 @@ export default function DashboardPage() {
             {/* Status distribution bar */}
             {!apptLoading && appointments.length > 0 && (
               <div className="px-5 pb-3">
-                <div className="flex h-1.5 rounded-full overflow-hidden gap-px">
+                <div
+                  className="flex h-1.5 rounded-full overflow-hidden gap-px"
+                  role="img"
+                  aria-label={t(
+                    `توزيع الحالات: ${Object.entries(statusCounts).map(([s, c]) => `${s} ${c}`).join('، ')}`,
+                    `Status breakdown: ${Object.entries(statusCounts).map(([s, c]) => `${s} ${c}`).join(', ')}`,
+                  )}
+                >
                   {Object.entries(statusCounts).map(([status, count]) => (
                     <div
                       key={status}
@@ -160,8 +165,8 @@ export default function DashboardPage() {
               </div>
             )}
 
-            <CardContent className="p-0">
-              <table className="w-full text-sm">
+            <CardContent className="p-0 overflow-x-auto">
+              <table className="w-full text-sm min-w-[560px]">
                 <thead>
                   <tr className="border-b border-gray-100 dark:border-neutral-700 bg-surface dark:bg-neutral-900/40">
                     <th className="text-start px-5 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">{t('المريض', 'Patient')}</th>
@@ -193,14 +198,29 @@ export default function DashboardPage() {
                         <td className="px-5 py-3.5">
                           <AppointmentStatusBadge status={appt.status} lang={lang} />
                         </td>
-                        <td className="px-5 py-3.5 text-gray-500 dark:text-gray-400 text-xs">{appt.patientSource}</td>
+                        <td className="px-5 py-3.5">
+                          {appt.patientSource
+                            ? <Badge variant="outline" className="text-[11px] capitalize">{appt.patientSource}</Badge>
+                            : <span className="text-gray-300 dark:text-gray-600">—</span>}
+                        </td>
                       </tr>
                     );
                   })}
                   {!apptLoading && appointments.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="px-5 py-12 text-center text-gray-400 dark:text-gray-500">
-                        {t('لا توجد مواعيد اليوم', 'No appointments today')}
+                      <td colSpan={5} className="px-5 py-10 text-center">
+                        <div className="flex flex-col items-center gap-3">
+                          <div className="w-12 h-12 rounded-full bg-gray-100 dark:bg-neutral-800 flex items-center justify-center">
+                            <CalendarDays className="w-5 h-5 text-gray-400 dark:text-gray-500" />
+                          </div>
+                          <p className="text-sm text-gray-400 dark:text-gray-500">
+                            {t('لا توجد مواعيد اليوم', 'No appointments today')}
+                          </p>
+                          <Button size="sm" variant="outline" onClick={() => setAddOpen(true)} className="gap-1.5">
+                            <CalendarPlus className="w-3.5 h-3.5" />
+                            {t('إضافة موعد', 'Add Appointment')}
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   )}
@@ -237,21 +257,28 @@ export default function DashboardPage() {
                   ? (lang === 'ar' ? (patient.nameAr ?? patient.nameEn) : patient.nameEn)
                   : appt.patientId.slice(-4).toUpperCase();
                 const initial = patName.charAt(0).toUpperCase();
+                const doctorLabel = doctor
+                  ? (lang === 'ar' ? (doctor.nameAr ?? doctor.nameEn) : doctor.nameEn)
+                  : (spec ? (lang === 'ar' ? spec.nameAr : spec.nameEn) : '—');
                 return (
-                  <div key={appt.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-gray-50 dark:bg-neutral-800/60 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-colors">
-                    <div className="w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center text-primary-700 dark:text-primary-400 text-xs font-bold flex-shrink-0">
+                  <button
+                    key={appt.id}
+                    onClick={() => router.push(`/appointments?date=${now.toISOString().split('T')[0]}`)}
+                    className="w-full flex items-center gap-3 p-2.5 rounded-lg bg-gray-50 dark:bg-neutral-800/60 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-colors cursor-pointer text-start"
+                    aria-label={t(
+                      `موعد ${patName} مع ${doctorLabel} الساعة ${formatTime(appt.startTime)}`,
+                      `Appointment: ${patName} with ${doctorLabel} at ${formatTime(appt.startTime)}`,
+                    )}
+                  >
+                    <div className="w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center text-primary-700 dark:text-primary-400 text-xs font-bold flex-shrink-0" aria-hidden="true">
                       {initial}
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-gray-900 dark:text-gray-100 text-sm font-medium truncate">{patName}</p>
-                      <p className="text-gray-500 dark:text-gray-400 text-xs truncate">
-                        {doctor
-                          ? (lang === 'ar' ? (doctor.nameAr ?? doctor.nameEn) : doctor.nameEn)
-                          : (spec ? (lang === 'ar' ? spec.nameAr : spec.nameEn) : '—')}
-                      </p>
+                      <p className="text-gray-500 dark:text-gray-400 text-xs truncate">{doctorLabel}</p>
                     </div>
                     <span className="text-gray-500 dark:text-gray-400 text-xs font-mono flex-shrink-0" dir="ltr">{formatTime(appt.startTime)}</span>
-                  </div>
+                  </button>
                 );
               })}
               {!apptLoading && appointments.length === 0 && (

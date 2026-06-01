@@ -6,13 +6,13 @@ import { cn } from '@/lib/utils';
 type Color = 'blue' | 'amber' | 'emerald' | 'green' | 'violet' | 'rose' | 'cyan';
 
 const STATCARD_COLORS: Record<Color, { bg: string; icon: string; bar: string; spark: string }> = {
-  blue:    { bg: 'bg-blue-50',    icon: 'text-blue-600',    bar: 'bg-blue-500',    spark: '#3B82F6' },
-  amber:   { bg: 'bg-amber-50',   icon: 'text-amber-600',   bar: 'bg-amber-500',   spark: '#F59E0B' },
-  emerald: { bg: 'bg-emerald-50', icon: 'text-emerald-600', bar: 'bg-emerald-500', spark: '#10B981' },
-  green:   { bg: 'bg-green-50',   icon: 'text-green-600',   bar: 'bg-green-500',   spark: '#22C55E' },
-  violet:  { bg: 'bg-violet-50',  icon: 'text-violet-600',  bar: 'bg-violet-500',  spark: '#8B5CF6' },
-  rose:    { bg: 'bg-rose-50',    icon: 'text-rose-600',    bar: 'bg-rose-500',    spark: '#F43F5E' },
-  cyan:    { bg: 'bg-cyan-50',    icon: 'text-cyan-600',    bar: 'bg-cyan-500',    spark: '#06B6D4' },
+  blue:    { bg: 'bg-blue-50    dark:bg-blue-900/20',    icon: 'text-blue-600    dark:text-blue-400',    bar: 'bg-blue-500',    spark: '#3B82F6' },
+  amber:   { bg: 'bg-amber-50   dark:bg-amber-900/20',   icon: 'text-amber-600   dark:text-amber-400',   bar: 'bg-amber-500',   spark: '#F59E0B' },
+  emerald: { bg: 'bg-emerald-50 dark:bg-emerald-900/20', icon: 'text-emerald-600 dark:text-emerald-400', bar: 'bg-emerald-500', spark: '#10B981' },
+  green:   { bg: 'bg-green-50   dark:bg-green-900/20',   icon: 'text-green-600   dark:text-green-400',   bar: 'bg-green-500',   spark: '#22C55E' },
+  violet:  { bg: 'bg-violet-50  dark:bg-violet-900/20',  icon: 'text-violet-600  dark:text-violet-400',  bar: 'bg-violet-500',  spark: '#8B5CF6' },
+  rose:    { bg: 'bg-rose-50    dark:bg-rose-900/20',    icon: 'text-rose-600    dark:text-rose-400',    bar: 'bg-rose-500',    spark: '#F43F5E' },
+  cyan:    { bg: 'bg-cyan-50    dark:bg-cyan-900/20',    icon: 'text-cyan-600    dark:text-cyan-400',    bar: 'bg-cyan-500',    spark: '#06B6D4' },
 };
 
 function Sparkline({ values, color }: { values: number[]; color: string }) {

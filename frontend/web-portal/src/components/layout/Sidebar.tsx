@@ -58,11 +58,20 @@ function NavLink({
         'relative flex items-center gap-3 rounded-lg text-sm font-medium transition-colors duration-150 overflow-hidden',
         collapsed ? 'justify-center p-2.5' : 'px-3 py-2.5',
         active
-          ? 'bg-white/[.08] text-white'
+          ? collapsed
+            ? 'bg-primary-600/25 text-white'
+            : 'bg-white/[.08] text-white'
           : 'text-slate-400 hover:text-white hover:bg-white/10',
       )}
     >
-      {active && <span className="absolute start-0 top-1 bottom-1 w-[3px] rounded-e-sm bg-primary-600" aria-hidden="true" />}
+      {/* Expanded: left-edge bar indicator */}
+      {active && !collapsed && (
+        <span className="absolute start-0 top-1 bottom-1 w-[3px] rounded-e-sm bg-primary-500" aria-hidden="true" />
+      )}
+      {/* Collapsed: bottom dot indicator */}
+      {active && collapsed && (
+        <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-primary-400" aria-hidden="true" />
+      )}
       <Icon className="w-4 h-4 flex-shrink-0" />
       <AnimatePresence>
         {!collapsed && (
@@ -238,7 +247,11 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
                 <NavLink
                   key={item.key}
                   item={item}
-                  active={pathname === item.href}
+                  active={
+                    item.href === '/'
+                      ? pathname === '/'
+                      : pathname === item.href || pathname.startsWith(item.href + '/')
+                  }
                   collapsed={collapsed}
                   onMobileClose={isMobile ? onMobileClose : undefined}
                 />
@@ -272,7 +285,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
           </AnimatePresence>
           <button
             onClick={logout}
-            className="text-slate-400 hover:text-white transition-colors p-1 rounded"
+            className="text-slate-400 hover:text-white transition-colors p-2.5 rounded-lg min-w-[44px] min-h-[44px] flex items-center justify-center"
             title={t('تسجيل الخروج', 'Logout')}
             aria-label={t('تسجيل الخروج', 'Logout')}
           >
@@ -284,7 +297,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
       {/* Toggle collapse button — desktop only */}
       <button
         onClick={toggleCollapse}
-        className="hidden lg:flex absolute top-20 -end-3 z-20 w-6 h-6 rounded-full bg-white dark:bg-neutral-700 border border-gray-200 dark:border-neutral-600 items-center justify-center shadow-md hover:bg-gray-50 dark:hover:bg-neutral-600 transition-colors"
+        className="hidden lg:flex absolute top-[72px] -end-[18px] z-20 w-9 h-9 rounded-full bg-white dark:bg-neutral-700 border border-gray-200 dark:border-neutral-600 items-center justify-center shadow-md hover:bg-gray-50 dark:hover:bg-neutral-600 transition-colors"
         title={collapsed ? t('توسيع', 'Expand') : t('طي', 'Collapse')}
         aria-label={collapsed ? t('توسيع القائمة الجانبية', 'Expand sidebar') : t('طي القائمة الجانبية', 'Collapse sidebar')}
         aria-expanded={!collapsed}

@@ -1,6 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
+import { Breadcrumb } from '@/components/layout/Breadcrumb'
 
 export default function DashboardTemplate({ children }: { children: React.ReactNode }) {
   return (
@@ -9,6 +10,7 @@ export default function DashboardTemplate({ children }: { children: React.ReactN
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.15, ease: [0.25, 0.46, 0.45, 0.94] }}
     >
+      <Breadcrumb />
       {children}
     </motion.div>
   )
