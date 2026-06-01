@@ -209,7 +209,7 @@ export default function LoginPage() {
         <header className="flex items-center justify-end gap-2 p-6">
           {/* Mobile logo — swaps based on current theme */}
           <img
-            src={isDarkTheme ? '/images/fadiclinic_transparent.png' : '/images/fadiclinic_dark.png'}
+            src={isDarkTheme ? '/images/fadiclinic_transparent.png' : '/images/fadiclinic_light.jpeg'}
             alt="Fadl Clinic"
             className="h-7 w-auto object-contain me-auto lg:hidden"
           />
