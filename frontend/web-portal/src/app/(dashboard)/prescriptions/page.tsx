@@ -1,20 +1,22 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Plus, Pill, Search, FileText } from 'lucide-react';
+import { Plus, Pill, Search, FileText, Printer } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { PrescriptionForm } from '@/components/prescriptions/PrescriptionForm';
+import { PrescriptionPrintTemplate } from '@/components/prescriptions/PrescriptionPrintTemplate';
 import { usePatientMap } from '@/hooks/usePatients';
 import { useDoctorMap } from '@/hooks/useDoctors';
 import { useLang } from '@/contexts/LanguageContext';
 import { ehrApi } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
-import type { Prescription } from '@fadl/types';
+import type { Prescription, Patient, Doctor } from '@fadl/types';
 
 /* ── types ───────────────────────────────────────────────────────────────── */
 
@@ -281,6 +283,8 @@ export default function PrescriptionsPage() {
         <Modal open={!!selected} onClose={() => setSelected(null)} title={t('تفاصيل الوصفة', 'Prescription Details')}>
           <PrescriptionDetail
             rx={selected}
+            patient={patientMap.get(selected.patientId)}
+            doctor={doctorMap.get(selected.doctorId)}
             patientName={
               (lang === 'ar' ? patientMap.get(selected.patientId)?.nameAr : undefined)
               ?? patientMap.get(selected.patientId)?.nameEn
@@ -298,17 +302,42 @@ export default function PrescriptionsPage() {
   );
 }
 
+/* ── print CSS injected during window.print() ────────────────────────────── */
+
+const PRINT_STYLE = `
+  @media screen { #rx-print-root { display: none !important; } }
+  @media print {
+    body > *:not(#rx-print-root) { display: none !important; }
+    #rx-print-root { display: block !important; }
+    @page { size: A4; margin: 0; }
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  }
+`;
+
 /* ── inline detail view ──────────────────────────────────────────────────── */
 
 function PrescriptionDetail({
-  rx, patientName, doctorName, lang, t,
+  rx, patient, doctor, patientName, doctorName, lang, t,
 }: {
   rx: Prescription;
+  patient?: Patient;
+  doctor?: Doctor;
   patientName?: string;
   doctorName?: string;
   lang: 'ar' | 'en';
   t: (ar: string, en: string) => string;
 }) {
+  const [isPrinting, setIsPrinting] = useState(false);
+
+  useEffect(() => {
+    if (!isPrinting) return;
+    const id = setTimeout(() => {
+      window.print();
+      setIsPrinting(false);
+    }, 150);
+    return () => clearTimeout(id);
+  }, [isPrinting]);
+
   return (
     <div className="flex flex-col gap-4 text-sm">
       <div className="grid grid-cols-2 gap-3">
@@ -366,6 +395,36 @@ function PrescriptionDetail({
           <p className="text-xs text-gray-500 dark:text-gray-400">{t('ملاحظات', 'Notes')}</p>
           <p className="text-gray-800 dark:text-gray-200">{rx.notes}</p>
         </div>
+      )}
+
+      {/* print button */}
+      <div className="flex justify-end pt-2 border-t border-gray-100 dark:border-neutral-700">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setIsPrinting(true)}
+          disabled={isPrinting}
+        >
+          <Printer className="h-4 w-4" />
+          {t('طباعة / PDF', 'Print / PDF')}
+        </Button>
+      </div>
+
+      {/* print portal — hidden on screen, visible only during window.print() */}
+      {isPrinting && typeof document !== 'undefined' && createPortal(
+        <>
+          <style dangerouslySetInnerHTML={{ __html: PRINT_STYLE }} />
+          <div id="rx-print-root">
+            <PrescriptionPrintTemplate
+              rx={rx}
+              patient={patient}
+              doctor={doctor}
+              patientName={patientName}
+              doctorName={doctorName}
+            />
+          </div>
+        </>,
+        document.body,
       )}
     </div>
   );
