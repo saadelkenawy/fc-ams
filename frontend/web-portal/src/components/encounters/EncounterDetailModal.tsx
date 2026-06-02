@@ -2,18 +2,17 @@
 
 import { useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { X, Save, CheckCheck, Plus, Trash2 } from 'lucide-react';
+import { X, Save, CheckCheck } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { useLang } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
 import { ehrApi } from '@/lib/api';
+import { PrescriptionForm } from '@/components/prescriptions/PrescriptionForm';
 import type { Encounter } from '@/hooks/useEncounters';
 
 /* ── types ───────────────────────────────────────────────────────────── */
-
-interface RxRow { id: number; drug: string; dosage: string; duration: string }
 
 interface Props {
   open: boolean;
@@ -56,7 +55,7 @@ export function EncounterDetailModal({ open, encounter, patientName, doctorName,
   const [followUp, setFollowUp] = useState('');
   const [instructions, setInstructions] = useState('');
   const [followUpType, setFollowUpType] = useState('clinic');
-  const [rx, setRx] = useState<RxRow[]>([{ id: 1, drug: '', dosage: '', duration: '' }]);
+  const [rxSaved, setRxSaved]   = useState(false);
 
   /* reset state when encounter changes */
   useEffect(() => {
@@ -71,7 +70,7 @@ export function EncounterDetailModal({ open, encounter, patientName, doctorName,
       }
       setFollowUp('');
       setInstructions('');
-      setRx([{ id: Date.now(), drug: '', dosage: '', duration: '' }]);
+      setRxSaved(false);
       setTab('notes');
     }
   }, [encounter?.id]);
@@ -94,16 +93,6 @@ export function EncounterDetailModal({ open, encounter, patientName, doctorName,
       onClose();
     },
   });
-
-  function addRx() {
-    setRx((prev) => [...prev, { id: Date.now(), drug: '', dosage: '', duration: '' }]);
-  }
-  function removeRx(id: number) {
-    setRx((prev) => prev.filter((r) => r.id !== id));
-  }
-  function updateRx(id: number, field: keyof Omit<RxRow, 'id'>, val: string) {
-    setRx((prev) => prev.map((r) => r.id === id ? { ...r, [field]: val } : r));
-  }
 
   if (!open || !encounter) return null;
 
@@ -216,48 +205,33 @@ export function EncounterDetailModal({ open, encounter, patientName, doctorName,
             </div>
           )}
 
-          {/* ── Prescription builder ── */}
-          {tab === 'rx' && (
-            <div className="space-y-3">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
-                {t('أضف الأدوية والجرعات للوصفة الطبية', 'Add medications and dosages to the prescription')}
+          {/* ── Prescription ── */}
+          {tab === 'rx' && isSigned && (
+            <p className="text-sm text-gray-500 dark:text-gray-400 py-4">
+              {t('هذه الحالة موقَّعة ولا يمكن إضافة وصفة جديدة.', 'This encounter is signed — no new prescriptions can be added.')}
+            </p>
+          )}
+          {tab === 'rx' && !isSigned && rxSaved && (
+            <div className="flex flex-col items-center gap-3 py-8 text-center">
+              <div className="w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                <CheckCheck className="w-6 h-6 text-green-600 dark:text-green-400" />
+              </div>
+              <p className="font-medium text-gray-900 dark:text-gray-100">
+                {t('تم حفظ الوصفة بنجاح', 'Prescription saved successfully')}
               </p>
-              {rx.map((row) => (
-                <div key={row.id} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-start">
-                  <Input
-                    placeholder={t('اسم الدواء', 'Drug name')}
-                    value={row.drug}
-                    onChange={(e) => updateRx(row.id, 'drug', e.target.value)}
-                    disabled={isSigned}
-                  />
-                  <Input
-                    placeholder={t('الجرعة', 'Dosage')}
-                    value={row.dosage}
-                    onChange={(e) => updateRx(row.id, 'dosage', e.target.value)}
-                    disabled={isSigned}
-                  />
-                  <Input
-                    placeholder={t('المدة', 'Duration')}
-                    value={row.duration}
-                    onChange={(e) => updateRx(row.id, 'duration', e.target.value)}
-                    disabled={isSigned}
-                  />
-                  <button
-                    onClick={() => removeRx(row.id)}
-                    disabled={isSigned || rx.length === 1}
-                    className="h-11 w-11 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors disabled:opacity-30 disabled:pointer-events-none"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-              {!isSigned && (
-                <Button variant="outline" size="sm" onClick={addRx}>
-                  <Plus className="w-4 h-4" />
-                  {t('إضافة دواء', 'Add medication')}
-                </Button>
-              )}
+              <Button variant="outline" size="sm" onClick={() => setRxSaved(false)}>
+                {t('إضافة وصفة أخرى', 'Add another prescription')}
+              </Button>
             </div>
+          )}
+          {tab === 'rx' && !isSigned && !rxSaved && (
+            <PrescriptionForm
+              encounterId={encounter.id}
+              patientId={encounter.patientId}
+              doctorId={encounter.doctorId}
+              onSuccess={() => setRxSaved(true)}
+              onCancel={() => setTab('notes')}
+            />
           )}
 
           {/* ── Follow-up ── */}

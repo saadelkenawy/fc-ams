@@ -14,6 +14,7 @@ import { PrescriptionPrintTemplate } from '@/components/prescriptions/Prescripti
 import { usePatientMap } from '@/hooks/usePatients';
 import { useDoctorMap } from '@/hooks/useDoctors';
 import { useLang } from '@/contexts/LanguageContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { ehrApi } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import type { Prescription, Patient, Doctor } from '@fadl/types';
@@ -60,6 +61,7 @@ function truncateUUID(id: string) {
 
 export default function PrescriptionsPage() {
   const { lang, t } = useLang();
+  const { user } = useAuth();
   const patientMap = usePatientMap();
   const doctorMap  = useDoctorMap();
 
@@ -70,10 +72,11 @@ export default function PrescriptionsPage() {
   const [selected, setSelected] = useState<Prescription | null>(null);
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['prescriptions', statusFilter, page],
+    queryKey: ['prescriptions', statusFilter, page, user?.doctorId],
     queryFn: async () => {
       const params: Record<string, string | number> = { page, limit: 20 };
       if (statusFilter !== 'all') params.status = statusFilter;
+      if (user?.role === 'doctor' && user.doctorId) params.doctorId = user.doctorId;
       const res = await ehrApi.get('/api/v1/prescriptions', { params });
       return res.data as { data: Prescription[]; total: number; page: number; limit: number };
     },
