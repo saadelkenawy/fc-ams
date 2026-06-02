@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
 import {
   ArrowLeft,
   Edit3,
@@ -23,23 +24,29 @@ import {
   FileText,
   Download,
   Trash2,
+  Pill,
+  Printer,
+  Plus,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
+import { Modal } from '@/components/ui/Modal';
+import { PrescriptionForm } from '@/components/prescriptions/PrescriptionForm';
+import { PrescriptionPrintTemplate } from '@/components/prescriptions/PrescriptionPrintTemplate';
 import { useLang } from '@/contexts/LanguageContext';
 import { formatDate, cn } from '@/lib/utils';
 import { usePatient } from '@/hooks/usePatients';
 import { useAppointments } from '@/hooks/useAppointments';
 import { useDoctorMap } from '@/hooks/useDoctors';
-import { patientApi } from '@/lib/api';
+import { patientApi, ehrApi } from '@/lib/api';
 import { useEntityFiles, useUploadFile, useDeleteFile } from '@/hooks/useFiles';
-import type { Patient, UpdatePatientInput } from '@fadl/types';
+import type { Patient, UpdatePatientInput, Prescription } from '@fadl/types';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type Tab = 'demographics' | 'visits' | 'files';
+type Tab = 'demographics' | 'visits' | 'files' | 'prescriptions';
 
 const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] as const;
 
@@ -168,9 +175,10 @@ export default function PatientDetailPage() {
       {/* Tabs */}
       <div className="flex gap-1 border-b border-gray-100 dark:border-neutral-700">
         {([
-          { key: 'demographics', ar: 'البيانات الأساسية', en: 'Demographics' },
-          { key: 'visits',       ar: 'سجل الزيارات',      en: 'Visit History' },
-          { key: 'files',        ar: 'الملفات والمستندات', en: 'Files' },
+          { key: 'demographics',  ar: 'البيانات الأساسية', en: 'Demographics'   },
+          { key: 'visits',        ar: 'سجل الزيارات',      en: 'Visit History'  },
+          { key: 'prescriptions', ar: 'الوصفات الطبية',    en: 'Prescriptions'  },
+          { key: 'files',         ar: 'الملفات والمستندات', en: 'Files'         },
         ] as const).map((tab_) => (
           <button
             key={tab_.key}
@@ -196,6 +204,8 @@ export default function PatientDetailPage() {
         )
       ) : tab === 'visits' ? (
         <VisitHistoryTab patientId={patient.patientId} lang={lang} t={t} />
+      ) : tab === 'prescriptions' ? (
+        <PrescriptionsTab patient={patient} lang={lang} t={t} />
       ) : (
         <PatientFilesTab patientId={patient.patientId} lang={lang} t={t} />
       )}
@@ -730,5 +740,215 @@ function PatientFilesTab({
         )}
       </CardContent>
     </Card>
+  );
+}
+
+// ─── Prescriptions tab ────────────────────────────────────────────────────────
+
+const RX_PRINT_STYLE = `
+  @media screen { #rx-print-root { display: none !important; } }
+  @media print {
+    body > *:not(#rx-print-root) { display: none !important; }
+    #rx-print-root { display: block !important; }
+    @page { size: A4; margin: 0; }
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  }
+`;
+
+const RX_STATUS_BADGE: Record<string, 'success' | 'info' | 'outline'> = {
+  active:    'success',
+  dispensed: 'info',
+  cancelled: 'outline',
+};
+
+const RX_STATUS_LABEL: Record<string, { ar: string; en: string }> = {
+  active:    { ar: 'نشطة',  en: 'Active'    },
+  dispensed: { ar: 'صُرفت', en: 'Dispensed' },
+  cancelled: { ar: 'ملغاة', en: 'Cancelled' },
+};
+
+function PrescriptionsTab({
+  patient,
+  lang,
+  t,
+}: {
+  patient: Patient;
+  lang: 'ar' | 'en';
+  t: (ar: string, en: string) => string;
+}) {
+  const doctorMap            = useDoctorMap();
+  const [showNew, setShowNew] = useState(false);
+  const [printRx, setPrintRx] = useState<Prescription | null>(null);
+
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ['prescriptions', { patientId: patient.patientId }],
+    queryFn: async () => {
+      const res = await ehrApi.get('/api/v1/prescriptions', {
+        params: { patientId: patient.patientId, limit: 100 },
+      });
+      return (res.data as { data: Prescription[] }).data;
+    },
+    staleTime: 30_000,
+  });
+
+  useEffect(() => {
+    if (!printRx) return;
+    const id = setTimeout(() => {
+      window.print();
+      setPrintRx(null);
+    }, 150);
+    return () => clearTimeout(id);
+  }, [printRx]);
+
+  const rxList = data ?? [];
+
+  return (
+    <>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>
+            <Pill className="w-4 h-4" />
+            {t(`${rxList.length} وصفة`, `${rxList.length} prescriptions`)}
+          </CardTitle>
+          <Button variant="primary" size="sm" onClick={() => setShowNew(true)}>
+            <Plus className="w-4 h-4" />
+            {t('وصفة جديدة', 'New Prescription')}
+          </Button>
+        </CardHeader>
+
+        <CardContent className="p-0">
+          {isLoading && (
+            <div className="flex items-center justify-center py-12 text-gray-400">
+              <Loader2 className="w-5 h-5 animate-spin me-2" />
+              {t('جاري التحميل…', 'Loading…')}
+            </div>
+          )}
+
+          {isError && (
+            <p className="py-10 text-center text-sm text-red-500">
+              {t('تعذّر تحميل الوصفات', 'Failed to load prescriptions')}
+            </p>
+          )}
+
+          {!isLoading && rxList.length === 0 && (
+            <div className="py-14 flex flex-col items-center gap-2 text-gray-400">
+              <Pill className="w-8 h-8 opacity-30" />
+              <p className="text-sm">{t('لا توجد وصفات طبية', 'No prescriptions yet')}</p>
+            </div>
+          )}
+
+          {rxList.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
+                    {[
+                      t('التاريخ', 'Date'),
+                      t('الطبيب', 'Doctor'),
+                      t('الأدوية', 'Medications'),
+                      t('الحالة', 'Status'),
+                      '',
+                    ].map((h, i) => (
+                      <th
+                        key={i}
+                        className="text-start px-5 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide"
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rxList.map((rx) => {
+                    const doctor = doctorMap.get(rx.doctorId);
+                    const doctorName = doctor
+                      ? (lang === 'ar' ? (doctor.nameAr ?? doctor.nameEn) : doctor.nameEn)
+                      : rx.doctorId.slice(-6).toUpperCase();
+
+                    return (
+                      <tr
+                        key={rx.id}
+                        className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/20 transition-colors"
+                      >
+                        <td className="px-5 py-3.5 text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                          {formatDate(rx.createdAt, lang === 'ar' ? 'ar-EG' : 'en-US')}
+                        </td>
+                        <td className="px-5 py-3.5 text-gray-700 dark:text-gray-200">
+                          {doctorName}
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <div className="flex flex-wrap gap-1">
+                            {rx.items.slice(0, 2).map((it) => (
+                              <span
+                                key={it.id}
+                                className="rounded-full bg-gray-100 dark:bg-neutral-700 px-2 py-0.5 text-xs text-gray-700 dark:text-gray-300"
+                              >
+                                {it.medicationName}
+                              </span>
+                            ))}
+                            {rx.items.length > 2 && (
+                              <span className="text-xs text-gray-400">+{rx.items.length - 2}</span>
+                            )}
+                          </div>
+                          {rx.diagnosis && (
+                            <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500 truncate max-w-xs">
+                              {rx.diagnosis}
+                            </p>
+                          )}
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <Badge variant={RX_STATUS_BADGE[rx.status] ?? 'outline'}>
+                            {lang === 'ar' ? RX_STATUS_LABEL[rx.status]?.ar : RX_STATUS_LABEL[rx.status]?.en}
+                          </Badge>
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <button
+                            onClick={() => setPrintRx(rx)}
+                            title={t('طباعة', 'Print')}
+                            className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-700 text-gray-400 hover:text-primary-600 transition-colors"
+                          >
+                            <Printer className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* New prescription modal */}
+      <Modal open={showNew} onClose={() => setShowNew(false)} title="">
+        <PrescriptionForm
+          patientId={patient.patientId}
+          doctorId=""
+          onSuccess={() => { setShowNew(false); void refetch(); }}
+          onCancel={() => setShowNew(false)}
+        />
+      </Modal>
+
+      {/* Print portal */}
+      {printRx && typeof document !== 'undefined' && createPortal(
+        <>
+          <style dangerouslySetInnerHTML={{ __html: RX_PRINT_STYLE }} />
+          <div id="rx-print-root">
+            <PrescriptionPrintTemplate
+              rx={printRx}
+              patient={patient}
+              doctorName={
+                (() => {
+                  const d = doctorMap.get(printRx.doctorId);
+                  return d ? (lang === 'ar' ? (d.nameAr ?? d.nameEn) : d.nameEn) : undefined;
+                })()
+              }
+            />
+          </div>
+        </>,
+        document.body,
+      )}
+    </>
   );
 }
