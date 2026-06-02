@@ -8,7 +8,7 @@ import {
   CalendarPlus, ChevronLeft, ChevronRight,
   MoreVertical, Pencil, Trash2, Check, X,
   Search, SlidersHorizontal, ShieldAlert, Loader2,
-  LayoutList, Clock,
+  LayoutList, Clock, FileText,
 } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/Button';
@@ -21,7 +21,7 @@ import { useDoctors, useDoctorMap, useSpecialtyMap } from '@/hooks/useDoctors';
 import { usePatientMap } from '@/hooks/usePatients';
 import { useDebounce } from '@/hooks/useDebounce';
 import { AddAppointmentModal } from '@/components/appointments/AddAppointmentModal';
-import { appointmentApi } from '@/lib/api';
+import { appointmentApi, billingApi } from '@/lib/api';
 import type { Appointment, AppointmentStatus, Patient, Doctor } from '@fadl/types';
 
 // ── State machine ──────────────────────────────────────────────────────────
@@ -113,9 +113,10 @@ interface ActionMenuProps {
   onStatusChange: (appt: Appointment) => void;
   onEdit: (appt: Appointment) => void;
   onDelete: (appt: Appointment) => void;
+  onInvoice: (appt: Appointment) => void;
 }
 
-function ActionMenu({ appointment, lang, t, userRole, onStatusChange, onEdit, onDelete }: ActionMenuProps) {
+function ActionMenu({ appointment, lang, t, userRole, onStatusChange, onEdit, onDelete, onInvoice }: ActionMenuProps) {
   const [open, setOpen] = useState(false);
   const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({});
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -178,6 +179,15 @@ function ActionMenu({ appointment, lang, t, userRole, onStatusChange, onEdit, on
         >
           <Check className="w-3.5 h-3.5 text-primary-500" />
           {t('تغيير الحالة', 'Change Status')}
+        </button>
+      )}
+      {appointment.status === 'Comp.' && (userRole === 'admin' || userRole === 'finance' || userRole === 'receptionist') && (
+        <button
+          onClick={(e) => { e.stopPropagation(); setOpen(false); onInvoice(appointment); }}
+          className="w-full flex items-center gap-2.5 px-4 py-2 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors"
+        >
+          <FileText className="w-3.5 h-3.5" />
+          {t('إنشاء فاتورة', 'Generate Invoice')}
         </button>
       )}
       {canDelete ? (
@@ -415,6 +425,170 @@ function StatusModal({ appointment, lang, t, onClose, onDone, userRole }: Status
   );
 }
 
+// ── New Transaction Modal ──────────────────────────────────────────────────
+
+interface NewTransactionModalProps {
+  appointment: Appointment;
+  patientName?: string;
+  lang: 'ar' | 'en';
+  t: (ar: string, en: string) => string;
+  onClose: () => void;
+  onCreated: () => void;
+}
+
+function NewTransactionModal({ appointment, patientName, lang, t, onClose, onCreated }: NewTransactionModalProps) {
+  const { toast } = { toast: (_msg: string, _type?: string) => {} }; // inline stub — page doesn't use useToast
+  const [charge,     setCharge]     = useState(String(appointment.approvedCharge ?? ''));
+  const [doctorSplit,setDoctorSplit] = useState('70');
+  const [visitType,  setVisitType]  = useState<'consultation' | 'operative' | 'online'>(
+    appointment.appointmentType === 'online' ? 'online' : 'consultation',
+  );
+  const [method,     setMethod]     = useState<string>(appointment.paymentMethod ?? 'cash');
+  const [error,      setError]      = useState('');
+
+  const clinicSplit = Math.max(0, 100 - Number(doctorSplit));
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      const approvedCharge = parseFloat(charge);
+      if (isNaN(approvedCharge) || approvedCharge <= 0) throw new Error(t('الرسوم غير صحيحة', 'Invalid charge amount'));
+      const dSplit = parseFloat(doctorSplit);
+      if (isNaN(dSplit) || dSplit < 0 || dSplit > 100) throw new Error(t('نسبة غير صحيحة', 'Invalid split percentage'));
+      await billingApi.post('/transactions', {
+        idempotencyKey:      `appt-${appointment.id}`,
+        appointmentId:       appointment.id,
+        patientId:           appointment.patientId,
+        doctorId:            appointment.doctorId || undefined,
+        doctorSpecialtyId:   appointment.specialtyId || undefined,
+        patientSource:       appointment.patientSource,
+        approvedCharge,
+        splitDoctorPercentage: dSplit,
+        splitClinicPercentage: clinicSplit,
+        paymentMethod:       method,
+        currencyCode:        'EGP',
+        visitType,
+      });
+    },
+    onSuccess: () => { onCreated(); onClose(); },
+    onError:   (e: Error) => setError(e.message ?? t('فشل الإنشاء.', 'Failed to create invoice.')),
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="w-full max-w-sm mx-4 bg-white dark:bg-neutral-800 rounded-2xl shadow-xl p-6 space-y-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center flex-shrink-0">
+              <FileText className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">
+                {t('إنشاء فاتورة', 'Generate Invoice')}
+              </h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{patientName ?? appointment.patientId.slice(-8).toUpperCase()}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Fields */}
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+              {t('المبلغ المعتمد (EGP)', 'Approved Charge (EGP)')}
+            </label>
+            <input
+              type="number" min="0" step="0.01"
+              value={charge}
+              onChange={(e) => setCharge(e.target.value)}
+              className="w-full h-10 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-700 text-gray-900 dark:text-gray-100 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              placeholder="0.00"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                {t('نسبة الطبيب %', 'Doctor Split %')}
+              </label>
+              <input
+                type="number" min="0" max="100"
+                value={doctorSplit}
+                onChange={(e) => setDoctorSplit(e.target.value)}
+                className="w-full h-10 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-700 text-gray-900 dark:text-gray-100 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                {t('نسبة العيادة %', 'Clinic Split %')}
+              </label>
+              <input
+                readOnly
+                value={clinicSplit}
+                className="w-full h-10 rounded-lg border border-gray-100 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-800 text-gray-500 dark:text-gray-400 px-3 text-sm"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                {t('نوع الزيارة', 'Visit Type')}
+              </label>
+              <select
+                value={visitType}
+                onChange={(e) => setVisitType(e.target.value as typeof visitType)}
+                className="w-full h-10 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-700 text-gray-900 dark:text-gray-100 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              >
+                <option value="consultation">{t('استشارة', 'Consultation')}</option>
+                <option value="operative">{t('عملية', 'Operative')}</option>
+                <option value="online">{t('أونلاين', 'Online')}</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                {t('طريقة الدفع', 'Payment Method')}
+              </label>
+              <select
+                value={method}
+                onChange={(e) => setMethod(e.target.value)}
+                className="w-full h-10 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-700 text-gray-900 dark:text-gray-100 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              >
+                <option value="cash">{t('نقد', 'Cash')}</option>
+                <option value="visa">{t('فيزا', 'Visa')}</option>
+                <option value="instapay">InstaPay</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {error && (
+          <p className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">
+            {error}
+          </p>
+        )}
+
+        <div className="flex gap-2 pt-1">
+          <Button
+            className="flex-1"
+            disabled={mutation.isPending}
+            onClick={() => { setError(''); mutation.mutate(); }}
+          >
+            {mutation.isPending ? t('جارٍ الإنشاء…', 'Creating…') : t('إنشاء الفاتورة', 'Create Invoice')}
+          </Button>
+          <Button variant="ghost" onClick={onClose}>{t('إلغاء', 'Cancel')}</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main page ──────────────────────────────────────────────────────────────
 
 const DAY_SHORT_EN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -438,6 +612,7 @@ export default function AppointmentsPage() {
   const [editDoctorSt,   setEditDoctorSt]   = useState<Doctor | null>(null);
   const [selectedIds,    setSelectedIds]    = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [invoiceAppt,    setInvoiceAppt]    = useState<Appointment | null>(null);
   const [showAdvanced,   setShowAdvanced]   = useState(false);
   const [patientSearch,  setPatientSearch]  = useState('');
   const [typeFilter,     setTypeFilter]     = useState('');
@@ -928,6 +1103,7 @@ export default function AppointmentsPage() {
                               onStatusChange={setStatusAppt}
                               onEdit={handleEdit}
                               onDelete={handleDelete}
+                              onInvoice={setInvoiceAppt}
                             />
                           </div>
                         </td>
@@ -1040,6 +1216,20 @@ export default function AppointmentsPage() {
           t={t}
           onClose={() => setBulkDeleteOpen(false)}
           onDeleted={() => { setSelectedIds(new Set()); invalidate(); }}
+        />
+      )}
+
+      {invoiceAppt && (
+        <NewTransactionModal
+          appointment={invoiceAppt}
+          patientName={(() => {
+            const p = patientMap.get(invoiceAppt.patientId);
+            return p ? (lang === 'ar' ? (p.nameAr ?? p.nameEn) : p.nameEn) : undefined;
+          })()}
+          lang={lang}
+          t={t}
+          onClose={() => setInvoiceAppt(null)}
+          onCreated={invalidate}
         />
       )}
     </div>

@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { useQuery } from '@tanstack/react-query';
-import { Plus, Pill, Search, FileText, Printer } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Plus, Pill, Search, FileText, Printer, CheckCheck } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -330,7 +330,19 @@ function PrescriptionDetail({
   lang: 'ar' | 'en';
   t: (ar: string, en: string) => string;
 }) {
-  const [isPrinting, setIsPrinting] = useState(false);
+  const queryClient = useQueryClient();
+  const [isPrinting,  setIsPrinting]  = useState(false);
+  const [isDispensed, setIsDispensed] = useState(rx.status === 'dispensed');
+
+  const dispenseMutation = useMutation({
+    mutationFn: async () => {
+      await ehrApi.patch(`/api/v1/prescriptions/${rx.id}/status`, { status: 'dispensed' });
+    },
+    onSuccess: () => {
+      setIsDispensed(true);
+      void queryClient.invalidateQueries({ queryKey: ['prescriptions'] });
+    },
+  });
 
   useEffect(() => {
     if (!isPrinting) return;
@@ -400,8 +412,27 @@ function PrescriptionDetail({
         </div>
       )}
 
-      {/* print button */}
-      <div className="flex justify-end pt-2 border-t border-gray-100 dark:border-neutral-700">
+      {/* action row */}
+      <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-neutral-700 gap-2 flex-wrap">
+        <div>
+          {!isDispensed && (rx.status === 'active') && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => dispenseMutation.mutate()}
+              disabled={dispenseMutation.isPending}
+            >
+              <CheckCheck className="h-4 w-4 text-emerald-600" />
+              {dispenseMutation.isPending ? t('جارٍ…', 'Updating…') : t('تم الصرف', 'Mark Dispensed')}
+            </Button>
+          )}
+          {isDispensed && (
+            <span className="inline-flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+              <CheckCheck className="h-3.5 w-3.5" />
+              {t('تم الصرف', 'Dispensed')}
+            </span>
+          )}
+        </div>
         <Button
           variant="outline"
           size="sm"
