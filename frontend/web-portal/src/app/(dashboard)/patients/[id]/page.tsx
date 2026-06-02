@@ -42,11 +42,12 @@ import { useAppointments } from '@/hooks/useAppointments';
 import { useDoctorMap } from '@/hooks/useDoctors';
 import { patientApi, ehrApi } from '@/lib/api';
 import { useEntityFiles, useUploadFile, useDeleteFile } from '@/hooks/useFiles';
-import type { Patient, UpdatePatientInput, Prescription } from '@fadl/types';
+import { useTransactions } from '@/hooks/useBilling';
+import type { Patient, UpdatePatientInput, Prescription, FinancialTransaction } from '@fadl/types';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type Tab = 'demographics' | 'visits' | 'files' | 'prescriptions';
+type Tab = 'demographics' | 'visits' | 'files' | 'prescriptions' | 'billing';
 
 const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] as const;
 
@@ -178,6 +179,7 @@ export default function PatientDetailPage() {
           { key: 'demographics',  ar: 'البيانات الأساسية', en: 'Demographics'   },
           { key: 'visits',        ar: 'سجل الزيارات',      en: 'Visit History'  },
           { key: 'prescriptions', ar: 'الوصفات الطبية',    en: 'Prescriptions'  },
+          { key: 'billing',       ar: 'المدفوعات',         en: 'Billing'        },
           { key: 'files',         ar: 'الملفات والمستندات', en: 'Files'         },
         ] as const).map((tab_) => (
           <button
@@ -206,6 +208,8 @@ export default function PatientDetailPage() {
         <VisitHistoryTab patientId={patient.patientId} lang={lang} t={t} />
       ) : tab === 'prescriptions' ? (
         <PrescriptionsTab patient={patient} lang={lang} t={t} />
+      ) : tab === 'billing' ? (
+        <PatientBillingTab patientId={patient.patientId} lang={lang} t={t} />
       ) : (
         <PatientFilesTab patientId={patient.patientId} lang={lang} t={t} />
       )}
@@ -950,5 +954,185 @@ function PrescriptionsTab({
         document.body,
       )}
     </>
+  );
+}
+
+// ─── Patient Billing Tab ──────────────────────────────────────────────────────
+
+const PAYMENT_STATUS_BADGE: Record<string, 'success' | 'warning' | 'danger' | 'default' | 'outline'> = {
+  paid:        'success',
+  pending:     'warning',
+  partial:     'warning',
+  refunded:    'danger',
+  cancelled:   'outline',
+  waived:      'default',
+};
+
+const PAYMENT_METHOD_LABEL: Record<string, { ar: string; en: string }> = {
+  cash:          { ar: 'نقدي',         en: 'Cash'         },
+  card:          { ar: 'بطاقة',        en: 'Card'         },
+  bank_transfer: { ar: 'تحويل بنكي',   en: 'Bank Transfer'},
+  insurance:     { ar: 'تأمين',        en: 'Insurance'    },
+  online:        { ar: 'أونلاين',      en: 'Online'       },
+};
+
+function PatientBillingTab({
+  patientId,
+  lang,
+  t,
+}: {
+  patientId: string;
+  lang: 'ar' | 'en';
+  t: (ar: string, en: string) => string;
+}) {
+  const [page, setPage] = useState(1);
+  const limit = 15;
+  const { data, isLoading, isError } = useTransactions({ patientId, page, limit });
+
+  const transactions: FinancialTransaction[] = data?.data ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+  const locale = lang === 'ar' ? 'ar-EG' : 'en-US';
+
+  const fmtCurrency = (n: number) =>
+    new Intl.NumberFormat(locale, { style: 'currency', currency: 'EGP', maximumFractionDigits: 0 }).format(n);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-16 text-gray-400">
+        <Loader2 className="w-5 h-5 animate-spin mr-2" />
+        {t('جاري التحميل...', 'Loading...')}
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="flex items-center justify-center py-16 text-red-500 gap-2">
+        <AlertCircle className="w-5 h-5" />
+        {t('حدث خطأ في تحميل البيانات', 'Failed to load billing data')}
+      </div>
+    );
+  }
+
+  if (transactions.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-gray-400 gap-2">
+        <ClipboardList className="w-8 h-8 opacity-40" />
+        <p className="text-sm">{t('لا توجد معاملات مالية', 'No billing records found')}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* Summary strip */}
+      <div className="grid grid-cols-3 gap-3">
+        {[
+          {
+            label: t('إجمالي المدفوعات', 'Total Charged'),
+            value: fmtCurrency(transactions.reduce((s, r) => s + r.approvedCharge, 0)),
+          },
+          {
+            label: t('نصيب الطبيب', 'Doctor Share'),
+            value: fmtCurrency(transactions.reduce((s, r) => s + r.doctorShare, 0)),
+          },
+          {
+            label: t('نصيب العيادة', 'Clinic Share'),
+            value: fmtCurrency(transactions.reduce((s, r) => s + r.clinicShare, 0)),
+          },
+        ].map(({ label, value }) => (
+          <div key={label} className="bg-gray-50 dark:bg-neutral-800/60 rounded-xl p-3 text-center">
+            <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">{label}</p>
+            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 tabular-nums">{value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Table */}
+      <div className="overflow-x-auto rounded-xl border border-gray-100 dark:border-neutral-700">
+        <table className="min-w-full text-sm">
+          <thead className="bg-gray-50 dark:bg-neutral-800/60">
+            <tr>
+              {[
+                t('التاريخ', 'Date'),
+                t('الرسوم', 'Charge'),
+                t('الضريبة', 'VAT'),
+                t('طريقة الدفع', 'Method'),
+                t('الحالة', 'Status'),
+                t('المصدر', 'Source'),
+                t('التسوية', 'Settled'),
+              ].map((h) => (
+                <th key={h} className="px-4 py-2.5 text-start text-xs font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100 dark:divide-neutral-700">
+            {transactions.map((tx) => {
+              const methodLabel = tx.paymentMethod
+                ? (PAYMENT_METHOD_LABEL[tx.paymentMethod]?.[lang] ?? tx.paymentMethod)
+                : '—';
+              return (
+                <tr key={tx.id} className="hover:bg-gray-50 dark:hover:bg-neutral-800/40 transition-colors">
+                  <td className="px-4 py-3 text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                    {formatDate(tx.transactionDate)}
+                  </td>
+                  <td className="px-4 py-3 font-mono tabular-nums font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">
+                    {fmtCurrency(tx.approvedCharge)}
+                  </td>
+                  <td className="px-4 py-3 font-mono tabular-nums text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                    {fmtCurrency(tx.vatAmount)}
+                  </td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                    {methodLabel}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <Badge variant={PAYMENT_STATUS_BADGE[tx.paymentStatus] ?? 'default'}>
+                      {tx.paymentStatus}
+                    </Badge>
+                  </td>
+                  <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap text-xs">
+                    {tx.patientSource || '—'}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    {tx.settledAt ? (
+                      <Badge variant="success">{t('مسوّى', 'Settled')}</Badge>
+                    ) : (
+                      <Badge variant="outline">{t('معلق', 'Pending')}</Badge>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between text-xs text-gray-500">
+          <span>{t(`${total} معاملة`, `${total} transactions`)}</span>
+          <div className="flex gap-1">
+            <button
+              disabled={page <= 1}
+              onClick={() => setPage((p) => p - 1)}
+              className="px-3 py-1.5 rounded-lg border border-gray-200 dark:border-neutral-700 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-neutral-800 transition-colors"
+            >
+              {t('السابق', 'Prev')}
+            </button>
+            <span className="px-3 py-1.5">{page} / {totalPages}</span>
+            <button
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => p + 1)}
+              className="px-3 py-1.5 rounded-lg border border-gray-200 dark:border-neutral-700 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-neutral-800 transition-colors"
+            >
+              {t('التالي', 'Next')}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
