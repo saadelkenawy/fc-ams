@@ -1,15 +1,16 @@
 'use client';
 
-import { useState, useId } from 'react';
-import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
-import { Plus, Trash2, Save, Pill, ChevronDown, Search } from 'lucide-react';
+import { useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Plus, Trash2, Save, Pill, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
+import { ProductSearchInput } from './ProductSearchInput';
 import { useLang } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
 import { ehrApi } from '@/lib/api';
-import type { Prescription, RxForm, RxFrequency, RxTiming, MedicationDictionaryEntry } from '@fadl/types';
+import type { Prescription, RxForm, RxFrequency, RxTiming, ProductSearchResult } from '@fadl/types';
 
 /* ── label maps ──────────────────────────────────────────────────────────── */
 
@@ -48,8 +49,12 @@ const ROUTE_PRESETS = [
 
 /* ── types ───────────────────────────────────────────────────────────────── */
 
+// RxForm values that map directly to product_forms codes in the dictionary
+const RX_FORM_SET = new Set<string>(['cap', 'tab', 'syr', 'inj', 'gtt']);
+
 interface ItemRow {
   _key: string;
+  productId?: string;
   medicationName: string;
   medicationId?: string;
   form: RxForm;
@@ -76,6 +81,7 @@ interface Props {
 function emptyItem(idx: number): ItemRow {
   return {
     _key:            `item-${Date.now()}-${idx}`,
+    productId:       undefined,
     medicationName:  '',
     form:            'tab',
     dosageValue:     '',
@@ -127,73 +133,6 @@ function SelectField({
   );
 }
 
-/* ── medication autocomplete ─────────────────────────────────────────────── */
-
-function MedSearch({
-  value, onChange, onSelect, lang,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  onSelect: (entry: MedicationDictionaryEntry) => void;
-  lang: 'ar' | 'en';
-}) {
-  const [open, setOpen] = useState(false);
-  const inputId = useId();
-
-  const { data: suggestions = [] } = useQuery<MedicationDictionaryEntry[]>({
-    queryKey: ['medications', value],
-    queryFn: async () => {
-      if (value.length < 2) return [];
-      const res = await ehrApi.get('/api/v1/medications/search', { params: { q: value } });
-      return (res.data as { data: MedicationDictionaryEntry[] }).data;
-    },
-    enabled: value.length >= 2,
-    staleTime: 60_000,
-  });
-
-  return (
-    <div className="relative flex flex-col gap-1.5">
-      <label htmlFor={inputId} className="text-xs font-medium text-gray-600 dark:text-gray-400">
-        {lang === 'ar' ? 'اسم الدواء' : 'Medication'}
-      </label>
-      <div className="relative">
-        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-        <input
-          id={inputId}
-          type="text"
-          value={value}
-          placeholder={lang === 'ar' ? 'اكتب اسم الدواء…' : 'Type drug name…'}
-          onChange={(e) => { onChange(e.target.value); setOpen(true); }}
-          onBlur={() => setTimeout(() => setOpen(false), 150)}
-          onFocus={() => { if (value.length >= 2) setOpen(true); }}
-          className={cn(
-            'w-full h-10 rounded-lg border border-gray-200 dark:border-neutral-600',
-            'bg-white dark:bg-neutral-800 text-sm text-gray-900 dark:text-gray-100',
-            'pl-8 pr-3 focus:outline-none focus:ring-2 focus:ring-primary-600',
-            'transition-colors',
-          )}
-        />
-      </div>
-      {open && suggestions.length > 0 && (
-        <ul className="absolute top-full z-20 mt-1 w-full rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 shadow-lg max-h-48 overflow-y-auto">
-          {suggestions.map((s) => (
-            <li
-              key={s.id}
-              onMouseDown={() => { onSelect(s); onChange(s.genericName); setOpen(false); }}
-              className="px-3 py-2 text-sm cursor-pointer hover:bg-primary-50 dark:hover:bg-neutral-700"
-            >
-              <span className="font-medium">{s.genericName}</span>
-              {s.brandName && (
-                <span className="ml-1.5 text-gray-500 dark:text-gray-400">({s.brandName})</span>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
 /* ── main component ──────────────────────────────────────────────────────── */
 
 export function PrescriptionForm({ encounterId, patientId, doctorId, patientName, onSuccess, onCancel }: Props) {
@@ -232,8 +171,9 @@ export function PrescriptionForm({ encounterId, patientId, doctorId, patientName
         diagnosis: diagnosis.trim() || undefined,
         notes: notes.trim() || undefined,
         items: items.map((it, i) => ({
+          productId:        it.productId || undefined,
           medicationId:     it.medicationId,
-          medicationName:   it.medicationName.trim(),
+          medicationName:   it.medicationName.trim() || undefined,
           form:             it.form,
           dosageValue:      it.dosageValue ? Number(it.dosageValue) : undefined,
           dosageUnit:       it.dosageUnit.trim() || undefined,
@@ -261,9 +201,9 @@ export function PrescriptionForm({ encounterId, patientId, doctorId, patientName
     e.preventDefault();
     setError('');
 
-    const incomplete = items.some((it) => !it.medicationName.trim());
+    const incomplete = items.some((it) => !it.productId && !it.medicationName.trim());
     if (incomplete) {
-      setError(t('يرجى إدخال اسم الدواء لجميع البنود.', 'Please enter a medication name for every item.'));
+      setError(t('يرجى اختيار دواء أو إدخال اسمه لجميع البنود.', 'Please select or enter a medication name for every item.'));
       return;
     }
 
@@ -349,16 +289,31 @@ export function PrescriptionForm({ encounterId, patientId, doctorId, patientName
 
             {/* row 1: medication name + form + dosage */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <MedSearch
+              <ProductSearchInput
                 value={item.medicationName}
+                productId={item.productId}
                 lang={lang}
+                typeFilter="medicine"
                 onChange={(v) => patchItem(item._key, 'medicationName', v)}
-                onSelect={(entry) => {
-                  patchItem(item._key, 'medicationId', entry.id);
-                  patchItem(item._key, 'medicationName', entry.genericName);
-                  if (entry.availableForms.length > 0) {
-                    patchItem(item._key, 'form', entry.availableForms[0] as RxForm);
+                onSelect={(product: ProductSearchResult) => {
+                  const displayName = lang === 'ar' && product.tradeNameAr
+                    ? product.tradeNameAr
+                    : product.tradeNameEn;
+                  patchItem(item._key, 'productId', product.id);
+                  patchItem(item._key, 'medicationName', displayName);
+                  // auto-fill form only for RxForm-compatible codes
+                  if (product.formCode && RX_FORM_SET.has(product.formCode)) {
+                    patchItem(item._key, 'form', product.formCode as RxForm);
                   }
+                  // auto-fill dosage unit from strength string, e.g. "500 mg" → "mg"
+                  if (product.strength) {
+                    const unit = product.strength.match(/[a-z%µ]+/i)?.[0]?.toLowerCase();
+                    if (unit) patchItem(item._key, 'dosageUnit', unit);
+                  }
+                }}
+                onClear={() => {
+                  patchItem(item._key, 'productId', undefined);
+                  patchItem(item._key, 'medicationName', '');
                 }}
               />
 
