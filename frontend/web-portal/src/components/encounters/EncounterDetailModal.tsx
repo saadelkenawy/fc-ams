@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { X, Save, CheckCheck } from 'lucide-react';
+import { X, Save, CheckCheck, Activity, FlaskConical, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
@@ -22,26 +22,99 @@ interface Props {
   onClose: () => void;
 }
 
+interface VitalFields {
+  systolic_bp:       string;
+  diastolic_bp:      string;
+  heart_rate:        string;
+  temperature:       string;
+  oxygen_saturation: string;
+  respiratory_rate:  string;
+  weight_kg:         string;
+  height_cm:         string;
+}
+
+interface LabOrder {
+  id:     string;
+  name:   string;
+  urgent: boolean;
+  status: 'ordered' | 'collected' | 'resulted';
+}
+
+/* ── constants ───────────────────────────────────────────────────────── */
+
+const EMPTY_VITALS: VitalFields = {
+  systolic_bp: '', diastolic_bp: '', heart_rate: '',
+  temperature: '', oxygen_saturation: '', respiratory_rate: '',
+  weight_kg: '', height_cm: '',
+};
+
+const LAB_PRESETS = [
+  'CBC', 'LFTs', 'RFTs', 'HbA1c', 'Lipid Profile',
+  'TSH', 'Fasting Glucose', 'Urine Analysis', 'CRP', 'ESR', 'PT/INR',
+];
+
+const VITAL_GRID = [
+  { key: 'heart_rate'        as keyof VitalFields, labelEn: 'Heart Rate',       labelAr: 'معدل النبض',     unit: 'bpm',  min: 30,  max: 250 },
+  { key: 'temperature'       as keyof VitalFields, labelEn: 'Temperature',       labelAr: 'درجة الحرارة',   unit: '°C',   min: 34,  max: 43  },
+  { key: 'oxygen_saturation' as keyof VitalFields, labelEn: 'O₂ Saturation',     labelAr: 'تشبع الأكسجين', unit: '%',    min: 70,  max: 100 },
+  { key: 'respiratory_rate'  as keyof VitalFields, labelEn: 'Respiratory Rate',   labelAr: 'معدل التنفس',   unit: '/min', min: 5,   max: 60  },
+  { key: 'weight_kg'         as keyof VitalFields, labelEn: 'Weight',             labelAr: 'الوزن',          unit: 'kg',   min: 1,   max: 500 },
+  { key: 'height_cm'         as keyof VitalFields, labelEn: 'Height',             labelAr: 'الطول',          unit: 'cm',   min: 30,  max: 250 },
+] as const;
+
+const LAB_STATUS_VARIANT: Record<LabOrder['status'], 'warning' | 'default' | 'success'> = {
+  ordered:   'warning',
+  collected: 'default',
+  resulted:  'success',
+};
+
 const TABS = [
   { key: 'notes',   labelAr: 'الملاحظات السريرية', labelEn: 'Clinical Notes' },
+  { key: 'vitals',  labelAr: 'العلامات الحيوية',    labelEn: 'Vitals'         },
+  { key: 'labs',    labelAr: 'طلبات المختبر',       labelEn: 'Lab Orders'     },
   { key: 'rx',      labelAr: 'الوصفة الطبية',       labelEn: 'Prescription'   },
   { key: 'followup',labelAr: 'المتابعة',             labelEn: 'Follow-up'      },
 ] as const;
 type TabKey = typeof TABS[number]['key'];
 
 const SOAP = [
-  { key: 'S', labelAr: 'ذاتي (شكوى المريض)',   labelEn: 'Subjective',  placeholderAr: 'ما يشكو منه المريض…',          placeholderEn: "Patient's chief complaint…"         },
-  { key: 'O', labelAr: 'موضوعي (النتائج)',      labelEn: 'Objective',   placeholderAr: 'النتائج والفحص السريري…',        placeholderEn: 'Examination findings…'              },
-  { key: 'A', labelAr: 'التقييم',               labelEn: 'Assessment',  placeholderAr: 'التشخيص والتقييم السريري…',      placeholderEn: 'Clinical assessment…'              },
-  { key: 'P', labelAr: 'الخطة العلاجية',        labelEn: 'Plan',        placeholderAr: 'خطة العلاج والإجراءات…',         placeholderEn: 'Treatment plan and next steps…'    },
+  { key: 'S', labelAr: 'ذاتي (شكوى المريض)',  labelEn: 'Subjective',  placeholderAr: 'ما يشكو منه المريض…',       placeholderEn: "Patient's chief complaint…"       },
+  { key: 'O', labelAr: 'موضوعي (النتائج)',     labelEn: 'Objective',   placeholderAr: 'النتائج والفحص السريري…',    placeholderEn: 'Examination findings…'             },
+  { key: 'A', labelAr: 'التقييم',              labelEn: 'Assessment',  placeholderAr: 'التشخيص والتقييم السريري…',  placeholderEn: 'Clinical assessment…'             },
+  { key: 'P', labelAr: 'الخطة العلاجية',       labelEn: 'Plan',        placeholderAr: 'خطة العلاج والإجراءات…',     placeholderEn: 'Treatment plan and next steps…'   },
 ] as const;
 
 const STATUS_VARIANT: Record<string, 'success' | 'warning' | 'info' | 'outline'> = {
-  completed:  'success',
-  signed_off: 'success',
-  in_progress:'warning',
-  draft:      'outline',
+  completed:   'success',
+  signed_off:  'success',
+  in_progress: 'warning',
+  draft:       'outline',
 };
+
+/* ── helpers ─────────────────────────────────────────────────────────── */
+
+function buildVitalSigns(v: VitalFields): Record<string, number> | undefined {
+  const out: Record<string, number> = {};
+  for (const [k, val] of Object.entries(v)) {
+    const n = parseFloat(val);
+    if (val.trim() && !isNaN(n)) out[k] = n;
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
+function vitalsFromRecord(rec: Record<string, unknown>): VitalFields {
+  const get = (k: string) => (rec[k] !== undefined ? String(rec[k]) : '');
+  return {
+    systolic_bp:       get('systolic_bp'),
+    diastolic_bp:      get('diastolic_bp'),
+    heart_rate:        get('heart_rate'),
+    temperature:       get('temperature'),
+    oxygen_saturation: get('oxygen_saturation'),
+    respiratory_rate:  get('respiratory_rate'),
+    weight_kg:         get('weight_kg'),
+    height_cm:         get('height_cm'),
+  };
+}
 
 /* ── component ───────────────────────────────────────────────────────── */
 
@@ -49,50 +122,97 @@ export function EncounterDetailModal({ open, encounter, patientName, doctorName,
   const { lang, t } = useLang();
   const queryClient = useQueryClient();
 
-  const [tab, setTab]           = useState<TabKey>('notes');
-  const [diagnosis, setDiagnosis] = useState('');
-  const [soap, setSoap]         = useState({ S: '', O: '', A: '', P: '' });
-  const [followUp, setFollowUp] = useState('');
+  const [tab,          setTab]          = useState<TabKey>('notes');
+  const [diagnosis,    setDiagnosis]    = useState('');
+  const [soap,         setSoap]         = useState({ S: '', O: '', A: '', P: '' });
+  const [vitals,       setVitals]       = useState<VitalFields>(EMPTY_VITALS);
+  const [labOrders,    setLabOrders]    = useState<LabOrder[]>([]);
+  const [newLabName,   setNewLabName]   = useState('');
+  const [followUp,     setFollowUp]     = useState('');
   const [instructions, setInstructions] = useState('');
   const [followUpType, setFollowUpType] = useState('clinic');
-  const [rxSaved, setRxSaved]   = useState(false);
+  const [rxSaved,      setRxSaved]      = useState(false);
+  const [localVersion, setLocalVersion] = useState(1);
 
-  /* reset state when encounter changes */
   useEffect(() => {
-    if (encounter) {
-      setDiagnosis(encounter.diagnosisPrimary ?? '');
-      /* parse clinicalNotes as JSON SOAP if possible, else put in S */
-      try {
-        const parsed = JSON.parse(encounter.clinicalNotes ?? '{}') as Record<string, string>;
-        setSoap({ S: parsed.S ?? '', O: parsed.O ?? '', A: parsed.A ?? '', P: parsed.P ?? '' });
-      } catch {
-        setSoap({ S: encounter.clinicalNotes ?? '', O: '', A: '', P: '' });
-      }
-      setFollowUp('');
-      setInstructions('');
-      setRxSaved(false);
-      setTab('notes');
+    if (!encounter) return;
+    setDiagnosis(encounter.diagnosisPrimary ?? '');
+    try {
+      const parsed = JSON.parse(encounter.clinicalNotes ?? '{}') as Record<string, string>;
+      setSoap({ S: parsed.S ?? '', O: parsed.O ?? '', A: parsed.A ?? '', P: parsed.P ?? '' });
+    } catch {
+      setSoap({ S: encounter.clinicalNotes ?? '', O: '', A: '', P: '' });
     }
+    setVitals(encounter.vitalSigns ? vitalsFromRecord(encounter.vitalSigns) : EMPTY_VITALS);
+    setLabOrders(
+      Array.isArray(encounter.labOrders)
+        ? (encounter.labOrders as LabOrder[]).filter((l): l is LabOrder => !!l?.name)
+        : [],
+    );
+    setFollowUp(encounter.followUpDate ?? '');
+    setInstructions(encounter.followUpNotes ?? '');
+    setLocalVersion(encounter.version);
+    setRxSaved(false);
+    setTab('notes');
   }, [encounter?.id]);
 
-  /* PATCH mutation */
+  /* PATCH → optional sign-off */
   const saveMutation = useMutation({
     mutationFn: async ({ signOff }: { signOff: boolean }) => {
-      if (!encounter) return;
-      await ehrApi.patch(`/encounters/${encounter.id}`, {
-        diagnosisPrimary: diagnosis || undefined,
-        clinicalNotes:    JSON.stringify(soap),
-        status:           signOff ? 'signed_off' : 'in_progress',
-      });
+      if (!encounter) return { newVersion: localVersion };
+      const patchRes = await ehrApi.patch<{ success: boolean; data: { version: number } }>(
+        `/encounters/${encounter.id}`,
+        {
+          version:          localVersion,
+          diagnosisPrimary: diagnosis || undefined,
+          clinicalNotes:    JSON.stringify(soap),
+          vitalSigns:       buildVitalSigns(vitals),
+          labOrders:        labOrders.length ? labOrders : undefined,
+          followUpDate:     followUp || undefined,
+          followUpNotes:    instructions || undefined,
+          status:           signOff ? 'completed' : 'in_progress',
+        },
+      );
+      const newVersion = patchRes.data.data.version;
       if (signOff) {
-        await ehrApi.post(`/encounters/${encounter.id}/sign-off`, {});
+        await ehrApi.post(`/encounters/${encounter.id}/sign-off`, { version: newVersion });
       }
+      return { newVersion };
     },
-    onSuccess: () => {
+    onSuccess: ({ newVersion }) => {
+      setLocalVersion(newVersion);
       void queryClient.invalidateQueries({ queryKey: ['encounters'] });
       onClose();
     },
   });
+
+  /* lab helpers */
+  function addLabPreset(name: string) {
+    if (labOrders.some((l) => l.name === name)) return;
+    setLabOrders((prev) => [...prev, { id: crypto.randomUUID(), name, urgent: false, status: 'ordered' }]);
+  }
+
+  function addCustomLab() {
+    const name = newLabName.trim();
+    if (!name || labOrders.some((l) => l.name === name)) { setNewLabName(''); return; }
+    setLabOrders((prev) => [...prev, { id: crypto.randomUUID(), name, urgent: false, status: 'ordered' }]);
+    setNewLabName('');
+  }
+
+  function cycleLabStatus(id: string) {
+    const cycle: LabOrder['status'][] = ['ordered', 'collected', 'resulted'];
+    setLabOrders((prev) => prev.map((l) =>
+      l.id === id ? { ...l, status: cycle[(cycle.indexOf(l.status) + 1) % cycle.length] } : l,
+    ));
+  }
+
+  function toggleLabUrgent(id: string) {
+    setLabOrders((prev) => prev.map((l) => l.id === id ? { ...l, urgent: !l.urgent } : l));
+  }
+
+  function removeLabOrder(id: string) {
+    setLabOrders((prev) => prev.filter((l) => l.id !== id));
+  }
 
   if (!open || !encounter) return null;
 
@@ -127,13 +247,12 @@ export function EncounterDetailModal({ open, encounter, patientName, doctorName,
               </p>
             </div>
           </div>
-
           <div className="flex items-center gap-2 flex-shrink-0">
             <Badge variant={STATUS_VARIANT[encounter.status] ?? 'default'} dot>
-              {encounter.status === 'signed_off'  ? t('موقَّع',       'Signed Off')  :
-               encounter.status === 'completed'   ? t('مكتمل',       'Completed')   :
-               encounter.status === 'in_progress' ? t('جارٍ',        'In Progress') :
-                                                    t('مسودة',       'Draft')}
+              {encounter.status === 'signed_off'  ? t('موقَّع',  'Signed Off')  :
+               encounter.status === 'completed'   ? t('مكتمل',  'Completed')   :
+               encounter.status === 'in_progress' ? t('جارٍ',   'In Progress') :
+                                                    t('مسودة',  'Draft')}
             </Badge>
             <button
               onClick={onClose}
@@ -159,13 +278,13 @@ export function EncounterDetailModal({ open, encounter, patientName, doctorName,
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-gray-100 dark:border-neutral-800 flex-shrink-0 px-6">
+        <div className="flex border-b border-gray-100 dark:border-neutral-800 flex-shrink-0 px-6 overflow-x-auto">
           {TABS.map((tb) => (
             <button
               key={tb.key}
               onClick={() => setTab(tb.key)}
               className={cn(
-                'py-2.5 px-1 me-5 text-sm font-medium border-b-2 -mb-px transition-colors',
+                'py-2.5 px-1 me-5 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap',
                 tab === tb.key
                   ? 'border-primary-600 text-primary-700 dark:text-primary-400'
                   : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200',
@@ -202,6 +321,186 @@ export function EncounterDetailModal({ open, encounter, patientName, doctorName,
                   />
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* ── Vitals ── */}
+          {tab === 'vitals' && (
+            <div className="space-y-5">
+              <div className="flex items-center gap-2">
+                <Activity className="w-4 h-4 text-primary-600" />
+                <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                  {t('العلامات الحيوية', 'Vital Signs')}
+                </span>
+              </div>
+
+              {/* Blood pressure */}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+                  {t('ضغط الدم (انقباضي / انبساطي)', 'Blood Pressure (Systolic / Diastolic)')}
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number" min="60" max="300"
+                    placeholder={t('انقباضي', 'Systolic')}
+                    value={vitals.systolic_bp}
+                    onChange={(e) => setVitals((v) => ({ ...v, systolic_bp: e.target.value }))}
+                    disabled={isSigned}
+                    className="w-full rounded-xl border border-gray-200 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-800 px-3 py-2.5 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:opacity-60"
+                  />
+                  <span className="text-gray-400 font-bold text-lg">/</span>
+                  <input
+                    type="number" min="30" max="200"
+                    placeholder={t('انبساطي', 'Diastolic')}
+                    value={vitals.diastolic_bp}
+                    onChange={(e) => setVitals((v) => ({ ...v, diastolic_bp: e.target.value }))}
+                    disabled={isSigned}
+                    className="w-full rounded-xl border border-gray-200 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-800 px-3 py-2.5 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:opacity-60"
+                  />
+                  <span className="text-xs text-gray-400 whitespace-nowrap">mmHg</span>
+                </div>
+              </div>
+
+              {/* Other vitals grid */}
+              <div className="grid grid-cols-2 gap-3">
+                {VITAL_GRID.map(({ key, labelEn, labelAr, unit, min, max }) => (
+                  <div key={key}>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+                      {lang === 'ar' ? labelAr : labelEn}
+                    </label>
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="number" min={min} max={max}
+                        value={vitals[key]}
+                        onChange={(e) => setVitals((v) => ({ ...v, [key]: e.target.value }))}
+                        disabled={isSigned}
+                        className="flex-1 rounded-xl border border-gray-200 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-800 px-3 py-2.5 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:opacity-60"
+                      />
+                      <span className="text-xs text-gray-400 w-9 text-right">{unit}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── Lab Orders ── */}
+          {tab === 'labs' && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <FlaskConical className="w-4 h-4 text-primary-600" />
+                <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                  {t('طلبات المختبر', 'Lab Orders')}
+                </span>
+              </div>
+
+              {!isSigned && (
+                <>
+                  {/* Quick-add presets */}
+                  <div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                      {t('إضافة سريعة:', 'Quick add:')}
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {LAB_PRESETS.map((name) => {
+                        const added = labOrders.some((l) => l.name === name);
+                        return (
+                          <button
+                            key={name}
+                            onClick={() => addLabPreset(name)}
+                            disabled={added}
+                            className={cn(
+                              'px-2.5 py-1 rounded-full text-xs font-medium border transition-colors',
+                              added
+                                ? 'border-primary-300 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 cursor-default'
+                                : 'border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-gray-600 dark:text-gray-300 hover:border-primary-400 hover:text-primary-600',
+                            )}
+                          >
+                            {name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Custom input */}
+                  <div className="flex gap-2">
+                    <input
+                      value={newLabName}
+                      onChange={(e) => setNewLabName(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && addCustomLab()}
+                      placeholder={t('اسم فحص مخصص…', 'Custom test name…')}
+                      className="flex-1 rounded-xl border border-gray-200 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-600"
+                    />
+                    <Button variant="outline" size="sm" onClick={addCustomLab}>
+                      <Plus className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </>
+              )}
+
+              {/* Orders list */}
+              {labOrders.length === 0 ? (
+                <div className="py-8 text-center text-sm text-gray-400 dark:text-gray-500">
+                  {t('لا توجد طلبات مختبر.', 'No lab orders yet.')}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {labOrders.map((lab) => (
+                    <div
+                      key={lab.id}
+                      className="flex items-center justify-between gap-2 rounded-xl border border-gray-100 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-800/50 px-3 py-2.5"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                          {lab.name}
+                        </span>
+                        {lab.urgent && (
+                          <span className="text-[10px] font-bold text-red-600 dark:text-red-400 uppercase tracking-wide">
+                            {t('عاجل', 'Urgent')}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <button
+                          onClick={() => cycleLabStatus(lab.id)}
+                          disabled={isSigned}
+                          className="disabled:pointer-events-none"
+                          title={t('انقر للتقدم في الحالة', 'Click to advance status')}
+                        >
+                          <Badge variant={LAB_STATUS_VARIANT[lab.status]}>
+                            {lab.status === 'ordered'   ? t('مطلوب',    'Ordered')   :
+                             lab.status === 'collected' ? t('جُمِع',    'Collected') :
+                                                          t('النتيجة', 'Resulted')}
+                          </Badge>
+                        </button>
+                        {!isSigned && (
+                          <>
+                            <button
+                              onClick={() => toggleLabUrgent(lab.id)}
+                              title={t('تعليم عاجل', 'Mark urgent')}
+                              className={cn(
+                                'text-xs px-1.5 py-0.5 rounded border font-bold transition-colors',
+                                lab.urgent
+                                  ? 'border-red-300 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20'
+                                  : 'border-gray-200 dark:border-neutral-600 text-gray-400 hover:text-red-500',
+                              )}
+                            >
+                              !
+                            </button>
+                            <button
+                              onClick={() => removeLabOrder(lab.id)}
+                              className="text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -291,6 +590,8 @@ export function EncounterDetailModal({ open, encounter, patientName, doctorName,
           <p className="text-xs text-gray-400 dark:text-gray-500">
             {isSigned
               ? t('هذه الحالة موقَّعة ولا يمكن تعديلها', 'This encounter is signed and locked')
+              : saveMutation.isError
+              ? t('فشل الحفظ. تحقق من الاتصال.', 'Save failed. Check connection.')
               : t('آخر تحديث: الآن', 'Last saved: just now')}
           </p>
           <div className="flex items-center gap-2">

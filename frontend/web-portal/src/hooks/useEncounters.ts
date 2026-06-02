@@ -12,6 +12,10 @@ export interface Encounter {
   chiefComplaint?: string;
   diagnosisPrimary?: string;
   clinicalNotes?: string;
+  vitalSigns?: Record<string, unknown>;
+  labOrders?: unknown[];
+  followUpDate?: string;
+  followUpNotes?: string;
   version: number;
   createdAt: string;
 }
