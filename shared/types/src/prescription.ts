@@ -6,6 +6,7 @@ export type PrescriptionStatus = 'active' | 'dispensed' | 'cancelled';
 export interface PrescriptionItem {
   id: string;
   prescriptionId: string;
+  productId?: string;
   medicationId?: string;
   medicationName: string;
   form: RxForm;
@@ -46,8 +47,9 @@ export interface CreatePrescriptionInput {
 }
 
 export interface CreatePrescriptionItemInput {
+  productId?: string;
   medicationId?: string;
-  medicationName: string;
+  medicationName?: string;
   form: RxForm;
   dosageValue?: number;
   dosageUnit?: string;
@@ -64,4 +66,22 @@ export interface MedicationDictionaryEntry {
   genericName: string;
   brandName?: string;
   availableForms: RxForm[];
+}
+
+export type ProductType   = 'medicine' | 'cosmetic';
+export type ProductStatus = 'active' | 'suspended' | 'cancelled' | 'recalled';
+
+export interface ProductSearchResult {
+  id: string;
+  tradeNameEn: string;
+  tradeNameAr: string | null;
+  type: ProductType;
+  genericNameEn: string | null;
+  strength: string | null;
+  formCode: string | null;
+  formNameEn: string | null;
+  formNameAr: string | null;
+  prescriptionRequired: boolean | null;
+  controlledSubstance: boolean | null;
+  rank: number;
 }

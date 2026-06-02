@@ -11,8 +11,9 @@ const timingEnum    = z.enum(['ac', 'pc', 'hs', 'stat', 'prn', 'none']);
 const statusEnum    = z.enum(['active', 'dispensed', 'cancelled']);
 
 const itemSchema = z.object({
+  productId:        z.string().uuid().optional(),
   medicationId:     z.string().uuid().optional(),
-  medicationName:   z.string().min(1).max(255),
+  medicationName:   z.string().min(1).max(255).optional(),
   form:             formEnum,
   dosageValue:      z.number().positive().optional(),
   dosageUnit:       z.string().max(20).optional(),
@@ -22,7 +23,10 @@ const itemSchema = z.object({
   durationDays:     z.number().int().positive().optional(),
   dispenseQuantity: z.number().int().positive().optional(),
   sortOrder:        z.number().int().min(0).optional(),
-});
+}).refine(
+  (d) => d.productId != null || (d.medicationName != null && d.medicationName.length > 0),
+  { message: 'Either productId or medicationName is required', path: ['medicationName'] },
+);
 
 const createSchema = z.object({
   encounterId: z.string().uuid().optional(),

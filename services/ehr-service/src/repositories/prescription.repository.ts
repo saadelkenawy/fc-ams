@@ -13,6 +13,7 @@ function rowToItem(row: Record<string, unknown>): PrescriptionItem {
   return {
     id:               row.id as string,
     prescriptionId:   row.prescription_id as string,
+    productId:        row.product_id as string | undefined,
     medicationId:     row.medication_id as string | undefined,
     medicationName:   row.medication_name as string,
     form:             row.form as PrescriptionItem['form'],
@@ -78,24 +79,25 @@ export async function createPrescription(
       const it = input.items[i];
       const { rows: itemRows } = await client.query(
         `INSERT INTO prescription_items
-           (prescription_id, medication_id, medication_name,
+           (prescription_id, product_id, medication_id, medication_name,
             form, dosage_value, dosage_unit, frequency, timing,
             route_instruction, duration_days, dispense_quantity, sort_order)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
          RETURNING *`,
         [
           rx.id,
-          it.medicationId ?? null,
-          it.medicationName,
+          it.productId        ?? null,
+          it.medicationId     ?? null,
+          it.medicationName   ?? null,  // DB trigger overwrites when product_id is set
           it.form,
-          it.dosageValue ?? null,
-          it.dosageUnit ?? null,
+          it.dosageValue      ?? null,
+          it.dosageUnit       ?? null,
           it.frequency,
-          it.timing ?? 'none',
+          it.timing           ?? 'none',
           it.routeInstruction ?? null,
-          it.durationDays ?? null,
+          it.durationDays     ?? null,
           it.dispenseQuantity ?? null,
-          it.sortOrder ?? i,
+          it.sortOrder        ?? i,
         ],
       );
       items.push(rowToItem(itemRows[0] as Record<string, unknown>));

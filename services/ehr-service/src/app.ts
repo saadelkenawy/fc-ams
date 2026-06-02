@@ -8,6 +8,7 @@ import swaggerUi from '@fastify/swagger-ui';
 import { config } from './config';
 import { encounterRoutes } from './routes/encounter.routes';
 import { prescriptionRoutes } from './routes/prescription.routes';
+import { productRoutes } from './routes/product.routes';
 
 export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
   const app = Fastify({
@@ -42,6 +43,7 @@ export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
       tags: [
         { name: 'encounters',    description: 'Clinical encounter management' },
         { name: 'prescriptions', description: 'Prescription management' },
+        { name: 'products',      description: 'EDA medicine & cosmetic registry search' },
       ],
       components: {
         securitySchemes: {
@@ -58,6 +60,7 @@ export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
 
   await app.register(encounterRoutes,    { prefix: '/api/v1' });
   await app.register(prescriptionRoutes, { prefix: '/api/v1' });
+  await app.register(productRoutes,      { prefix: '/api/v1' });
 
   app.setErrorHandler(async (error, request, reply) => {
     const statusCode = (error as { statusCode?: number }).statusCode ?? 500;
