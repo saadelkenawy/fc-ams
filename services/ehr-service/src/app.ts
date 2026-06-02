@@ -7,6 +7,7 @@ import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import { config } from './config';
 import { encounterRoutes } from './routes/encounter.routes';
+import { prescriptionRoutes } from './routes/prescription.routes';
 
 export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
   const app = Fastify({
@@ -38,7 +39,10 @@ export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
         version: '1.0.0',
         description: 'Electronic Health Records API',
       },
-      tags: [{ name: 'encounters', description: 'Clinical encounter management' }],
+      tags: [
+        { name: 'encounters',    description: 'Clinical encounter management' },
+        { name: 'prescriptions', description: 'Prescription management' },
+      ],
       components: {
         securitySchemes: {
           bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
@@ -52,7 +56,8 @@ export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
 
   app.get('/health', { logLevel: 'silent' }, async () => ({ status: 'ok', service: 'ehr-service' }));
 
-  await app.register(encounterRoutes, { prefix: '/api/v1' });
+  await app.register(encounterRoutes,    { prefix: '/api/v1' });
+  await app.register(prescriptionRoutes, { prefix: '/api/v1' });
 
   app.setErrorHandler(async (error, request, reply) => {
     const statusCode = (error as { statusCode?: number }).statusCode ?? 500;

@@ -32,8 +32,9 @@ const NAV: Record<UserRole, NavGroup[]> = {
       items: [
         { key: 'patients',     href: '/patients',     labelAr: 'المرضى',          labelEn: 'Patients',     icon: 'Users' },
         { key: 'doctors',      href: '/doctors',      labelAr: 'الأطباء',         labelEn: 'Doctors',      icon: 'Stethoscope' },
-        { key: 'encounters',   href: '/encounters',   labelAr: 'الحالات السريرية', labelEn: 'Encounters',   icon: 'FileHeart' },
-        { key: 'procedures',   href: '/procedures',   labelAr: 'الإجراءات',       labelEn: 'Procedures',   icon: 'Clipboard' },
+        { key: 'encounters',    href: '/encounters',    labelAr: 'الحالات السريرية', labelEn: 'Encounters',    icon: 'FileHeart' },
+        { key: 'prescriptions', href: '/prescriptions', labelAr: 'الوصفات الطبية',  labelEn: 'Prescriptions', icon: 'Pill' },
+        { key: 'procedures',    href: '/procedures',    labelAr: 'الإجراءات',        labelEn: 'Procedures',    icon: 'Clipboard' },
       ],
     },
     {
@@ -81,7 +82,8 @@ const NAV: Record<UserRole, NavGroup[]> = {
         { key: 'patients',     href: '/doctor/patients',  labelAr: 'مرضاي',        labelEn: 'My Patients',  icon: 'Users' },
         { key: 'earnings',     href: '/doctor/earnings',  labelAr: 'أرباحي',       labelEn: 'My Earnings',  icon: 'TrendingUp' },
         { key: 'notes',        href: '/doctor/notes',     labelAr: 'الملاحظات',    labelEn: 'Clinical Notes', icon: 'FileText' },
-        { key: 'encounters',   href: '/encounters',       labelAr: 'الحالات السريرية', labelEn: 'Encounters', icon: 'FileHeart' },
+        { key: 'encounters',    href: '/encounters',       labelAr: 'الحالات السريرية', labelEn: 'Encounters',    icon: 'FileHeart' },
+        { key: 'prescriptions', href: '/prescriptions',    labelAr: 'الوصفات الطبية',  labelEn: 'Prescriptions', icon: 'Pill' },
       ],
     },
   ],
