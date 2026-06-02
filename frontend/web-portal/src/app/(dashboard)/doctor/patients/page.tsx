@@ -6,19 +6,10 @@ import { Search, Users, Loader2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { useLang } from '@/contexts/LanguageContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { formatDate, getInitials } from '@/lib/utils';
 import { useAppointments } from '@/hooks/useAppointments';
 import { usePatients } from '@/hooks/usePatients';
-
-function getUser(): Record<string, unknown> {
-  if (typeof window === 'undefined') return {};
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return JSON.parse(localStorage.getItem('fadl_user') ?? '{}') as Record<string, unknown>;
-  } catch {
-    return {};
-  }
-}
 
 interface PatientSummary {
   patientId: string;
@@ -30,9 +21,8 @@ export default function DoctorPatientsPage() {
   const { lang, t } = useLang();
   const router = useRouter();
   const [query, setQuery] = useState('');
-
-  const user = getUser();
-  const doctorId = user.doctorId as string | undefined;
+  const { user } = useAuth();
+  const doctorId = user?.doctorId;
 
   // Fetch all appointments for this doctor (up to 200)
   const { data: apptData, isLoading: apptLoading } = useAppointments({

@@ -83,7 +83,12 @@ export default function LoginPage() {
 
       localStorage.setItem('fadl_refresh_token', res.data.data.refreshToken);
       login(res.data.data.accessToken, res.data.data.user);
-      router.replace('/');
+      const ROLE_HOME: Record<string, string> = {
+        receptionist: '/receptionist',
+        doctor:       '/doctor/schedule',
+        procurement:  '/procurement',
+      };
+      router.replace(ROLE_HOME[res.data.data.user.role] ?? '/');
     } catch {
       setError(t('البريد الإلكتروني أو كلمة المرور غير صحيحة', 'Invalid email or password'));
       setShakeKey((k) => k + 1);

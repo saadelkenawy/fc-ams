@@ -8,19 +8,10 @@ import { Button } from '@/components/ui/Button';
 import { StatCard } from '@/components/ui/StatCard';
 import { Badge } from '@/components/ui/Badge';
 import { useLang } from '@/contexts/LanguageContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { billingApi } from '@/lib/api';
 import type { DoctorSettlement } from '@fadl/types';
-
-function getUser(): Record<string, unknown> {
-  if (typeof window === 'undefined') return {};
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return JSON.parse(localStorage.getItem('fadl_user') ?? '{}') as Record<string, unknown>;
-  } catch {
-    return {};
-  }
-}
 
 function getMonthBounds(year: number, month: number) {
   const from = new Date(year, month, 1).toISOString().split('T')[0];
@@ -37,9 +28,8 @@ const SOURCE_VARIANT_MAP: Record<string, 'info' | 'default' | 'primary'> = {
 export default function DoctorEarningsPage() {
   const { lang, t } = useLang();
   const locale = lang === 'ar' ? 'ar-EG' : 'en-US';
-
-  const user = getUser();
-  const doctorId = user.doctorId as string | undefined;
+  const { user } = useAuth();
+  const doctorId = user?.doctorId;
 
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());

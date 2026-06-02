@@ -6,17 +6,20 @@ const PUBLIC_PATHS = ['/login', '/api'];
 
 // Route → allowed roles (empty = all authenticated roles)
 const ROLE_RULES: Array<{ pattern: RegExp; roles: string[] }> = [
-  { pattern: /^\/analytics/,    roles: ['admin', 'finance'] },
-  { pattern: /^\/reports/,      roles: ['admin', 'finance'] },
-  { pattern: /^\/billing/,      roles: ['admin', 'finance', 'receptionist'] },
-  { pattern: /^\/sources/,      roles: ['admin', 'finance'] },
-  { pattern: /^\/doctors/,      roles: ['admin'] },
-  { pattern: /^\/procedures/,   roles: ['admin'] },
-  { pattern: /^\/integrations/, roles: ['admin'] },
-  { pattern: /^\/settings/,     roles: ['admin'] },
-  { pattern: /^\/procurement/,  roles: ['admin', 'procurement'] },
-  { pattern: /^\/encounters/,   roles: ['admin', 'doctor'] },
-  { pattern: /^\/chatbot/,      roles: ['admin', 'receptionist'] },
+  { pattern: /^\/receptionist(\/|$)/, roles: ['admin', 'receptionist'] },
+  { pattern: /^\/doctor(\/|$)/,       roles: ['admin', 'doctor'] },
+  { pattern: /^\/register(\/|$)/,     roles: ['admin'] },
+  { pattern: /^\/analytics/,          roles: ['admin', 'finance'] },
+  { pattern: /^\/reports/,            roles: ['admin', 'finance'] },
+  { pattern: /^\/billing/,            roles: ['admin', 'finance', 'receptionist'] },
+  { pattern: /^\/sources/,            roles: ['admin', 'finance'] },
+  { pattern: /^\/doctors/,            roles: ['admin'] },
+  { pattern: /^\/procedures/,         roles: ['admin'] },
+  { pattern: /^\/integrations/,       roles: ['admin'] },
+  { pattern: /^\/settings/,           roles: ['admin'] },
+  { pattern: /^\/procurement/,        roles: ['admin', 'procurement'] },
+  { pattern: /^\/encounters/,         roles: ['admin', 'doctor'] },
+  { pattern: /^\/chatbot/,            roles: ['admin', 'receptionist'] },
 ];
 
 export function middleware(request: NextRequest) {

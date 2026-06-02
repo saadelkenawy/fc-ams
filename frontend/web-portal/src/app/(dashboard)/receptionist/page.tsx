@@ -9,7 +9,7 @@ import { AppointmentStatusBadge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
 import { useLang } from '@/contexts/LanguageContext';
 import { formatTime } from '@/lib/utils';
-import { usePatients } from '@/hooks/usePatients';
+import { usePatients, usePatientBatch } from '@/hooks/usePatients';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useTodayAppointments } from '@/hooks/useAppointments';
 import { useDoctors } from '@/hooks/useDoctors';
@@ -497,6 +497,9 @@ export default function ReceptionistPage() {
   const appointments: Appointment[] = apptData?.data ?? [];
   const tbcAlerts = appointments.filter((a) => a.status === 'TBC');
 
+  const patientIds = appointments.map((a) => a.patientId);
+  const patientMap = usePatientBatch(patientIds);
+
   const { mutate: checkIn } = useMutation({
     mutationFn: (id: string) => appointmentApi.post(`/appointments/${id}/checkin`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['appointments'] }),
@@ -505,6 +508,18 @@ export default function ReceptionistPage() {
   const { mutate: confirmTbc } = useMutation({
     mutationFn: ({ id, version }: { id: string; version: number }) =>
       appointmentApi.patch(`/appointments/${id}/status`, { status: 'Ok!', version }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['appointments'] }),
+  });
+
+  const { mutate: cancelAppt } = useMutation({
+    mutationFn: ({ id, version }: { id: string; version: number }) =>
+      appointmentApi.patch(`/appointments/${id}/status`, { status: 'Canc.', version }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['appointments'] }),
+  });
+
+  const { mutate: delayAppt } = useMutation({
+    mutationFn: ({ id, version }: { id: string; version: number }) =>
+      appointmentApi.patch(`/appointments/${id}/status`, { status: 'Resch.', version }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['appointments'] }),
   });
 
@@ -570,7 +585,11 @@ export default function ReceptionistPage() {
               >
                 <div>
                   <span className="font-medium text-gray-900 dark:text-gray-100 text-sm">
-                    {t(`مريض #${a.patientId.slice(0, 8)}`, `Patient #${a.patientId.slice(0, 8)}`)}
+                    {(() => {
+                      const p = patientMap.get(a.patientId);
+                      const name = p ? (lang === 'ar' ? (p.nameAr ?? p.nameEn) : p.nameEn) : `#${a.patientId.slice(0, 8)}`;
+                      return name;
+                    })()}
                   </span>
                   <span className="text-gray-400 text-xs mx-2">·</span>
                   <span className="text-amber-600 dark:text-amber-400 text-xs">
@@ -586,7 +605,13 @@ export default function ReceptionistPage() {
                     <CheckCircle className="w-3.5 h-3.5" />
                     {t('تأكيد', 'Confirm')}
                   </Button>
-                  <Button size="sm" variant="outline">{t('إلغاء', 'Cancel')}</Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => cancelAppt({ id: a.id, version: a.version })}
+                  >
+                    {t('إلغاء', 'Cancel')}
+                  </Button>
                 </div>
               </div>
             ))}
@@ -650,7 +675,10 @@ export default function ReceptionistPage() {
                         <td className="px-4 py-3">
                           <div>
                             <p className="font-medium text-gray-900 dark:text-gray-100">
-                              {a.patientId.slice(0, 8)}
+                              {(() => {
+                                const p = patientMap.get(a.patientId);
+                                return p ? (lang === 'ar' ? (p.nameAr ?? p.nameEn) : p.nameEn) : `#${a.patientId.slice(0, 8)}`;
+                              })()}
                             </p>
                             <p className="text-xs text-gray-400 dark:text-gray-300">
                               {formatTime(a.startTime)}
@@ -697,7 +725,12 @@ export default function ReceptionistPage() {
                             >
                               {t('دخول', 'Check In')}
                             </Button>
-                            <Button size="sm" variant="outline" className="h-7 px-2 text-xs">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 px-2 text-xs"
+                              onClick={() => delayAppt({ id: a.id, version: a.version })}
+                            >
                               {t('تأجيل', 'Delay')}
                             </Button>
                           </div>

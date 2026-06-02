@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge, AppointmentStatusBadge } from '@/components/ui/Badge';
 import { useLang } from '@/contexts/LanguageContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { formatTime, formatDate } from '@/lib/utils';
 import { useAppointments } from '@/hooks/useAppointments';
 import { doctorApi, appointmentApi } from '@/lib/api';
@@ -14,16 +15,6 @@ import type { DoctorSchedule } from '@fadl/types';
 
 const DAYS_AR = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
 const DAYS_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-function getUser(): Record<string, unknown> {
-  if (typeof window === 'undefined') return {};
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return JSON.parse(localStorage.getItem('fadl_user') ?? '{}') as Record<string, unknown>;
-  } catch {
-    return {};
-  }
-}
 
 function getDayDates(): { dayIndex: number; dateStr: string; label: string; labelAr: string }[] {
   const today = new Date();
@@ -46,9 +37,8 @@ function getDayDates(): { dayIndex: number; dateStr: string; label: string; labe
 export default function DoctorSchedulePage() {
   const { lang, t } = useLang();
   const qc = useQueryClient();
-
-  const user = getUser();
-  const doctorId = user.doctorId as string | undefined;
+  const { user } = useAuth();
+  const doctorId = user?.doctorId;
 
   const today = new Date().toISOString().split('T')[0];
   const [selectedDate, setSelectedDate] = useState(today);

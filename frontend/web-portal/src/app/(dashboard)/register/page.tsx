@@ -15,6 +15,7 @@ import { identityApi } from '@/lib/api';
 import { useLang } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTranslateName } from '@/hooks/useTranslateName';
+import { useDoctors } from '@/hooks/useDoctors';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 
@@ -28,9 +29,13 @@ const schema = z.object({
   password:    z.string().min(8, 'Password must be at least 8 characters'),
   confirm:     z.string(),
   role:        z.enum(['admin', 'finance', 'doctor', 'receptionist', 'procurement']),
+  doctorId:    z.string().uuid().optional(),
 }).refine((d) => d.password === d.confirm, {
   message: 'Passwords do not match',
   path: ['confirm'],
+}).refine((d) => d.role !== 'doctor' || !!d.doctorId, {
+  message: 'Select the doctor profile to link to this account',
+  path: ['doctorId'],
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -140,6 +145,9 @@ export default function RegisterPage() {
   const [role, setRole]               = useState<Role>('receptionist');
   const [done, setDone]               = useState<{ nameEn: string; email: string; role: string } | null>(null);
 
+  const { data: doctorsData } = useDoctors({ isActive: true, limit: 200 });
+  const doctors = doctorsData?.data ?? [];
+
   // Refs so auto-translate callbacks always read the latest lang value
   const langRef = useRef(lang);
   useEffect(() => { langRef.current = lang; }, [lang]);
@@ -156,7 +164,10 @@ export default function RegisterPage() {
     defaultValues: { role: 'receptionist' },
   });
 
-  useEffect(() => { setValue('role', role); }, [role, setValue]);
+  useEffect(() => {
+    setValue('role', role);
+    if (role !== 'doctor') setValue('doctorId', undefined);
+  }, [role, setValue]);
 
   const pw       = watch('password', '');
   const strength = pw ? pwStrength(pw) : null;
@@ -208,6 +219,7 @@ export default function RegisterPage() {
       await identityApi.post('/users', {
         email: data.email, password: data.password,
         nameEn, nameAr, role: data.role, branchId: 1,
+        ...(data.doctorId ? { doctorId: data.doctorId } : {}),
       });
       return { nameEn, email: data.email, role: data.role };
     },
@@ -481,6 +493,41 @@ export default function RegisterPage() {
                   ))}
                 </div>
               </div>
+
+              {/* ── Doctor link (shown only when role === doctor) ─────── */}
+              {role === 'doctor' && (
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {t('ربط بملف طبيب', 'Link to Doctor Profile')}
+                    <span className="text-red-500 ms-1">*</span>
+                  </label>
+                  <select
+                    {...register('doctorId')}
+                    className={cn(
+                      'w-full h-11 rounded-lg border px-3 text-sm bg-white dark:bg-neutral-800 text-gray-900 dark:text-gray-100',
+                      'focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent transition-all',
+                      errors.doctorId ? 'border-red-400 dark:border-red-500' : 'border-gray-200 dark:border-neutral-600',
+                    )}
+                  >
+                    <option value="">{t('اختر طبيباً...', 'Select a doctor...')}</option>
+                    {doctors.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {isAr ? (d.nameAr ?? d.nameEn) : d.nameEn}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.doctorId && (
+                    <p className="text-xs text-red-500 flex items-center gap-1">
+                      <Info className="w-3 h-3 flex-shrink-0" />
+                      {t('اختر ملف الطبيب لربط الحساب به', 'Select the doctor profile to link to this account')}
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1">
+                    <Info className="w-3 h-3 flex-shrink-0 mt-0.5" />
+                    {t('يُقيَّد كل طبيب بحساب واحد فقط.', 'Each doctor profile can only be linked to one account.')}
+                  </p>
+                </div>
+              )}
 
               {/* ── API error ─────────────────────────────────────────── */}
               {mutation.isError && (
