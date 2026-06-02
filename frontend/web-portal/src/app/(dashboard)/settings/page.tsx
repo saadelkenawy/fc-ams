@@ -7,7 +7,7 @@ import { identityApi } from '@/lib/api';
 import {
   Building2, Users, Activity, Check, Loader2, Key, RefreshCw, X,
   UserPlus, Edit2, ShieldOff, ShieldCheck, RotateCcw, Search, Trash2,
-  SlidersHorizontal, ChevronRight, Zap,
+  SlidersHorizontal, ChevronRight, Zap, Bell, Mail, MessageSquare, Smartphone, RotateCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/Input';
 import { useLang } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { notificationApi } from '@/lib/api';
 import type { ThemeId } from '@/lib/theme.config';
 import { doctorApi } from '@/lib/api';
 
@@ -54,11 +55,12 @@ interface DoctorOption {
 }
 
 const SECTIONS = [
-  { key: 'clinic',       labelAr: 'معلومات العيادة', labelEn: 'Clinic Info',   icon: Building2 },
-  { key: 'users',        labelAr: 'المستخدمون',       labelEn: 'Users',         icon: Users },
-  { key: 'system',       labelAr: 'النظام',            labelEn: 'System',        icon: Activity },
-  { key: 'appearance',   labelAr: 'المظهر',            labelEn: 'Appearance',    icon: SlidersHorizontal },
-  { key: 'integrations', labelAr: 'التكاملات',         labelEn: 'Integrations',  icon: Zap },
+  { key: 'clinic',         labelAr: 'معلومات العيادة', labelEn: 'Clinic Info',    icon: Building2 },
+  { key: 'users',          labelAr: 'المستخدمون',       labelEn: 'Users',          icon: Users },
+  { key: 'notifications',  labelAr: 'الإشعارات',        labelEn: 'Notifications',  icon: Bell },
+  { key: 'system',         labelAr: 'النظام',            labelEn: 'System',         icon: Activity },
+  { key: 'appearance',     labelAr: 'المظهر',            labelEn: 'Appearance',     icon: SlidersHorizontal },
+  { key: 'integrations',   labelAr: 'التكاملات',         labelEn: 'Integrations',   icon: Zap },
 ] as const;
 
 type SectionKey = typeof SECTIONS[number]['key'];
@@ -868,6 +870,250 @@ function UsersContent({ t, lang }: { t: (ar: string, en: string) => string; lang
   );
 }
 
+/* ──────────────── Notifications Content ──────────────── */
+
+interface NotifRecord {
+  id: string;
+  channel: 'sms' | 'whatsapp' | 'email' | 'push';
+  recipientType: string;
+  recipientMobile?: string;
+  recipientEmail?: string;
+  subject?: string;
+  body: string;
+  status: 'queued' | 'sent' | 'delivered' | 'failed' | 'cancelled';
+  sentAt?: string;
+  errorMessage?: string;
+  retryCount: number;
+  createdAt: string;
+}
+
+const CHANNEL_ICON: Record<string, React.ReactNode> = {
+  email:    <Mail className="w-3.5 h-3.5 text-blue-500" />,
+  sms:      <Smartphone className="w-3.5 h-3.5 text-emerald-500" />,
+  whatsapp: <MessageSquare className="w-3.5 h-3.5 text-green-500" />,
+  push:     <Bell className="w-3.5 h-3.5 text-violet-500" />,
+};
+
+const STATUS_BADGE: Record<string, { variant: 'success' | 'warning' | 'danger' | 'default' | 'outline'; ar: string; en: string }> = {
+  delivered: { variant: 'success', ar: 'تم الإرسال',  en: 'Delivered' },
+  sent:      { variant: 'success', ar: 'مُرسَل',       en: 'Sent' },
+  queued:    { variant: 'warning', ar: 'في الانتظار', en: 'Queued' },
+  failed:    { variant: 'danger',  ar: 'فشل',          en: 'Failed' },
+  cancelled: { variant: 'default', ar: 'ملغي',         en: 'Cancelled' },
+};
+
+function NotificationsContent({ t, lang }: { t: (ar: string, en: string) => string; lang: 'ar' | 'en' }) {
+  const qc = useQueryClient();
+  const [page,    setPage]    = useState(1);
+  const [channel, setChannel] = useState('');
+  const [status,  setStatus]  = useState('');
+
+  const { data, isLoading, isFetching } = useQuery({
+    queryKey: ['notifications-log', page, channel, status],
+    queryFn: async () => {
+      const params: Record<string, string | number> = { page, limit: 20 };
+      if (channel) params.channel = channel;
+      if (status)  params.status  = status;
+      const { data: res } = await notificationApi.get<{
+        success: boolean;
+        data: NotifRecord[];
+        total: number;
+        page: number;
+        limit: number;
+      }>('/notifications', { params });
+      return res;
+    },
+    staleTime: 30_000,
+    keepPreviousData: true,
+  });
+
+  const retry = useMutation({
+    mutationFn: async (id: string) => {
+      await notificationApi.post(`/notifications/${id}/retry`);
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['notifications-log'] }),
+  });
+
+  const records = data?.data ?? [];
+  const total   = data?.total ?? 0;
+  const limit   = 20;
+  const pages   = Math.ceil(total / limit) || 1;
+
+  function fmtDate(iso: string) {
+    return new Date(iso).toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-US', {
+      day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+    });
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-100">
+          <Bell className="w-4 h-4 text-gray-400" />
+          {t('سجل الإشعارات', 'Notification Log')}
+        </h3>
+        <button
+          type="button"
+          className="fc-btn fc-btn-sm fc-btn-ghost gap-1.5"
+          onClick={() => void qc.invalidateQueries({ queryKey: ['notifications-log'] })}
+          disabled={isFetching}
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? 'animate-spin' : ''}`} />
+          {t('تحديث', 'Refresh')}
+        </button>
+      </div>
+
+      {/* Filters */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <select
+          value={channel}
+          onChange={(e) => { setChannel(e.target.value); setPage(1); }}
+          className="h-8 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm px-3 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-600"
+        >
+          <option value="">{t('كل القنوات', 'All Channels')}</option>
+          <option value="email">Email</option>
+          <option value="sms">SMS</option>
+          <option value="whatsapp">WhatsApp</option>
+          <option value="push">Push</option>
+        </select>
+        <select
+          value={status}
+          onChange={(e) => { setStatus(e.target.value); setPage(1); }}
+          className="h-8 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm px-3 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-600"
+        >
+          <option value="">{t('كل الحالات', 'All Statuses')}</option>
+          <option value="delivered">{t('تم الإرسال', 'Delivered')}</option>
+          <option value="sent">{t('مُرسَل', 'Sent')}</option>
+          <option value="queued">{t('في الانتظار', 'Queued')}</option>
+          <option value="failed">{t('فشل', 'Failed')}</option>
+          <option value="cancelled">{t('ملغي', 'Cancelled')}</option>
+        </select>
+        {(channel || status) && (
+          <button
+            type="button"
+            onClick={() => { setChannel(''); setStatus(''); setPage(1); }}
+            className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 flex items-center gap-1"
+          >
+            <X className="w-3 h-3" />
+            {t('مسح الفلتر', 'Clear')}
+          </button>
+        )}
+        {!isLoading && (
+          <span className="text-xs text-gray-400 ms-auto">
+            {total} {t('إشعار', 'notifications')}
+          </span>
+        )}
+      </div>
+
+      {/* Table */}
+      <div className="fc-table-wrap rounded-xl border border-gray-100 dark:border-neutral-700">
+        <table className="fc-table">
+          <thead>
+            <tr>
+              <th>{t('القناة', 'Channel')}</th>
+              <th>{t('المستلم', 'Recipient')}</th>
+              <th>{t('الرسالة', 'Message')}</th>
+              <th>{t('الحالة', 'Status')}</th>
+              <th>{t('التاريخ', 'Date')}</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <tr key={i}>
+                  <td colSpan={6}>
+                    <div className="animate-pulse bg-gray-100 dark:bg-neutral-700 rounded h-4 w-full" />
+                  </td>
+                </tr>
+              ))
+            ) : records.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="py-10 text-center text-sm text-gray-400">
+                  {t('لا توجد إشعارات', 'No notifications found')}
+                </td>
+              </tr>
+            ) : (
+              records.map((n) => {
+                const sb = STATUS_BADGE[n.status] ?? { variant: 'default' as const, ar: n.status, en: n.status };
+                const recipient = n.recipientEmail ?? n.recipientMobile ?? n.recipientType;
+                return (
+                  <tr key={n.id}>
+                    <td>
+                      <div className="flex items-center gap-1.5">
+                        {CHANNEL_ICON[n.channel] ?? <Bell className="w-3.5 h-3.5 text-gray-400" />}
+                        <span className="text-xs font-medium uppercase tracking-wide text-gray-600 dark:text-gray-400">
+                          {n.channel}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="text-xs text-gray-600 dark:text-gray-400 font-mono max-w-[140px] truncate">
+                      {recipient}
+                    </td>
+                    <td className="max-w-[200px]">
+                      {n.subject && (
+                        <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 truncate">{n.subject}</p>
+                      )}
+                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{n.body}</p>
+                      {n.errorMessage && (
+                        <p className="text-[10px] text-red-500 truncate mt-0.5">{n.errorMessage}</p>
+                      )}
+                    </td>
+                    <td>
+                      <Badge variant={sb.variant}>
+                        {lang === 'ar' ? sb.ar : sb.en}
+                      </Badge>
+                    </td>
+                    <td className="text-xs text-gray-400 whitespace-nowrap">{fmtDate(n.createdAt)}</td>
+                    <td>
+                      {n.status === 'failed' && (
+                        <button
+                          type="button"
+                          onClick={() => retry.mutate(n.id)}
+                          disabled={retry.isPending}
+                          title={t('إعادة الإرسال', 'Retry')}
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors disabled:opacity-50"
+                        >
+                          <RotateCw className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pagination */}
+      {pages > 1 && (
+        <div className="flex items-center justify-center gap-2">
+          <button
+            type="button"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => p - 1)}
+            className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-neutral-600 text-gray-600 dark:text-gray-400 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors"
+          >
+            {lang === 'ar' ? 'السابق' : 'Prev'}
+          </button>
+          <span className="text-sm text-gray-500">
+            {page} / {pages}
+          </span>
+          <button
+            type="button"
+            disabled={page >= pages}
+            onClick={() => setPage((p) => p + 1)}
+            className="px-3 py-1.5 rounded-lg text-sm border border-gray-200 dark:border-neutral-600 text-gray-600 dark:text-gray-400 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors"
+          >
+            {lang === 'ar' ? 'التالي' : 'Next'}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ──────────────── System Content ──────────────── */
 function SystemContent({ t, lang }: { t: (ar: string, en: string) => string; lang: 'ar' | 'en' }) {
   const { data, isLoading, refetch, isFetching } = useQuery({
@@ -1126,11 +1372,12 @@ export default function SettingsPage() {
 
         {/* Content card */}
         <div className="fc-card p-6 lg:col-span-3">
-          {section === 'clinic'       && <ClinicInfoContent    t={t} lang={lang} />}
-          {section === 'users'        && <UsersContent         t={t} lang={lang} />}
-          {section === 'system'       && <SystemContent        t={t} lang={lang} />}
-          {section === 'appearance'   && <AppearanceContent    t={t} lang={lang} />}
-          {section === 'integrations' && <IntegrationsContent  t={t} lang={lang} />}
+          {section === 'clinic'         && <ClinicInfoContent      t={t} lang={lang} />}
+          {section === 'users'          && <UsersContent           t={t} lang={lang} />}
+          {section === 'notifications'  && <NotificationsContent   t={t} lang={lang} />}
+          {section === 'system'         && <SystemContent          t={t} lang={lang} />}
+          {section === 'appearance'     && <AppearanceContent      t={t} lang={lang} />}
+          {section === 'integrations'   && <IntegrationsContent    t={t} lang={lang} />}
         </div>
       </div>
     </div>

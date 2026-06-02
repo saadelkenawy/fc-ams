@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { X, Save, CheckCheck, Activity, FlaskConical, Plus, Trash2 } from 'lucide-react';
+import { X, Save, CheckCheck, Activity, FlaskConical, Plus, Trash2, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
@@ -214,6 +214,85 @@ export function EncounterDetailModal({ open, encounter, patientName, doctorName,
     setLabOrders((prev) => prev.filter((l) => l.id !== id));
   }
 
+  function handlePrint() {
+    if (!encounter) return;
+    const isAr = lang === 'ar';
+    const esc  = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const win  = window.open('', '_blank', 'width=840,height=1100');
+    if (!win) return;
+
+    const vitalRows = (
+      [
+        vitals.systolic_bp && vitals.diastolic_bp
+          ? `<tr><td>${isAr ? 'ضغط الدم' : 'Blood Pressure'}</td><td>${esc(vitals.systolic_bp)}/${esc(vitals.diastolic_bp)} mmHg</td></tr>` : '',
+        vitals.heart_rate        ? `<tr><td>${isAr ? 'معدل النبض' : 'Heart Rate'}</td><td>${esc(vitals.heart_rate)} bpm</td></tr>` : '',
+        vitals.temperature       ? `<tr><td>${isAr ? 'درجة الحرارة' : 'Temperature'}</td><td>${esc(vitals.temperature)} °C</td></tr>` : '',
+        vitals.oxygen_saturation ? `<tr><td>${isAr ? 'تشبع الأكسجين' : 'O₂ Saturation'}</td><td>${esc(vitals.oxygen_saturation)}%</td></tr>` : '',
+        vitals.respiratory_rate  ? `<tr><td>${isAr ? 'معدل التنفس' : 'Respiratory Rate'}</td><td>${esc(vitals.respiratory_rate)}/min</td></tr>` : '',
+        vitals.weight_kg         ? `<tr><td>${isAr ? 'الوزن' : 'Weight'}</td><td>${esc(vitals.weight_kg)} kg</td></tr>` : '',
+        vitals.height_cm         ? `<tr><td>${isAr ? 'الطول' : 'Height'}</td><td>${esc(vitals.height_cm)} cm</td></tr>` : '',
+      ].filter(Boolean).join('')
+    );
+
+    const soapHtml = [
+      soap.S ? `<div class="soap-item"><span class="soap-key">S</span><div>${esc(soap.S)}</div></div>` : '',
+      soap.O ? `<div class="soap-item"><span class="soap-key">O</span><div>${esc(soap.O)}</div></div>` : '',
+      soap.A ? `<div class="soap-item"><span class="soap-key">A</span><div>${esc(soap.A)}</div></div>` : '',
+      soap.P ? `<div class="soap-item"><span class="soap-key">P</span><div>${esc(soap.P)}</div></div>` : '',
+    ].filter(Boolean).join('');
+
+    const labsHtml = labOrders.length
+      ? labOrders.map((l) => `<tr><td>${esc(l.name)}${l.urgent ? ' <strong style="color:#dc2626">(!)</strong>' : ''}</td><td>${l.status}</td></tr>`).join('')
+      : '';
+
+    win.document.write(`<!DOCTYPE html>
+<html dir="${isAr ? 'rtl' : 'ltr'}" lang="${lang}">
+<head>
+  <meta charset="UTF-8">
+  <title>${isAr ? 'ملخص الحالة السريرية' : 'Encounter Summary'}</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:system-ui,sans-serif;color:#111;padding:40px;font-size:14px}
+    .header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #4f46e5;padding-bottom:16px;margin-bottom:24px}
+    .clinic{font-size:11px;color:#888;text-align:${isAr ? 'left' : 'right'}}
+    h1{font-size:20px;font-weight:700;margin-bottom:4px}
+    .meta{font-size:13px;color:#555}
+    .section{margin-bottom:20px}
+    .section-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#888;margin-bottom:8px;border-bottom:1px solid #eee;padding-bottom:4px}
+    .diag{font-size:15px;font-weight:600;color:#1e40af;background:#eff6ff;border:1px solid #bfdbfe;padding:10px 14px;border-radius:8px;margin-bottom:20px}
+    .soap-item{display:flex;gap:10px;margin-bottom:10px}
+    .soap-key{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;background:#4f46e5;color:#fff;border-radius:4px;font-size:11px;font-weight:700;flex-shrink:0;margin-top:1px}
+    table{width:100%;border-collapse:collapse}
+    th{text-align:${isAr ? 'right' : 'left'};padding:6px 10px;background:#f5f5f5;font-size:12px;font-weight:600}
+    td{padding:6px 10px;border-bottom:1px solid #eee;font-size:13px}
+    .follow{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px 14px}
+    .footer{margin-top:40px;padding-top:12px;border-top:1px solid #eee;font-size:11px;color:#aaa;display:flex;justify-content:space-between}
+    @media print{body{padding:20px}button{display:none}}
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h1>${isAr ? 'ملخص الحالة السريرية' : 'Encounter Summary'}</h1>
+      <div class="meta">${esc(patientName ?? encounter.patientId)} &nbsp;·&nbsp; ${esc(doctorName ?? encounter.doctorId)}</div>
+      <div class="meta">${encounter.encounterDate} &nbsp;·&nbsp; ${encounter.status}</div>
+    </div>
+    <div class="clinic">Fadl Clinic<br><small>#${encounter.id.slice(-8).toUpperCase()}</small></div>
+  </div>
+  ${diagnosis ? `<div class="diag">${isAr ? 'التشخيص: ' : 'Diagnosis: '}${esc(diagnosis)}</div>` : ''}
+  ${soapHtml ? `<div class="section"><div class="section-title">${isAr ? 'الملاحظات السريرية (SOAP)' : 'Clinical Notes (SOAP)'}</div>${soapHtml}</div>` : ''}
+  ${vitalRows ? `<div class="section"><div class="section-title">${isAr ? 'العلامات الحيوية' : 'Vital Signs'}</div><table><tbody>${vitalRows}</tbody></table></div>` : ''}
+  ${labsHtml ? `<div class="section"><div class="section-title">${isAr ? 'طلبات المختبر' : 'Lab Orders'}</div><table><thead><tr><th>${isAr ? 'الفحص' : 'Test'}</th><th>${isAr ? 'الحالة' : 'Status'}</th></tr></thead><tbody>${labsHtml}</tbody></table></div>` : ''}
+  ${followUp ? `<div class="section"><div class="section-title">${isAr ? 'المتابعة' : 'Follow-up'}</div><div class="follow"><strong>${isAr ? 'التاريخ:' : 'Date:'}</strong> ${followUp}${instructions ? `<br><strong>${isAr ? 'التعليمات:' : 'Instructions:'}</strong> ${esc(instructions)}` : ''}</div></div>` : ''}
+  <div class="footer">
+    <span>${isAr ? 'فضل كلينك — وثيقة طبية سرية' : 'Fadl Clinic — Confidential Medical Document'}</span>
+    <span>${new Date().toLocaleDateString(isAr ? 'ar-EG' : 'en-US')}</span>
+  </div>
+  <script>window.onload=()=>{window.print();setTimeout(()=>window.close(),500)}<\/script>
+</body></html>`);
+    win.document.close();
+  }
+
   if (!open || !encounter) return null;
 
   const isSigned = encounter.status === 'signed_off';
@@ -254,6 +333,13 @@ export function EncounterDetailModal({ open, encounter, patientName, doctorName,
                encounter.status === 'in_progress' ? t('جارٍ',   'In Progress') :
                                                     t('مسودة',  'Draft')}
             </Badge>
+            <button
+              onClick={handlePrint}
+              title={t('طباعة الملخص', 'Print Summary')}
+              className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 p-1 rounded-lg transition-colors"
+            >
+              <Printer className="w-4 h-4" />
+            </button>
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 p-1 rounded-lg transition-colors"
