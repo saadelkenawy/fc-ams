@@ -6,6 +6,7 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
 import { GlobalSearchOverlay } from '@/components/layout/GlobalSearchOverlay';
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { useAuth } from '@/contexts/AuthContext';
 
 const PAGE_EASE = [0.25, 0.46, 0.45, 0.94] as const;
@@ -90,7 +91,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className="flex flex-col flex-1 min-w-0">
         <Header onMobileMenuToggle={() => setMobileOpen((o) => !o)} onSearchOpen={() => setSearchOpen(true)} />
         <main id="main-content" className="flex-1 p-4 lg:p-6 overflow-auto" tabIndex={-1}>
-          <PageTransition>{children}</PageTransition>
+          <ErrorBoundary><PageTransition>{children}</PageTransition></ErrorBoundary>
         </main>
       </div>
 

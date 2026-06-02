@@ -8,6 +8,7 @@ import {
   Calendar, Pencil, Trash2, Power, ChevronRight,
 } from 'lucide-react';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { useLang } from '@/contexts/LanguageContext';
 import { useDoctors, useSpecialtyMap, useToggleDoctorActive, useDeleteDoctor } from '@/hooks/useDoctors';
 import { AddDoctorModal } from '@/components/doctors/AddDoctorModal';
@@ -346,11 +347,11 @@ export default function DoctorsPage() {
 
       {/* Empty state */}
       {!isLoading && filtered.length === 0 && (
-        <div className="fc-empty">
-          <Search size={32} strokeWidth={1.5} />
-          <h3>{t('لا يوجد أطباء', 'No doctors match')}</h3>
-          <p>{t('جرّب بحثاً مختلفاً أو امسح الفلتر', 'Try clearing the filter or adjusting your search.')}</p>
-        </div>
+        <EmptyState
+          icon={Search}
+          title={t('لا يوجد أطباء', 'No doctors match')}
+          description={t('جرّب بحثاً مختلفاً أو امسح الفلتر', 'Try clearing the filter or adjusting your search.')}
+        />
       )}
 
       {/* ── Modals ── */}

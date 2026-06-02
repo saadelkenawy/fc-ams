@@ -5,6 +5,7 @@ import { useAutoAnimate } from '@formkit/auto-animate/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { UserPlus, Users, TrendingUp, Globe, Search, X, ChevronRight, Pencil, Trash2 } from 'lucide-react';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { Pagination } from '@/components/ui/Pagination';
 import { useLang } from '@/contexts/LanguageContext';
 import { formatDate } from '@/lib/utils';
@@ -385,11 +386,11 @@ export default function PatientsPage() {
           })}
 
           {!isLoading && patients.length === 0 && (
-            <div className="fc-empty">
-              <Search size={32} strokeWidth={1.5} />
-              <h3>{t('لا يوجد مرضى', 'No patients match')}</h3>
-              <p>{t('جرّب بحثاً مختلفاً أو امسح الفلتر', 'Try a different search or clear the filter.')}</p>
-            </div>
+            <EmptyState
+              icon={Search}
+              title={t('لا يوجد مرضى', 'No patients match')}
+              description={t('جرّب بحثاً مختلفاً أو امسح الفلتر', 'Try a different search or clear the filter.')}
+            />
           )}
         </div>
 
