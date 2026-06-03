@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    options {
+        disableConcurrentBuilds()
+    }
+
     environment {
         DOCKERHUB_USER = 'saadelkenawy'
         DOCKERHUB_CRED = 'dockerhub-creds'   // Jenkins credential ID
