@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { jwtVerify } from 'jose';
 
 // Pages that are always public
 const PUBLIC_PATHS = ['/login', '/api'];
@@ -22,7 +23,18 @@ const ROLE_RULES: Array<{ pattern: RegExp; roles: string[] }> = [
   { pattern: /^\/chatbot/,            roles: ['admin', 'receptionist'] },
 ];
 
-export function middleware(request: NextRequest) {
+async function getRoleFromToken(token: string): Promise<string | null> {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) return null;
+  try {
+    const { payload } = await jwtVerify(token, new TextEncoder().encode(secret));
+    return typeof payload.role === 'string' ? payload.role : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Let public paths through
@@ -30,12 +42,17 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const role = request.cookies.get('fadl_role')?.value;
+  const token = request.cookies.get('fadl_token')?.value;
 
-  // No role cookie → redirect to login (cookie set on login, missing = not logged in)
+  // No token cookie → let client layout handle the redirect via useAuth
+  if (!token) {
+    return NextResponse.next();
+  }
+
+  const role = await getRoleFromToken(token);
+
+  // Invalid or tampered token → treat as unauthenticated
   if (!role) {
-    // Allow through — the client layout already handles the redirect via useAuth
-    // We can't reliably detect if it's a fresh page load vs cookie expiry here
     return NextResponse.next();
   }
 

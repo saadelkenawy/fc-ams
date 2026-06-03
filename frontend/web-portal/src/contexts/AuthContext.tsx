@@ -41,8 +41,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   function login(newToken: string, newUser: AuthUser) {
     localStorage.setItem('fadl_token', newToken);
     localStorage.setItem('fadl_user', JSON.stringify(newUser));
-    // store role in cookie so Next.js middleware can enforce route guards
-    document.cookie = `fadl_role=${newUser.role}; path=/; SameSite=Strict; max-age=${60 * 60 * 24}`;
+    // Store the JWT itself as a cookie so middleware can verify its signature.
+    // 24-hour expiry matches typical token lifetime.
+    document.cookie = `fadl_token=${newToken}; path=/; SameSite=Strict; max-age=${60 * 60 * 24}`;
     setToken(newToken);
     setUser(newUser);
   }
@@ -50,7 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   function logout() {
     localStorage.removeItem('fadl_token');
     localStorage.removeItem('fadl_user');
-    document.cookie = 'fadl_role=; path=/; max-age=0';
+    document.cookie = 'fadl_token=; path=/; max-age=0';
     setToken(null);
     setUser(null);
   }
