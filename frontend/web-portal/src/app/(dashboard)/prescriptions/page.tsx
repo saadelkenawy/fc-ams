@@ -336,7 +336,7 @@ function PrescriptionDetail({
 
   const dispenseMutation = useMutation({
     mutationFn: async () => {
-      await ehrApi.patch(`/prescriptions/${rx.id}/status`, { status: 'dispensed' });
+      await ehrApi.patch(`/prescriptions/${rx.id}/status`, { status: 'dispensed', version: rx.version });
     },
     onSuccess: () => {
       setIsDispensed(true);
