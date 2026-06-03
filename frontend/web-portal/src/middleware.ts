@@ -39,6 +39,13 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Redirect doctors from the clinic-wide patient list to their own patients view
+  if (role === 'doctor' && /^\/patients(\/|$)/.test(pathname)) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/doctor/patients';
+    return NextResponse.redirect(url);
+  }
+
   // Check role-based access
   for (const rule of ROLE_RULES) {
     if (rule.pattern.test(pathname)) {
