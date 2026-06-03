@@ -508,6 +508,7 @@ services:
       context: .
       dockerfile: frontend/web-portal/Dockerfile
     environment:
+      <<: *jwt-env
       NODE_ENV: development
       PORT: 3010
       # Server-side vars for next.config.js rewrites (resolved inside Docker network)
