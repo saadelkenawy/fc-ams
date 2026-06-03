@@ -3,7 +3,7 @@ import type { NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
 
 // Pages that are always public
-const PUBLIC_PATHS = ['/login', '/api'];
+const PUBLIC_PATHS = ['/login', '/api', '/module-unavailable'];
 
 // Route → allowed roles (empty = all authenticated roles)
 const ROLE_RULES: Array<{ pattern: RegExp; roles: string[] }> = [
@@ -23,14 +23,42 @@ const ROLE_RULES: Array<{ pattern: RegExp; roles: string[] }> = [
   { pattern: /^\/chatbot/,            roles: ['admin', 'receptionist'] },
 ];
 
-async function getRoleFromToken(token: string): Promise<string | null> {
+// Route → module ID (more specific routes first)
+const ROUTE_MODULE_MAP: Array<{ pattern: RegExp; moduleId: string }> = [
+  { pattern: /^\/billing\/settlements(\/|$)/, moduleId: 'settlements' },
+  { pattern: /^\/billing(\/|$)/,              moduleId: 'billing' },
+  { pattern: /^\/appointments(\/|$)/,         moduleId: 'scheduling' },
+  { pattern: /^\/patients(\/|$)/,             moduleId: 'patients' },
+  { pattern: /^\/encounters(\/|$)/,           moduleId: 'ehr' },
+  { pattern: /^\/prescriptions(\/|$)/,        moduleId: 'ehr' },
+  { pattern: /^\/analytics(\/|$)/,            moduleId: 'analytics' },
+  { pattern: /^\/procurement(\/|$)/,          moduleId: 'procurement' },
+  { pattern: /^\/chatbot(\/|$)/,              moduleId: 'ai' },
+  { pattern: /^\/integrations(\/|$)/,         moduleId: 'integrations' },
+];
+
+type SubscriptionTier = 'basic' | 'standard' | 'premium';
+
+const TIER_MODULES: Record<SubscriptionTier, string[]> = {
+  basic:    ['patients', 'scheduling'],
+  standard: ['patients', 'scheduling', 'billing', 'settlements', 'ehr'],
+  premium:  ['patients', 'scheduling', 'billing', 'settlements', 'ehr', 'ai', 'analytics', 'telehealth', 'procurement', 'integrations'],
+};
+
+const VALID_TIERS = new Set<string>(['basic', 'standard', 'premium']);
+
+async function getClaimsFromToken(token: string): Promise<{ role: string | null; tier: SubscriptionTier | null }> {
   const secret = process.env.JWT_SECRET;
-  if (!secret) return null;
+  if (!secret) return { role: null, tier: null };
   try {
     const { payload } = await jwtVerify(token, new TextEncoder().encode(secret));
-    return typeof payload.role === 'string' ? payload.role : null;
+    const role = typeof payload.role === 'string' ? payload.role : null;
+    const tier = typeof payload.subscriptionTier === 'string' && VALID_TIERS.has(payload.subscriptionTier)
+      ? payload.subscriptionTier as SubscriptionTier
+      : null;
+    return { role, tier };
   } catch {
-    return null;
+    return { role: null, tier: null };
   }
 }
 
@@ -49,7 +77,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const role = await getRoleFromToken(token);
+  const { role, tier } = await getClaimsFromToken(token);
 
   // Invalid or tampered token → treat as unauthenticated
   if (!role) {
@@ -72,6 +100,19 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(url);
       }
       break;
+    }
+  }
+
+  // Check module-level access based on subscription tier
+  if (tier) {
+    const enabledModules = TIER_MODULES[tier];
+    for (const { pattern, moduleId } of ROUTE_MODULE_MAP) {
+      if (pattern.test(pathname) && !enabledModules.includes(moduleId)) {
+        const url = request.nextUrl.clone();
+        url.pathname = '/module-unavailable';
+        url.searchParams.set('module', moduleId);
+        return NextResponse.redirect(url);
+      }
     }
   }
 

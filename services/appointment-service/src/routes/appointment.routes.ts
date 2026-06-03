@@ -1,5 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { requireAuth, requireRole } from '../middleware/auth';
+import { requireModule } from '../middleware/requireModule';
 import * as ctrl from '../controllers/appointment.controller';
 import * as queue from '../controllers/queue.controller';
 
@@ -14,6 +15,7 @@ const idParam = {
 export async function appointmentRoutes(app: FastifyInstance): Promise<void> {
   // All routes require authentication
   app.addHook('onRequest', requireAuth);
+  app.addHook('preHandler', requireModule);
 
   // GET /appointments
   app.get('/appointments', {

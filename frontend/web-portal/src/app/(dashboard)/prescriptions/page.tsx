@@ -15,6 +15,8 @@ import { usePatientMap } from '@/hooks/usePatients';
 import { useDoctorMap } from '@/hooks/useDoctors';
 import { useLang } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useModuleEnabled } from '@/hooks/useFeatureFlags';
+import { ModuleUnavailablePage } from '@/components/shared/ModuleUnavailablePage';
 import { ehrApi } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import type { Prescription, Patient, Doctor } from '@fadl/types';
@@ -60,6 +62,7 @@ function truncateUUID(id: string) {
 /* ── page ────────────────────────────────────────────────────────────────── */
 
 export default function PrescriptionsPage() {
+  const ehrEnabled = useModuleEnabled('ehr');
   const { lang, t } = useLang();
   const { user } = useAuth();
   const patientMap = usePatientMap();
@@ -352,6 +355,8 @@ function PrescriptionDetail({
     }, 150);
     return () => clearTimeout(id);
   }, [isPrinting]);
+
+  if (!ehrEnabled) return <ModuleUnavailablePage moduleId="ehr" />;
 
   return (
     <div className="flex flex-col gap-4 text-sm">

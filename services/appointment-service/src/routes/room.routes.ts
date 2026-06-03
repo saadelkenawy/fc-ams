@@ -1,10 +1,12 @@
 import { FastifyInstance } from 'fastify';
 import { requireAuth, requireRole } from '../middleware/auth';
+import { requireModule } from '../middleware/requireModule';
 import * as ctrl from '../controllers/room.controller';
 
 export async function roomRoutes(app: FastifyInstance): Promise<void> {
   // SSE — no body schema, no auth middleware (handled in controller via request.user)
   app.addHook('onRequest', requireAuth);
+  app.addHook('preHandler', requireModule);
 
   // GET /rooms/stream — real-time SSE
   app.get('/rooms/stream', { schema: { tags: ['rooms'] } }, ctrl.roomStream);

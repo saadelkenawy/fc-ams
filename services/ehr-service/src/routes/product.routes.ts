@@ -1,9 +1,11 @@
 import { FastifyInstance } from 'fastify';
 import { requireAuth } from '../middleware/auth';
+import { requireModule } from '../middleware/requireModule';
 import * as ctrl from '../controllers/product.controller';
 
 export async function productRoutes(app: FastifyInstance): Promise<void> {
   app.addHook('onRequest', requireAuth);
+  app.addHook('preHandler', requireModule);
 
   app.get('/products/search', {
     schema: {

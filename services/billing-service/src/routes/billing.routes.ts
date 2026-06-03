@@ -1,5 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { requireAuth, requireRole } from '../middleware/auth';
+import { requireModule } from '../middleware/requireModule';
 import * as ctrl from '../controllers/billing.controller';
 
 const idParam = {
@@ -12,6 +13,7 @@ const STATUS_ENUM = ['pending', 'verified', 'approved', 'paid', 'reconciled', 'r
 
 export async function billingRoutes(app: FastifyInstance): Promise<void> {
   app.addHook('onRequest', requireAuth);
+  app.addHook('preHandler', requireModule);
 
   // GET /transactions
   app.get('/transactions', {

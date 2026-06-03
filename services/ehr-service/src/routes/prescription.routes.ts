@@ -1,5 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { requireAuth, requireRole } from '../middleware/auth';
+import { requireModule } from '../middleware/requireModule';
 import * as ctrl from '../controllers/prescription.controller';
 
 const uuidParam = {
@@ -10,6 +11,7 @@ const uuidParam = {
 
 export async function prescriptionRoutes(app: FastifyInstance): Promise<void> {
   app.addHook('onRequest', requireAuth);
+  app.addHook('preHandler', requireModule);
 
   app.get('/prescriptions', {
     schema: {

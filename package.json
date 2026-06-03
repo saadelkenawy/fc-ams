@@ -23,7 +23,8 @@
     "db:migrate:ehr": "bash scripts/migrate.sh ehr",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
-    "docker:logs": "docker compose logs -f"
+    "docker:logs": "docker compose logs -f",
+    "demo:mint": "npx tsx scripts/mint-unlock-jwt.ts"
   },
   "pnpm": {
     "overrides": {

@@ -118,3 +118,8 @@ export const chatbotApi      = makeServiceClient('/api/proxy/chatbot');
 export const fileApi         = makeServiceClient('/api/proxy/files');
 export const integrationApi  = makeServiceClient('/api/proxy/integration');
 export const procurementApi  = makeServiceClient('/api/proxy/procurement');
+
+export const featureFlagsApi = {
+  getFlags: () => identityApi.get('/api/v1/feature-flags'),
+  unlock:   (unlockToken: string) => identityApi.post('/api/v1/feature-flags/unlock', { unlockToken }),
+};

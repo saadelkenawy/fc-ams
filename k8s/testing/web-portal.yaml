@@ -1,0 +1,104 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-portal
+  namespace: fadl-testing
+  labels:
+    app: web-portal
+    app.kubernetes.io/part-of: fadl-clinic
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: web-portal
+  template:
+    metadata:
+      labels:
+        app: web-portal
+    spec:
+      containers:
+        - name: web-portal
+          image: fadl/web-portal:latest
+          ports:
+            - containerPort: 3000
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: PORT
+              value: "3000"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: fadl-secrets
+                  key: jwt-secret
+            - name: NEXT_PUBLIC_IDENTITY_API_URL
+              value: "http://identity-service:3000"
+            - name: NEXT_PUBLIC_APPOINTMENT_API_URL
+              value: "http://appointment-service:3001"
+            - name: NEXT_PUBLIC_PATIENT_API_URL
+              value: "http://patient-service:3002"
+            - name: NEXT_PUBLIC_DOCTOR_API_URL
+              value: "http://doctor-service:3003"
+            - name: NEXT_PUBLIC_BILLING_API_URL
+              value: "http://billing-service:3004"
+            - name: NEXT_PUBLIC_EHR_API_URL
+              value: "http://ehr-service:3005"
+            - name: NEXT_PUBLIC_AI_CHATBOT_API_URL
+              value: "http://ai-chatbot-service:3008"
+            - name: NEXT_PUBLIC_ANALYTICS_API_URL
+              value: "http://analytics-service:3009"
+            - name: NEXT_PUBLIC_PROCUREMENT_API_URL
+              value: "http://procurement-service:3010"
+            - name: NEXT_PUBLIC_INTEGRATION_API_URL
+              value: "http://integration-service:3012"
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-portal
+  namespace: fadl-testing
+spec:
+  selector:
+    app: web-portal
+  ports:
+    - port: 3000
+      targetPort: 3000
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: web-portal
+  namespace: fadl-testing
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: web-portal
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

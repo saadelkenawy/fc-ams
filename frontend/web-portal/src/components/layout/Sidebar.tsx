@@ -15,6 +15,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLang } from '@/contexts/LanguageContext';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { getNavForRole, NavItem } from './nav-config';
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -112,6 +113,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const pathname       = usePathname();
   const { user, logout } = useAuth();
   const { lang, t }    = useLang();
+  const { data: flagsData } = useFeatureFlags();
   const navGroups      = getNavForRole(user?.role ?? 'receptionist');
 
   const [width, setWidth]       = useState(SNAP_FULL);
@@ -239,7 +241,9 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
               )}
             </AnimatePresence>
             <div className="space-y-0.5">
-              {group.items.map((item) => (
+              {group.items
+                .filter(item => !item.moduleId || (flagsData?.modules[item.moduleId] ?? true))
+                .map((item) => (
                 <NavLink
                   key={item.key}
                   item={item}

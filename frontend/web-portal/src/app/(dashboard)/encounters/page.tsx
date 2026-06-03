@@ -12,6 +12,8 @@ import { usePatientMap, usePatients } from '@/hooks/usePatients';
 import { useDoctorMap } from '@/hooks/useDoctors';
 import { useLang } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useModuleEnabled } from '@/hooks/useFeatureFlags';
+import { ModuleUnavailablePage } from '@/components/shared/ModuleUnavailablePage';
 import { ehrApi } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import { EncounterDetailModal } from '@/components/encounters/EncounterDetailModal';
@@ -66,6 +68,7 @@ function todayISO(): string {
 }
 
 export default function EncountersPage() {
+  const ehrEnabled = useModuleEnabled('ehr');
   const { lang, t } = useLang();
   const locale = lang === 'ar' ? 'ar-EG' : 'en-US';
   const queryClient = useQueryClient();
@@ -174,6 +177,8 @@ export default function EncountersPage() {
     setFormError('');
     createMutation.mutate(form);
   }
+
+  if (!ehrEnabled) return <ModuleUnavailablePage moduleId="ehr" />;
 
   return (
     <div className="space-y-5">

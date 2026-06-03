@@ -1,3 +1,5 @@
+import type { SubscriptionTier } from './feature-flags';
+
 export interface PaginatedResponse<T> {
   data: T[];
   total: number;
@@ -49,6 +51,7 @@ export interface JwtPayload {
   role: UserRole;
   branchId: number;
   doctorId?: string; // set when role = doctor
+  subscriptionTier?: SubscriptionTier;
   iat: number;
   exp: number;
 }

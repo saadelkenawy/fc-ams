@@ -11,6 +11,10 @@ const envSchema = z.object({
   JWT_EXPIRY: z.string().default('15m'),
   BRANCH_ID: z.coerce.number().default(1),
   SERVICE_NAME: z.string().default('identity-service'),
+  REDIS_URL: z.string().min(1).default('redis://localhost:6379'),
+  DEVELOPER_UNLOCK_SECRET: z.string().min(32).optional(),
+  FEATURE_FLAGS_JSON: z.string().optional(),
+  DEFAULT_TIER: z.enum(['basic', 'standard', 'premium']).default('premium'),
 });
 
 const parsed = envSchema.safeParse(process.env);

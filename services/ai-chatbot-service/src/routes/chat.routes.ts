@@ -1,9 +1,11 @@
 import { FastifyInstance } from 'fastify';
 import { requireAuth } from '../middleware/auth';
+import { requireModule } from '../middleware/requireModule';
 import * as ctrl from '../controllers/chat.controller';
 
 export async function chatRoutes(app: FastifyInstance): Promise<void> {
   app.addHook('preHandler', requireAuth);
+  app.addHook('preHandler', requireModule);
   app.post('/chat/message', ctrl.sendMessage);
   app.get('/chat/sessions/:id', ctrl.getSession);
   app.post('/chat/translate-name', ctrl.translateName);

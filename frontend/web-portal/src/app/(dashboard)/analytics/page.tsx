@@ -8,6 +8,8 @@ import { StatCard } from '@/components/ui/StatCard';
 import { Badge } from '@/components/ui/Badge';
 import { useLang } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useModuleEnabled } from '@/hooks/useFeatureFlags';
+import { ModuleUnavailablePage } from '@/components/shared/ModuleUnavailablePage';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 import { useAnalyticsOverview, useMonthlyRevenue, useSourceBreakdown, useSpecialtyBreakdown, useNoShowByDay, useTopDoctors } from '@/hooks/useAnalytics';
 import { useTransactions } from '@/hooks/useBilling';
@@ -135,6 +137,7 @@ function KpiSkeleton() {
 }
 
 export default function AnalyticsPage() {
+  const analyticsEnabled = useModuleEnabled('analytics');
   const { lang, t } = useLang();
   const { user } = useAuth();
   const isDoctor = user?.role === 'doctor';
@@ -191,6 +194,8 @@ export default function AnalyticsPage() {
     count:    s.count,
     color:    SOURCE_COLORS[idx % SOURCE_COLORS.length],
   }));
+
+  if (!analyticsEnabled) return <ModuleUnavailablePage moduleId="analytics" />;
 
   return (
     <div className="space-y-5">

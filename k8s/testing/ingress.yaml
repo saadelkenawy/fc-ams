@@ -1,0 +1,87 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: fadl-clinic
+  namespace: fadl-testing
+  labels:
+    app.kubernetes.io/part-of: fadl-clinic
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    # Enable sticky sessions so SSE connections (appointments queue) stay on one pod
+    nginx.ingress.kubernetes.io/affinity: "cookie"
+    nginx.ingress.kubernetes.io/session-cookie-name: "fadl-affinity"
+    nginx.ingress.kubernetes.io/session-cookie-expires: "172800"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: fadl-testing.local
+      http:
+        paths:
+          # Web portal (catch-all)
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web-portal
+                port:
+                  number: 3000
+          # Backend API routes — proxied from the portal's Next.js rewrites in prod;
+          # exposed here for direct testing / Postman access
+          - path: /api/v1/identity
+            pathType: Prefix
+            backend:
+              service:
+                name: identity-service
+                port:
+                  number: 3000
+          - path: /api/v1/appointments
+            pathType: Prefix
+            backend:
+              service:
+                name: appointment-service
+                port:
+                  number: 3001
+          - path: /api/v1/patients
+            pathType: Prefix
+            backend:
+              service:
+                name: patient-service
+                port:
+                  number: 3002
+          - path: /api/v1/doctors
+            pathType: Prefix
+            backend:
+              service:
+                name: doctor-service
+                port:
+                  number: 3003
+          - path: /api/v1/billing
+            pathType: Prefix
+            backend:
+              service:
+                name: billing-service
+                port:
+                  number: 3004
+          - path: /api/v1/ehr
+            pathType: Prefix
+            backend:
+              service:
+                name: ehr-service
+                port:
+                  number: 3005
+          - path: /api/v1/chatbot
+            pathType: Prefix
+            backend:
+              service:
+                name: ai-chatbot-service
+                port:
+                  number: 3008
+          - path: /api/v1/analytics
+            pathType: Prefix
+            backend:
+              service:
+                name: analytics-service
+                port:
+                  number: 3009

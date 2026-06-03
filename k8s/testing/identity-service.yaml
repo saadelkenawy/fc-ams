@@ -1,0 +1,99 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: identity-service
+  namespace: fadl-testing
+  labels:
+    app: identity-service
+    app.kubernetes.io/part-of: fadl-clinic
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: identity-service
+  template:
+    metadata:
+      labels:
+        app: identity-service
+    spec:
+      containers:
+        - name: identity-service
+          image: fadl/identity-service:latest
+          ports:
+            - containerPort: 3000
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: PORT
+              value: "3000"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: fadl-secrets
+                  key: jwt-secret
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: fadl-secrets
+                  key: identity-db-url
+            - name: DEFAULT_TIER
+              valueFrom:
+                configMapKeyRef:
+                  name: feature-flags
+                  key: DEFAULT_TIER
+            - name: ALLOW_DEVELOPER_TOKEN_OVERRIDE
+              valueFrom:
+                configMapKeyRef:
+                  name: feature-flags
+                  key: ALLOW_DEVELOPER_TOKEN_OVERRIDE
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: identity-service
+  namespace: fadl-testing
+spec:
+  selector:
+    app: identity-service
+  ports:
+    - port: 3000
+      targetPort: 3000
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: identity-service
+  namespace: fadl-testing
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: identity-service
+  minReplicas: 2
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

@@ -8,6 +8,8 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { StatCard } from '@/components/ui/StatCard';
 import { useLang } from '@/contexts/LanguageContext';
+import { useModuleEnabled } from '@/hooks/useFeatureFlags';
+import { ModuleUnavailablePage } from '@/components/shared/ModuleUnavailablePage';
 import { integrationApi } from '@/lib/api';
 
 interface WebhookEvent {
@@ -60,6 +62,7 @@ function useWebhookEvents(platform?: string) {
 }
 
 export default function IntegrationsPage() {
+  const integrationsEnabled = useModuleEnabled('integrations');
   const { lang, t } = useLang();
   const [platform, setPlatform] = useState('');
 
@@ -80,6 +83,8 @@ export default function IntegrationsPage() {
   const failedCount    = (events ?? []).filter((e) => e.status === 'failed').length;
   const pendingCount   = (events ?? []).filter((e) => e.status === 'pending').length;
   const totalCount     = (events ?? []).length;
+
+  if (!integrationsEnabled) return <ModuleUnavailablePage moduleId="integrations" />;
 
   return (
     <div className="space-y-5 animate-fade-in">

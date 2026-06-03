@@ -7,6 +7,8 @@ import { StatCard } from '@/components/ui/StatCard';
 import { Badge } from '@/components/ui/Badge';
 import { useProcurementOverview, useAlerts } from '@/hooks/useProcurement';
 import { useLang } from '@/contexts/LanguageContext';
+import { useModuleEnabled } from '@/hooks/useFeatureFlags';
+import { ModuleUnavailablePage } from '@/components/shared/ModuleUnavailablePage';
 
 const ALERT_TYPE_LABELS: Record<string, { ar: string; en: string }> = {
   EXPIRY_ALERT:      { ar: 'انتهاء صلاحية',   en: 'Expiry' },
@@ -21,10 +23,13 @@ const SEVERITY_BADGE: Record<string, 'danger' | 'warning' | 'info'> = {
 };
 
 export default function ProcurementPage() {
+  const procurementEnabled = useModuleEnabled('procurement');
   const { lang, t } = useLang();
   const { data: overview, isLoading } = useProcurementOverview();
   const { data: alertsData } = useAlerts({ isRead: false, limit: 5 });
   const recentAlerts = alertsData?.data ?? [];
+
+  if (!procurementEnabled) return <ModuleUnavailablePage moduleId="procurement" />;
 
   return (
     <div className="space-y-5 animate-fade-in">

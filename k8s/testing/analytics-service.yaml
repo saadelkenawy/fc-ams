@@ -1,0 +1,94 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: analytics-service
+  namespace: fadl-testing
+  labels:
+    app: analytics-service
+    app.kubernetes.io/part-of: fadl-clinic
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: analytics-service
+  template:
+    metadata:
+      labels:
+        app: analytics-service
+    spec:
+      containers:
+        - name: analytics-service
+          image: fadl/analytics-service:latest
+          ports:
+            - containerPort: 3009
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: PORT
+              value: "3009"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: fadl-secrets
+                  key: jwt-secret
+            - name: BILLING_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: fadl-secrets
+                  key: billing-db-url
+            - name: APPOINTMENT_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: fadl-secrets
+                  key: appointment-db-url
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3009
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3009
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: "150m"
+              memory: "256Mi"
+            limits:
+              cpu: "750m"
+              memory: "768Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: analytics-service
+  namespace: fadl-testing
+spec:
+  selector:
+    app: analytics-service
+  ports:
+    - port: 3009
+      targetPort: 3009
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: analytics-service
+  namespace: fadl-testing
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: analytics-service
+  minReplicas: 2
+  maxReplicas: 4
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

@@ -1,10 +1,12 @@
 import { FastifyInstance } from 'fastify';
 import { requireAuth, requireRole } from '../middleware/auth';
+import { requireModule } from '../middleware/requireModule';
 import * as ctrl from '../controllers/patient.controller';
 
 export async function patientRoutes(app: FastifyInstance): Promise<void> {
   // All routes require authentication
   app.addHook('onRequest', requireAuth);
+  app.addHook('preHandler', requireModule);
 
   // GET /patients/batch?ids=uuid1,uuid2,...  — resolve names for multiple IDs
   app.get('/patients/batch', {

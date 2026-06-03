@@ -11,6 +11,8 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useLang } from '@/contexts/LanguageContext';
+import { useModuleEnabled } from '@/hooks/useFeatureFlags';
+import { ModuleUnavailablePage } from '@/components/shared/ModuleUnavailablePage';
 import { formatCurrency } from '@/lib/utils';
 import {
   useSettlements, useTransactions, useExtraServices, useReplaceExtraServices,
@@ -53,6 +55,7 @@ function LetterAvatar({ name, size = 28 }: { name: string; size?: number }) {
 }
 
 export default function SettlementsPage() {
+  const settlementsEnabled = useModuleEnabled('settlements');
   const { lang, t } = useLang();
   const locale = lang === 'ar' ? 'ar-EG' : 'en-US';
 
@@ -214,6 +217,8 @@ export default function SettlementsPage() {
   const clPct = totalNetPool > 0 ? ((totalClinic  / totalNetPool) * 100).toFixed(0) : '—';
 
   const inputCls = 'text-sm border border-gray-200 dark:border-neutral-600 rounded-lg px-3 py-1.5 bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-600';
+
+  if (!settlementsEnabled) return <ModuleUnavailablePage moduleId="settlements" />;
 
   return (
     <div className="fc-page">

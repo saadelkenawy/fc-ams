@@ -1,4 +1,4 @@
-import type { UserRole } from '@fadl/types';
+import type { UserRole, ModuleId } from '@fadl/types';
 
 export interface NavItem {
   key: string;
@@ -7,6 +7,7 @@ export interface NavItem {
   labelEn: string;
   icon: string;
   badge?: string;
+  moduleId?: ModuleId;
 }
 
 export interface NavGroup {
@@ -22,18 +23,18 @@ const NAV: Record<UserRole, NavGroup[]> = {
       groupEn: 'Overview',
       items: [
         { key: 'dashboard',    href: '/',             labelAr: 'الرئيسية',        labelEn: 'Dashboard',    icon: 'LayoutDashboard' },
-        { key: 'appointments', href: '/appointments', labelAr: 'المواعيد',        labelEn: 'Appointments', icon: 'CalendarDays' },
-        { key: 'queue',        href: '/rooms',        labelAr: 'الطابور',         labelEn: 'Queue',        icon: 'List' },
+        { key: 'appointments', href: '/appointments', labelAr: 'المواعيد',        labelEn: 'Appointments', icon: 'CalendarDays', moduleId: 'scheduling' },
+        { key: 'queue',        href: '/rooms',        labelAr: 'الطابور',         labelEn: 'Queue',        icon: 'List',         moduleId: 'scheduling' },
       ],
     },
     {
       groupAr: 'السريرية',
       groupEn: 'Clinical',
       items: [
-        { key: 'patients',     href: '/patients',     labelAr: 'المرضى',          labelEn: 'Patients',     icon: 'Users' },
+        { key: 'patients',     href: '/patients',     labelAr: 'المرضى',          labelEn: 'Patients',     icon: 'Users',      moduleId: 'patients' },
         { key: 'doctors',      href: '/doctors',      labelAr: 'الأطباء',         labelEn: 'Doctors',      icon: 'Stethoscope' },
-        { key: 'encounters',    href: '/encounters',    labelAr: 'الحالات السريرية', labelEn: 'Encounters',    icon: 'FileHeart' },
-        { key: 'prescriptions', href: '/prescriptions', labelAr: 'الوصفات الطبية',  labelEn: 'Prescriptions', icon: 'Pill' },
+        { key: 'encounters',    href: '/encounters',    labelAr: 'الحالات السريرية', labelEn: 'Encounters',    icon: 'FileHeart', moduleId: 'ehr' },
+        { key: 'prescriptions', href: '/prescriptions', labelAr: 'الوصفات الطبية',  labelEn: 'Prescriptions', icon: 'Pill',      moduleId: 'ehr' },
         { key: 'procedures',    href: '/procedures',    labelAr: 'الإجراءات',        labelEn: 'Procedures',    icon: 'Clipboard' },
       ],
     },
@@ -41,8 +42,8 @@ const NAV: Record<UserRole, NavGroup[]> = {
       groupAr: 'المالية',
       groupEn: 'Finance',
       items: [
-        { key: 'billing',        href: '/billing',             labelAr: 'الفواتير',    labelEn: 'Billing',         icon: 'Receipt' },
-        { key: 'settlements',    href: '/billing/settlements', labelAr: 'التسويات',    labelEn: 'Settlements',     icon: 'Banknote' },
+        { key: 'billing',        href: '/billing',             labelAr: 'الفواتير',    labelEn: 'Billing',         icon: 'Receipt',  moduleId: 'billing' },
+        { key: 'settlements',    href: '/billing/settlements', labelAr: 'التسويات',    labelEn: 'Settlements',     icon: 'Banknote', moduleId: 'settlements' },
         { key: 'reports',        href: '/reports',             labelAr: 'التقارير',    labelEn: 'Reports',         icon: 'FileText' },
       ],
     },
@@ -50,11 +51,11 @@ const NAV: Record<UserRole, NavGroup[]> = {
       groupAr: 'النظام',
       groupEn: 'System',
       items: [
-        { key: 'analytics',    href: '/analytics',    labelAr: 'الإحصائيات',        labelEn: 'Analytics',     icon: 'BarChart3' },
-        { key: 'procurement',  href: '/procurement',  labelAr: 'المشتريات الطبية',   labelEn: 'Procurement',   icon: 'Package' },
+        { key: 'analytics',    href: '/analytics',    labelAr: 'الإحصائيات',        labelEn: 'Analytics',     icon: 'BarChart3', moduleId: 'analytics' },
+        { key: 'procurement',  href: '/procurement',  labelAr: 'المشتريات الطبية',   labelEn: 'Procurement',   icon: 'Package',   moduleId: 'procurement' },
         { key: 'sources',      href: '/sources',      labelAr: 'مصادر المرضى',       labelEn: 'Sources',       icon: 'Share2' },
-        { key: 'chatbot',      href: '/chatbot',      labelAr: 'المساعد الذكي',      labelEn: 'AI Assistant',  icon: 'Bot' },
-        { key: 'integrations', href: '/integrations', labelAr: 'التكاملات الخارجية', labelEn: 'Integrations',  icon: 'Plug' },
+        { key: 'chatbot',      href: '/chatbot',      labelAr: 'المساعد الذكي',      labelEn: 'AI Assistant',  icon: 'Bot',       moduleId: 'ai' },
+        { key: 'integrations', href: '/integrations', labelAr: 'التكاملات الخارجية', labelEn: 'Integrations',  icon: 'Plug',      moduleId: 'integrations' },
         { key: 'room-settings', href: '/rooms',       labelAr: 'إعدادات الغرف',      labelEn: 'Room Settings', icon: 'DoorOpen' },
         { key: 'register',     href: '/register',    labelAr: 'تسجيل موظف',         labelEn: 'Register Staff', icon: 'UserPlus' },
         { key: 'settings',     href: '/settings',     labelAr: 'الإعدادات',          labelEn: 'Settings',      icon: 'Settings' },

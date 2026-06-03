@@ -8,6 +8,8 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Pagination } from '@/components/ui/Pagination';
 import { useLang } from '@/contexts/LanguageContext';
+import { useModuleEnabled } from '@/hooks/useFeatureFlags';
+import { ModuleUnavailablePage } from '@/components/shared/ModuleUnavailablePage';
 import { formatDate } from '@/lib/utils';
 import { usePatients, useDeletePatient } from '@/hooks/usePatients';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -88,6 +90,7 @@ function SkeletonRow() {
 
 /* ── Page ─────────────────────────────────────────────────────────────────── */
 export default function PatientsPage() {
+  const patientsEnabled = useModuleEnabled('patients');
   const { lang, t } = useLang();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -147,6 +150,8 @@ export default function PatientsPage() {
       onError:   () => toast(t('تعذّر حذف المريض', "Couldn't delete patient"), 'error'),
     });
   }
+
+  if (!patientsEnabled) return <ModuleUnavailablePage moduleId="patients" />;
 
   return (
     <div className="fc-page">

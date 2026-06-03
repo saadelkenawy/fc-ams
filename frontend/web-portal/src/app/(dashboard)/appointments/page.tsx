@@ -15,6 +15,8 @@ import { Button } from '@/components/ui/Button';
 import { AppointmentStatusBadge } from '@/components/ui/Badge';
 import { useLang } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useModuleEnabled } from '@/hooks/useFeatureFlags';
+import { ModuleUnavailablePage } from '@/components/shared/ModuleUnavailablePage';
 import { formatTime, cn } from '@/lib/utils';
 import { useAppointments } from '@/hooks/useAppointments';
 import { useDoctors, useDoctorMap, useSpecialtyMap } from '@/hooks/useDoctors';
@@ -596,6 +598,7 @@ const DAY_SHORT_AR = ['إثنين', 'ثلاثاء', 'أربعاء', 'خميس', 
 const HOURS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17];
 
 export default function AppointmentsPage() {
+  const schedulingEnabled = useModuleEnabled('scheduling');
   const { lang, t } = useLang();
   const { user } = useAuth();
   const router = useRouter();
@@ -736,6 +739,8 @@ export default function AppointmentsPage() {
       ? d.toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
       : d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   }, [date, lang]);
+
+  if (!schedulingEnabled) return <ModuleUnavailablePage moduleId="scheduling" />;
 
   return (
     <div className="fc-page">

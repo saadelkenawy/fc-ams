@@ -5,6 +5,8 @@ import { Send, Bot, User, Globe, CheckCircle, Loader2, X, CalendarDays } from 'l
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { useLang } from '@/contexts/LanguageContext';
+import { useModuleEnabled } from '@/hooks/useFeatureFlags';
+import { ModuleUnavailablePage } from '@/components/shared/ModuleUnavailablePage';
 import { chatbotApi, patientApi, appointmentApi } from '@/lib/api';
 import { useDoctors, useSpecialties } from '@/hooks/useDoctors';
 import { cn } from '@/lib/utils';
@@ -241,6 +243,7 @@ function ConfirmCardWidget({ card, lang, onConfirm, onCancel, loading }: {
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
 export default function ChatbotPage() {
+  const aiEnabled = useModuleEnabled('ai');
   const { lang, t, toggle } = useLang();
   const locale = lang === 'ar' ? 'ar-EG' : 'en-US';
 
@@ -564,6 +567,8 @@ export default function ChatbotPage() {
   // ── Render ────────────────────────────────────────────────────────────────
 
   const isLoading = llmLoading || confirmLoading;
+
+  if (!aiEnabled) return <ModuleUnavailablePage moduleId="ai" />;
 
   return (
     <div className="flex flex-col max-w-3xl mx-auto h-[calc(100vh-8rem)]">

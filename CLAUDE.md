@@ -124,6 +124,15 @@ RUN pnpm --filter @fadl/<name> deploy --prod /deploy
 
 A change to `shared/` or root config files (`pnpm-workspace.yaml`, `tsconfig.base.json`) triggers a rebuild of **all** services.
 
+<!-- SPECKIT START -->
+### Active Feature Branch
+
+Current plan: [specs/001-modular-architecture-feature-flags/plan.md](specs/001-modular-architecture-feature-flags/plan.md)
+
+Feature: Modular Architecture & Feature Flagging — subscription tiers, developer unlock JWT, K8s deployment.
+See also: [spec](specs/001-modular-architecture-feature-flags/spec.md) · [research](specs/001-modular-architecture-feature-flags/research.md) · [data-model](specs/001-modular-architecture-feature-flags/data-model.md) · [contracts](specs/001-modular-architecture-feature-flags/contracts/)
+<!-- SPECKIT END -->
+
 ### Key business rules
 - **Appointment double-booking**: prevented by a PostgreSQL exclusion constraint on `(doctor_id, appointment_date, time_range)` — collision is rejected at the DB level, not in application code.
 - **Patient search**: uses a GIN-indexed `tsvector` column (`name_search`) with `to_tsquery('simple', 'token:*')` — results appear from the first character typed.

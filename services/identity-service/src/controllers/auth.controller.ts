@@ -3,7 +3,7 @@ import { createHash, timingSafeEqual } from 'crypto';
 import { compare as bcryptCompare } from 'bcryptjs';
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
-import type { JwtPayload, UserRole } from '@fadl/types';
+import type { JwtPayload, UserRole, SubscriptionTier } from '@fadl/types';
 import * as repo from '../repositories/identity.repository';
 
 // ─── bcrypt-compatible scrypt hash helpers ─────────────────────────────────
@@ -109,12 +109,13 @@ export async function login(request: FastifyRequest, reply: FastifyReply): Promi
   await repo.recordLoginSuccess(user.id);
 
   const payload: JwtPayload = {
-    sub:      user.id,
-    role:     user.role as UserRole,
-    branchId: user.branchId,
-    doctorId: user.doctorId,
-    iat:      Math.floor(Date.now() / 1000),
-    exp:      Math.floor(Date.now() / 1000) + 15 * 60,
+    sub:              user.id,
+    role:             user.role as UserRole,
+    branchId:         user.branchId,
+    doctorId:         user.doctorId,
+    subscriptionTier: ((user as { subscriptionTier?: string }).subscriptionTier as SubscriptionTier | undefined) ?? 'premium',
+    iat:              Math.floor(Date.now() / 1000),
+    exp:              Math.floor(Date.now() / 1000) + 15 * 60,
   };
 
   const accessToken  = await reply.jwtSign(payload);
@@ -187,12 +188,13 @@ export async function refresh(request: FastifyRequest, reply: FastifyReply): Pro
   await repo.revokeRefreshToken(rawToken);
 
   const payload: JwtPayload = {
-    sub:      user.id,
-    role:     user.role as UserRole,
-    branchId: user.branchId,
-    doctorId: user.doctorId,
-    iat:      Math.floor(Date.now() / 1000),
-    exp:      Math.floor(Date.now() / 1000) + 15 * 60,
+    sub:              user.id,
+    role:             user.role as UserRole,
+    branchId:         user.branchId,
+    doctorId:         user.doctorId,
+    subscriptionTier: ((user as { subscriptionTier?: string }).subscriptionTier as SubscriptionTier | undefined) ?? 'premium',
+    iat:              Math.floor(Date.now() / 1000),
+    exp:              Math.floor(Date.now() / 1000) + 15 * 60,
   };
 
   const accessToken   = await reply.jwtSign(payload);

@@ -1,9 +1,11 @@
 import { FastifyInstance } from 'fastify';
 import { requireAuth } from '../middleware/auth';
+import { requireModule } from '../middleware/requireModule';
 import * as ctrl from '../controllers/analytics.controller';
 
 export async function analyticsRoutes(app: FastifyInstance): Promise<void> {
   app.addHook('preHandler', requireAuth);
+  app.addHook('preHandler', requireModule);
   app.get('/analytics/overview',      ctrl.getOverview);
   app.get('/analytics/revenue',       ctrl.getMonthlyRevenue);
   app.get('/analytics/sources',       ctrl.getSourceBreakdown);

@@ -13,6 +13,8 @@ import { Input } from '@/components/ui/Input';
 import { Pagination } from '@/components/ui/Pagination';
 import { useLang } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useModuleEnabled } from '@/hooks/useFeatureFlags';
+import { ModuleUnavailablePage } from '@/components/shared/ModuleUnavailablePage';
 import { useToast } from '@/components/ui/Toast';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { useTransactions, useUpdateTransactionStatus, useBulkDeleteTransactions, useBulkEditPaymentMethod, useSettlements } from '@/hooks/useBilling';
@@ -551,6 +553,7 @@ function BulkEditModal({ selected, onClose, onEdited, lang, t }: BulkEditModalPr
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function BillingPage() {
+  const billingEnabled = useModuleEnabled('billing');
   const { lang, t } = useLang();
   const { user } = useAuth();
   const isDoctor = user?.role === 'doctor';
@@ -819,6 +822,8 @@ export default function BillingPage() {
 
   const [txBodyRef]    = useAutoAnimate();
   const [settlBodyRef] = useAutoAnimate();
+
+  if (!billingEnabled) return <ModuleUnavailablePage moduleId="billing" />;
 
   return (
     <div className="fc-page">

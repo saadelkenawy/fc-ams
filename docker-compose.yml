@@ -121,6 +121,8 @@ services:
       LOG_LEVEL: info
       BRANCH_ID: 1
       SERVICE_NAME: identity-service
+      DEFAULT_TIER: standard
+      ALLOW_DEVELOPER_TOKEN_OVERRIDE: "true"
     ports:
       - "3000:3000"
     depends_on:

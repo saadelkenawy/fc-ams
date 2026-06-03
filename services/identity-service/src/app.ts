@@ -6,7 +6,9 @@ import rateLimit from '@fastify/rate-limit';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import { config } from './config';
+import { redis } from './config/redis';
 import { authRoutes } from './routes/auth.routes';
+import { featureFlagsRoutes } from './routes/feature-flags.routes';
 
 export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
   const app = Fastify({
@@ -48,6 +50,9 @@ export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
   app.get('/health', { logLevel: 'silent' }, async () => ({ status: 'ok', service: 'identity-service', version: '1.0.0' }));
 
   await app.register(authRoutes, { prefix: '/api/v1' });
+  await app.register(featureFlagsRoutes, { prefix: '/api/v1' });
+
+  await redis.connect().catch(() => {/* logged by redis.on('error') */});
 
   app.setErrorHandler(async (error, request, reply) => {
     const statusCode = (error as { statusCode?: number }).statusCode ?? 500;
