@@ -9,7 +9,7 @@ import { useLang } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDate, getInitials } from '@/lib/utils';
 import { useAppointments } from '@/hooks/useAppointments';
-import { usePatients } from '@/hooks/usePatients';
+import { usePatientBatch } from '@/hooks/usePatients';
 
 interface PatientSummary {
   patientId: string;
@@ -55,20 +55,8 @@ export default function DoctorPatientsPage() {
 
   const uniquePatientIds = useMemo(() => Array.from(patientSummaryMap.keys()), [patientSummaryMap]);
 
-  // Fetch patient details for all unique patients
-  const { data: patientsData, isLoading: patientsLoading } = usePatients({
-    limit: 200,
-  });
-  const allPatients = patientsData?.data ?? [];
-
-  // Build a patient detail map
-  const patientDetailMap = useMemo(() => {
-    const map = new Map<string, { nameEn: string; nameAr?: string }>();
-    for (const p of allPatients) {
-      map.set(p.patientId, { nameEn: p.nameEn, nameAr: p.nameAr });
-    }
-    return map;
-  }, [allPatients]);
+  // Fetch details only for patients seen by this doctor
+  const patientDetailMap = usePatientBatch(uniquePatientIds);
 
   // Merge summaries with patient details
   const patientList = useMemo(() => {
@@ -96,7 +84,7 @@ export default function DoctorPatientsPage() {
     );
   }, [patientList, query]);
 
-  const isLoading = apptLoading || patientsLoading;
+  const isLoading = apptLoading;
 
   if (!doctorId) {
     return (
