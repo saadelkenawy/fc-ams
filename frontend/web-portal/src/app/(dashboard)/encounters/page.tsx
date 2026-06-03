@@ -1,20 +1,21 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, X, FileHeart } from 'lucide-react';
+import { Plus, X, FileHeart, Search } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { useEncounters, type Encounter } from '@/hooks/useEncounters';
-import { usePatientMap } from '@/hooks/usePatients';
+import { usePatientMap, usePatients } from '@/hooks/usePatients';
 import { useDoctorMap } from '@/hooks/useDoctors';
 import { useLang } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { ehrApi } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import { EncounterDetailModal } from '@/components/encounters/EncounterDetailModal';
+import type { Patient } from '@fadl/types';
 
 const STATUS_TABS = ['all', 'draft', 'in_progress', 'completed', 'signed_off'] as const;
 type StatusFilter = typeof STATUS_TABS[number];
@@ -88,6 +89,50 @@ export default function EncountersPage() {
   });
   const [formError, setFormError] = useState('');
 
+  // Patient search autocomplete
+  const [patientQuery, setPatientQuery] = useState('');
+  const [patientLabel, setPatientLabel] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(patientQuery), 300);
+    return () => clearTimeout(t);
+  }, [patientQuery]);
+
+  const { data: searchResults } = usePatients({
+    query: debouncedQuery,
+    limit: 8,
+    enabled: debouncedQuery.length >= 2,
+  });
+  const suggestions = searchResults?.data ?? [];
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setSearchOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, []);
+
+  function selectPatient(p: Patient) {
+    const name = lang === 'ar' ? (p.nameAr ?? p.nameEn) : p.nameEn;
+    setPatientLabel(name);
+    setPatientQuery(name);
+    setForm((f) => ({ ...f, patientId: p.patientId }));
+    setSearchOpen(false);
+  }
+
+  function clearPatient() {
+    setPatientLabel('');
+    setPatientQuery('');
+    setForm((f) => ({ ...f, patientId: '' }));
+  }
+
   const { data, isLoading } = useEncounters({
     status:   statusFilter === 'all' ? undefined : statusFilter,
     dateFrom: dateFrom || undefined,
@@ -109,7 +154,9 @@ export default function EncountersPage() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['encounters'] });
       setShowNewModal(false);
-      setForm({ patientId: '', doctorId: '', encounterDate: todayISO(), encounterType: 'outpatient', chiefComplaint: '' });
+      setForm({ patientId: '', doctorId: user?.role === 'doctor' ? (user.doctorId ?? '') : '', encounterDate: todayISO(), encounterType: 'outpatient', chiefComplaint: '' });
+      setPatientQuery('');
+      setPatientLabel('');
       setFormError('');
     },
     onError: (err: { message?: string }) => {
@@ -312,7 +359,7 @@ export default function EncountersPage() {
                 {t('إضافة حالة سريرية', 'New Encounter')}
               </h3>
               <button
-                onClick={() => { setShowNewModal(false); setFormError(''); }}
+                onClick={() => { setShowNewModal(false); setFormError(''); setPatientQuery(''); setPatientLabel(''); }}
                 className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
               >
                 <X className="w-5 h-5" />
@@ -320,17 +367,74 @@ export default function EncountersPage() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
+              <div ref={searchRef} className="relative">
                 <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  {t('معرّف المريض (UUID)', 'Patient ID (UUID)')}
+                  {t('المريض', 'Patient')}
                 </label>
-                <Input
-                  required
-                  value={form.patientId}
-                  onChange={(e) => setForm((f) => ({ ...f, patientId: e.target.value }))}
-                  placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-                  className="font-mono text-xs"
-                />
+                <div className="relative">
+                  <Search className="absolute start-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                  <input
+                    required
+                    value={patientQuery}
+                    onChange={(e) => {
+                      setPatientQuery(e.target.value);
+                      setPatientLabel('');
+                      setForm((f) => ({ ...f, patientId: '' }));
+                      setSearchOpen(true);
+                    }}
+                    onFocus={() => { if (patientQuery.length >= 2) setSearchOpen(true); }}
+                    placeholder={t('ابحث باسم المريض...', 'Search by patient name...')}
+                    className="w-full rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-700 text-gray-900 dark:text-gray-100 text-sm ps-8 pe-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-600"
+                  />
+                  {patientLabel && (
+                    <button
+                      type="button"
+                      onClick={clearPatient}
+                      className="absolute end-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Selected patient ID display */}
+                {form.patientId && (
+                  <p className="text-[10px] text-gray-400 dark:text-gray-500 font-mono mt-1">
+                    ID: {form.patientId}
+                  </p>
+                )}
+
+                {/* Dropdown */}
+                {searchOpen && suggestions.length > 0 && (
+                  <ul className="absolute z-50 mt-1 w-full bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-600 rounded-lg shadow-lg overflow-hidden">
+                    {suggestions.map((p) => {
+                      const name = lang === 'ar' ? (p.nameAr ?? p.nameEn) : p.nameEn;
+                      return (
+                        <li
+                          key={p.patientId}
+                          onMouseDown={() => selectPatient(p)}
+                          className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors"
+                        >
+                          <div className="w-7 h-7 rounded-full bg-primary-100 dark:bg-primary-900/40 flex items-center justify-center text-primary-700 dark:text-primary-400 text-xs font-bold flex-shrink-0">
+                            {name.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm text-gray-900 dark:text-gray-100 truncate">{name}</p>
+                            <p className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">
+                              #{p.patientId.slice(-8).toUpperCase()}
+                            </p>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+
+                {searchOpen && debouncedQuery.length >= 2 && suggestions.length === 0 && (
+                  <div className="absolute z-50 mt-1 w-full bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-600 rounded-lg shadow-lg px-3 py-3 text-xs text-gray-400 dark:text-gray-500">
+                    {t('لا توجد نتائج', 'No results found')}
+                  </div>
+                )}
               </div>
 
               <div>
@@ -399,7 +503,7 @@ export default function EncountersPage() {
                   type="button"
                   variant="outline"
                   className="flex-1"
-                  onClick={() => { setShowNewModal(false); setFormError(''); }}
+                  onClick={() => { setShowNewModal(false); setFormError(''); setPatientQuery(''); setPatientLabel(''); }}
                 >
                   {t('إلغاء', 'Cancel')}
                 </Button>
