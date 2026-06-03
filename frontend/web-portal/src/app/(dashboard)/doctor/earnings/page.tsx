@@ -41,7 +41,7 @@ export default function DoctorEarningsPage() {
     queryKey: ['doctor-settlement', doctorId, from, to],
     queryFn: async () => {
       const { data } = await billingApi.get<{ data: DoctorSettlement }>('/settlements/doctor', {
-        params: { dateFrom: from, dateTo: to },
+        params: { doctorId, from, to },
       });
       return data.data;
     },

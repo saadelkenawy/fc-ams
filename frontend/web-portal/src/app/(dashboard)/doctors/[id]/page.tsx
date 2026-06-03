@@ -106,7 +106,7 @@ export default function DoctorProfilePage() {
     queryKey: ['admin-doctor-settlement', id, from, to],
     queryFn: async () => {
       const { data } = await billingApi.get<{ data: DoctorSettlement }>('/settlements/doctor', {
-        params: { doctorId: id, dateFrom: from, dateTo: to },
+        params: { doctorId: id, from, to },
       });
       return data.data;
     },
