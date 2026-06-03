@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
 import { Pagination } from '@/components/ui/Pagination';
 import { useLang } from '@/contexts/LanguageContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/Toast';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { useTransactions, useUpdateTransactionStatus, useBulkDeleteTransactions, useBulkEditPaymentMethod, useSettlements } from '@/hooks/useBilling';
@@ -551,6 +552,8 @@ function BulkEditModal({ selected, onClose, onEdited, lang, t }: BulkEditModalPr
 
 export default function BillingPage() {
   const { lang, t } = useLang();
+  const { user } = useAuth();
+  const isDoctor = user?.role === 'doctor';
   const router = useRouter();
   const searchParams = useSearchParams();
   const deleteApptId    = searchParams.get('deleteApptId');
@@ -613,6 +616,7 @@ export default function BillingPage() {
     status:   statusFilter === 'all' ? undefined : statusFilter,
     dateFrom: (validDates && dateFrom) ? dateFrom : undefined,
     dateTo:   (validDates && dateTo)   ? dateTo   : undefined,
+    doctorId: isDoctor ? (user?.doctorId ?? undefined) : undefined,
     page,
     limit,
   });
@@ -1264,7 +1268,7 @@ export default function BillingPage() {
                     </tr>
                   </thead>
                   <tbody ref={settlBodyRef} className="divide-y divide-gray-50 dark:divide-neutral-700/50">
-                    {settlData.data.map((s) => {
+                    {(isDoctor ? settlData.data.filter((s) => s.doctorId === user?.doctorId) : settlData.data).map((s) => {
                       const doc = doctorMap.get(s.doctorId);
                       const name = doc ? (lang === 'ar' ? (doc.nameAr ?? doc.nameEn) : doc.nameEn) : s.doctorId.slice(-8);
                       return (
