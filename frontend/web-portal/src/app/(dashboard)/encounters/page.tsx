@@ -11,6 +11,7 @@ import { useEncounters, type Encounter } from '@/hooks/useEncounters';
 import { usePatientMap } from '@/hooks/usePatients';
 import { useDoctorMap } from '@/hooks/useDoctors';
 import { useLang } from '@/contexts/LanguageContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { ehrApi } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import { EncounterDetailModal } from '@/components/encounters/EncounterDetailModal';
@@ -67,6 +68,7 @@ export default function EncountersPage() {
   const { lang, t } = useLang();
   const locale = lang === 'ar' ? 'ar-EG' : 'en-US';
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const patientMap = usePatientMap();
   const doctorMap  = useDoctorMap();
 
@@ -79,7 +81,7 @@ export default function EncountersPage() {
 
   const [form, setForm] = useState<NewEncounterForm>({
     patientId:      '',
-    doctorId:       '',
+    doctorId:       user?.role === 'doctor' ? (user.doctorId ?? '') : '',
     encounterDate:  todayISO(),
     encounterType:  'outpatient',
     chiefComplaint: '',
@@ -90,6 +92,7 @@ export default function EncountersPage() {
     status:   statusFilter === 'all' ? undefined : statusFilter,
     dateFrom: dateFrom || undefined,
     dateTo:   dateTo || undefined,
+    doctorId: user?.role === 'doctor' ? (user.doctorId ?? undefined) : undefined,
     page,
     limit:    PAGE_SIZE,
   });
@@ -340,6 +343,7 @@ export default function EncountersPage() {
                   onChange={(e) => setForm((f) => ({ ...f, doctorId: e.target.value }))}
                   placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
                   className="font-mono text-xs"
+                  readOnly={user?.role === 'doctor'}
                 />
               </div>
 
