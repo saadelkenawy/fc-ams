@@ -603,7 +603,8 @@ export default function AppointmentsPage() {
 
   const [activeTab,      setActiveTab]      = useState<StatusFilterKey>('all');
   const [date,           setDate]           = useState(todayStr);
-  const [doctorId,       setDoctorId]       = useState<string>('');
+  const isDoctor = user?.role === 'doctor';
+  const [doctorId,       setDoctorId]       = useState<string>(() => isDoctor ? (user?.doctorId ?? '') : '');
   const [view,           setView]           = useState<'list' | 'timeline'>('list');
   const [addOpen,        setAddOpen]        = useState(false);
   const [statusAppt,     setStatusAppt]     = useState<Appointment | null>(null);
@@ -827,8 +828,8 @@ export default function AppointmentsPage() {
       {/* Toolbar: doctor select + patient search + advanced + view toggle */}
       <div className="fc-apt-toolbar">
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', flex: 1 }}>
-          {/* Doctor filter */}
-          <select
+          {/* Doctor filter — hidden for doctor role (they only see their own) */}
+          {!isDoctor && <select
             value={doctorId}
             onChange={(e) => { setDoctorId(e.target.value); setActiveTab('all'); }}
             className="h-9 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-gray-700 dark:text-gray-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600 min-w-[160px]"
@@ -837,7 +838,7 @@ export default function AppointmentsPage() {
             {(doctorList?.data ?? []).map((d) => (
               <option key={d.id} value={d.id}>{lang === 'ar' ? (d.nameAr ?? d.nameEn) : d.nameEn}</option>
             ))}
-          </select>
+          </select>}
 
           {/* Patient search */}
           <div className="fc-dr-search" style={{ flex: 1, minWidth: '160px' }}>
