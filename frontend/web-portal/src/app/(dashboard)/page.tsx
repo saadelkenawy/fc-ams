@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { useLang } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatTime } from '@/lib/utils';
-import { useTodayAppointments } from '@/hooks/useAppointments';
+import { useAppointments } from '@/hooks/useAppointments';
 import { useDoctors, useDoctorMap, useSpecialtyMap } from '@/hooks/useDoctors';
 import { usePatients, usePatientMap } from '@/hooks/usePatients';
 import type { AppointmentStatus } from '@fadl/types';
@@ -46,7 +46,14 @@ export default function DashboardPage() {
   const greetAr = hour < 12 ? 'صباح الخير' : hour < 17 ? 'مساء الخير' : 'مساء النور';
   const greetEn = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
-  const { data: apptData, isLoading: apptLoading, refetch } = useTodayAppointments();
+  const isDoctor = user?.role === 'doctor';
+  const today    = new Date().toISOString().split('T')[0];
+
+  const { data: apptData, isLoading: apptLoading, refetch } = useAppointments({
+    date:     today,
+    limit:    50,
+    doctorId: isDoctor ? (user?.doctorId ?? undefined) : undefined,
+  });
   const { data: doctorData }   = useDoctors({ limit: 1 });
   const { data: patientData }  = usePatients({ limit: 1 });
   const appointments  = apptData?.data ?? [];
@@ -54,10 +61,11 @@ export default function DashboardPage() {
   const specialtyMap  = useSpecialtyMap();
   const patientMap    = usePatientMap();
 
-  const pendingConfirm = appointments.filter((a) => a.status === 'TBC').length;
-  const confirmedCount = appointments.filter((a) => a.status === 'Conf.').length;
-  const totalDoctors   = doctorData?.total ?? 0;
-  const totalPatients  = patientData?.total ?? 0;
+  const pendingConfirm  = appointments.filter((a) => a.status === 'TBC').length;
+  const confirmedCount  = appointments.filter((a) => ['Conf.', 'Ok!'].includes(a.status)).length;
+  const completedCount  = appointments.filter((a) => a.status === 'Comp.').length;
+  const totalDoctors    = doctorData?.total ?? 0;
+  const totalPatients   = patientData?.total ?? 0;
 
   /* status distribution for mini bar */
   const statusCounts = appointments.reduce<Record<string, number>>((acc, a) => {
@@ -90,34 +98,69 @@ export default function DashboardPage() {
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          title={t('الأطباء', 'Total Doctors')}
-          value={totalDoctors || '—'}
-          icon={<Stethoscope className="w-5 h-5" />}
-          color="blue"
-          description={t('طبيب مسجل', 'registered doctors')}
-        />
-        <StatCard
-          title={t('المرضى', 'Total Patients')}
-          value={totalPatients || '—'}
-          icon={<Users className="w-5 h-5" />}
-          color="emerald"
-          description={t('مريض مسجل', 'registered patients')}
-        />
-        <StatCard
-          title={t('مواعيد اليوم', "Today's Appointments")}
-          value={apptLoading ? '…' : appointments.length}
-          icon={<CalendarDays className="w-5 h-5" />}
-          color="amber"
-          description={`${confirmedCount} ${t('مؤكد', 'confirmed')}`}
-        />
-        <StatCard
-          title={t('بانتظار التأكيد', 'Pending Confirm')}
-          value={apptLoading ? '…' : pendingConfirm}
-          icon={<Clock className="w-5 h-5" />}
-          color="violet"
-          description={t('تحتاج مراجعة', 'need review')}
-        />
+        {isDoctor ? (
+          <>
+            <StatCard
+              title={t('مواعيد اليوم', "Today's Appointments")}
+              value={apptLoading ? '…' : appointments.length}
+              icon={<CalendarDays className="w-5 h-5" />}
+              color="blue"
+              description={t('موعد مجدول', 'scheduled today')}
+            />
+            <StatCard
+              title={t('مؤكد / تسجيل دخول', 'Confirmed / Checked-in')}
+              value={apptLoading ? '…' : confirmedCount}
+              icon={<Activity className="w-5 h-5" />}
+              color="emerald"
+              description={t('جاهز للاستقبال', 'ready to receive')}
+            />
+            <StatCard
+              title={t('بانتظار التأكيد', 'Pending Confirm')}
+              value={apptLoading ? '…' : pendingConfirm}
+              icon={<Clock className="w-5 h-5" />}
+              color="amber"
+              description={t('تحتاج مراجعة', 'need review')}
+            />
+            <StatCard
+              title={t('مكتمل اليوم', 'Completed Today')}
+              value={apptLoading ? '…' : completedCount}
+              icon={<Stethoscope className="w-5 h-5" />}
+              color="violet"
+              description={t('جلسة منتهية', 'sessions done')}
+            />
+          </>
+        ) : (
+          <>
+            <StatCard
+              title={t('الأطباء', 'Total Doctors')}
+              value={totalDoctors || '—'}
+              icon={<Stethoscope className="w-5 h-5" />}
+              color="blue"
+              description={t('طبيب مسجل', 'registered doctors')}
+            />
+            <StatCard
+              title={t('المرضى', 'Total Patients')}
+              value={totalPatients || '—'}
+              icon={<Users className="w-5 h-5" />}
+              color="emerald"
+              description={t('مريض مسجل', 'registered patients')}
+            />
+            <StatCard
+              title={t('مواعيد اليوم', "Today's Appointments")}
+              value={apptLoading ? '…' : appointments.length}
+              icon={<CalendarDays className="w-5 h-5" />}
+              color="amber"
+              description={`${confirmedCount} ${t('مؤكد', 'confirmed')}`}
+            />
+            <StatCard
+              title={t('بانتظار التأكيد', 'Pending Confirm')}
+              value={apptLoading ? '…' : pendingConfirm}
+              icon={<Clock className="w-5 h-5" />}
+              color="violet"
+              description={t('تحتاج مراجعة', 'need review')}
+            />
+          </>
+        )}
       </div>
 
       {/* Main content */}
