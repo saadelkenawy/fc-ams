@@ -19,8 +19,8 @@ interface Encounter {
   doctorId: string;
   encounterDate: string;
   chiefComplaint?: string;
-  diagnosis?: string;
-  notes?: string;
+  diagnosisPrimary?: string;
+  clinicalNotes?: string;
   status: string;
   createdAt: string;
 }
@@ -36,7 +36,7 @@ export default function DoctorNotesPage() {
     queryKey: ['doctor-encounters', doctorId],
     queryFn: async () => {
       const res = await ehrApi.get<{ data: Encounter[] }>('/encounters', {
-        params: { doctorId, limit: 200 },
+        params: { doctorId, limit: 100 },
       });
       return res.data.data ?? [];
     },
@@ -58,8 +58,8 @@ export default function DoctorNotesPage() {
       return (
         name.toLowerCase().includes(q) ||
         (e.chiefComplaint ?? '').toLowerCase().includes(q) ||
-        (e.diagnosis ?? '').toLowerCase().includes(q) ||
-        (e.notes ?? '').toLowerCase().includes(q)
+        (e.diagnosisPrimary ?? '').toLowerCase().includes(q) ||
+        (e.clinicalNotes ?? '').toLowerCase().includes(q)
       );
     });
   }, [encounters, query, patientMap, lang]);
@@ -156,18 +156,18 @@ export default function DoctorNotesPage() {
                       </p>
                     )}
 
-                    {enc.diagnosis && (
+                    {enc.diagnosisPrimary && (
                       <p className="text-sm text-gray-700 dark:text-gray-300">
                         <span className="font-medium text-gray-500 dark:text-gray-400">
                           {t('التشخيص: ', 'Diagnosis: ')}
                         </span>
-                        {enc.diagnosis}
+                        {enc.diagnosisPrimary}
                       </p>
                     )}
 
-                    {enc.notes && (
+                    {enc.clinicalNotes && (
                       <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-3 bg-gray-50 dark:bg-neutral-800 rounded-lg px-3 py-2">
-                        {enc.notes}
+                        {enc.clinicalNotes}
                       </p>
                     )}
                   </div>
