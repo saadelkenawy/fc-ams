@@ -1,8 +1,7 @@
 'use client';
 
-import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Users, CalendarDays, TrendingUp, Clock, Stethoscope, Activity, CalendarPlus, RefreshCw } from 'lucide-react';
+import { Users, CalendarDays, TrendingUp, Clock, Stethoscope, Activity, RefreshCw } from 'lucide-react';
 import { StatCard } from '@/components/ui/StatCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { AppointmentStatusBadge, Badge } from '@/components/ui/Badge';
@@ -13,7 +12,6 @@ import { formatTime } from '@/lib/utils';
 import { useTodayAppointments } from '@/hooks/useAppointments';
 import { useDoctors, useDoctorMap, useSpecialtyMap } from '@/hooks/useDoctors';
 import { usePatients, usePatientMap } from '@/hooks/usePatients';
-import { AddAppointmentModal } from '@/components/appointments/AddAppointmentModal';
 import type { AppointmentStatus } from '@fadl/types';
 
 const STATUS_COLORS: Record<AppointmentStatus, string> = {
@@ -43,7 +41,6 @@ export default function DashboardPage() {
   const { lang, t } = useLang();
   const { user }    = useAuth();
   const router      = useRouter();
-  const [addOpen, setAddOpen] = useState(false);
   const now  = new Date();
   const hour = now.getHours();
   const greetAr = hour < 12 ? 'صباح الخير' : hour < 17 ? 'مساء الخير' : 'مساء النور';
@@ -87,10 +84,6 @@ export default function DashboardPage() {
         <div className="flex items-center gap-2 pt-1">
           <Button variant="outline" size="sm" onClick={() => void refetch()} title={t('تحديث', 'Refresh')} aria-label={t('تحديث البيانات', 'Refresh data')}>
             <RefreshCw className="w-4 h-4" />
-          </Button>
-          <Button size="sm" onClick={() => setAddOpen(true)} className="gap-1.5">
-            <CalendarPlus className="w-4 h-4" />
-            {t('موعد جديد', 'New Appointment')}
           </Button>
         </div>
       </div>
@@ -216,10 +209,6 @@ export default function DashboardPage() {
                           <p className="text-sm text-gray-400 dark:text-gray-500">
                             {t('لا توجد مواعيد اليوم', 'No appointments today')}
                           </p>
-                          <Button size="sm" variant="outline" onClick={() => setAddOpen(true)} className="gap-1.5">
-                            <CalendarPlus className="w-3.5 h-3.5" />
-                            {t('إضافة موعد', 'Add Appointment')}
-                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -291,12 +280,6 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <AddAppointmentModal
-        open={addOpen}
-        onClose={() => setAddOpen(false)}
-        defaultDate={now.toISOString().split('T')[0]}
-        onCreated={() => { setAddOpen(false); void refetch(); }}
-      />
     </div>
   );
 }
