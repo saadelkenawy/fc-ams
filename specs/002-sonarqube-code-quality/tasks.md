@@ -48,18 +48,18 @@ before US1–US4 work begins.
 possible. This is the minimum viable deliverable — proves the pipeline works before
 wiring Jenkins.
 
-**Independent Test**: Open `http://localhost:9000`, log in, see project `fcms` listed,
+**Independent Test**: Open `http://localhost:9100`, log in, see project `fcms` listed,
 run `sonar-scanner` from the repo root, see green project dashboard
 
 ### Implementation for User Story 1
 
 - [ ] T008 [US1] Execute `infra/sonarqube/create-db.sql` against the running PostgreSQL cluster to create `fadl_sonar` database and `sonar` role (`psql -h localhost -p 5432 -U postgres -f infra/sonarqube/create-db.sql`)
 - [ ] T009 [US1] Set `vm.max_map_count=524288` and `fs.file-max=131072` on the Docker host (`sudo sysctl -w vm.max_map_count=524288 && sudo sysctl -w fs.file-max=131072`) and persist in `/etc/sysctl.d/99-sonarqube.conf`
-- [ ] T010 [US1] Add `SONAR_DB_PASSWORD` to `.env` (local value), then start SonarQube: `docker compose -f docker-compose.yml -f docker-compose.sonar.yml up -d sonarqube` — wait ~90 s and verify `http://localhost:9000` returns 200
-- [ ] T011 [US1] Log in to SonarQube UI at `http://localhost:9000` (admin/admin), change admin password, create project manually (Project Key: `fcms`, Project Name: `Fadl Clinic Management System`), generate token named `jenkins-ci`, save token value to `.env` as `SONAR_TOKEN`
+- [ ] T010 [US1] Add `SONAR_DB_PASSWORD` to `.env` (local value), then start SonarQube: `docker compose -f docker-compose.yml -f docker-compose.sonar.yml up -d sonarqube` — wait ~90 s and verify `http://localhost:9100` returns 200
+- [ ] T011 [US1] Log in to SonarQube UI at `http://localhost:9100` (admin/admin), change admin password, create project manually (Project Key: `fcms`, Project Name: `Fadl Clinic Management System`), generate token named `jenkins-ci`, save token value to `.env` as `SONAR_TOKEN`
 - [ ] T012 [US1] Create quality gate `FCMS Gate` in SonarQube UI (Quality Gates → Create) with conditions: new_coverage < 70 % → Error, new_blocker_violations > 0 → Error, new_critical_violations > 0 → Error; set as default gate for project `fcms`
 
-**Checkpoint**: US1 complete — `sonar-scanner -Dsonar.host.url=http://localhost:9000 -Dsonar.token=$SONAR_TOKEN` runs without error; `fcms` project appears on dashboard
+**Checkpoint**: US1 complete — `sonar-scanner -Dsonar.host.url=http://localhost:9100 -Dsonar.token=$SONAR_TOKEN` runs without error; `fcms` project appears on dashboard
 
 ---
 

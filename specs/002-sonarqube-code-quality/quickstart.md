@@ -32,7 +32,7 @@ Append to your `.env` file (never commit this):
 
 ```bash
 SONAR_DB_PASSWORD=changeme_sonar
-SONAR_HOST_URL=http://localhost:9000
+SONAR_HOST_URL=http://localhost:9100
 SONAR_TOKEN=<generated in step 5 below>
 ```
 
@@ -44,14 +44,14 @@ SONAR_TOKEN=<generated in step 5 below>
 docker compose -f docker-compose.yml -f docker-compose.sonar.yml up -d sonarqube
 ```
 
-Wait ~60 seconds for SonarQube to initialize, then open http://localhost:9000.
+Wait ~60 seconds for SonarQube to initialize, then open http://localhost:9100.
 Default credentials: `admin` / `admin` (change immediately on first login).
 
 ---
 
 ## Step 4: Create the FCMS Project in SonarQube
 
-1. Log in at http://localhost:9000
+1. Log in at http://localhost:9100
 2. Create Project → Manually
 3. Project Key: `fcms`
 4. Project Name: `Fadl Clinic Management System`
@@ -86,12 +86,12 @@ Default credentials: `admin` / `admin` (change immediately on first login).
 pnpm test --coverage
 
 # Run sonar-scanner (must be installed: brew install sonar-scanner or npm i -g sonar-scanner)
-SONAR_HOST_URL=http://localhost:9000 \
+SONAR_HOST_URL=http://localhost:9100 \
 SONAR_TOKEN=$SONAR_TOKEN \
 sonar-scanner -Dsonar.projectVersion=local-dev
 ```
 
-Results appear at http://localhost:9000/dashboard?id=fcms in ~2 minutes.
+Results appear at http://localhost:9100/dashboard?id=fcms in ~2 minutes.
 
 ---
 
