@@ -21,7 +21,7 @@ pipeline {
     parameters {
         choice(
             name: 'IMAGE_TAG',
-            choices: ['post-prod', 'latest'],
+            choices: ['latest', 'post-prod'],
             description: 'Docker Hub tag to pull and deploy'
         )
         choice(

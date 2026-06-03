@@ -193,6 +193,23 @@ pipeline {
     post {
         success {
             echo "All images pushed to https://hub.docker.com/u/${env.DOCKERHUB_USER}"
+            script {
+                if (env.BUILD_LIST?.trim()) {
+                    // Strip "fcms-" prefix from image names to match fcms-deploy's SERVICES format
+                    def deployServices = env.BUILD_LIST.split(';').collect { entry ->
+                        entry.split('\\|')[0].replaceFirst('^fcms-', '')
+                    }.join(',')
+
+                    echo "Triggering fcms-deploy → local with tag=latest, services=${deployServices}"
+                    build job: 'fcms-deploy',
+                          wait: false,
+                          parameters: [
+                              string(name: 'IMAGE_TAG',     value: 'latest'),
+                              string(name: 'DEPLOY_TARGET', value: 'local'),
+                              string(name: 'SERVICES',      value: deployServices)
+                          ]
+                }
+            }
         }
         failure {
             echo "Pipeline failed — check stage logs above."
