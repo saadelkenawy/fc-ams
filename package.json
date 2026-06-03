@@ -20,6 +20,7 @@
     "db:migrate:appointment": "bash scripts/migrate.sh appointment",
     "db:migrate:doctor": "bash scripts/migrate.sh doctor",
     "db:migrate:billing": "bash scripts/migrate.sh billing",
+    "db:migrate:ehr": "bash scripts/migrate.sh ehr",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f"

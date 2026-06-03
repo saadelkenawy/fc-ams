@@ -20,6 +20,7 @@ declare -A SERVICE_DBS=(
   [appointment]="fadl_appointments"
   [doctor]="fadl_doctors"
   [billing]="fadl_billing"
+  [ehr]="fadl_ehr"
   [procurement]="fadl_procurement"
 )
 
@@ -48,12 +49,12 @@ run_migrations() {
 TARGET="${1:-all}"
 
 if [[ "$TARGET" == "all" ]]; then
-  for svc in identity patient appointment doctor billing procurement; do
+  for svc in identity patient appointment doctor billing ehr procurement; do
     run_migrations "$svc"
   done
 else
   if [[ -z "${SERVICE_DBS[$TARGET]+_}" ]]; then
-    echo "Unknown service: $TARGET. Valid: identity, patient, appointment, doctor, billing, procurement"
+    echo "Unknown service: $TARGET. Valid: identity, patient, appointment, doctor, billing, ehr, procurement"
     exit 1
   fi
   run_migrations "$TARGET"
