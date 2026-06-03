@@ -185,7 +185,7 @@ export function PrescriptionForm({ encounterId, patientId, doctorId, patientName
           sortOrder:        i,
         })),
       };
-      const res = await ehrApi.post('/api/v1/prescriptions', payload);
+      const res = await ehrApi.post('/prescriptions', payload);
       return (res.data as { data: Prescription }).data;
     },
     onSuccess: (rx) => {

@@ -787,7 +787,7 @@ function PrescriptionsTab({
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['prescriptions', { patientId: patient.patientId }],
     queryFn: async () => {
-      const res = await ehrApi.get('/api/v1/prescriptions', {
+      const res = await ehrApi.get('/prescriptions', {
         params: { patientId: patient.patientId, limit: 100 },
       });
       return (res.data as { data: Prescription[] }).data;

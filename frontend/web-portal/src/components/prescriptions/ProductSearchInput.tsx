@@ -56,7 +56,7 @@ export function ProductSearchInput({
   const { data: results = [], isFetching } = useQuery<ProductSearchResult[]>({
     queryKey: ['products-search', debounced, typeFilter],
     queryFn: async () => {
-      const res = await ehrApi.get('/api/v1/products/search', {
+      const res = await ehrApi.get('/products/search', {
         params: { q: debounced, ...(typeFilter ? { type: typeFilter } : {}), limit: 20 },
       });
       return (res.data as { data: ProductSearchResult[] }).data;

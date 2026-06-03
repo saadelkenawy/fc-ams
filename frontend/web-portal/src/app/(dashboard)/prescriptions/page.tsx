@@ -77,7 +77,7 @@ export default function PrescriptionsPage() {
       const params: Record<string, string | number> = { page, limit: 20 };
       if (statusFilter !== 'all') params.status = statusFilter;
       if (user?.role === 'doctor' && user.doctorId) params.doctorId = user.doctorId;
-      const res = await ehrApi.get('/api/v1/prescriptions', { params });
+      const res = await ehrApi.get('/prescriptions', { params });
       return res.data as { data: Prescription[]; total: number; page: number; limit: number };
     },
     staleTime: 30_000,
@@ -336,7 +336,7 @@ function PrescriptionDetail({
 
   const dispenseMutation = useMutation({
     mutationFn: async () => {
-      await ehrApi.patch(`/api/v1/prescriptions/${rx.id}/status`, { status: 'dispensed' });
+      await ehrApi.patch(`/prescriptions/${rx.id}/status`, { status: 'dispensed' });
     },
     onSuccess: () => {
       setIsDispensed(true);
