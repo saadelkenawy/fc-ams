@@ -10,6 +10,7 @@ export interface UserRow {
   role: string;
   branchId: number;
   doctorId: string | undefined;
+  subscriptionTier: string;
   isActive: boolean;
   lastLoginAt: Date | null;
   failedLogins: number;
@@ -29,19 +30,20 @@ export interface CreateUserInput {
 
 function rowToUser(row: Record<string, unknown>): UserRow {
   return {
-    id:           row.id as string,
-    email:        row.email as string,
-    passwordHash: row.password_hash as string,
-    nameEn:       row.name_en as string,
-    nameAr:       row.name_ar as string | undefined,
-    role:         row.role as string,
-    branchId:     row.branch_id as number,
-    doctorId:     row.doctor_id as string | undefined,
-    isActive:     row.is_active as boolean,
-    lastLoginAt:  row.last_login_at as Date | null,
-    failedLogins: row.failed_logins as number,
-    lockedUntil:  row.locked_until as Date | null,
-    version:      row.version as number,
+    id:               row.id as string,
+    email:            row.email as string,
+    passwordHash:     row.password_hash as string,
+    nameEn:           row.name_en as string,
+    nameAr:           row.name_ar as string | undefined,
+    role:             row.role as string,
+    branchId:         row.branch_id as number,
+    doctorId:         row.doctor_id as string | undefined,
+    subscriptionTier: (row.subscription_tier as string) ?? 'premium',
+    isActive:         row.is_active as boolean,
+    lastLoginAt:      row.last_login_at as Date | null,
+    failedLogins:     row.failed_logins as number,
+    lockedUntil:      row.locked_until as Date | null,
+    version:          row.version as number,
   };
 }
 

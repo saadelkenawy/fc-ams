@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
+import { TIER_MODULES } from '@fadl/types';
+import type { ModuleId, SubscriptionTier } from '@fadl/types';
 
 // Pages that are always public
 const PUBLIC_PATHS = ['/login', '/api', '/module-unavailable'];
@@ -24,7 +26,7 @@ const ROLE_RULES: Array<{ pattern: RegExp; roles: string[] }> = [
 ];
 
 // Route → module ID (more specific routes first)
-const ROUTE_MODULE_MAP: Array<{ pattern: RegExp; moduleId: string }> = [
+const ROUTE_MODULE_MAP: Array<{ pattern: RegExp; moduleId: ModuleId }> = [
   { pattern: /^\/billing\/settlements(\/|$)/, moduleId: 'settlements' },
   { pattern: /^\/billing(\/|$)/,              moduleId: 'billing' },
   { pattern: /^\/appointments(\/|$)/,         moduleId: 'scheduling' },
@@ -36,14 +38,6 @@ const ROUTE_MODULE_MAP: Array<{ pattern: RegExp; moduleId: string }> = [
   { pattern: /^\/chatbot(\/|$)/,              moduleId: 'ai' },
   { pattern: /^\/integrations(\/|$)/,         moduleId: 'integrations' },
 ];
-
-type SubscriptionTier = 'basic' | 'standard' | 'premium';
-
-const TIER_MODULES: Record<SubscriptionTier, string[]> = {
-  basic:    ['patients', 'scheduling'],
-  standard: ['patients', 'scheduling', 'billing', 'settlements', 'ehr'],
-  premium:  ['patients', 'scheduling', 'billing', 'settlements', 'ehr', 'ai', 'analytics', 'telehealth', 'procurement', 'integrations'],
-};
 
 const VALID_TIERS = new Set<string>(['basic', 'standard', 'premium']);
 
@@ -103,16 +97,17 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Check module-level access based on subscription tier
-  if (tier) {
-    const enabledModules = TIER_MODULES[tier];
-    for (const { pattern, moduleId } of ROUTE_MODULE_MAP) {
-      if (pattern.test(pathname) && !enabledModules.includes(moduleId)) {
-        const url = request.nextUrl.clone();
-        url.pathname = '/module-unavailable';
-        url.searchParams.set('module', moduleId);
-        return NextResponse.redirect(url);
-      }
+  // Check module-level access based on subscription tier.
+  // Fall back to 'premium' for tokens issued before the subscriptionTier claim
+  // was introduced — gives existing sessions a one-rotation grace period.
+  const effectiveTier: SubscriptionTier = tier ?? 'premium';
+  const enabledModules = TIER_MODULES[effectiveTier];
+  for (const { pattern, moduleId } of ROUTE_MODULE_MAP) {
+    if (pattern.test(pathname) && !enabledModules.includes(moduleId)) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/module-unavailable';
+      url.searchParams.set('module', moduleId);
+      return NextResponse.redirect(url);
     }
   }
 

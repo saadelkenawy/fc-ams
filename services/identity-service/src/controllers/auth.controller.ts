@@ -113,7 +113,7 @@ export async function login(request: FastifyRequest, reply: FastifyReply): Promi
     role:             user.role as UserRole,
     branchId:         user.branchId,
     doctorId:         user.doctorId,
-    subscriptionTier: ((user as { subscriptionTier?: string }).subscriptionTier as SubscriptionTier | undefined) ?? 'premium',
+    subscriptionTier: user.subscriptionTier as SubscriptionTier,
     iat:              Math.floor(Date.now() / 1000),
     exp:              Math.floor(Date.now() / 1000) + 15 * 60,
   };
@@ -192,7 +192,7 @@ export async function refresh(request: FastifyRequest, reply: FastifyReply): Pro
     role:             user.role as UserRole,
     branchId:         user.branchId,
     doctorId:         user.doctorId,
-    subscriptionTier: ((user as { subscriptionTier?: string }).subscriptionTier as SubscriptionTier | undefined) ?? 'premium',
+    subscriptionTier: user.subscriptionTier as SubscriptionTier,
     iat:              Math.floor(Date.now() / 1000),
     exp:              Math.floor(Date.now() / 1000) + 15 * 60,
   };
