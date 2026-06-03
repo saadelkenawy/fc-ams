@@ -7,8 +7,11 @@ import { Button } from '@/components/ui/Button';
 import { StatCard } from '@/components/ui/StatCard';
 import { Badge } from '@/components/ui/Badge';
 import { useLang } from '@/contexts/LanguageContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 import { useAnalyticsOverview, useMonthlyRevenue, useSourceBreakdown, useSpecialtyBreakdown, useNoShowByDay, useTopDoctors } from '@/hooks/useAnalytics';
+import { useTransactions } from '@/hooks/useBilling';
+import { useAppointments } from '@/hooks/useAppointments';
 import type { MonthlyRevenue, SourceStat, SpecialtyStat, NoShowDay, DoctorStat } from '@/hooks/useAnalytics';
 
 const SOURCE_COLORS = ['#DC2626', '#F0623E', '#34D399', '#3B82F6', '#F59E0B', '#8B5CF6'];
@@ -133,10 +136,29 @@ function KpiSkeleton() {
 
 export default function AnalyticsPage() {
   const { lang, t } = useLang();
+  const { user } = useAuth();
+  const isDoctor = user?.role === 'doctor';
+  const doctorId = isDoctor ? (user?.doctorId ?? undefined) : undefined;
   const [period, setPeriod] = useState<Period>('month');
 
   const locale = lang === 'ar' ? 'ar-EG' : 'en-US';
 
+  const now = new Date();
+  const thisMonthFrom = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const thisMonthTo = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+  const today = now.toISOString().split('T')[0];
+
+  // Doctor-scoped data (used when isDoctor)
+  const { data: drTxData } = useTransactions({ doctorId, dateFrom: thisMonthFrom, dateTo: thisMonthTo, limit: 500 });
+  const { data: drApptData } = useAppointments({ doctorId, date: today, limit: 200 });
+  const drTransactions = drTxData?.data ?? [];
+  const drRevenue = drTransactions.filter((t) => t.paymentStatus === 'paid' || t.paymentStatus === 'reconciled').reduce((s, t) => s + t.approvedCharge, 0);
+  const drShare = drTransactions.filter((t) => t.paymentStatus === 'paid' || t.paymentStatus === 'reconciled').reduce((s, t) => s + t.doctorShare, 0);
+  const drApptCount = drApptData?.total ?? 0;
+  const drPending = drTransactions.filter((t) => t.paymentStatus === 'pending').reduce((s, t) => s + t.approvedCharge, 0);
+
+  // Clinic-wide data (used when !isDoctor)
   const { data: overview, isLoading: overviewLoading } = useAnalyticsOverview();
   const { data: monthlyRevenue = [], isLoading: revenueLoading } = useMonthlyRevenue(7);
   const { data: sourceBreakdown = [], isLoading: sourcesLoading } = useSourceBreakdown();
@@ -206,7 +228,34 @@ export default function AnalyticsPage() {
 
       {/* KPI row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {overviewLoading ? (
+        {isDoctor ? (
+          <>
+            <StatCard
+              title={t('إيراداتي هذا الشهر', 'My Revenue This Month')}
+              value={formatCurrency(drRevenue, 'EGP', locale)}
+              icon={<DollarSign className="w-5 h-5" />}
+              color="blue"
+            />
+            <StatCard
+              title={t('حصتي من الإيرادات', 'My Doctor Share')}
+              value={formatCurrency(drShare, 'EGP', locale)}
+              icon={<TrendingUp className="w-5 h-5" />}
+              color="emerald"
+            />
+            <StatCard
+              title={t('مواعيد اليوم', "Today's Appointments")}
+              value={formatNumber(drApptCount, locale)}
+              icon={<Calendar className="w-5 h-5" />}
+              color="violet"
+            />
+            <StatCard
+              title={t('مستحق معلق', 'Pending Collection')}
+              value={formatCurrency(drPending, 'EGP', locale)}
+              icon={<Activity className="w-5 h-5" />}
+              color="amber"
+            />
+          </>
+        ) : overviewLoading ? (
           Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="rounded-xl p-5 border bg-white dark:bg-neutral-900 border-gray-100 dark:border-neutral-800 shadow-1">
               <KpiSkeleton />
@@ -246,8 +295,8 @@ export default function AnalyticsPage() {
         )}
       </div>
 
-      {/* Revenue chart + source breakdown */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      {/* Revenue chart + source breakdown — clinic-wide, hidden for doctors */}
+      {!isDoctor && <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <Card className="lg:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>{t('الإيرادات الشهرية', 'Monthly Revenue')}</CardTitle>
@@ -321,7 +370,7 @@ export default function AnalyticsPage() {
             )}
           </CardContent>
         </Card>
-      </div>
+      </div>}
 
       {/* Specialty breakdown */}
       <Card>
@@ -422,48 +471,72 @@ export default function AnalyticsPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader><CardTitle>{t('أعلى الأطباء إيراداً', 'Top Doctors by Revenue')}</CardTitle></CardHeader>
-          <CardContent>
-            {topDoctorsLoading ? (
-              <div className="space-y-3">
-                {[...Array(5)].map((_, i) => <div key={i} className="h-8 animate-pulse bg-gray-100 dark:bg-neutral-700 rounded" />)}
+        {isDoctor ? (
+          <Card>
+            <CardHeader><CardTitle>{t('أدائي هذا الشهر', 'My Performance This Month')}</CardTitle></CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex justify-between text-sm py-2 border-b border-gray-50 dark:border-neutral-700">
+                <span className="text-gray-500 dark:text-gray-400">{t('إجمالي المعاملات', 'Total Transactions')}</span>
+                <span className="font-mono font-semibold text-gray-900 dark:text-gray-100">{formatNumber(drTransactions.length, locale)}</span>
               </div>
-            ) : (
-              <div className="space-y-3">
-                {topDoctors.map((dr: DoctorStat, idx: number) => {
-                  const maxRev = topDoctors[0]?.revenue ?? 1;
-                  return (
-                    <div key={dr.doctorId} className="flex items-center gap-3">
-                      <span className="text-xs font-bold text-gray-300 dark:text-gray-600 w-4">
-                        {formatNumber(idx + 1, locale)}
-                      </span>
-                      <div className="flex-1">
-                        <div className="flex justify-between text-xs mb-1">
-                          <span className="font-medium text-gray-800 dark:text-gray-200">
-                            {lang === 'ar' ? dr.nameAr : dr.nameEn}
-                          </span>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] text-gray-400">{formatNumber(dr.appointments, locale)} appts</span>
-                            <span className="font-mono tabular-nums text-gray-700 dark:text-gray-300">
-                              {formatCurrency(dr.revenue, 'EGP', locale)}
+              <div className="flex justify-between text-sm py-2 border-b border-gray-50 dark:border-neutral-700">
+                <span className="text-gray-500 dark:text-gray-400">{t('الإيرادات المحصلة', 'Collected Revenue')}</span>
+                <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(drRevenue, 'EGP', locale)}</span>
+              </div>
+              <div className="flex justify-between text-sm py-2 border-b border-gray-50 dark:border-neutral-700">
+                <span className="text-gray-500 dark:text-gray-400">{t('حصتي', 'My Share')}</span>
+                <span className="font-mono font-semibold text-primary-600 dark:text-primary-400">{formatCurrency(drShare, 'EGP', locale)}</span>
+              </div>
+              <div className="flex justify-between text-sm py-2">
+                <span className="text-gray-500 dark:text-gray-400">{t('معلق التحصيل', 'Pending')}</span>
+                <span className="font-mono font-semibold text-amber-600 dark:text-amber-400">{formatCurrency(drPending, 'EGP', locale)}</span>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardHeader><CardTitle>{t('أعلى الأطباء إيراداً', 'Top Doctors by Revenue')}</CardTitle></CardHeader>
+            <CardContent>
+              {topDoctorsLoading ? (
+                <div className="space-y-3">
+                  {[...Array(5)].map((_, i) => <div key={i} className="h-8 animate-pulse bg-gray-100 dark:bg-neutral-700 rounded" />)}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {topDoctors.map((dr: DoctorStat, idx: number) => {
+                    const maxRev = topDoctors[0]?.revenue ?? 1;
+                    return (
+                      <div key={dr.doctorId} className="flex items-center gap-3">
+                        <span className="text-xs font-bold text-gray-300 dark:text-gray-600 w-4">
+                          {formatNumber(idx + 1, locale)}
+                        </span>
+                        <div className="flex-1">
+                          <div className="flex justify-between text-xs mb-1">
+                            <span className="font-medium text-gray-800 dark:text-gray-200">
+                              {lang === 'ar' ? dr.nameAr : dr.nameEn}
                             </span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] text-gray-400">{formatNumber(dr.appointments, locale)} appts</span>
+                              <span className="font-mono tabular-nums text-gray-700 dark:text-gray-300">
+                                {formatCurrency(dr.revenue, 'EGP', locale)}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="h-2 bg-gray-100 dark:bg-neutral-700 rounded-full overflow-hidden">
+                            <div
+                              className="h-full w-full bg-primary-600 origin-left transition-transform duration-500"
+                              style={{ transform: `scaleX(${dr.revenue / maxRev})` }}
+                            />
                           </div>
                         </div>
-                        <div className="h-2 bg-gray-100 dark:bg-neutral-700 rounded-full overflow-hidden">
-                          <div
-                            className="h-full w-full bg-primary-600 origin-left transition-transform duration-500"
-                            style={{ transform: `scaleX(${dr.revenue / maxRev})` }}
-                          />
-                        </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );

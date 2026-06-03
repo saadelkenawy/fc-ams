@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { useLang } from '@/contexts/LanguageContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 import { useTransactions, useSettlements } from '@/hooks/useBilling';
 import { useDoctors, useSpecialties } from '@/hooks/useDoctors';
@@ -323,11 +324,12 @@ function FinancialReport({ lang, locale, from, to }: { lang: string; locale: str
 }
 
 /* ──────────────── Doctor Settlements ──────────────── */
-function SettlementsReport({ lang, locale, from, to }: { lang: string; locale: string; from: string; to: string }) {
+function SettlementsReport({ lang, locale, from, to, doctorId }: { lang: string; locale: string; from: string; to: string; doctorId?: string }) {
   const { data, isLoading, isError } = useSettlements({ from, to });
   const { data: doctorsData } = useDoctors({ limit: 100 });
   const allDoctors = doctorsData?.data ?? [];
-  const settlements = data?.data ?? [];
+  const rawSettlements = data?.data ?? [];
+  const settlements = doctorId ? rawSettlements.filter((s: DoctorSettlement) => s.doctorId === doctorId) : rawSettlements;
   const [settlBodyRef] = useAutoAnimate();
 
   if (isLoading) return (
@@ -622,9 +624,9 @@ function SourcesReport({ lang, locale, from, to }: { lang: string; locale: strin
 }
 
 /* ──────────────── Activity Report ──────────────── */
-function ActivityReport({ lang, locale, from, to }: { lang: string; locale: string; from: string; to: string }) {
+function ActivityReport({ lang, locale, from, to, doctorId }: { lang: string; locale: string; from: string; to: string; doctorId?: string }) {
   const { data: doctorsData } = useDoctors({ limit: 100 });
-  const { data, isLoading, isError } = useTransactions({ limit: 500, dateFrom: from, dateTo: to });
+  const { data, isLoading, isError } = useTransactions({ limit: 500, dateFrom: from, dateTo: to, doctorId });
   const txns = (data?.data ?? []).filter((t) =>
     t.paymentStatus === 'approved' || t.paymentStatus === 'paid' || t.paymentStatus === 'reconciled',
   );
@@ -922,7 +924,15 @@ function SpecialtiesReport({ lang, locale }: { lang: string; locale: string }) {
 /* ──────────────── Page ──────────────── */
 export default function ReportsPage() {
   const { lang, t } = useLang();
-  const [tab, setTab]           = useState<ReportTab>('financial');
+  const { user } = useAuth();
+  const isDoctor  = user?.role === 'doctor';
+  const doctorId  = isDoctor ? (user?.doctorId ?? undefined) : undefined;
+
+  const visibleTabs = isDoctor
+    ? REPORT_TABS.filter((rt) => rt.key === 'settlements' || rt.key === 'activity')
+    : REPORT_TABS;
+
+  const [tab, setTab] = useState<ReportTab>(() => isDoctor ? 'activity' : 'financial');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const locale = lang === 'ar' ? 'ar-EG' : 'en-US';
   const qc = useQueryClient();
@@ -1076,7 +1086,7 @@ export default function ReportsPage() {
 
       {/* Tab bar */}
       <div className="flex flex-wrap gap-1 p-1 bg-white dark:bg-neutral-800 rounded-xl shadow-1 border border-gray-100 dark:border-neutral-700 w-fit">
-        {REPORT_TABS.map((rt) => {
+        {visibleTabs.map((rt) => {
           const Icon   = rt.iconEl;
           const active = tab === rt.key;
           return (
@@ -1099,9 +1109,9 @@ export default function ReportsPage() {
       </div>
 
       {tab === 'financial'   && <FinancialReport   lang={lang} locale={locale} from={from} to={to} />}
-      {tab === 'settlements' && <SettlementsReport lang={lang} locale={locale} from={from} to={to} />}
+      {tab === 'settlements' && <SettlementsReport lang={lang} locale={locale} from={from} to={to} doctorId={doctorId} />}
       {tab === 'sources'     && <SourcesReport     lang={lang} locale={locale} from={from} to={to} />}
-      {tab === 'activity'    && <ActivityReport    lang={lang} locale={locale} from={from} to={to} />}
+      {tab === 'activity'    && <ActivityReport    lang={lang} locale={locale} from={from} to={to} doctorId={doctorId} />}
       {tab === 'trends'      && <TrendsReport      lang={lang} locale={locale} />}
       {tab === 'specialties' && <SpecialtiesReport lang={lang} locale={locale} />}
     </div>
