@@ -87,7 +87,51 @@ pipeline {
             }
         }
 
-        // ── 2. Build each changed service image ──────────────────────────────
+        // ── 2. Run tests + generate lcov coverage reports ────────────────────
+        stage('Test & Coverage') {
+            when { expression { env.BUILD_LIST?.trim() } }
+            steps {
+                script {
+                    // Map build-context path → pnpm workspace package name and run
+                    // test:coverage only for changed services to keep CI fast.
+                    env.BUILD_LIST.split(';').each { entry ->
+                        def ctx = entry.split('\\|')[1]
+                        // "services/identity-service" → "@fadl/identity-service"
+                        // "frontend/web-portal"       → "@fadl/web-portal"
+                        def pkg = ctx.replaceFirst('^services/', '@fadl/').replaceFirst('^frontend/', '@fadl/')
+                        sh "pnpm --filter '${pkg}' run test:coverage"
+                    }
+                }
+            }
+        }
+
+        // ── 3. SonarQube static analysis ─────────────────────────────────────
+        stage('SonarQube Analysis') {
+            when { expression { env.BUILD_LIST?.trim() } }
+            steps {
+                withSonarQubeEnv('SonarQube-FCMS') {
+                    // sonar-project.properties at repo root drives the multi-module scan.
+                    // SONAR_HOST_URL and SONAR_AUTH_TOKEN are injected by the plugin —
+                    // they are never hardcoded here.
+                    sh "sonar-scanner -Dsonar.projectVersion=${env.BUILD_TAG}"
+                }
+            }
+        }
+
+        // ── 4. Quality gate — blocks Build Images on failure ──────────────────
+        stage('Quality Gate') {
+            when { expression { env.BUILD_LIST?.trim() } }
+            steps {
+                // 5-minute timeout prevents a hung webhook from blocking the runner.
+                // abortPipeline: true → gate FAILURE stops the pipeline here so
+                // broken code never reaches Docker Hub or the K8s cluster.
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+
+        // ── 5. Build each changed service image ──────────────────────────────
         stage('Build Images') {
             when { expression { env.BUILD_LIST?.trim() } }
             steps {

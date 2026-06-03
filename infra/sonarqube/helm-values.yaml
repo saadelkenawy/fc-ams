@@ -1,0 +1,68 @@
+# SonarSource Helm chart overrides for fadl-testing namespace
+# Chart: sonarqube/sonarqube  https://SonarSource.github.io/helm-chart-sonarqube
+#
+# Install:
+#   helm repo add sonarqube https://SonarSource.github.io/helm-chart-sonarqube
+#   helm repo update
+#   helm upgrade --install sonarqube sonarqube/sonarqube \
+#     -n fadl-testing --create-namespace \
+#     -f infra/sonarqube/helm-values.yaml
+
+edition: community
+
+# Disable bundled PostgreSQL — use the external PG cluster
+postgresql:
+  enabled: false
+
+jdbcOverwrite:
+  enable: true
+  # Connects directly (not via PgBouncer) because SonarQube uses prepared statements
+  jdbcUrl: "jdbc:postgresql://postgres.fadl-testing.svc:5432/fadl_sonar"
+  jdbcUsername: sonar
+  # Password read from existing K8s secret:
+  #   kubectl create secret generic sonarqube-db-secret \
+  #     -n fadl-testing --from-literal=password=<SONAR_DB_PASSWORD>
+  jdbcSecretName: sonarqube-db-secret
+  jdbcSecretPasswordKey: password
+
+deploymentType: Deployment
+
+replicaCount: 1
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 2Gi
+  limits:
+    cpu: 2000m
+    memory: 3Gi
+
+persistence:
+  enabled: true
+  size: 5Gi
+
+ingress:
+  enabled: true
+  ingressClassName: nginx
+  hosts:
+    - name: sonar.fadl-testing.local
+      path: /
+
+# SonarQube requires vm.max_map_count on the node — set via initContainer
+initSysctl:
+  enabled: true
+  vmMaxMapCount: 524288
+  fsFileMax: 131072
+  nofile: 131072
+  privileged: true
+
+# Liveness / readiness — SonarQube takes ~2 min to start
+livenessProbe:
+  initialDelaySeconds: 120
+  periodSeconds: 30
+  failureThreshold: 5
+
+readinessProbe:
+  initialDelaySeconds: 60
+  periodSeconds: 15
+  failureThreshold: 10

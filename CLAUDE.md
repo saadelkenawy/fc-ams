@@ -131,6 +131,13 @@ Current plan: [specs/001-modular-architecture-feature-flags/plan.md](specs/001-m
 
 Feature: Modular Architecture & Feature Flagging — subscription tiers, developer unlock JWT, K8s deployment.
 See also: [spec](specs/001-modular-architecture-feature-flags/spec.md) · [research](specs/001-modular-architecture-feature-flags/research.md) · [data-model](specs/001-modular-architecture-feature-flags/data-model.md) · [contracts](specs/001-modular-architecture-feature-flags/contracts/)
+
+### Planned Feature
+
+Planned plan: [specs/002-sonarqube-code-quality/plan.md](specs/002-sonarqube-code-quality/plan.md)
+
+Feature: SonarQube Code Quality Integration — multi-module monorepo scan, Jenkins quality gate, lcov coverage, Docker + K8s deployment.
+See also: [research](specs/002-sonarqube-code-quality/research.md) · [data-model](specs/002-sonarqube-code-quality/data-model.md) · [contracts](specs/002-sonarqube-code-quality/contracts/) · [quickstart](specs/002-sonarqube-code-quality/quickstart.md)
 <!-- SPECKIT END -->
 
 ### Key business rules
