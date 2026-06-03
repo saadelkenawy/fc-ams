@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
         - name: analytics-service
-          image: fadl/analytics-service:latest
+          image: saadelkenawy/fcms-analytics-service:latest
           ports:
             - containerPort: 3009
           env:

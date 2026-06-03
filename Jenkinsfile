@@ -6,10 +6,15 @@ pipeline {
     }
 
     environment {
-        DOCKERHUB_USER = 'saadelkenawy'
-        DOCKERHUB_CRED = 'dockerhub-creds'   // Jenkins credential ID
-        PREPROD_HOST   = 'preprod.fadlclinic.local'
-        PROD_HOST      = 'prod.fadlclinic.local'
+        DOCKERHUB_USER  = 'saadelkenawy'
+        DOCKERHUB_CRED  = 'dockerhub-creds'         // Jenkins credential ID
+        PREPROD_HOST    = 'preprod.fadlclinic.local'
+        PROD_HOST       = 'prod.fadlclinic.local'
+
+        // ── Feature branch / K8s testing ─────────────────────────────────────
+        FEATURE_BRANCH  = '001-modular-architecture-feature-flags'
+        K8S_NAMESPACE   = 'fadl-testing'
+        K8S_CRED        = 'k8s-testing-kubeconfig'  // Jenkins secret-file credential
     }
 
     stages {
@@ -48,6 +53,10 @@ pipeline {
                     def allServices = serviceMap.values().toList()
                     def toBuild = [] as LinkedHashSet
 
+                    // Track whether any k8s manifest changed (triggers cluster apply)
+                    def k8sChanged = changed.any { it.startsWith('k8s/') }
+                    env.DEPLOY_K8S = k8sChanged ? 'true' : 'false'
+
                     changed.each { file ->
                         // shared/ or root config change → rebuild everything
                         if (file.startsWith('shared/') || file == 'pnpm-workspace.yaml' || file == 'tsconfig.base.json') {
@@ -61,15 +70,19 @@ pipeline {
                         }
                     }
 
-                    if (toBuild.isEmpty()) {
+                    def onFeatureBranch = env.BRANCH_NAME == env.FEATURE_BRANCH
+                    def hasWork = !toBuild.isEmpty() || (onFeatureBranch && k8sChanged)
+
+                    if (!hasWork) {
                         echo "No service-related changes detected — skipping build."
                         currentBuild.result = 'NOT_BUILT'
                         return
                     }
 
-                    env.BUILD_TAG = env.GIT_COMMIT.take(8)
+                    env.BUILD_TAG  = env.GIT_COMMIT.take(8)
                     env.BUILD_LIST = toBuild.collect { "${it.name}|${it.ctx}" }.join(';')
-                    echo "Will build: ${toBuild.collect { it.name }.join(', ')}"
+                    echo "Will build: ${toBuild.isEmpty() ? '(none)' : toBuild.collect { it.name }.join(', ')}"
+                    echo "K8s manifests changed: ${k8sChanged}"
                 }
             }
         }
@@ -119,7 +132,93 @@ pipeline {
             }
         }
 
-        // ── 4. Deploy to Pre-Production ──────────────────────────────────────
+        // ── 4. Deploy → K8s Testing (feature branch only) ────────────────────
+        //    Applies the full k8s/testing/ manifest set and pins each rebuilt
+        //    service to the exact image tag produced in this build.
+        stage('Deploy → K8s Testing') {
+            when {
+                allOf {
+                    expression { env.BRANCH_NAME == env.FEATURE_BRANCH }
+                    expression { env.BUILD_LIST?.trim() || env.DEPLOY_K8S == 'true' }
+                }
+            }
+            steps {
+                withCredentials([file(credentialsId: env.K8S_CRED, variable: 'KUBECONFIG')]) {
+                    script {
+                        // Apply infrastructure first (namespace, configmap, redis)
+                        sh """
+                            kubectl apply -f k8s/testing/namespace.yaml
+                            kubectl apply -f k8s/testing/configmap-feature-flags.yaml
+                            kubectl apply -f k8s/testing/redis.yaml -n ${env.K8S_NAMESPACE}
+                        """
+
+                        // Apply service deployments + HPAs
+                        sh """
+                            kubectl apply -f k8s/testing/identity-service.yaml    -n ${env.K8S_NAMESPACE}
+                            kubectl apply -f k8s/testing/patient-service.yaml     -n ${env.K8S_NAMESPACE}
+                            kubectl apply -f k8s/testing/doctor-service.yaml      -n ${env.K8S_NAMESPACE}
+                            kubectl apply -f k8s/testing/appointment-service.yaml -n ${env.K8S_NAMESPACE}
+                            kubectl apply -f k8s/testing/billing-service.yaml     -n ${env.K8S_NAMESPACE}
+                            kubectl apply -f k8s/testing/ehr-service.yaml         -n ${env.K8S_NAMESPACE}
+                            kubectl apply -f k8s/testing/ai-chatbot-service.yaml  -n ${env.K8S_NAMESPACE}
+                            kubectl apply -f k8s/testing/analytics-service.yaml   -n ${env.K8S_NAMESPACE}
+                            kubectl apply -f k8s/testing/web-portal.yaml          -n ${env.K8S_NAMESPACE}
+                        """
+
+                        // Apply ingress last (depends on services existing)
+                        sh "kubectl apply -f k8s/testing/ingress.yaml -n ${env.K8S_NAMESPACE}"
+
+                        // Pin each rebuilt service to the exact build-tag image so
+                        // the cluster reflects this commit's build precisely.
+                        if (env.BUILD_LIST?.trim()) {
+                            // Map: fcms image name → k8s deployment/container name
+                            def imageToDeployment = [
+                                'fcms-identity-service'   : 'identity-service',
+                                'fcms-appointment-service': 'appointment-service',
+                                'fcms-patient-service'    : 'patient-service',
+                                'fcms-doctor-service'     : 'doctor-service',
+                                'fcms-billing-service'    : 'billing-service',
+                                'fcms-ehr-service'        : 'ehr-service',
+                                'fcms-ai-chatbot-service' : 'ai-chatbot-service',
+                                'fcms-analytics-service'  : 'analytics-service',
+                                'fcms-web-portal'         : 'web-portal',
+                            ]
+
+                            env.BUILD_LIST.split(';').each { entry ->
+                                def imageName = entry.split('\\|')[0]
+                                def deployment = imageToDeployment[imageName]
+                                if (deployment) {
+                                    def fullImage = "${env.DOCKERHUB_USER}/${imageName}:${env.BUILD_TAG}"
+                                    sh """
+                                        kubectl set image deployment/${deployment} \
+                                            ${deployment}=${fullImage} \
+                                            -n ${env.K8S_NAMESPACE}
+                                    """
+                                    echo "Pinned ${deployment} → ${fullImage}"
+                                }
+                            }
+                        }
+
+                        // Wait for all deployments to finish rolling out
+                        sh """
+                            kubectl rollout status deployment/identity-service    -n ${env.K8S_NAMESPACE} --timeout=120s
+                            kubectl rollout status deployment/appointment-service -n ${env.K8S_NAMESPACE} --timeout=120s
+                            kubectl rollout status deployment/patient-service     -n ${env.K8S_NAMESPACE} --timeout=120s
+                            kubectl rollout status deployment/doctor-service      -n ${env.K8S_NAMESPACE} --timeout=120s
+                            kubectl rollout status deployment/billing-service     -n ${env.K8S_NAMESPACE} --timeout=120s
+                            kubectl rollout status deployment/ehr-service         -n ${env.K8S_NAMESPACE} --timeout=120s
+                            kubectl rollout status deployment/ai-chatbot-service  -n ${env.K8S_NAMESPACE} --timeout=120s
+                            kubectl rollout status deployment/analytics-service   -n ${env.K8S_NAMESPACE} --timeout=120s
+                            kubectl rollout status deployment/web-portal          -n ${env.K8S_NAMESPACE} --timeout=180s
+                        """
+
+                        echo "K8s testing cluster updated — http://fadl-testing.local"
+                    }
+                }
+            }
+        }
+
+        // ── 5. Deploy → Pre-Production ───────────────────────────────────────
         stage('Deploy → Pre-Prod') {
             when {
                 allOf {
@@ -144,7 +243,7 @@ pipeline {
             }
         }
 
-        // ── 5. Deploy to Production ───────────────────────────────────────────
+        // ── 6. Deploy → Production ───────────────────────────────────────────
         stage('Deploy → Production') {
             when {
                 allOf {
@@ -171,7 +270,7 @@ pipeline {
             }
         }
 
-        // ── 6. Clean up Jenkins build server — remove built images + dangling layers ──
+        // ── 7. Clean up Jenkins build server ─────────────────────────────────
         stage('Cleanup') {
             when { expression { env.BUILD_LIST?.trim() } }
             steps {
@@ -195,7 +294,7 @@ pipeline {
             echo "All images pushed to https://hub.docker.com/u/${env.DOCKERHUB_USER}"
             script {
                 if (env.BUILD_LIST?.trim()) {
-                    // Strip "fcms-" prefix from image names to match fcms-deploy's SERVICES format
+                    // Trigger local dev deploy on every successful build
                     def deployServices = env.BUILD_LIST.split(';').collect { entry ->
                         entry.split('\\|')[0].replaceFirst('^fcms-', '')
                     }.join(',')
@@ -208,6 +307,10 @@ pipeline {
                               string(name: 'DEPLOY_TARGET', value: 'local'),
                               string(name: 'SERVICES',      value: deployServices)
                           ]
+                }
+
+                if (env.BRANCH_NAME == env.FEATURE_BRANCH) {
+                    echo "Feature branch demo available at: http://fadl-testing.local"
                 }
             }
         }

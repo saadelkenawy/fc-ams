@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
         - name: ai-chatbot-service
-          image: fadl/ai-chatbot-service:latest
+          image: saadelkenawy/fcms-ai-chatbot-service:latest
           ports:
             - containerPort: 3008
           env:

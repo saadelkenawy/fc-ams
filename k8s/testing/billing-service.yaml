@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
         - name: billing-service
-          image: fadl/billing-service:latest
+          image: saadelkenawy/fcms-billing-service:latest
           ports:
             - containerPort: 3004
           env:

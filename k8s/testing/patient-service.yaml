@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
         - name: patient-service
-          image: fadl/patient-service:latest
+          image: saadelkenawy/fcms-patient-service:latest
           ports:
             - containerPort: 3002
           env:

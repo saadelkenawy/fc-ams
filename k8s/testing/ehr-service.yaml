@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
         - name: ehr-service
-          image: fadl/ehr-service:latest
+          image: saadelkenawy/fcms-ehr-service:latest
           ports:
             - containerPort: 3005
           env:

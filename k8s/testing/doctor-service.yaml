@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
         - name: doctor-service
-          image: fadl/doctor-service:latest
+          image: saadelkenawy/fcms-doctor-service:latest
           ports:
             - containerPort: 3003
           env:
