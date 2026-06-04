@@ -680,7 +680,7 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
         ? (session.language === 'ar' ? 'يرجى كتابة الاسم الكامل للمريض.' : 'Please enter the patient full name.')
         : (session.language === 'ar' ? 'تم إلغاء البحث. كيف يمكنني مساعدتك؟' : 'Search cancelled. How can I help you?');
       await repo.saveMessage(session.id, 'assistant', cancelMsg, {});
-      return reply.send({ success: true, data: { sessionId: session.id, reply: cancelMsg, action: null, language: session.language } });
+      reply.send({ success: true, data: { sessionId: session.id, reply: cancelMsg, action: null, language: session.language } });
       return;
     }
 
@@ -712,7 +712,7 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
         ? 'تعذّر البحث. يرجى المحاولة مرة أخرى.'
         : 'Search failed. Please try again.';
       await repo.saveMessage(session.id, 'assistant', errMsg, {});
-      return reply.send({ success: true, data: { sessionId: session.id, reply: errMsg, action: null, language: session.language } });
+      reply.send({ success: true, data: { sessionId: session.id, reply: errMsg, action: null, language: session.language } });
       return;
     }
 
@@ -735,7 +735,7 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
           ? `لم يُعثر على مريض برقم الجوال هذا.\n\nيمكنك تسجيل "${origPatientName}" كمريض جديد. أدخل رقم جواله (أو رقماً مختلفاً)، أو اكتب "إلغاء" للرجوع.`
           : `No patient found with that mobile.\n\nYou can register "${origPatientName}" as a new patient. Enter their mobile number (or a different one), or type "cancel" to go back.`;
         await repo.saveMessage(session.id, 'assistant', notFoundMsg, {});
-        return reply.send({ success: true, data: { sessionId: session.id, reply: notFoundMsg, action: null, language: session.language } });
+        reply.send({ success: true, data: { sessionId: session.id, reply: notFoundMsg, action: null, language: session.language } });
         return;
       }
 
@@ -750,7 +750,7 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
         ? `لم يُعثر على مريض باسم "${fullName}".\n\nهل تريد تسجيله كمريض جديد؟ أدخل رقم جواله لإتمام التسجيل.\n(أو اكتب "إلغاء" للرجوع)`
         : `No patient found with name "${fullName}".\n\nWould you like to register them as a new patient? Enter their mobile number to proceed.\n(Or type "cancel" to go back)`;
       await repo.saveMessage(session.id, 'assistant', createPrompt, {});
-      return reply.send({ success: true, data: { sessionId: session.id, reply: createPrompt, action: null, language: session.language } });
+      reply.send({ success: true, data: { sessionId: session.id, reply: createPrompt, action: null, language: session.language } });
       return;
     }
 
@@ -766,7 +766,7 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
             ? `This name is very common. Please enter the full three- or four-part name, or enter the patient's mobile number to search directly.`
             : `Still multiple patients found:\n${candidateList}\n\nPlease enter the full name more precisely, or enter the patient's mobile number to search directly.`);
       await repo.saveMessage(session.id, 'assistant', stillAmbig, {});
-      return reply.send({ success: true, data: { sessionId: session.id, reply: stillAmbig, action: null, language: session.language } });
+      reply.send({ success: true, data: { sessionId: session.id, reply: stillAmbig, action: null, language: session.language } });
       return;
     }
 
@@ -783,7 +783,7 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
       ? `تم تحديد المريض: ${displayName}\n\nتفاصيل الموعد:\n• المريض: ${displayName}\n• الطبيب: ${origAction.doctor}\n• التاريخ: ${origAction.date}\n• الوقت: ${origAction.time}\n\nكم تعرفة الجلسة؟ (أدخل المبلغ بالجنيه)`
       : `Patient confirmed: ${foundPatient.nameEn}\n\nAppointment details:\n• Patient: ${foundPatient.nameEn}\n• Doctor: ${origAction.doctor}\n• Date: ${origAction.date}\n• Time: ${origAction.time}\n\nWhat is the session fee? (enter amount in EGP)`;
     await repo.saveMessage(session.id, 'assistant', paymentQ, {});
-    return reply.send({ success: true, data: { sessionId: session.id, reply: paymentQ, action: null, language: session.language } });
+    reply.send({ success: true, data: { sessionId: session.id, reply: paymentQ, action: null, language: session.language } });
     return;
   }
 
@@ -806,7 +806,7 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
         ? `تم تحديد المريض: ${conflictName}\n\nتفاصيل الموعد:\n• المريض: ${conflictName}\n• الطبيب: ${origAction.doctor}\n• التاريخ: ${origAction.date}\n• الوقت: ${origAction.time}\n\nكم تعرفة الجلسة؟ (أدخل المبلغ بالجنيه)`
         : `Patient confirmed: ${conflictPatient.nameEn}\n\nAppointment details:\n• Patient: ${conflictPatient.nameEn}\n• Doctor: ${origAction.doctor}\n• Date: ${origAction.date}\n• Time: ${origAction.time}\n\nWhat is the session fee? (enter amount in EGP)`;
       await repo.saveMessage(session.id, 'assistant', paymentQ, {});
-      return reply.send({ success: true, data: { sessionId: session.id, reply: paymentQ, action: null, language: session.language } });
+      reply.send({ success: true, data: { sessionId: session.id, reply: paymentQ, action: null, language: session.language } });
       return;
     }
 
@@ -821,7 +821,7 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
         ? 'يرجى إدخال رقم جوال مختلف للمريض الجديد.'
         : 'Please enter a different mobile number for the new patient.';
       await repo.saveMessage(session.id, 'assistant', askDiff, {});
-      return reply.send({ success: true, data: { sessionId: session.id, reply: askDiff, action: null, language: session.language } });
+      reply.send({ success: true, data: { sessionId: session.id, reply: askDiff, action: null, language: session.language } });
       return;
     }
 
@@ -830,7 +830,7 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
       ? `يرجى الرد بـ "نعم" لحجز الموعد للمريض "${conflictName}" أو "لا" لإدخال رقم جوال مختلف.`
       : `Please reply "yes" to book for patient "${conflictPatient.nameEn}" or "no" to enter a different mobile number.`;
     await repo.saveMessage(session.id, 'assistant', clarify, {});
-    return reply.send({ success: true, data: { sessionId: session.id, reply: clarify, action: null, language: session.language } });
+    reply.send({ success: true, data: { sessionId: session.id, reply: clarify, action: null, language: session.language } });
     return;
   }
 
@@ -845,7 +845,7 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
         ? 'تم إلغاء التسجيل. كيف يمكنني مساعدتك؟'
         : 'Registration cancelled. How can I help you?';
       await repo.saveMessage(session.id, 'assistant', cancelMsg, {});
-      return reply.send({ success: true, data: { sessionId: session.id, reply: cancelMsg, action: null, language: session.language } });
+      reply.send({ success: true, data: { sessionId: session.id, reply: cancelMsg, action: null, language: session.language } });
       return;
     }
 
@@ -855,7 +855,7 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
         ? 'رقم الجوال غير صحيح. يرجى إدخال رقم مصري صحيح (مثال: 01012345678).'
         : 'Invalid mobile number. Please enter a valid Egyptian number (e.g., 01012345678).';
       await repo.saveMessage(session.id, 'assistant', retry, {});
-      return reply.send({ success: true, data: { sessionId: session.id, reply: retry, action: null, language: session.language } });
+      reply.send({ success: true, data: { sessionId: session.id, reply: retry, action: null, language: session.language } });
       return;
     }
 
@@ -888,7 +888,7 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
         ? `✅ تم تسجيل المريض "${displayName}" بنجاح!\n\nتفاصيل الموعد:\n• المريض: ${displayName}\n• الطبيب: ${origAction.doctor}\n• التاريخ: ${origAction.date}\n• الوقت: ${origAction.time}\n\nكم تعرفة الجلسة؟ (أدخل المبلغ بالجنيه)`
         : `✅ Patient "${newPatient.nameEn}" registered successfully!\n\nAppointment details:\n• Patient: ${newPatient.nameEn}\n• Doctor: ${origAction.doctor}\n• Date: ${origAction.date}\n• Time: ${origAction.time}\n\nWhat is the session fee? (enter amount in EGP)`;
       await repo.saveMessage(session.id, 'assistant', paymentQ, {});
-      return reply.send({ success: true, data: { sessionId: session.id, reply: paymentQ, action: null, language: session.language } });
+      reply.send({ success: true, data: { sessionId: session.id, reply: paymentQ, action: null, language: session.language } });
       return;
     }
 
@@ -914,7 +914,7 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
             ? `رقم الجوال ${mobile} مسجل بالفعل للمريض "${existingName}".\nهل تريد حجز الموعد لهذا المريض؟ (نعم / لا — أو أدخل رقماً مختلفاً)`
             : `Mobile ${mobile} is already registered to patient "${existingPatient.nameEn}".\nBook for this patient instead? (yes / no — or enter a different mobile)`;
           await repo.saveMessage(session.id, 'assistant', conflictMsg, {});
-          return reply.send({ success: true, data: { sessionId: session.id, reply: conflictMsg, action: null, language: session.language } });
+          reply.send({ success: true, data: { sessionId: session.id, reply: conflictMsg, action: null, language: session.language } });
           return;
         }
       }
@@ -925,7 +925,7 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
       ? `فشل تسجيل المريض: ${errMsg}. يرجى المحاولة مرة أخرى أو اكتب "إلغاء".`
       : `Patient registration failed: ${errMsg}. Please try again or type "cancel".`;
     await repo.saveMessage(session.id, 'assistant', errReply, {});
-    return reply.send({ success: true, data: { sessionId: session.id, reply: errReply, action: null, language: session.language } });
+    reply.send({ success: true, data: { sessionId: session.id, reply: errReply, action: null, language: session.language } });
     return;
   }
   // ─────────────────────────────────────────────────────────────────────────
@@ -943,7 +943,7 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
         ? `لم أتمكن من التعرف على التخصص. يرجى اختيار تخصص من القائمة:\n${specialtyList}`
         : `Could not recognise that specialty. Please choose from:\n${specialtyList}`;
       await repo.saveMessage(session.id, 'assistant', clarify, {});
-      return reply.send({ success: true, data: { sessionId: session.id, reply: clarify, action: null, language: session.language } });
+      reply.send({ success: true, data: { sessionId: session.id, reply: clarify, action: null, language: session.language } });
       return;
     }
 
@@ -953,7 +953,7 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
     const result = await fetchDoctorsBySpecialty(specialtyId, authToken, session.language);
     const actionResult = { action: 'list_doctors', specialtyId, result: 'executed' };
     await repo.saveMessage(session.id, 'assistant', result, { action: actionResult });
-    return reply.send({ success: true, data: { sessionId: session.id, reply: result, action: actionResult, language: session.language } });
+    reply.send({ success: true, data: { sessionId: session.id, reply: result, action: actionResult, language: session.language } });
     return;
   }
 
@@ -968,7 +968,7 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
         ? 'عذراً، حجز المواعيد مقتصر على موظفي الاستقبال والمسؤولين.'
         : 'Sorry, booking appointments is restricted to receptionists and admins.';
       await repo.saveMessage(session.id, 'assistant', denied, {});
-      return reply.send({ success: true, data: { sessionId: session.id, reply: denied, action: null, language: session.language } });
+      reply.send({ success: true, data: { sessionId: session.id, reply: denied, action: null, language: session.language } });
       return;
     }
     const charge = normalizeNumericInput(input.message);
@@ -977,7 +977,7 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
         ? 'يرجى إدخال مبلغ صحيح. مثال: 200'
         : 'Please enter a valid amount. Example: 200';
       await repo.saveMessage(session.id, 'assistant', retry, {});
-      return reply.send({ success: true, data: { sessionId: session.id, reply: retry, action: null, language: session.language } });
+      reply.send({ success: true, data: { sessionId: session.id, reply: retry, action: null, language: session.language } });
       return;
     }
     const updatedAfterCharge: PendingBooking = { ...pending, stage: 'awaiting_payment', charge };
@@ -986,7 +986,7 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
       ? `التعرفة: ${charge} ج.م ✓\n\nما طريقة الدفع المفضلة؟\n💵 نقداً | 💳 بطاقة (Visa) | 📱 انستاباي`
       : `Fee: ${charge} EGP ✓\n\nWhat is the preferred payment method?\n💵 Cash | 💳 Card (Visa) | 📱 InstaPay`;
     await repo.saveMessage(session.id, 'assistant', paymentQ, {});
-    return reply.send({ success: true, data: { sessionId: session.id, reply: paymentQ, action: null, language: session.language } });
+    reply.send({ success: true, data: { sessionId: session.id, reply: paymentQ, action: null, language: session.language } });
     return;
   }
 
@@ -998,7 +998,7 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
         ? 'عذراً، حجز المواعيد مقتصر على موظفي الاستقبال والمسؤولين.'
         : 'Sorry, booking appointments is restricted to receptionists and admins.';
       await repo.saveMessage(session.id, 'assistant', denied, {});
-      return reply.send({ success: true, data: { sessionId: session.id, reply: denied, action: null, language: session.language } });
+      reply.send({ success: true, data: { sessionId: session.id, reply: denied, action: null, language: session.language } });
       return;
     }
     const paymentMethod = normalizePaymentMethod(input.message);
@@ -1010,7 +1010,7 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
       : `Thank you! Payment method: ${paymentMethodLabel(paymentMethod, 'en')}.\n\nAre there any additional services needed or documents to upload for the doctor?\n(e.g., lab results, X-rays, medical reports)\nOr type "no" if nothing else is needed.`;
 
     await repo.saveMessage(session.id, 'assistant', extrasQ, {});
-    return reply.send({ success: true, data: { sessionId: session.id, reply: extrasQ, action: null, language: session.language } });
+    reply.send({ success: true, data: { sessionId: session.id, reply: extrasQ, action: null, language: session.language } });
     return;
   }
 
@@ -1022,7 +1022,7 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
         ? 'عذراً، حجز المواعيد مقتصر على موظفي الاستقبال والمسؤولين.'
         : 'Sorry, booking appointments is restricted to receptionists and admins.';
       await repo.saveMessage(session.id, 'assistant', denied, {});
-      return reply.send({ success: true, data: { sessionId: session.id, reply: denied, action: null, language: session.language } });
+      reply.send({ success: true, data: { sessionId: session.id, reply: denied, action: null, language: session.language } });
       return;
     }
     const noPattern = /^(لا|لأ|no|none|nothing|لا\s*شيء|لاشيء)$/i;
@@ -1047,7 +1047,7 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
     await repo.saveMessage(session.id, 'assistant', finalReply, { action: actionResult });
     await repo.updateSessionContext(session.id, { ...restCtx, lastAction: { ...auditAction, result: 'executed' } });
 
-    return reply.send({ success: true, data: { sessionId: session.id, reply: finalReply, action: actionResult, language: session.language } });
+    reply.send({ success: true, data: { sessionId: session.id, reply: finalReply, action: actionResult, language: session.language } });
     return;
   }
   // ─────────────────────────────────────────────────────────────────────────
@@ -1229,7 +1229,7 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
     await repo.updateSessionContext(session.id, { ...ctx, lastAction: actionResult });
   }
 
-  return reply.send({
+  reply.send({
     success: true,
     data: {
       sessionId: session.id,
@@ -1244,11 +1244,11 @@ export async function getSession(request: FastifyRequest, reply: FastifyReply): 
   const { id } = request.params as { id: string };
   const session = await repo.getSession(id);
   if (!session) {
-    return reply.status(404).send({ success: false, error: { code: 'SESSION_NOT_FOUND', message: 'Chat session not found' } });
+    reply.status(404).send({ success: false, error: { code: 'SESSION_NOT_FOUND', message: 'Chat session not found' } });
     return;
   }
   const history = await repo.getSessionHistory(id, 100);
-  return reply.send({ success: true, data: { session, messages: history } });
+  reply.send({ success: true, data: { session, messages: history } });
 }
 
 // ── Name transliteration ──────────────────────────────────────────────────────
@@ -1293,9 +1293,9 @@ export async function translateName(request: FastifyRequest, reply: FastifyReply
     });
     transliterated = ((r.content[0] as { text: string }).text ?? '').trim();
   } else {
-    return reply.status(503).send({ success: false, error: { code: 'NO_AI', message: 'No AI provider configured' } });
+    reply.status(503).send({ success: false, error: { code: 'NO_AI', message: 'No AI provider configured' } });
     return;
   }
 
-  return reply.send({ success: true, data: { transliterated } });
+  reply.send({ success: true, data: { transliterated } });
 }

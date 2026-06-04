@@ -11,7 +11,7 @@ export async function requireAuth(request: FastifyRequest, reply: FastifyReply):
   try {
     await request.jwtVerify();
   } catch {
-    return reply.status(401).send({ success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
+    reply.status(401).send({ success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
   }
 }
 
@@ -19,7 +19,7 @@ export function requireRole(...roles: JwtPayload['role'][]) {
   return async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
     const user = request.user;
     if (!roles.includes(user.role)) {
-      return reply.status(403).send({
+      reply.status(403).send({
         success: false,
         error: { code: 'FORBIDDEN', message: 'Insufficient permissions' },
       });

@@ -12,26 +12,26 @@ const listSchema = z.object({
 export async function listAlerts(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const params = listSchema.parse(request.query);
   const result = await repo.listAlerts(params);
-  return reply.send({ success: true, ...result });
+  reply.send({ success: true, ...result });
 }
 
 export async function markAlertRead(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { id } = request.params as { id: string };
   await repo.markRead(id);
-  return reply.send({ success: true });
+  reply.send({ success: true });
 }
 
 export async function markAllAlertsRead(_request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const count = await repo.markAllRead();
-  return reply.send({ success: true, data: { markedRead: count } });
+  reply.send({ success: true, data: { markedRead: count } });
 }
 
 export async function runExpiryCheck(_request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const count = await repo.checkExpiryAlerts();
-  return reply.send({ success: true, data: { alertsRaised: count } });
+  reply.send({ success: true, data: { alertsRaised: count } });
 }
 
 export async function runReorderCheck(_request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const count = await repo.checkReorderAlerts();
-  return reply.send({ success: true, data: { alertsRaised: count } });
+  reply.send({ success: true, data: { alertsRaised: count } });
 }

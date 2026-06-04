@@ -32,46 +32,46 @@ const listSchema = z.object({
 
 export async function getOverview(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const stats = await repo.getOverviewStats();
-  return reply.send({ success: true, data: stats });
+  reply.send({ success: true, data: stats });
 }
 
 export async function listReceipts(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const params = listSchema.parse(request.query);
   const result = await repo.listReceipts(params);
-  return reply.send({ success: true, ...result });
+  reply.send({ success: true, ...result });
 }
 
 export async function getReceipt(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { id } = request.params as { id: string };
   const receipt = await repo.findReceiptById(id);
   if (!receipt) {
-    return reply.status(404).send({ success: false, error: { code: 'RECEIPT_NOT_FOUND', message: 'Receipt not found' } });
+    reply.status(404).send({ success: false, error: { code: 'RECEIPT_NOT_FOUND', message: 'Receipt not found' } });
     return;
   }
-  return reply.send({ success: true, data: receipt });
+  reply.send({ success: true, data: receipt });
 }
 
 export async function createReceipt(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const input = receiptSchema.parse(request.body);
   const receipt = await repo.createReceipt(input, request.user.sub);
-  return reply.status(201).send({ success: true, data: receipt });
+  reply.status(201).send({ success: true, data: receipt });
 }
 
 export async function addReceiptItem(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { id } = request.params as { id: string };
   const existing = await repo.findReceiptById(id);
   if (!existing) {
-    return reply.status(404).send({ success: false, error: { code: 'RECEIPT_NOT_FOUND', message: 'Receipt not found' } });
+    reply.status(404).send({ success: false, error: { code: 'RECEIPT_NOT_FOUND', message: 'Receipt not found' } });
     return;
   }
   const input = receiptItemSchema.parse(request.body);
   const item = await repo.addReceiptItem(id, input);
-  return reply.status(201).send({ success: true, data: item });
+  reply.status(201).send({ success: true, data: item });
 }
 
 export async function updateReceiptStatus(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { id } = request.params as { id: string };
   const { status } = z.object({ status: z.enum(['pending', 'approved', 'discrepancy', 'cancelled']) }).parse(request.body);
   const receipt = await repo.updateReceiptStatus(id, status);
-  return reply.send({ success: true, data: receipt });
+  reply.send({ success: true, data: receipt });
 }

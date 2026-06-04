@@ -48,27 +48,27 @@ const signOffSchema = z.object({
 export async function listEncounters(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const params = listQuerySchema.parse(request.query);
   const result = await repo.listEncounters(params);
-  return reply.send({ success: true, ...result });
+  reply.send({ success: true, ...result });
 }
 
 export async function getEncounter(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { id } = request.params as { id: string };
   const encounter = await repo.findEncounterById(id);
   if (!encounter) {
-    return reply.status(404).send({
+    reply.status(404).send({
       success: false,
       error: { code: 'ENCOUNTER_NOT_FOUND', message: 'Encounter not found' },
     });
     return;
   }
-  return reply.send({ success: true, data: encounter });
+  reply.send({ success: true, data: encounter });
 }
 
 export async function createEncounter(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const input = createSchema.parse(request.body);
   const user = request.user as JwtPayload;
   const encounter = await repo.createEncounter(input, user.sub);
-  return reply.status(201).send({ success: true, data: encounter });
+  reply.status(201).send({ success: true, data: encounter });
 }
 
 export async function updateEncounter(request: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -76,7 +76,7 @@ export async function updateEncounter(request: FastifyRequest, reply: FastifyRep
   const input = updateSchema.parse(request.body);
   const user = request.user as JwtPayload;
   const encounter = await repo.updateEncounter(id, input, user.sub);
-  return reply.send({ success: true, data: encounter });
+  reply.send({ success: true, data: encounter });
 }
 
 export async function signOffEncounter(request: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -85,7 +85,7 @@ export async function signOffEncounter(request: FastifyRequest, reply: FastifyRe
   const user = request.user as JwtPayload;
   const doctorId = user.doctorId ?? user.sub;
   const encounter = await repo.signOffEncounter(id, doctorId, version);
-  return reply.send({ success: true, data: encounter });
+  reply.send({ success: true, data: encounter });
 }
 
 export async function listPatientEncounters(
@@ -95,5 +95,5 @@ export async function listPatientEncounters(
   const { patientId } = request.params as { patientId: string };
   const query = listQuerySchema.parse({ ...(request.query as object), patientId });
   const result = await repo.listEncounters(query);
-  return reply.send({ success: true, ...result });
+  reply.send({ success: true, ...result });
 }

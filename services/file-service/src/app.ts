@@ -43,7 +43,7 @@ export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
     const statusCode = (error as { statusCode?: number }).statusCode ?? 500;
     const code = (error as { code?: string }).code ?? 'INTERNAL_ERROR';
     if (statusCode >= 500) request.log.error({ err: error }, 'Unhandled error');
-    return reply.status(statusCode).send({ success: false, error: { code, message: (error as Error).message } });
+    reply.status(statusCode).send({ success: false, error: { code, message: (error as Error).message } });
   });
 
   // Ensure MinIO bucket exists on startup

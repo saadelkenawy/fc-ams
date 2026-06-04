@@ -209,7 +209,7 @@ export async function getOverview(_req: FastifyRequest, reply: FastifyReply): Pr
     totalPatients = body?.total ?? (Array.isArray(body?.data) ? body.data.length : 0);
   }
 
-  return reply.send({
+  reply.send({
     success: true,
     data: {
       revenue:      { current: currentRevenue, previous: previousRevenue, growthPct },
@@ -243,7 +243,7 @@ export async function getMonthlyRevenue(req: FastifyRequest, reply: FastifyReply
     .sort((a, b) => a.month.localeCompare(b.month))
     .slice(-months);
 
-  return reply.send({ success: true, data: sorted });
+  reply.send({ success: true, data: sorted });
 }
 
 const sourceDateSchema = z.object({
@@ -294,7 +294,7 @@ export async function getSourceBreakdown(req: FastifyRequest, reply: FastifyRepl
     };
   });
 
-  return reply.send({ success: true, data });
+  reply.send({ success: true, data });
 }
 
 export async function getTopDoctors(req: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -345,7 +345,7 @@ export async function getTopDoctors(req: FastifyRequest, reply: FastifyReply): P
     };
   });
 
-  return reply.send({ success: true, data });
+  reply.send({ success: true, data });
 }
 
 // ── Settlement Report ──────────────────────────────────────────────────────
@@ -364,7 +364,7 @@ export async function getSettlementReport(req: FastifyRequest, reply: FastifyRep
   try {
     query = settlementQuerySchema.parse(req.query);
   } catch {
-    return reply.status(400).send({ success: false, error: { code: 'INVALID_PARAMS', message: 'Invalid query parameters' } });
+    reply.status(400).send({ success: false, error: { code: 'INVALID_PARAMS', message: 'Invalid query parameters' } });
     return;
   }
 
@@ -446,7 +446,7 @@ export async function getSettlementReport(req: FastifyRequest, reply: FastifyRep
     ],
   });
 
-  return reply.type('application/pdf')
+  reply.type('application/pdf')
     .header('Content-Disposition', `attachment; filename="settlement-${Date.now()}.pdf"`)
     .send(buffer);
 }
@@ -511,7 +511,7 @@ export async function getFinancialSummaryReport(req: FastifyRequest, reply: Fast
     ],
   });
 
-  return reply.type('application/pdf')
+  reply.type('application/pdf')
     .header('Content-Disposition', `attachment; filename="financial-summary-${Date.now()}.pdf"`)
     .send(buffer);
 }
@@ -583,7 +583,7 @@ export async function getSpecialtyBreakdown(_req: FastifyRequest, reply: Fastify
     })
     .sort((a, b) => b.revenue - a.revenue);
 
-  return reply.send({ success: true, data });
+  reply.send({ success: true, data });
 }
 
 // ── Single-Transaction Invoice PDF ──────────────────────────────────────────
@@ -618,12 +618,12 @@ export async function getInvoicePdf(
     const body = res.data;
     tx = (body && 'id' in body) ? body as TxDetail2 : ((body as { data?: TxDetail2 }).data ?? null);
   } catch {
-    return reply.status(404).send({ error: 'Transaction not found' });
+    reply.status(404).send({ error: 'Transaction not found' });
     return;
   }
 
   if (!tx) {
-    return reply.status(404).send({ error: 'Transaction not found' });
+    reply.status(404).send({ error: 'Transaction not found' });
     return;
   }
 
@@ -677,7 +677,7 @@ export async function getInvoicePdf(
     refundReason:  tx.refundReason,
   });
 
-  return reply.type('application/pdf')
+  reply.type('application/pdf')
     .header('Content-Disposition', `attachment; filename="invoice-${String(tx.id).slice(-8).toUpperCase()}.pdf"`)
     .send(buffer);
 }
@@ -854,7 +854,7 @@ export async function getFinancialSummaryData(req: FastifyRequest, reply: Fastif
       patientSource:   t.patientSource ?? '',
     }));
 
-  return reply.send({
+  reply.send({
     success: true,
     data: {
       period: { month, dateFrom, dateTo },
@@ -904,7 +904,7 @@ export async function getNoShowByDay(_req: FastifyRequest, reply: FastifyReply):
     };
   });
 
-  return reply.send({ success: true, data });
+  reply.send({ success: true, data });
 }
 
 // ── Appointment Activity Summary ────────────────────────────────────────────
@@ -949,7 +949,7 @@ export async function getAppointmentActivitySummary(req: FastifyRequest, reply: 
     else if (t.paymentStatus === 'pending' || t.paymentStatus === 'approved') pending++;
   }
 
-  return reply.send({
+  reply.send({
     success: true,
     data: {
       total: filtered.length,

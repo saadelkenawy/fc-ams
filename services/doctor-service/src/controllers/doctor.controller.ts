@@ -62,24 +62,24 @@ const overrideSchema = z.object({
 export async function listDoctors(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const params = listDoctorsSchema.parse(request.query);
   const result = await repo.listDoctors(params);
-  return reply.send({ success: true, ...result });
+  reply.send({ success: true, ...result });
 }
 
 export async function getDoctor(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { id } = request.params as { id: string };
   const doctor = await repo.findDoctorById(id);
   if (!doctor) {
-    return reply.status(404).send({ success: false, error: { code: 'DOCTOR_NOT_FOUND', message: 'Doctor not found' } });
+    reply.status(404).send({ success: false, error: { code: 'DOCTOR_NOT_FOUND', message: 'Doctor not found' } });
     return;
   }
-  return reply.send({ success: true, data: doctor });
+  reply.send({ success: true, data: doctor });
 }
 
 export async function createDoctor(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const input = createDoctorSchema.parse(request.body);
   const user = request.user as JwtPayload;
   const doctor = await repo.createDoctor(input, user.sub, user.branchId);
-  return reply.status(201).send({ success: true, data: doctor });
+  reply.status(201).send({ success: true, data: doctor });
 }
 
 export async function updateDoctor(request: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -87,7 +87,7 @@ export async function updateDoctor(request: FastifyRequest, reply: FastifyReply)
   const input = updateDoctorSchema.parse(request.body);
   const user = request.user as JwtPayload;
   const doctor = await repo.updateDoctor(id, input, user.sub);
-  return reply.send({ success: true, data: doctor });
+  reply.send({ success: true, data: doctor });
 }
 
 export async function toggleActive(request: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -95,27 +95,27 @@ export async function toggleActive(request: FastifyRequest, reply: FastifyReply)
   const { isActive } = z.object({ isActive: z.boolean() }).parse(request.body);
   const user = request.user as JwtPayload;
   const doctor = await repo.toggleDoctorActive(id, isActive, user.sub);
-  return reply.send({ success: true, data: doctor });
+  reply.send({ success: true, data: doctor });
 }
 
 export async function deleteDoctor(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { id } = request.params as { id: string };
   const user = request.user as JwtPayload;
   await repo.softDeleteDoctor(id, user.sub);
-  return reply.status(204).send();
+  reply.status(204).send();
 }
 
 export async function getSchedules(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { id } = request.params as { id: string };
   const schedules = await repo.findSchedulesByDoctorId(id);
-  return reply.send({ success: true, data: schedules });
+  reply.send({ success: true, data: schedules });
 }
 
 export async function getOverrides(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { id } = request.params as { id: string };
   const { from } = request.query as { from?: string };
   const overrides = await repo.findOverridesByDoctorId(id, from);
-  return reply.send({ success: true, data: overrides });
+  reply.send({ success: true, data: overrides });
 }
 
 export async function upsertSchedule(request: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -123,7 +123,7 @@ export async function upsertSchedule(request: FastifyRequest, reply: FastifyRepl
   const input = scheduleSchema.parse(request.body);
   const user = request.user as JwtPayload;
   const schedule = await repo.upsertSchedule(id, input, user.branchId);
-  return reply.send({ success: true, data: schedule });
+  reply.send({ success: true, data: schedule });
 }
 
 export async function createOverride(request: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -131,5 +131,5 @@ export async function createOverride(request: FastifyRequest, reply: FastifyRepl
   const input = overrideSchema.parse(request.body);
   const user = request.user as JwtPayload;
   const override = await repo.createScheduleOverride(id, input, user.sub, user.branchId);
-  return reply.status(201).send({ success: true, data: override });
+  reply.status(201).send({ success: true, data: override });
 }

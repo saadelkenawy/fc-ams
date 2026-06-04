@@ -38,28 +38,28 @@ const listSchema = z.object({
 export async function listItems(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const params = listSchema.parse(request.query);
   const result = await repo.listItems(params);
-  return reply.send({ success: true, ...result });
+  reply.send({ success: true, ...result });
 }
 
 export async function getItem(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { id } = request.params as { id: string };
   const item = await repo.findItemById(id);
   if (!item) {
-    return reply.status(404).send({ success: false, error: { code: 'ITEM_NOT_FOUND', message: 'Catalog item not found' } });
+    reply.status(404).send({ success: false, error: { code: 'ITEM_NOT_FOUND', message: 'Catalog item not found' } });
     return;
   }
-  return reply.send({ success: true, data: item });
+  reply.send({ success: true, data: item });
 }
 
 export async function createItem(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const input = itemSchema.parse(request.body);
   const item = await repo.createItem(input, request.user.sub);
-  return reply.status(201).send({ success: true, data: item });
+  reply.status(201).send({ success: true, data: item });
 }
 
 export async function updateItem(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { id } = request.params as { id: string };
   const input = itemSchema.partial().parse(request.body);
   const item = await repo.updateItem(id, input);
-  return reply.send({ success: true, data: item });
+  reply.send({ success: true, data: item });
 }

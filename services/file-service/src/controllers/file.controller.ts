@@ -64,7 +64,7 @@ export async function initiateUpload(request: FastifyRequest, reply: FastifyRepl
     ? putUrl.replace(/^https?:\/\/[^/]+/, config.MINIO_PUBLIC_URL)
     : putUrl;
 
-  return reply.status(201).send({
+  reply.status(201).send({
     success: true,
     data: { fileId: record.id, uploadUrl: publicPutUrl, fileKey, expiresIn: 600 },
   });
@@ -75,7 +75,7 @@ export async function getDownloadUrl(request: FastifyRequest, reply: FastifyRepl
   const record = await repo.findFileById(id);
 
   if (!record) {
-    return reply.status(404).send({ success: false, error: { code: 'FILE_NOT_FOUND', message: 'File not found' } });
+    reply.status(404).send({ success: false, error: { code: 'FILE_NOT_FOUND', message: 'File not found' } });
     return;
   }
 
@@ -93,19 +93,19 @@ export async function getDownloadUrl(request: FastifyRequest, reply: FastifyRepl
     ? url.replace(/^https?:\/\/[^/]+/, config.MINIO_PUBLIC_URL)
     : url;
 
-  return reply.send({ success: true, data: { ...record, downloadUrl: publicUrl, expiresIn: config.PRESIGN_TTL_SECS } });
+  reply.send({ success: true, data: { ...record, downloadUrl: publicUrl, expiresIn: config.PRESIGN_TTL_SECS } });
 }
 
 export async function listFiles(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { entityType, entityId } = listQuerySchema.parse(request.query);
 
   if (!entityType || !entityId) {
-    return reply.status(400).send({ success: false, error: { code: 'BAD_REQUEST', message: 'entityType and entityId are required' } });
+    reply.status(400).send({ success: false, error: { code: 'BAD_REQUEST', message: 'entityType and entityId are required' } });
     return;
   }
 
   const files = await repo.listFilesByEntity(entityType, entityId);
-  return reply.send({ success: true, data: files });
+  reply.send({ success: true, data: files });
 }
 
 export async function deleteFile(request: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -113,7 +113,7 @@ export async function deleteFile(request: FastifyRequest, reply: FastifyReply): 
   const record = await repo.findFileById(id);
 
   if (!record) {
-    return reply.status(404).send({ success: false, error: { code: 'FILE_NOT_FOUND', message: 'File not found' } });
+    reply.status(404).send({ success: false, error: { code: 'FILE_NOT_FOUND', message: 'File not found' } });
     return;
   }
 
@@ -122,5 +122,5 @@ export async function deleteFile(request: FastifyRequest, reply: FastifyReply): 
 
   // Delete from MinIO
   await s3.send(new DeleteObjectCommand({ Bucket: config.MINIO_BUCKET, Key: record.fileKey }));
-  return reply.status(204).send();
+  reply.status(204).send();
 }

@@ -9,6 +9,6 @@ export async function requireAuth(request: FastifyRequest, reply: FastifyReply):
   try {
     await request.jwtVerify();
   } catch {
-    return reply.status(401).send({ success: false, error: { code: 'UNAUTHORIZED', message: 'Invalid or missing token' } });
+    reply.status(401).send({ success: false, error: { code: 'UNAUTHORIZED', message: 'Invalid or missing token' } });
   }
 }

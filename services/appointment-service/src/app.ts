@@ -65,7 +65,7 @@ export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
       const first = error.issues[0];
       const field = first?.path?.join('.') ?? 'input';
       const msg   = first?.message ?? 'Validation failed';
-      return reply.status(400).send({
+      reply.status(400).send({
         success: false,
         error: { code: 'VALIDATION_ERROR', message: `${field}: ${msg}` },
       });
@@ -79,7 +79,7 @@ export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
       request.log.error({ err: error }, 'Unhandled error');
     }
 
-    return reply.status(statusCode).send({
+    reply.status(statusCode).send({
       success: false,
       error: { code, message: (error as Error).message },
     });

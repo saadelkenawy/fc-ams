@@ -58,7 +58,7 @@ export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
       request.log.error({ err: error }, 'Unhandled error');
     }
 
-    return reply.status(statusCode).send({
+    reply.status(statusCode).send({
       success: false,
       error: { code, message: (error as Error).message },
     });
