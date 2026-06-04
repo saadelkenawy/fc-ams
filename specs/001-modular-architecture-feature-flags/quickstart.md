@@ -12,57 +12,69 @@
 ## 1. Run locally with feature flags
 
 ```bash
-# Add to .env (or .env.local for each service):
+# Add to services/identity-service/.env (or docker-compose override):
 FEATURE_FLAGS_JSON='{"basic":["patients","scheduling"],"standard":["patients","scheduling","billing","settlements","ehr"],"premium":["patients","scheduling","billing","settlements","ehr","ai","analytics","telehealth","procurement","integrations"]}'
-DEFAULT_TIER=premium
+DEFAULT_TIER=standard
 DEVELOPER_UNLOCK_SECRET=<min-32-char-secret>
+ALLOW_DEVELOPER_TOKEN_OVERRIDE=true
 
 # Start everything
 pnpm dev
 ```
+
+> **Note**: `docker-compose.yml` ships with `DEFAULT_TIER=standard`. The K8s
+> `fcms-feature-flags` ConfigMap defaults to `DEFAULT_TIER=premium`.
 
 ---
 
 ## 2. Mint a developer unlock JWT (demo setup)
 
 ```bash
-node -e "
-const jwt = require('jsonwebtoken');
-const token = jwt.sign(
-  { iss: 'fadl-dev', modules: ['ai', 'telehealth', 'analytics'], note: 'demo-client-x' },
-  process.env.DEVELOPER_UNLOCK_SECRET,
-  { expiresIn: '30d' }
-);
-console.log(token);
-"
+# Uses scripts/mint-unlock-jwt.ts via the demo:mint alias
+pnpm demo:mint --modules ai,telehealth,analytics --expires 30d --note "demo-client-x"
+# → prints a signed JWT to stdout
 ```
 
-Present via `POST /feature-flags/unlock` body `{ "unlockToken": "<token>" }` after
-logging in, or set `X-Unlock-Token` cookie in browser devtools for quick testing.
+Present the token via `POST /api/v1/feature-flags/unlock` after logging in:
+
+```bash
+curl -X POST http://localhost:3000/api/v1/feature-flags/unlock \
+  -H "Authorization: Bearer $USER_JWT" \
+  -H "Content-Type: application/json" \
+  -d '{"unlockToken":"<token-from-above>"}'
+# → { "unlocked": ["ai","telehealth","analytics"], "expiresAt": "..." }
+```
 
 ---
 
 ## 3. Test the module guard
 
 ```bash
-# With basic-tier token (patients + scheduling only):
+# basic-tier JWT → billing returns 403
 curl -H "Authorization: Bearer $BASIC_JWT" http://localhost:3004/transactions
-# → 403 { "error": "Module 'billing' is not available on your plan" }
+# → 403 { "error": { "code": "MODULE_DISABLED", "message": "Module 'billing' is not available on your plan" } }
 
-# With unlock token applied:
-curl -b "fadl_token=$USER_JWT; X-Unlock-Token=$UNLOCK_JWT" \
-  http://localhost:3000/feature-flags
-# → { modules: { billing: true, ... }, unlockedBy: 'merged' }
+# After unlock: re-fetch flags — ai/analytics now on, billing still off (not in unlock list)
+curl -H "Authorization: Bearer $BASIC_JWT" http://localhost:3000/api/v1/feature-flags
+# → { "modules": { "patients": true, "scheduling": true, "ai": true, "analytics": true, "billing": false, ... }, "unlockedBy": "merged" }
 ```
+
+**Redis keys written during these calls**:
+- `flags:{branchId}:{userId}` — resolved module map, TTL 60 s
+- `unlock:{sessionId}` — developer unlock set, TTL = token `exp − now`
+
+where `sessionId` = the JWT `sub` claim (user UUID).
 
 ---
 
 ## 4. Deploy to fadl-testing Kubernetes namespace
 
 ```bash
-# 1. Build and push images
-docker build -f services/identity-service/Dockerfile . -t fadl/identity-service:latest
-# ... repeat for each service (or run Jenkins pipeline)
+# 1. Build and push images (image names match Docker Hub registry)
+docker build -f services/identity-service/Dockerfile . \
+  -t saadelkenawy/fcms-identity-service:<build-tag>
+docker push saadelkenawy/fcms-identity-service:<build-tag>
+# ... repeat for each service, or trigger the Jenkins pipeline on this branch
 
 # 2. Create namespace and secrets
 kubectl create namespace fadl-testing
@@ -73,12 +85,16 @@ kubectl create secret generic fcms-secrets \
   --from-literal=REDIS_URL=redis://redis-svc:6379 \
   -n fadl-testing
 
-# 3. Apply manifests
+# 3. Apply all manifests (namespace + configmap + redis + services + ingress)
 kubectl apply -f k8s/testing/ -n fadl-testing
 
-# 4. Check rollout
+# 4. Verify rollouts
 kubectl rollout status deployment/identity-service -n fadl-testing
 kubectl get pods -n fadl-testing
+# All pods should reach Running/Ready before testing
+
+# 5. Dry-run validation (run before every apply to catch schema errors)
+kubectl apply --dry-run=client -f k8s/testing/ -n fadl-testing
 ```
 
 ---
@@ -88,33 +104,43 @@ kubectl get pods -n fadl-testing
 ```bash
 git checkout main
 git checkout -b demo/client-acme
-# add DEVELOPER_UNLOCK_SECRET and a pre-minted 30-day unlock JWT to .env.demo
+
+# Mint a 30-day unlock JWT
+pnpm demo:mint --modules ai,telehealth,analytics --expires 30d --note "acme-demo"
+
+# Add the minted JWT to .env.demo (use .env.demo.example as template)
 echo 'UNLOCK_JWT=<token>' >> .env.demo
 git add .env.demo
 git commit -m "demo: pre-seed unlock JWT for Acme demo"
-# deploy this branch to fadl-testing with demo-specific env
+
+# Deploy this branch to fadl-testing with demo-specific env
 ```
 
 ---
 
 ## 6. Verify frontend module gates
 
-1. Log in as a `basic`-tier user
-2. Billing, Analytics, AI nav items should be hidden
-3. Directly navigate to `/billing` → `<ModuleUnavailablePage />` shown, not 404
-4. POST unlock token → refresh → billing/analytics/AI nav items appear
+1. Log in as a `basic`-tier user — user JWT is stored in the `fadl_token` cookie
+2. Billing, Analytics, AI nav items should be hidden (filtered by `useModuleEnabled()`)
+3. Directly navigate to `/billing` → `<ModuleUnavailablePage />` shown (not 404); redirected via Next.js Edge middleware to `/module-unavailable?module=billing`
+4. POST unlock token via step 2 above → refresh page → billing/analytics/AI nav items appear
+5. Premium user: all nav items visible from first login (tier defaults to `premium` on missing claim)
 
 ---
 
-## Key files to edit
+## Key files
 
-| File | Change |
+| File | Purpose |
 |---|---|
-| `shared/types/src/feature-flags.ts` | New — module constants and tier map |
-| `shared/types/src/common.ts` | Add `subscriptionTier?` to `JwtPayload` |
-| `services/identity-service/src/routes/feature-flags.ts` | New — GET + POST endpoints |
-| `services/identity-service/src/config/index.ts` | Add `DEVELOPER_UNLOCK_SECRET`, `FEATURE_FLAGS_JSON`, `DEFAULT_TIER` |
-| `services/<name>-service/src/middleware/requireModule.ts` | New per-service guard |
-| `frontend/web-portal/src/hooks/useFeatureFlags.ts` | New — TanStack Query hook |
-| `frontend/web-portal/src/middleware.ts` | Add module-check alongside role-check |
-| `k8s/testing/` | New directory — Deployment/Service/HPA/Ingress/ConfigMap YAMLs |
+| `shared/types/src/feature-flags.ts` | `MODULES`, `ModuleId`, `SubscriptionTier`, `TIER_MODULES`, `FeatureFlagsResponse` |
+| `shared/types/src/common.ts` | `subscriptionTier?` added to `JwtPayload` |
+| `services/identity-service/src/routes/feature-flags.routes.ts` | `GET /api/v1/feature-flags` + `POST /api/v1/feature-flags/unlock` |
+| `services/identity-service/src/middleware/featureFlagService.ts` | Redis cache helpers, tier→module resolution, unlock merge |
+| `services/identity-service/src/config/index.ts` | `DEVELOPER_UNLOCK_SECRET`, `FEATURE_FLAGS_JSON`, `DEFAULT_TIER` env schema |
+| `services/<name>-service/src/middleware/requireModule.ts` | Per-service 403 guard (9 services) |
+| `frontend/web-portal/src/hooks/useFeatureFlags.ts` | TanStack Query hook + `useModuleEnabled()` |
+| `frontend/web-portal/src/lib/api.ts` | `featureFlagsApi.getFlags()` + `featureFlagsApi.unlock()` |
+| `frontend/web-portal/src/middleware.ts` | Edge module-gate check; redirects to `/module-unavailable?module=<id>` |
+| `k8s/testing/` | Namespace, ConfigMap, per-service Deployment+Service+HPA, Redis, Ingress |
+| `scripts/mint-unlock-jwt.ts` | CLI for minting developer override JWTs (`pnpm demo:mint`) |
+| `.env.demo.example` | Template for demo-branch environment variables |
