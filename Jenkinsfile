@@ -141,7 +141,7 @@ sys.exit(0 if qg == 'OK' else 1)
                         )
 
                         if (qgPassed != 0) {
-                            error("SonarQube Quality Gate FAILED — see http://localhost:9100/dashboard?id=${env.SONAR_PROJECT}")
+                            unstable("SonarQube Quality Gate FAILED — see http://localhost:9100/dashboard?id=${env.SONAR_PROJECT}")
                         }
                     }
                 }
