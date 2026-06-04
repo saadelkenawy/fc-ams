@@ -6,10 +6,12 @@ pipeline {
     }
 
     environment {
-        DOCKERHUB_USER = 'saadelkenawy'
-        DOCKERHUB_CRED = 'dockerhub-creds'   // Jenkins credential ID
-        PREPROD_HOST   = 'preprod.fadlclinic.local'
-        PROD_HOST      = 'prod.fadlclinic.local'
+        DOCKERHUB_USER  = 'saadelkenawy'
+        DOCKERHUB_CRED  = 'dockerhub-creds'   // Jenkins credential ID
+        PREPROD_HOST    = 'preprod.fadlclinic.local'
+        PROD_HOST       = 'prod.fadlclinic.local'
+        SONAR_HOST      = 'http://fcms-sonarqube:9000'   // internal Docker network
+        SONAR_PROJECT   = 'fcms'
     }
 
     stages {
@@ -74,7 +76,79 @@ pipeline {
             }
         }
 
-        // ── 2. Build each changed service image ──────────────────────────────
+        // ── 2. SonarQube quality gate ────────────────────────────────────────
+        stage('SonarQube Analysis') {
+            when { expression { env.BUILD_LIST?.trim() } }
+            steps {
+                withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
+                    script {
+                        // --volumes-from shares the Jenkins workspace into the scanner container
+                        // without the DinD bind-mount path mismatch.
+                        sh """
+                            docker run --rm \
+                              --volumes-from fcms-jenkins \
+                              --network fcms_fadl-net \
+                              -w "\${WORKSPACE}" \
+                              sonarsource/sonar-scanner-cli:4.8 \
+                              -Dsonar.host.url=\${SONAR_HOST} \
+                              -Dsonar.login="\${SONAR_TOKEN}" \
+                              -Dsonar.projectKey=\${SONAR_PROJECT}
+                        """
+
+                        // Read CE task ID written by scanner into .scannerwork/
+                        def taskId = sh(
+                            script: "grep '^ceTaskId=' \${WORKSPACE}/.scannerwork/report-task.txt | cut -d= -f2",
+                            returnStdout: true
+                        ).trim()
+                        echo "SonarQube CE task: ${taskId}"
+
+                        // Poll until analysis is processed, then assert quality gate.
+                        // Runs on fcms_fadl-net so it can reach fcms-sonarqube:9000.
+                        // Token + taskId are injected via env vars to avoid shell-escaping issues.
+                        def qgPassed = sh(
+                            returnStatus: true,
+                            script: """
+docker run --rm \
+  --network fcms_fadl-net \
+  -e SONAR_TOKEN="\${SONAR_TOKEN}" \
+  -e TASK_ID="${taskId}" \
+  -e SONAR_HOST="\${SONAR_HOST}" \
+  -e SONAR_PROJECT="\${SONAR_PROJECT}" \
+  python:3-alpine python3 -c "
+import os, urllib.request, base64, json, time, sys
+token   = os.environ['SONAR_TOKEN']
+task_id = os.environ['TASK_ID']
+base    = os.environ['SONAR_HOST']
+project = os.environ['SONAR_PROJECT']
+
+def api(path):
+    req = urllib.request.Request(base + path)
+    req.add_header('Authorization', 'Basic ' + base64.b64encode((token + ':').encode()).decode())
+    return json.loads(urllib.request.urlopen(req).read())
+
+for _ in range(30):
+    s = api('/api/ce/task?id=' + task_id)['task']['status']
+    print('CE task:', s, flush=True)
+    if s in ('SUCCESS', 'FAILED', 'CANCELLED'):
+        break
+    time.sleep(10)
+
+qg = api('/api/qualitygates/project_status?projectKey=' + project)['projectStatus']['status']
+print('Quality Gate:', qg, flush=True)
+sys.exit(0 if qg == 'OK' else 1)
+"
+                            """
+                        )
+
+                        if (qgPassed != 0) {
+                            error("SonarQube Quality Gate FAILED — see http://localhost:9100/dashboard?id=${env.SONAR_PROJECT}")
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── 3. Build each changed service image ──────────────────────────────
         stage('Build Images') {
             when { expression { env.BUILD_LIST?.trim() } }
             steps {
@@ -92,7 +166,7 @@ pipeline {
             }
         }
 
-        // ── 3. Push to Docker Hub ────────────────────────────────────────────
+        // ── 4. Push to Docker Hub ────────────────────────────────────────────
         stage('Push to Docker Hub') {
             when { expression { env.BUILD_LIST?.trim() } }
             steps {
@@ -119,7 +193,7 @@ pipeline {
             }
         }
 
-        // ── 4. Deploy to Pre-Production ──────────────────────────────────────
+        // ── 5. Deploy to Pre-Production ──────────────────────────────────────
         stage('Deploy → Pre-Prod') {
             when {
                 allOf {
@@ -144,7 +218,7 @@ pipeline {
             }
         }
 
-        // ── 5. Deploy to Production ───────────────────────────────────────────
+        // ── 6. Deploy to Production ───────────────────────────────────────────
         stage('Deploy → Production') {
             when {
                 allOf {
@@ -171,7 +245,7 @@ pipeline {
             }
         }
 
-        // ── 6. Clean up Jenkins build server — remove built images + dangling layers ──
+        // ── 7. Clean up Jenkins build server — remove built images + dangling layers ──
         stage('Cleanup') {
             when { expression { env.BUILD_LIST?.trim() } }
             steps {
