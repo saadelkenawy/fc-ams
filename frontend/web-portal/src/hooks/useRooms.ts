@@ -57,8 +57,8 @@ export function useRoomSSE(date?: string) {
     esRef.current = es;
 
     const invalidateRooms = () => {
-      void qc.invalidateQueries({ queryKey: ['rooms', d] });
-      void qc.invalidateQueries({ queryKey: ['room-availability', d] });
+      qc.invalidateQueries({ queryKey: ['rooms', d] });
+      qc.invalidateQueries({ queryKey: ['room-availability', d] });
     };
 
     es.addEventListener('room_assigned', invalidateRooms);
@@ -82,8 +82,8 @@ export function useAssignRoom() {
       return data.data!;
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['rooms'] });
-      void qc.invalidateQueries({ queryKey: ['room-availability'] });
+      qc.invalidateQueries({ queryKey: ['rooms'] });
+      qc.invalidateQueries({ queryKey: ['room-availability'] });
     },
   });
 }
@@ -97,7 +97,7 @@ export function useAutoAssignRoom() {
       return data.data!;
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['rooms'] });
+      qc.invalidateQueries({ queryKey: ['rooms'] });
     },
   });
 }
@@ -112,7 +112,7 @@ export function useReleaseRoom() {
       return data;
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['rooms'] });
+      qc.invalidateQueries({ queryKey: ['rooms'] });
     },
   });
 }
@@ -126,7 +126,7 @@ export function useUpdateRoom() {
       return data.data!;
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['rooms'] });
+      qc.invalidateQueries({ queryKey: ['rooms'] });
     },
   });
 }
@@ -164,9 +164,9 @@ export function useNextPatient() {
       return data.data!;
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['rooms'] });
-      void qc.invalidateQueries({ queryKey: ['appointments'] });
-      void qc.invalidateQueries({ queryKey: ['queue'] });
+      qc.invalidateQueries({ queryKey: ['rooms'] });
+      qc.invalidateQueries({ queryKey: ['appointments'] });
+      qc.invalidateQueries({ queryKey: ['queue'] });
     },
   });
 }

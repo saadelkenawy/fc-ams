@@ -39,27 +39,27 @@ const doctorPriceSchema = z.object({
 export async function listProcedures(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const params = listSchema.parse(request.query);
   const result = await repo.listProcedures(params);
-  void reply.send({ success: true, ...result });
+  return reply.send({ success: true, ...result });
 }
 
 export async function getProcedure(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { id } = request.params as { id: string };
   const procedure = await repo.findProcedureById(id);
   if (!procedure) {
-    void reply.status(404).send({
+    return reply.status(404).send({
       success: false,
       error: { code: 'PROCEDURE_NOT_FOUND', message: 'Procedure not found' },
     });
     return;
   }
-  void reply.send({ success: true, data: procedure });
+  return reply.send({ success: true, data: procedure });
 }
 
 export async function createProcedure(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const input = createSchema.parse(request.body) as CreateProcedureInput;
   const user = request.user as JwtPayload;
   const procedure = await repo.createProcedure(input, user.sub);
-  void reply.status(201).send({ success: true, data: procedure });
+  return reply.status(201).send({ success: true, data: procedure });
 }
 
 export async function updateProcedure(request: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -67,13 +67,13 @@ export async function updateProcedure(request: FastifyRequest, reply: FastifyRep
   const input = updateSchema.parse(request.body);
   const user = request.user as JwtPayload;
   const procedure = await repo.updateProcedure(id, input as Partial<CreateProcedureInput> & { version: number }, user.sub);
-  void reply.send({ success: true, data: procedure });
+  return reply.send({ success: true, data: procedure });
 }
 
 export async function deleteProcedure(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { id } = request.params as { id: string };
   await repo.softDeleteProcedure(id);
-  void reply.status(204).send();
+  return reply.status(204).send();
 }
 
 export async function setDoctorPrice(request: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -82,7 +82,7 @@ export async function setDoctorPrice(request: FastifyRequest, reply: FastifyRepl
 
   const procedure = await repo.findProcedureById(id);
   if (!procedure) {
-    void reply.status(404).send({
+    return reply.status(404).send({
       success: false,
       error: { code: 'PROCEDURE_NOT_FOUND', message: 'Procedure not found' },
     });
@@ -90,7 +90,7 @@ export async function setDoctorPrice(request: FastifyRequest, reply: FastifyRepl
   }
 
   await repo.upsertDoctorPrice(id, body.doctorId, body.price, body.validFrom, body.validUntil);
-  void reply.status(201).send({ success: true });
+  return reply.status(201).send({ success: true });
 }
 
 export async function getEffectivePrice(request: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -99,7 +99,7 @@ export async function getEffectivePrice(request: FastifyRequest, reply: FastifyR
 
   const procedure = await repo.findProcedureById(id);
   if (!procedure) {
-    void reply.status(404).send({
+    return reply.status(404).send({
       success: false,
       error: { code: 'PROCEDURE_NOT_FOUND', message: 'Procedure not found' },
     });
@@ -115,5 +115,5 @@ export async function getEffectivePrice(request: FastifyRequest, reply: FastifyR
     }
   }
 
-  void reply.send({ success: true, data: { procedureId: id, doctorId: doctorId ?? null, effectivePrice } });
+  return reply.send({ success: true, data: { procedureId: id, doctorId: doctorId ?? null, effectivePrice } });
 }

@@ -26,7 +26,7 @@ const settingsSchema = z.object({
 
 export async function roomStream(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const user = request.user as JwtPayload;
-  void reply.raw.writeHead(200, {
+  return reply.raw.writeHead(200, {
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache',
     Connection: 'keep-alive',
@@ -49,7 +49,7 @@ export async function listRooms(request: FastifyRequest, reply: FastifyReply): P
   const { date } = request.query as { date?: string };
   const targetDate = date ?? new Date().toISOString().split('T')[0];
   const rooms = await repo.listRooms(targetDate, user.branchId);
-  void reply.send({ success: true, data: rooms });
+  return reply.send({ success: true, data: rooms });
 }
 
 export async function getRoomAvailability(request: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -57,13 +57,13 @@ export async function getRoomAvailability(request: FastifyRequest, reply: Fastif
   const { date } = request.query as { date?: string };
   const targetDate = date ?? new Date().toISOString().split('T')[0];
   const availability = await repo.getAvailabilityByDate(targetDate, user.branchId);
-  void reply.send({ success: true, data: availability });
+  return reply.send({ success: true, data: availability });
 }
 
 export async function getRoomStats(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const user = request.user as JwtPayload;
   const stats = await repo.getRoomStats(user.branchId);
-  void reply.send({ success: true, data: stats });
+  return reply.send({ success: true, data: stats });
 }
 
 // ── Mutations ────────────────────────────────────────────────────────────────
@@ -98,7 +98,7 @@ export async function assignRoom(request: FastifyRequest, reply: FastifyReply): 
     appointmentsUpdated: result.appointmentsUpdated,
   });
 
-  void reply.status(201).send({ success: true, data: result });
+  return reply.status(201).send({ success: true, data: result });
 }
 
 export async function autoAssignRoom(request: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -115,7 +115,7 @@ export async function autoAssignRoom(request: FastifyRequest, reply: FastifyRepl
   );
 
   if (!result) {
-    void reply.status(409).send({
+    return reply.status(409).send({
       success: false,
       error: { code: 'NO_ROOM_AVAILABLE', message: 'No rooms available for the requested date' },
     });
@@ -136,7 +136,7 @@ export async function autoAssignRoom(request: FastifyRequest, reply: FastifyRepl
     appointmentsUpdated: result.appointmentsUpdated,
   });
 
-  void reply.status(201).send({ success: true, data: result });
+  return reply.status(201).send({ success: true, data: result });
 }
 
 export async function releaseRoom(request: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -147,7 +147,7 @@ export async function releaseRoom(request: FastifyRequest, reply: FastifyReply):
 
   const result = await repo.releaseRoomByCode(roomCode.toUpperCase(), user.branchId);
   if (!result) {
-    void reply.status(404).send({
+    return reply.status(404).send({
       success: false,
       error: { code: 'ROOM_NOT_ASSIGNED', message: `Room ${roomCode} has no active assignment on ${targetDate}` },
     });
@@ -178,7 +178,7 @@ export async function releaseRoom(request: FastifyRequest, reply: FastifyReply):
     date: result.assignedDate,
   });
 
-  void reply.send({ success: true, data: result.assignment });
+  return reply.send({ success: true, data: result.assignment });
 }
 
 export async function nextPatientHandler(request: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -262,7 +262,7 @@ export async function nextPatientHandler(request: FastifyRequest, reply: Fastify
     broadcastRoom(user.branchId, 'room_status_changed', { roomCode: roomCode.toUpperCase() });
   }
 
-  void reply.send({ success: true, data: result });
+  return reply.send({ success: true, data: result });
 }
 
 export async function updateRoom(request: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -274,5 +274,5 @@ export async function updateRoom(request: FastifyRequest, reply: FastifyReply): 
 
   broadcastRoom(user.branchId, 'room_updated', { roomCode: roomCode.toUpperCase() });
 
-  void reply.send({ success: true, data: room });
+  return reply.send({ success: true, data: room });
 }

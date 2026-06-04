@@ -31,32 +31,32 @@ export async function sendNotification(request: FastifyRequest, reply: FastifyRe
   const input = sendSchema.parse(request.body);
   const user = request.user as JwtPayload;
   const notif = await repo.createNotification(input, user.sub);
-  void reply.status(201).send({ success: true, data: notif });
+  return reply.status(201).send({ success: true, data: notif });
 }
 
 export async function listNotifications(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const params = listSchema.parse(request.query);
   const result = await repo.listNotifications(params);
-  void reply.send({ success: true, ...result });
+  return reply.send({ success: true, ...result });
 }
 
 export async function getNotification(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { id } = request.params as { id: string };
   const notif = await repo.findNotificationById(id);
   if (!notif) {
-    void reply.status(404).send({ success: false, error: { code: 'NOT_FOUND', message: 'Notification not found' } });
+    return reply.status(404).send({ success: false, error: { code: 'NOT_FOUND', message: 'Notification not found' } });
     return;
   }
-  void reply.send({ success: true, data: notif });
+  return reply.send({ success: true, data: notif });
 }
 
 export async function retryNotification(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { id } = request.params as { id: string };
   const notif = await repo.retryNotification(id);
-  void reply.send({ success: true, data: notif });
+  return reply.send({ success: true, data: notif });
 }
 
 export async function listTemplates(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const templates = await repo.getTemplates();
-  void reply.send({ success: true, data: templates });
+  return reply.send({ success: true, data: templates });
 }

@@ -424,7 +424,7 @@ function EditDemographicsForm({
   );
 
   return (
-    <form onSubmit={(e) => void handleSubmit(onSubmit)(e)} className="space-y-5">
+    <form onSubmit={(e) => handleSubmit(onSubmit)(e)} className="space-y-5">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <Card>
           <CardHeader><CardTitle>{t('البيانات الشخصية', 'Personal Info')}</CardTitle></CardHeader>
@@ -929,7 +929,7 @@ function PrescriptionsTab({
         <PrescriptionForm
           patientId={patient.patientId}
           doctorId=""
-          onSuccess={() => { setShowNew(false); void refetch(); }}
+          onSuccess={() => { setShowNew(false); refetch(); }}
           onCancel={() => setShowNew(false)}
         />
       </Modal>

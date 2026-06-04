@@ -134,7 +134,7 @@ export function useCreateCatalogItem() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: Partial<CatalogItem>) => procurementApi.post('/catalog', body),
-    onSuccess: () => { void qc.invalidateQueries({ queryKey: ['procurement-catalog'] }); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['procurement-catalog'] }); },
   });
 }
 
@@ -143,7 +143,7 @@ export function useUpdateCatalogItem() {
   return useMutation({
     mutationFn: ({ id, ...body }: Partial<CatalogItem> & { id: string }) =>
       procurementApi.patch(`/catalog/${id}`, body),
-    onSuccess: () => { void qc.invalidateQueries({ queryKey: ['procurement-catalog'] }); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['procurement-catalog'] }); },
   });
 }
 
@@ -173,7 +173,7 @@ export function useCreateVendor() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: Partial<Vendor>) => procurementApi.post('/vendors', body),
-    onSuccess: () => { void qc.invalidateQueries({ queryKey: ['procurement-vendors'] }); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['procurement-vendors'] }); },
   });
 }
 
@@ -182,7 +182,7 @@ export function useUpdateVendor() {
   return useMutation({
     mutationFn: ({ id, ...body }: Partial<Vendor> & { id: string }) =>
       procurementApi.patch(`/vendors/${id}`, body),
-    onSuccess: () => { void qc.invalidateQueries({ queryKey: ['procurement-vendors'] }); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['procurement-vendors'] }); },
   });
 }
 
@@ -222,8 +222,8 @@ export function useCreateReceipt() {
   return useMutation({
     mutationFn: (body: Partial<Receipt>) => procurementApi.post('/receipts', body),
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['procurement-receipts'] });
-      void qc.invalidateQueries({ queryKey: ['procurement-overview'] });
+      qc.invalidateQueries({ queryKey: ['procurement-receipts'] });
+      qc.invalidateQueries({ queryKey: ['procurement-overview'] });
     },
   });
 }
@@ -234,10 +234,10 @@ export function useAddReceiptItem() {
     mutationFn: ({ receiptId, ...body }: Partial<ReceiptItem> & { receiptId: string }) =>
       procurementApi.post(`/receipts/${receiptId}/items`, body),
     onSuccess: (_data, vars) => {
-      void qc.invalidateQueries({ queryKey: ['procurement-receipt', vars.receiptId] });
-      void qc.invalidateQueries({ queryKey: ['procurement-receipts'] });
-      void qc.invalidateQueries({ queryKey: ['procurement-catalog'] });
-      void qc.invalidateQueries({ queryKey: ['procurement-overview'] });
+      qc.invalidateQueries({ queryKey: ['procurement-receipt', vars.receiptId] });
+      qc.invalidateQueries({ queryKey: ['procurement-receipts'] });
+      qc.invalidateQueries({ queryKey: ['procurement-catalog'] });
+      qc.invalidateQueries({ queryKey: ['procurement-overview'] });
     },
   });
 }
@@ -248,8 +248,8 @@ export function useUpdateReceiptStatus() {
     mutationFn: ({ id, status }: { id: string; status: Receipt['status'] }) =>
       procurementApi.patch(`/receipts/${id}/status`, { status }),
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['procurement-receipts'] });
-      void qc.invalidateQueries({ queryKey: ['procurement-overview'] });
+      qc.invalidateQueries({ queryKey: ['procurement-receipts'] });
+      qc.invalidateQueries({ queryKey: ['procurement-overview'] });
     },
   });
 }
@@ -279,7 +279,7 @@ export function useMarkAlertRead() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => procurementApi.patch(`/alerts/${id}/read`, {}),
-    onSuccess: () => { void qc.invalidateQueries({ queryKey: ['procurement-alerts'] }); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['procurement-alerts'] }); },
   });
 }
 
@@ -288,8 +288,8 @@ export function useMarkAllAlertsRead() {
   return useMutation({
     mutationFn: () => procurementApi.patch('/alerts/read-all', {}),
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['procurement-alerts'] });
-      void qc.invalidateQueries({ queryKey: ['procurement-overview'] });
+      qc.invalidateQueries({ queryKey: ['procurement-alerts'] });
+      qc.invalidateQueries({ queryKey: ['procurement-overview'] });
     },
   });
 }

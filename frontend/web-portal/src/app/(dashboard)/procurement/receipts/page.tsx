@@ -185,7 +185,7 @@ export default function ReceiptsPage() {
                         <div className="flex items-center gap-2">
                           {r.status === 'pending' && (
                             <Button size="sm" variant="ghost" className="text-xs h-7 px-2"
-                              onClick={() => void updateStatus.mutateAsync({ id: r.id, status: 'approved' })}>
+                              onClick={() => updateStatus.mutateAsync({ id: r.id, status: 'approved' })}>
                               {t('اعتماد','Approve')}
                             </Button>
                           )}
@@ -240,7 +240,7 @@ export default function ReceiptsPage() {
                             </div>
                           </div>
                           <div className="flex gap-2 mt-3">
-                            <Button size="sm" className="h-7 text-xs" onClick={() => void handleAddLine(r.id)} disabled={addLineItem.isLoading}>
+                            <Button size="sm" className="h-7 text-xs" onClick={() => handleAddLine(r.id)} disabled={addLineItem.isLoading}>
                               {addLineItem.isLoading ? t('جارٍ الإضافة...','Adding...') : t('إضافة','Add')}
                             </Button>
                             <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setAddLineOpen(null); setLineForm(EMPTY_LINE); }}>
@@ -303,7 +303,7 @@ export default function ReceiptsPage() {
         footer={
           <>
             <Button variant="ghost" size="sm" onClick={() => setNewReceiptOpen(false)} disabled={createReceipt.isLoading}>{t('إلغاء','Cancel')}</Button>
-            <Button size="sm" onClick={() => void handleCreateReceipt()} disabled={createReceipt.isLoading} className="min-w-[100px]">
+            <Button size="sm" onClick={() => handleCreateReceipt()} disabled={createReceipt.isLoading} className="min-w-[100px]">
               {createReceipt.isLoading ? t('جارٍ الإنشاء...','Creating...') : t('إنشاء الإيصال','Create Receipt')}
             </Button>
           </>

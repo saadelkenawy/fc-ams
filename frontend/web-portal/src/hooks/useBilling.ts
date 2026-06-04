@@ -41,7 +41,7 @@ export function useUpdateTransactionStatus() {
       return data.data;
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['transactions'] });
+      qc.invalidateQueries({ queryKey: ['transactions'] });
     },
   });
 }
@@ -92,9 +92,9 @@ export function useReplaceExtraServices() {
       return data.data;
     },
     onSuccess: (_data, vars) => {
-      void qc.invalidateQueries({ queryKey: ['extra-services', vars.transactionId] });
-      void qc.invalidateQueries({ queryKey: ['transactions'] });
-      void qc.invalidateQueries({ queryKey: ['settlements'] });
+      qc.invalidateQueries({ queryKey: ['extra-services', vars.transactionId] });
+      qc.invalidateQueries({ queryKey: ['transactions'] });
+      qc.invalidateQueries({ queryKey: ['settlements'] });
     },
   });
 }
@@ -110,8 +110,8 @@ export function useUpdateProcedureCost() {
       return data.data;
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['transactions'] });
-      void qc.invalidateQueries({ queryKey: ['settlements'] });
+      qc.invalidateQueries({ queryKey: ['transactions'] });
+      qc.invalidateQueries({ queryKey: ['settlements'] });
     },
   });
 }
@@ -133,7 +133,7 @@ export function useBulkDeleteTransactions() {
       return data.data;
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['transactions'] });
+      qc.invalidateQueries({ queryKey: ['transactions'] });
     },
   });
 }
@@ -146,7 +146,7 @@ export function useBulkEditPaymentMethod() {
       return data.data;
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['transactions'] });
+      qc.invalidateQueries({ queryKey: ['transactions'] });
     },
   });
 }
@@ -205,9 +205,9 @@ export function useReverseSettlement() {
       return data.data;
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['settlement-records'] });
-      void qc.invalidateQueries({ queryKey: ['settlements'] });
-      void qc.invalidateQueries({ queryKey: ['transactions'] });
+      qc.invalidateQueries({ queryKey: ['settlement-records'] });
+      qc.invalidateQueries({ queryKey: ['settlements'] });
+      qc.invalidateQueries({ queryKey: ['transactions'] });
     },
   });
 }
@@ -228,9 +228,9 @@ export function useReconcileDoctor() {
       return data.data;
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['settlements'] });
-      void qc.invalidateQueries({ queryKey: ['transactions'] });
-      void qc.invalidateQueries({ queryKey: ['settlement-records'] });
+      qc.invalidateQueries({ queryKey: ['settlements'] });
+      qc.invalidateQueries({ queryKey: ['transactions'] });
+      qc.invalidateQueries({ queryKey: ['settlement-records'] });
     },
   });
 }
@@ -277,8 +277,8 @@ export function useSetDoctorCompensation() {
       return data.data;
     },
     onSuccess: (_data, vars) => {
-      void qc.invalidateQueries({ queryKey: ['doctor-compensation', vars.doctorId] });
-      void qc.invalidateQueries({ queryKey: ['settlements'] });
+      qc.invalidateQueries({ queryKey: ['doctor-compensation', vars.doctorId] });
+      qc.invalidateQueries({ queryKey: ['settlements'] });
     },
   });
 }
@@ -291,7 +291,7 @@ export function useDeleteCompensationRule() {
       return doctorId;
     },
     onSuccess: (doctorId) => {
-      void qc.invalidateQueries({ queryKey: ['doctor-compensation', doctorId] });
+      qc.invalidateQueries({ queryKey: ['doctor-compensation', doctorId] });
     },
   });
 }

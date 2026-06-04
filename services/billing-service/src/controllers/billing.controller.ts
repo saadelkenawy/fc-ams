@@ -67,24 +67,24 @@ const listSettlementsSchema = z.object({
 export async function listTransactions(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const params = listTxSchema.parse(request.query);
   const result = await repo.listTransactions(params);
-  void reply.send({ success: true, ...result });
+  return reply.send({ success: true, ...result });
 }
 
 export async function getTransaction(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { id } = request.params as { id: string };
   const tx = await repo.findTransactionById(id);
   if (!tx) {
-    void reply.status(404).send({ success: false, error: { code: 'TRANSACTION_NOT_FOUND', message: 'Transaction not found' } });
+    return reply.status(404).send({ success: false, error: { code: 'TRANSACTION_NOT_FOUND', message: 'Transaction not found' } });
     return;
   }
-  void reply.send({ success: true, data: tx });
+  return reply.send({ success: true, data: tx });
 }
 
 export async function createTransaction(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const input = createTxSchema.parse(request.body);
   const user = request.user as JwtPayload;
   const tx = await repo.createTransaction(input, user.sub, user.branchId);
-  void reply.status(201).send({ success: true, data: tx });
+  return reply.status(201).send({ success: true, data: tx });
 }
 
 const updateProcedureCostSchema = z.object({
@@ -105,7 +105,7 @@ const replaceExtraServicesSchema = z.object({
 export async function getExtraServices(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { id } = request.params as { id: string };
   const items = await repo.listExtraServices(id);
-  void reply.send({ success: true, data: items });
+  return reply.send({ success: true, data: items });
 }
 
 export async function replaceExtraServices(request: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -113,20 +113,20 @@ export async function replaceExtraServices(request: FastifyRequest, reply: Fasti
   const { items } = replaceExtraServicesSchema.parse(request.body);
   const user = request.user as JwtPayload;
   const result = await repo.replaceExtraServices(id, items, user.sub);
-  void reply.send({ success: true, data: result });
+  return reply.send({ success: true, data: result });
 }
 
 export async function updateProcedureCost(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { id } = request.params as { id: string };
   const { procedureCost } = updateProcedureCostSchema.parse(request.body);
   const tx = await repo.updateProcedureCost(id, procedureCost);
-  void reply.send({ success: true, data: tx });
+  return reply.send({ success: true, data: tx });
 }
 
 export async function getExtraServicesByAppointmentHandler(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { appointmentId } = request.params as { appointmentId: string };
   const items = await repo.listExtraServicesByAppointmentId(appointmentId);
-  void reply.send({ success: true, data: items });
+  return reply.send({ success: true, data: items });
 }
 
 export async function replaceExtraServicesByAppointmentHandler(request: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -134,14 +134,14 @@ export async function replaceExtraServicesByAppointmentHandler(request: FastifyR
   const { items } = replaceExtraServicesSchema.parse(request.body);
   const user = request.user as JwtPayload;
   const result = await repo.replaceExtraServicesByAppointmentId(appointmentId, items, user.sub);
-  void reply.send({ success: true, data: result });
+  return reply.send({ success: true, data: result });
 }
 
 export async function updateChargeByAppointmentHandler(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { appointmentId } = request.params as { appointmentId: string };
   const { approvedCharge } = updateApprovedChargeSchema.parse(request.body);
   const tx = await repo.updateApprovedChargeByAppointmentId(appointmentId, approvedCharge);
-  void reply.send({ success: true, data: tx });
+  return reply.send({ success: true, data: tx });
 }
 
 export async function updateStatus(request: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -168,24 +168,24 @@ export async function updateStatus(request: FastifyRequest, reply: FastifyReply)
     })();
   }
 
-  void reply.send({ success: true, data: tx });
+  return reply.send({ success: true, data: tx });
 }
 
 export async function getDoctorSettlement(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { doctorId, from, to } = settlementQuerySchema.parse(request.query);
   const user = request.user as JwtPayload;
   if (user.role === 'doctor' && user.doctorId !== doctorId) {
-    void reply.status(403).send({ success: false, error: { code: 'FORBIDDEN', message: 'Insufficient permissions' } });
+    return reply.status(403).send({ success: false, error: { code: 'FORBIDDEN', message: 'Insufficient permissions' } });
     return;
   }
   const settlement = await repo.getDoctorSettlement(doctorId, from, to);
-  void reply.send({ success: true, data: settlement });
+  return reply.send({ success: true, data: settlement });
 }
 
 export async function listSettlements(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const params = listSettlementsSchema.parse(request.query);
   const result = await repo.listDoctorSettlements(params);
-  void reply.send({ success: true, ...result });
+  return reply.send({ success: true, ...result });
 }
 
 // ─── Source Fee Rules ─────────────────────────────────────────────────────────
@@ -227,14 +227,14 @@ const sourceRateQuerySchema = z.object({
 
 export async function listSourcesHandler(_req: FastifyRequest, reply: FastifyReply): Promise<void> {
   const sources = await repo.listSources();
-  void reply.send({ success: true, data: sources });
+  return reply.send({ success: true, data: sources });
 }
 
 export async function createSourceHandler(req: FastifyRequest, reply: FastifyReply): Promise<void> {
   const user = req.user as JwtPayload;
   const input = createSourceSchema.parse(req.body);
   const source = await repo.createSource(input, user.sub);
-  void reply.status(201).send({ success: true, data: source });
+  return reply.status(201).send({ success: true, data: source });
 }
 
 export async function updateSourceHandler(req: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -242,33 +242,33 @@ export async function updateSourceHandler(req: FastifyRequest, reply: FastifyRep
   const user = req.user as JwtPayload;
   const input = updateSourceSchema.parse(req.body);
   const source = await repo.updateSource(code, input, user.sub);
-  void reply.send({ success: true, data: source });
+  return reply.send({ success: true, data: source });
 }
 
 export async function deleteSourceHandler(req: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { code } = req.params as { code: string };
   await repo.deleteSource(code);
-  void reply.status(204).send();
+  return reply.status(204).send();
 }
 
 export async function getSourceRateHandler(req: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { code } = req.params as { code: string };
   const { specialtyId } = sourceRateQuerySchema.parse(req.query);
   const rate = await repo.getSourceRate(code, specialtyId);
-  void reply.send({ success: true, data: { sourceCode: code, specialtyId, rate } });
+  return reply.send({ success: true, data: { sourceCode: code, specialtyId, rate } });
 }
 
 export async function updatePaymentStatusByAppointmentHandler(req: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { appointmentId } = req.params as { appointmentId: string };
   const { status } = (req.body as { status: string });
   await repo.updatePaymentStatusByAppointmentId(appointmentId, status);
-  void reply.status(204).send();
+  return reply.status(204).send();
 }
 
 export async function refundTransactionByAppointmentHandler(req: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { appointmentId } = req.params as { appointmentId: string };
   await repo.refundTransactionByAppointmentId(appointmentId);
-  void reply.status(204).send();
+  return reply.status(204).send();
 }
 
 const reconcileDoctorSchema = z.object({
@@ -286,7 +286,7 @@ export async function reconcileDoctorHandler(req: FastifyRequest, reply: Fastify
   const authHeader = req.headers.authorization as string;
   const valid = await verifyUserPassword(authHeader, password);
   if (!valid) {
-    void reply.status(401).send({ success: false, error: { code: 'INVALID_CREDENTIALS', message: 'Incorrect password' } });
+    return reply.status(401).send({ success: false, error: { code: 'INVALID_CREDENTIALS', message: 'Incorrect password' } });
     return;
   }
   const user = req.user as JwtPayload;
@@ -295,7 +295,7 @@ export async function reconcileDoctorHandler(req: FastifyRequest, reply: Fastify
     paymentReference,
     notes,
   });
-  void reply.send({ success: true, data: result });
+  return reply.send({ success: true, data: result });
 }
 
 const listSettlementRecordsSchema = z.object({
@@ -310,7 +310,7 @@ export async function listSettlementRecordsHandler(req: FastifyRequest, reply: F
   const params = listSettlementRecordsSchema.parse(req.query);
   const user = req.user as JwtPayload;
   const result = await repo.listSettlementRecords({ ...params, branchId: user.branchId });
-  void reply.send({ success: true, ...result });
+  return reply.send({ success: true, ...result });
 }
 
 const reverseSettlementSchema = z.object({
@@ -324,12 +324,12 @@ export async function reverseSettlementHandler(req: FastifyRequest, reply: Fasti
   const authHeader = req.headers.authorization as string;
   const valid = await verifyUserPassword(authHeader, password);
   if (!valid) {
-    void reply.status(401).send({ success: false, error: { code: 'INVALID_CREDENTIALS', message: 'Incorrect password' } });
+    return reply.status(401).send({ success: false, error: { code: 'INVALID_CREDENTIALS', message: 'Incorrect password' } });
     return;
   }
   const user = req.user as JwtPayload;
   const result = await repo.reverseSettlement(id, user.sub, reason, user.branchId);
-  void reply.send({ success: true, data: result });
+  return reply.send({ success: true, data: result });
 }
 
 // ─── Doctor Compensation ──────────────────────────────────────────────────────
@@ -348,7 +348,7 @@ export async function listDoctorCompensationHandler(req: FastifyRequest, reply: 
   const { doctorId } = req.params as { doctorId: string };
   const user = req.user as JwtPayload;
   const rules = await repo.listDoctorCompensation(doctorId, user.branchId);
-  void reply.send({ success: true, data: rules });
+  return reply.send({ success: true, data: rules });
 }
 
 export async function setDoctorCompensationHandler(req: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -358,14 +358,14 @@ export async function setDoctorCompensationHandler(req: FastifyRequest, reply: F
   const rule = await repo.setDoctorCompensation(
     doctorId, visitType, doctorPercentage, clinicPercentage, effectiveFrom, user.branchId, user.sub, applyToExisting,
   );
-  void reply.status(201).send({ success: true, data: rule });
+  return reply.status(201).send({ success: true, data: rule });
 }
 
 export async function deleteCompensationRuleHandler(req: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { id } = req.params as { id: string };
   const user = req.user as JwtPayload;
   await repo.deleteCompensationRule(id, user.branchId);
-  void reply.status(204).send();
+  return reply.status(204).send();
 }
 
 // ─── Bulk Operations ──────────────────────────────────────────────────────────
@@ -404,7 +404,7 @@ export async function bulkDeleteHandler(req: FastifyRequest, reply: FastifyReply
   const authHeader = req.headers.authorization as string;
   const valid = await verifyUserPassword(authHeader, password);
   if (!valid) {
-    void reply.status(401).send({ success: false, error: { code: 'INVALID_CREDENTIALS', message: 'Incorrect password' } });
+    return reply.status(401).send({ success: false, error: { code: 'INVALID_CREDENTIALS', message: 'Incorrect password' } });
     return;
   }
   const user = req.user as JwtPayload;
@@ -416,7 +416,7 @@ export async function bulkDeleteHandler(req: FastifyRequest, reply: FastifyReply
     void cascadeDeleteAppointments(result.appointmentIds, authHeader);
   }
 
-  void reply.send({ success: true, data: { deletedCount: result.deletedCount } });
+  return reply.send({ success: true, data: { deletedCount: result.deletedCount } });
 }
 
 export async function bulkEditPaymentMethodHandler(req: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -424,11 +424,11 @@ export async function bulkEditPaymentMethodHandler(req: FastifyRequest, reply: F
   const authHeader = req.headers.authorization as string;
   const valid = await verifyUserPassword(authHeader, password);
   if (!valid) {
-    void reply.status(401).send({ success: false, error: { code: 'INVALID_CREDENTIALS', message: 'Incorrect password' } });
+    return reply.status(401).send({ success: false, error: { code: 'INVALID_CREDENTIALS', message: 'Incorrect password' } });
     return;
   }
   const user = req.user as JwtPayload;
   const ip = (req.headers['x-forwarded-for'] as string | undefined)?.split(',')[0].trim() ?? req.ip;
   const result = await repo.bulkUpdatePaymentMethod(ids, paymentMethod, reason, user.sub, user.branchId, ip);
-  void reply.send({ success: true, data: result });
+  return reply.send({ success: true, data: result });
 }

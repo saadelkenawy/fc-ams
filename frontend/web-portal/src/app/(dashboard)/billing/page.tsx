@@ -82,7 +82,7 @@ function StatusDropdown({
         return (
           <button
             key={s}
-            onClick={() => void pick(s)}
+            onClick={() => pick(s)}
             className={cn(
               'w-full text-start px-3 py-2 text-xs hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors flex items-center gap-2',
               s === current && 'bg-gray-50 dark:bg-neutral-700 font-semibold',
@@ -195,7 +195,7 @@ function SecureDeleteModal({ appointmentId, onClose, onDeleted }: SecureDeleteMo
           <Button
             className="flex-1 bg-red-600 hover:bg-red-700 text-white border-0"
             disabled={loading}
-            onClick={() => void handleConfirm()}
+            onClick={() => handleConfirm()}
           >
             {loading ? (
               <><Loader2 className="w-4 h-4 animate-spin me-2 inline" />{t('جاري الحذف...', 'Deleting...')}</>
@@ -366,7 +366,7 @@ function BulkDeleteModal({ selected, onClose, onDeleted, lang, t, locale }: Bulk
                 className="w-full h-10 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-gray-900 dark:text-gray-100 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
                 placeholder="••••••••"
                 autoFocus
-                onKeyDown={(e) => { if (e.key === 'Enter') void handlePasswordSubmit(); }}
+                onKeyDown={(e) => { if (e.key === 'Enter') handlePasswordSubmit(); }}
               />
             </div>
             {error && (
@@ -378,7 +378,7 @@ function BulkDeleteModal({ selected, onClose, onDeleted, lang, t, locale }: Bulk
               <Button
                 className="flex-1 bg-red-600 hover:bg-red-700 text-white border-0"
                 disabled={!password || bulkDelete.isLoading || cooldown > 0}
-                onClick={() => void handlePasswordSubmit()}
+                onClick={() => handlePasswordSubmit()}
               >
                 {bulkDelete.isLoading
                   ? <><Loader2 className="w-4 h-4 animate-spin me-2 inline" />{t('جاري الحذف...', 'Deleting...')}</>
@@ -521,7 +521,7 @@ function BulkEditModal({ selected, onClose, onEdited, lang, t }: BulkEditModalPr
                 className="w-full h-10 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-900 text-gray-900 dark:text-gray-100 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                 placeholder="••••••••"
                 autoFocus
-                onKeyDown={(e) => { if (e.key === 'Enter') void handlePasswordSubmit(); }}
+                onKeyDown={(e) => { if (e.key === 'Enter') handlePasswordSubmit(); }}
               />
             </div>
             {error && (
@@ -533,7 +533,7 @@ function BulkEditModal({ selected, onClose, onEdited, lang, t }: BulkEditModalPr
               <Button
                 className="flex-1"
                 disabled={!password || bulkEdit.isLoading || cooldown > 0}
-                onClick={() => void handlePasswordSubmit()}
+                onClick={() => handlePasswordSubmit()}
               >
                 {bulkEdit.isLoading
                   ? <><Loader2 className="w-4 h-4 animate-spin me-2 inline" />{t('جاري التحديث...', 'Updating...')}</>
@@ -840,17 +840,17 @@ export default function BillingPage() {
           <Button
             variant="outline" size="sm"
             disabled={exportLoading}
-            onClick={() => void exportAllXlsx()}
+            onClick={() => exportAllXlsx()}
             title={t('تصدير كل المعاملات إلى Excel', 'Export all transactions to Excel')}
           >
             {exportLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileSpreadsheet className="w-4 h-4" />}
             {t('Excel الكل', 'All Excel')}
           </Button>
-          <Button variant="outline" size="sm" disabled={exportLoading} onClick={() => void downloadPdf('/reports/settlement', 'settlement-report.pdf')}>
+          <Button variant="outline" size="sm" disabled={exportLoading} onClick={() => downloadPdf('/reports/settlement', 'settlement-report.pdf')}>
             {exportLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
             {t('تقرير PDF', 'Settlement PDF')}
           </Button>
-          <Button variant="outline" size="sm" disabled={exportLoading} onClick={() => void downloadPdf('/reports/financial-summary', `billing_all_${new Date().toISOString().split('T')[0]}.pdf`)}>
+          <Button variant="outline" size="sm" disabled={exportLoading} onClick={() => downloadPdf('/reports/financial-summary', `billing_all_${new Date().toISOString().split('T')[0]}.pdf`)}>
             {exportLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
             {t('ملخص PDF', 'Summary PDF')}
           </Button>
@@ -1193,7 +1193,7 @@ export default function BillingPage() {
                                 <FileText className="w-3.5 h-3.5" />
                               </button>
                               <button
-                                onClick={() => void downloadRowPdf(tx.id, tx.id.slice(-8).toUpperCase())}
+                                onClick={() => downloadRowPdf(tx.id, tx.id.slice(-8).toUpperCase())}
                                 className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors"
                                 title={t('تحميل PDF', 'Download PDF')}
                               >

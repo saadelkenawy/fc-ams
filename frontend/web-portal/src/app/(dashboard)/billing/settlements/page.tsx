@@ -164,8 +164,8 @@ export default function SettlementsPage() {
       notes: settleNotes || undefined,
       password: settlePassword,
     });
-    void refetch();
-    void refetchRecords();
+    refetch();
+    refetchRecords();
     setSettleTarget(null);
     setSettleRef('');
     setSettleNotes('');
@@ -190,7 +190,7 @@ export default function SettlementsPage() {
       setReverseTarget(null);
       setReverseReason('');
       setReversePassword('');
-      void refetchRecords();
+      refetchRecords();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : '';
       setReverseError(msg || t('كلمة المرور غير صحيحة أو فشل العكس', 'Incorrect password or reversal failed'));
@@ -238,7 +238,7 @@ export default function SettlementsPage() {
           </div>
           <button
             className="fc-btn fc-btn-outline fc-btn-sm"
-            onClick={() => { void refetch(); void refetchRecords(); }}
+            onClick={() => { refetch(); refetchRecords(); }}
             disabled={isFetching}
           >
             <RefreshCw className={cn('w-3.5 h-3.5', isFetching && 'animate-spin')} />
@@ -451,7 +451,7 @@ export default function SettlementsPage() {
           <div className="flex flex-col items-center justify-center py-12 gap-4">
             <ReceiptText className="w-12 h-12 text-gray-300 dark:text-gray-600" />
             <p className="text-gray-500 font-medium">{t('تعذّر تحميل التسويات', 'Failed to load settlements')}</p>
-            <button className="fc-btn fc-btn-outline fc-btn-sm" onClick={() => void refetch()} disabled={isFetching}>
+            <button className="fc-btn fc-btn-outline fc-btn-sm" onClick={() => refetch()} disabled={isFetching}>
               <RefreshCw className={cn('w-4 h-4 me-1.5', isFetching && 'animate-spin')} />{t('إعادة المحاولة', 'Retry')}
             </button>
           </div>
@@ -720,7 +720,7 @@ export default function SettlementsPage() {
                 {t('إلغاء', 'Cancel')}
               </button>
               <button className="fc-btn fc-btn-sm" style={{ minWidth: 120, background: '#059669', color: 'white', border: 'none' }}
-                onClick={() => void handleSettle()} disabled={settling}>
+                onClick={() => handleSettle()} disabled={settling}>
                 {settling ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : <><Check className="w-3.5 h-3.5 me-1.5" />{t('تأكيد التسوية', 'Confirm & Settle')}</>}
               </button>
             </div>
@@ -767,7 +767,7 @@ export default function SettlementsPage() {
                 {t('إلغاء', 'Cancel')}
               </button>
               <button className="fc-btn fc-btn-sm" style={{ minWidth: 120, background: '#D97706', color: 'white', border: 'none' }}
-                onClick={() => void handleReverse()} disabled={reversing || reverseReason.trim().length < 10}>
+                onClick={() => handleReverse()} disabled={reversing || reverseReason.trim().length < 10}>
                 {reversing ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : <><RotateCcw className="w-3.5 h-3.5 me-1.5" />{t('عكس التسوية', 'Reverse')}</>}
               </button>
             </div>
@@ -1105,7 +1105,7 @@ function ExtraServicesPopup({ tx, initItems, onClose, t, fmt, replaceServices }:
         <div className="px-5 pb-5 flex justify-end gap-3 border-t border-gray-100 dark:border-neutral-800 pt-4">
           <button className="fc-btn fc-btn-outline fc-btn-sm" onClick={onClose} disabled={isPending}>{t('إغلاق', 'Close')}</button>
           <button className="fc-btn fc-btn-sm" style={{ minWidth: 96, background: 'var(--color-primary-600)', color: 'white', border: 'none' }}
-            onClick={() => void handleSave()} disabled={isPending}>
+            onClick={() => handleSave()} disabled={isPending}>
             {isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <><Check className="w-3.5 h-3.5 me-1.5" />{t('حفظ التغييرات', 'Save Changes')}</>}
           </button>
         </div>

@@ -111,7 +111,7 @@ function ProcedureForm({ value, onChange, t }: ProcedureFormProps) {
           onBlur={(e) => {
             const v = e.target.value.trim();
             if (lang === 'en' && v && !(value.nameAr ?? '').trim()) {
-              void translate(v, 'en').then((r) => { if (r) onChange({ ...value, nameAr: r }); });
+              translate(v, 'en').then((r) => { if (r) onChange({ ...value, nameAr: r }); });
             }
           }}
           placeholder="Procedure name in English"
@@ -127,7 +127,7 @@ function ProcedureForm({ value, onChange, t }: ProcedureFormProps) {
           onBlur={(e) => {
             const v = e.target.value.trim();
             if (lang === 'ar' && v && !value.nameEn.trim()) {
-              void translate(v, 'ar').then((r) => { if (r) onChange({ ...value, nameEn: r }); });
+              translate(v, 'ar').then((r) => { if (r) onChange({ ...value, nameEn: r }); });
             }
           }}
           placeholder="اسم الإجراء بالعربي"
@@ -465,7 +465,7 @@ export default function ProceduresPage() {
                       </td>
                       <td className="px-5 py-3.5">
                         <button
-                          onClick={() => void handleToggleStatus(proc)}
+                          onClick={() => handleToggleStatus(proc)}
                           className="flex items-center gap-1.5 group"
                           title={proc.isActive ? t('تعطيل', 'Deactivate') : t('تفعيل', 'Activate')}
                         >
@@ -525,7 +525,7 @@ export default function ProceduresPage() {
             <Button variant="ghost" size="sm" onClick={() => setModalOpen(false)} disabled={isSaving}>
               {t('إلغاء', 'Cancel')}
             </Button>
-            <Button size="sm" onClick={() => void handleSubmit()} disabled={isSaving} className="min-w-[100px]">
+            <Button size="sm" onClick={() => handleSubmit()} disabled={isSaving} className="min-w-[100px]">
               {isSaving
                 ? t('جارٍ الحفظ...', 'Saving...')
                 : editTarget
@@ -542,7 +542,7 @@ export default function ProceduresPage() {
       <ConfirmDialog
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
-        onConfirm={() => void handleDelete()}
+        onConfirm={() => handleDelete()}
         title={t('حذف الإجراء', 'Delete Procedure')}
         message={
           deleteTarget

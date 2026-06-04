@@ -90,7 +90,7 @@ export default function DashboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-2 pt-1">
-          <Button variant="outline" size="sm" onClick={() => void refetch()} title={t('تحديث', 'Refresh')} aria-label={t('تحديث البيانات', 'Refresh data')}>
+          <Button variant="outline" size="sm" onClick={() => refetch()} title={t('تحديث', 'Refresh')} aria-label={t('تحديث البيانات', 'Refresh data')}>
             <RefreshCw className="w-4 h-4" />
           </Button>
         </div>

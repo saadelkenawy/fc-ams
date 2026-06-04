@@ -182,7 +182,7 @@ export function AddDoctorModal({ open, onClose, onCreated }: AddDoctorModalProps
       return created;
     },
     onSuccess: (created) => {
-      void qc.invalidateQueries({ queryKey: ['doctors'] });
+      qc.invalidateQueries({ queryKey: ['doctors'] });
       toast(t('تم إضافة الطبيب بنجاح', 'Doctor added successfully'), 'success');
       onCreated?.(created.id);
       onClose();
@@ -278,7 +278,7 @@ export function AddDoctorModal({ open, onClose, onCreated }: AddDoctorModalProps
                 onBlur={(e) => {
                   const v = e.target.value.trim();
                   if (lang === 'ar' && v && !form.nameEn.trim()) {
-                    void translate(v, 'ar').then((r) => { if (r) set('nameEn', r); });
+                    translate(v, 'ar').then((r) => { if (r) set('nameEn', r); });
                   }
                 }}
                 dir="rtl"
@@ -298,7 +298,7 @@ export function AddDoctorModal({ open, onClose, onCreated }: AddDoctorModalProps
                 onBlur={(e) => {
                   const v = e.target.value.trim();
                   if (lang === 'en' && v && !form.nameAr.trim()) {
-                    void translate(v, 'en').then((r) => { if (r) set('nameAr', r); });
+                    translate(v, 'en').then((r) => { if (r) set('nameAr', r); });
                   }
                 }}
                 dir="ltr"

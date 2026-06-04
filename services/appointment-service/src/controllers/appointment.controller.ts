@@ -70,16 +70,16 @@ export async function getAppointment(request: FastifyRequest, reply: FastifyRepl
   const { id } = request.params as { id: string };
   const appointment = await repo.findAppointmentById(id);
   if (!appointment) {
-    void reply.status(404).send({ success: false, error: { code: 'APPOINTMENT_NOT_FOUND', message: 'Appointment not found' } });
+    return reply.status(404).send({ success: false, error: { code: 'APPOINTMENT_NOT_FOUND', message: 'Appointment not found' } });
     return;
   }
-  void reply.send({ success: true, data: appointment });
+  return reply.send({ success: true, data: appointment });
 }
 
 export async function listAppointments(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const params = listSchema.parse(request.query);
   const result = await repo.listAppointments(params);
-  void reply.send({ success: true, ...result });
+  return reply.send({ success: true, ...result });
 }
 
 const doctorsOnDateSchema = z.object({
@@ -89,7 +89,7 @@ const doctorsOnDateSchema = z.object({
 export async function listDoctorsOnDate(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { date } = doctorsOnDateSchema.parse(request.query);
   const doctors = await repo.getDoctorsOnDate(date);
-  void reply.send({ success: true, data: doctors });
+  return reply.send({ success: true, data: doctors });
 }
 
 export async function createAppointment(request: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -165,7 +165,7 @@ export async function createAppointment(request: FastifyRequest, reply: FastifyR
     appointmentId:  appointment.id,
   });
 
-  void reply.status(201).send({ success: true, data: appointment });
+  return reply.status(201).send({ success: true, data: appointment });
 }
 
 export async function updateAppointment(request: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -180,7 +180,7 @@ export async function updateAppointment(request: FastifyRequest, reply: FastifyR
     );
   }
 
-  void reply.send({ success: true, data: appointment });
+  return reply.send({ success: true, data: appointment });
 }
 
 export async function updateStatus(request: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -276,14 +276,14 @@ export async function updateStatus(request: FastifyRequest, reply: FastifyReply)
     );
   }
 
-  void reply.send({ success: true, data: appointment });
+  return reply.send({ success: true, data: appointment });
 }
 
 export async function checkIn(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { id } = request.params as { id: string };
   const user = request.user as JwtPayload;
   const appointment = await repo.checkInAppointment(id, user.sub);
-  void reply.send({ success: true, data: appointment });
+  return reply.send({ success: true, data: appointment });
 }
 
 export async function deleteAppointment(request: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -295,7 +295,7 @@ export async function deleteAppointment(request: FastifyRequest, reply: FastifyR
   const authHeader = (request.headers.authorization as string) ?? '';
   const valid = await verifyUserPassword(authHeader, password);
   if (!valid) {
-    void reply.status(403).send({
+    return reply.status(403).send({
       success: false,
       error: { code: 'INVALID_PASSWORD', message: 'Password verification failed' },
     });
@@ -317,19 +317,19 @@ export async function deleteAppointment(request: FastifyRequest, reply: FastifyR
     }
   })();
 
-  void reply.status(204).send();
+  return reply.status(204).send();
 }
 
 export async function softDeleteAppointmentHandler(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { id } = request.params as { id: string };
   const user = request.user as JwtPayload;
   await repo.softDeleteAppointment(id, user.sub);
-  void reply.status(204).send();
+  return reply.status(204).send();
 }
 
 export async function billingCascadeDeleteHandler(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { id } = request.params as { id: string };
   const user = request.user as JwtPayload;
   const outcome = await repo.cascadeSoftDeleteFromBilling(id, user.sub);
-  void reply.status(204).send({ outcome });
+  return reply.status(204).send({ outcome });
 }

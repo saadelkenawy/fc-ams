@@ -152,7 +152,7 @@ export default function EncountersPage() {
       return res.data;
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['encounters'] });
+      queryClient.invalidateQueries({ queryKey: ['encounters'] });
       setShowNewModal(false);
       setForm({ patientId: '', doctorId: user?.role === 'doctor' ? (user.doctorId ?? '') : '', encounterDate: todayISO(), encounterType: 'outpatient', chiefComplaint: '' });
       setPatientQuery('');

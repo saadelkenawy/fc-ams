@@ -1123,7 +1123,7 @@ export default function ReportsPage() {
           )}
         </div>
         <div className="flex gap-2 animate-slide-down" style={{ animationDelay: '40ms' }}>
-          <Button size="sm" variant="outline" onClick={() => void handleRefresh()} disabled={isRefreshing}>
+          <Button size="sm" variant="outline" onClick={() => handleRefresh()} disabled={isRefreshing}>
             <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">{t('تحديث', 'Refresh')}</span>
           </Button>

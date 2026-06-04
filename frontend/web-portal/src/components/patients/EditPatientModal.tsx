@@ -210,7 +210,7 @@ export function EditPatientModal({ open, onClose, patient }: EditPatientModalPro
                 onBlur={(e) => {
                   const v = e.target.value.trim();
                   if (lang === 'ar' && v && !form.nameEn.trim()) {
-                    void translate(v, 'ar').then((r) => { if (r) set('nameEn', r); });
+                    translate(v, 'ar').then((r) => { if (r) set('nameEn', r); });
                   }
                 }}
                 dir="rtl"
@@ -230,7 +230,7 @@ export function EditPatientModal({ open, onClose, patient }: EditPatientModalPro
                 onBlur={(e) => {
                   const v = e.target.value.trim();
                   if (lang === 'en' && v && !form.nameAr.trim()) {
-                    void translate(v, 'en').then((r) => { if (r) set('nameAr', r); });
+                    translate(v, 'en').then((r) => { if (r) set('nameAr', r); });
                   }
                 }}
                 dir="ltr"

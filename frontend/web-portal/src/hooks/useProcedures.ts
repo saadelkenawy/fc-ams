@@ -59,7 +59,7 @@ export function useCreateProcedure() {
       const { data } = await procedureApi.post<{ success: boolean; data: Procedure }>('/procedures', payload);
       return data.data;
     },
-    onSuccess: () => { void qc.invalidateQueries({ queryKey: ['procedures'] }); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['procedures'] }); },
   });
 }
 
@@ -70,7 +70,7 @@ export function useUpdateProcedure() {
       const { data } = await procedureApi.patch<{ success: boolean; data: Procedure }>(`/procedures/${id}`, payload);
       return data.data;
     },
-    onSuccess: () => { void qc.invalidateQueries({ queryKey: ['procedures'] }); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['procedures'] }); },
   });
 }
 
@@ -87,6 +87,6 @@ export function useDeleteProcedure() {
     mutationFn: async (id: string) => {
       await procedureApi.delete(`/procedures/${id}`);
     },
-    onSuccess: () => { void qc.invalidateQueries({ queryKey: ['procedures'] }); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['procedures'] }); },
   });
 }

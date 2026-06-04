@@ -689,7 +689,7 @@ export default function AppointmentsPage() {
   }
 
   function invalidate() {
-    void qc.invalidateQueries({ queryKey: ['appointments'] });
+    qc.invalidateQueries({ queryKey: ['appointments'] });
   }
 
   function handleEdit(a: Appointment) {
@@ -1000,7 +1000,7 @@ export default function AppointmentsPage() {
           {isError && (
             <div className="py-12 text-center text-red-500 dark:text-red-400 text-sm">
               {t('تعذّر تحميل المواعيد', 'Failed to load appointments')}
-              <button onClick={() => void refetch()} className="ms-2 underline text-gray-500 hover:text-gray-700">
+              <button onClick={() => refetch()} className="ms-2 underline text-gray-500 hover:text-gray-700">
                 {t('إعادة المحاولة', 'Retry')}
               </button>
             </div>
@@ -1186,14 +1186,14 @@ export default function AppointmentsPage() {
         open={addOpen}
         onClose={() => setAddOpen(false)}
         defaultDate={date}
-        onCreated={() => { setAddOpen(false); void refetch(); }}
+        onCreated={() => { setAddOpen(false); refetch(); }}
       />
 
       <AddAppointmentModal
         open={!!editAppt}
         onClose={closeEdit}
         defaultDate={date}
-        onCreated={() => { closeEdit(); void refetch(); }}
+        onCreated={() => { closeEdit(); refetch(); }}
         editAppointment={editAppt ?? undefined}
         editPatient={editPatientSt}
         editDoctor={editDoctorSt}

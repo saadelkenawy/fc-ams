@@ -124,7 +124,7 @@ export async function login(request: FastifyRequest, reply: FastifyReply): Promi
   await repo.storeRefreshToken(user.id, rawRefresh, refreshExpiry, { ipAddress: ip, userAgent: ua });
   await repo.auditLog({ userId: user.id, email: user.email, event: 'login_success', ipAddress: ip, userAgent: ua });
 
-  void reply.send({
+  return reply.send({
     success: true,
     data: {
       accessToken,
@@ -152,7 +152,7 @@ export async function me(request: FastifyRequest, reply: FastifyReply): Promise<
     throw err;
   }
 
-  void reply.send({
+  return reply.send({
     success: true,
     data: {
       id:       user.id,
@@ -202,7 +202,7 @@ export async function refresh(request: FastifyRequest, reply: FastifyReply): Pro
   await repo.storeRefreshToken(user.id, newRawRefresh, refreshExpiry, { ipAddress: ip, userAgent: ua });
   await repo.auditLog({ userId: user.id, email: user.email, event: 'token_refresh', ipAddress: ip, userAgent: ua });
 
-  void reply.send({
+  return reply.send({
     success: true,
     data: { accessToken, refreshToken: newRawRefresh, expiresIn: 900 },
   });
@@ -215,7 +215,7 @@ export async function logout(request: FastifyRequest, reply: FastifyReply): Prom
   await repo.revokeRefreshToken(rawToken);
   await repo.auditLog({ userId: payload.sub, email: payload.sub, event: 'logout' });
 
-  void reply.send({ success: true });
+  return reply.send({ success: true });
 }
 
 export async function createUser(request: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -249,7 +249,7 @@ export async function createUser(request: FastifyRequest, reply: FastifyReply): 
     doctorId:     input.doctorId,
   });
 
-  void reply.status(201).send({
+  return reply.status(201).send({
     success: true,
     data: {
       id:       user.id,
@@ -285,14 +285,14 @@ export async function changePassword(request: FastifyRequest, reply: FastifyRepl
   await repo.updatePasswordHash(user.id, hash);
   await repo.auditLog({ userId: user.id, email: user.email, event: 'password_changed', ipAddress: request.ip });
 
-  void reply.send({ success: true });
+  return reply.send({ success: true });
 }
 
 export async function listUsers(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const payload = request.user as JwtPayload;
   const users   = await repo.listUsers(payload.branchId);
 
-  void reply.send({
+  return reply.send({
     success: true,
     data: users.map((u) => ({
       id:          u.id,
@@ -352,7 +352,7 @@ export async function updateUser(request: FastifyRequest, reply: FastifyReply): 
   }
   await repo.auditLog({ userId: actor.sub, email: actor.sub, event: 'user_updated', meta: { targetUserId: id, patch } });
 
-  void reply.send({
+  return reply.send({
     success: true,
     data: { id: updated.id, nameEn: updated.nameEn, nameAr: updated.nameAr, role: updated.role, isActive: updated.isActive, email: updated.email },
   });
@@ -375,7 +375,7 @@ export async function adminResetPassword(request: FastifyRequest, reply: Fastify
   await repo.revokeAllUserTokens(id);
   await repo.auditLog({ userId: actor.sub, email: actor.sub, event: 'admin_password_reset', meta: { targetUserId: id } });
 
-  void reply.send({ success: true });
+  return reply.send({ success: true });
 }
 
 export async function deleteUser(request: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -393,7 +393,7 @@ export async function deleteUser(request: FastifyRequest, reply: FastifyReply): 
   await repo.deleteUser(id);
   await repo.auditLog({ userId: actor.sub, email: actor.sub, event: 'user_deleted', meta: { targetUserId: id } });
 
-  void reply.status(204).send();
+  return reply.status(204).send();
 }
 
 const verifyPasswordSchema = z.object({
@@ -406,10 +406,10 @@ export async function verifyPasswordEndpoint(request: FastifyRequest, reply: Fas
 
   const user = await repo.findUserById(payload.sub);
   if (!user) {
-    void reply.send({ success: true, data: { valid: false } });
+    return reply.send({ success: true, data: { valid: false } });
     return;
   }
 
   const valid = await verifyPassword(password, user.passwordHash);
-  void reply.send({ success: true, data: { valid } });
+  return reply.send({ success: true, data: { valid } });
 }

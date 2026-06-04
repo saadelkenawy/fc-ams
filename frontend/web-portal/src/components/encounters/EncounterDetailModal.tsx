@@ -181,7 +181,7 @@ export function EncounterDetailModal({ open, encounter, patientName, doctorName,
     },
     onSuccess: ({ newVersion }) => {
       setLocalVersion(newVersion);
-      void queryClient.invalidateQueries({ queryKey: ['encounters'] });
+      queryClient.invalidateQueries({ queryKey: ['encounters'] });
       onClose();
     },
   });

@@ -68,7 +68,7 @@ export async function createPrescription(
   const user = request.user as JwtPayload;
   const body = createSchema.parse(request.body);
   const rx = await repo.createPrescription(body, user.sub);
-  void reply.status(201).send({ success: true, data: rx });
+  return reply.status(201).send({ success: true, data: rx });
 }
 
 export async function getPrescription(
@@ -78,13 +78,13 @@ export async function getPrescription(
   const { id } = request.params as { id: string };
   const rx = await repo.findPrescriptionById(id);
   if (!rx) {
-    void reply.status(404).send({
+    return reply.status(404).send({
       success: false,
       error: { code: 'PRESCRIPTION_NOT_FOUND', message: 'Prescription not found' },
     });
     return;
   }
-  void reply.send({ success: true, data: rx });
+  return reply.send({ success: true, data: rx });
 }
 
 export async function listPrescriptions(
@@ -93,7 +93,7 @@ export async function listPrescriptions(
 ): Promise<void> {
   const params = listQuerySchema.parse(request.query);
   const result = await repo.listPrescriptions(params);
-  void reply.send({ success: true, ...result });
+  return reply.send({ success: true, ...result });
 }
 
 export async function updateStatus(
@@ -104,7 +104,7 @@ export async function updateStatus(
   const { status, version } = statusPatchSchema.parse(request.body);
   const rx = await repo.updatePrescriptionStatus(id, status, version);
   if (!rx) {
-    void reply.status(409).send({
+    return reply.status(409).send({
       success: false,
       error: {
         code: 'VERSION_CONFLICT',
@@ -113,7 +113,7 @@ export async function updateStatus(
     });
     return;
   }
-  void reply.send({ success: true, data: rx });
+  return reply.send({ success: true, data: rx });
 }
 
 export async function deletePrescription(
@@ -124,7 +124,7 @@ export async function deletePrescription(
   const { version } = deletePatchSchema.parse(request.body);
   const deleted = await repo.softDeletePrescription(id, version);
   if (!deleted) {
-    void reply.status(409).send({
+    return reply.status(409).send({
       success: false,
       error: {
         code: 'VERSION_CONFLICT',
@@ -133,7 +133,7 @@ export async function deletePrescription(
     });
     return;
   }
-  void reply.status(204).send();
+  return reply.status(204).send();
 }
 
 export async function searchMedications(
@@ -142,5 +142,5 @@ export async function searchMedications(
 ): Promise<void> {
   const { q } = medSearchSchema.parse(request.query);
   const results = await repo.searchMedications(q);
-  void reply.send({ success: true, data: results });
+  return reply.send({ success: true, data: results });
 }

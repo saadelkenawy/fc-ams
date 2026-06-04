@@ -21,5 +21,5 @@ export async function searchProducts(
     limit,
   });
 
-  void reply.send({ success: true, query: q, total: results.length, data: results });
+  return reply.send({ success: true, query: q, total: results.length, data: results });
 }

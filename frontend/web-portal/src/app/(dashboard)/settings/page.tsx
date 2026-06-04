@@ -297,7 +297,7 @@ function CreateUserModal({
                 onBlur={(e) => {
                   const v = e.target.value.trim();
                   if (lang === 'en' && v && !form.nameAr.trim()) {
-                    void translate(v, 'en').then((r) => { if (r) setForm((f) => ({ ...f, nameAr: r })); });
+                    translate(v, 'en').then((r) => { if (r) setForm((f) => ({ ...f, nameAr: r })); });
                   }
                 }}
               />
@@ -312,7 +312,7 @@ function CreateUserModal({
                 onBlur={(e) => {
                   const v = e.target.value.trim();
                   if (lang === 'ar' && v && !form.nameEn.trim()) {
-                    void translate(v, 'ar').then((r) => { if (r) setForm((f) => ({ ...f, nameEn: r })); });
+                    translate(v, 'ar').then((r) => { if (r) setForm((f) => ({ ...f, nameEn: r })); });
                   }
                 }}
               />
@@ -660,12 +660,12 @@ function UsersContent({ t, lang }: { t: (ar: string, en: string) => string; lang
     mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
       await identityApi.patch(`/users/${id}`, { isActive });
     },
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['platform-users'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['platform-users'] }),
   });
 
   function invalidate() {
-    void qc.invalidateQueries({ queryKey: ['platform-users'] });
-    void qc.invalidateQueries({ queryKey: ['doctors-unlinked'] });
+    qc.invalidateQueries({ queryKey: ['platform-users'] });
+    qc.invalidateQueries({ queryKey: ['doctors-unlinked'] });
   }
 
   const occupiedDoctorIds = new Set(
@@ -931,7 +931,7 @@ function NotificationsContent({ t, lang }: { t: (ar: string, en: string) => stri
     mutationFn: async (id: string) => {
       await notificationApi.post(`/notifications/${id}/retry`);
     },
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['notifications-log'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications-log'] }),
   });
 
   const records = data?.data ?? [];
@@ -955,7 +955,7 @@ function NotificationsContent({ t, lang }: { t: (ar: string, en: string) => stri
         <button
           type="button"
           className="fc-btn fc-btn-sm fc-btn-ghost gap-1.5"
-          onClick={() => void qc.invalidateQueries({ queryKey: ['notifications-log'] })}
+          onClick={() => qc.invalidateQueries({ queryKey: ['notifications-log'] })}
           disabled={isFetching}
         >
           <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? 'animate-spin' : ''}`} />
@@ -1136,7 +1136,7 @@ function SystemContent({ t, lang }: { t: (ar: string, en: string) => string; lan
           <Activity className="w-4 h-4 text-gray-400" />
           {t('حالة الخدمات', 'Service Health')}
         </h3>
-        <button type="button" className="fc-btn fc-btn-sm fc-btn-ghost gap-1.5" onClick={() => void refetch()} disabled={isFetching}>
+        <button type="button" className="fc-btn fc-btn-sm fc-btn-ghost gap-1.5" onClick={() => refetch()} disabled={isFetching}>
           <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? 'animate-spin' : ''}`} />
           {t('تحديث', 'Refresh')}
         </button>

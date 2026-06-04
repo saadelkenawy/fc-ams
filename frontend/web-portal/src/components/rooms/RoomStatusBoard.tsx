@@ -159,7 +159,7 @@ function NextPatientModal({
             Cancel
           </Button>
           <Button
-            onClick={() => { void handleConfirm(); }}
+            onClick={() => { handleConfirm(); }}
             disabled={nextPatient.isPending}
             className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-60"
           >
@@ -629,7 +629,7 @@ function AssignDoctorModal({ room, initialDate, onClose }: { room: RoomDetail; i
               Back
             </Button>
             <Button
-              onClick={() => { void handleAutoAssign(); }}
+              onClick={() => { handleAutoAssign(); }}
               disabled={autoAssign.isPending}
               className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-60"
             >
@@ -812,7 +812,7 @@ function ReleaseConfirmModal({ room, onClose }: { room: RoomDetail; onClose: () 
               type="password"
               value={password}
               onChange={(e) => { setPassword(e.target.value); setPwError(''); }}
-              onKeyDown={(e) => { if (e.key === 'Enter' && password) void handleRelease(); }}
+              onKeyDown={(e) => { if (e.key === 'Enter' && password) handleRelease(); }}
               placeholder="Enter your password to confirm"
               className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:border-primary-500"
               autoFocus
@@ -825,7 +825,7 @@ function ReleaseConfirmModal({ room, onClose }: { room: RoomDetail; onClose: () 
         <div className="flex gap-2">
           <Button variant="outline" onClick={onClose} disabled={isPending} className="flex-1">Back</Button>
           <Button
-            onClick={() => { void handleRelease(); }}
+            onClick={() => { handleRelease(); }}
             disabled={isPending || (hasAppointments && !password)}
             className="flex-1 bg-red-600 hover:bg-red-500 text-white disabled:opacity-60"
           >

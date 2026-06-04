@@ -98,9 +98,9 @@ function useQueueMutation(queueId: string, action: string) {
       return data.data!;
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['queue'] });
-      void qc.invalidateQueries({ queryKey: ['queue-stats'] });
-      void qc.invalidateQueries({ queryKey: ['queue-entry', queueId] });
+      qc.invalidateQueries({ queryKey: ['queue'] });
+      qc.invalidateQueries({ queryKey: ['queue-stats'] });
+      qc.invalidateQueries({ queryKey: ['queue-entry', queueId] });
     },
   });
 }
@@ -124,9 +124,9 @@ export function useCancelFromQueue(queueId: string) {
       return data.data!;
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['queue'] });
-      void qc.invalidateQueries({ queryKey: ['queue-stats'] });
-      void qc.invalidateQueries({ queryKey: ['queue-cancel-preview', queueId] });
+      qc.invalidateQueries({ queryKey: ['queue'] });
+      qc.invalidateQueries({ queryKey: ['queue-stats'] });
+      qc.invalidateQueries({ queryKey: ['queue-cancel-preview', queueId] });
     },
   });
 }
@@ -139,8 +139,8 @@ export function useCheckIn() {
       return data.data!;
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['queue'] });
-      void qc.invalidateQueries({ queryKey: ['queue-stats'] });
+      qc.invalidateQueries({ queryKey: ['queue'] });
+      qc.invalidateQueries({ queryKey: ['queue-stats'] });
     },
   });
 }

@@ -36,7 +36,7 @@ const dayOverrideSchema = z.object({
 export async function getConsultHours(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { id } = request.params as { id: string };
   const hours = await repo.findConsultHours(id);
-  void reply.send({ success: true, data: hours });
+  return reply.send({ success: true, data: hours });
 }
 
 export async function putConsultHours(request: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -44,7 +44,7 @@ export async function putConsultHours(request: FastifyRequest, reply: FastifyRep
   const input = consultHoursSchema.parse(request.body);
   const user = request.user as JwtPayload;
   const hour = await repo.upsertConsultHours(id, input, user.branchId);
-  void reply.send({ success: true, data: hour });
+  return reply.send({ success: true, data: hour });
 }
 
 export async function putConsultHoursBulk(request: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -52,7 +52,7 @@ export async function putConsultHoursBulk(request: FastifyRequest, reply: Fastif
   const { hours } = bulkConsultHoursSchema.parse(request.body);
   const user = request.user as JwtPayload;
   const result = await repo.upsertConsultHoursBulk(id, hours, user.branchId);
-  void reply.send({ success: true, data: result });
+  return reply.send({ success: true, data: result });
 }
 
 // ── Doctor Status ────────────────────────────────────────────────────────────
@@ -61,10 +61,10 @@ export async function getDoctorStatus(request: FastifyRequest, reply: FastifyRep
   const { id } = request.params as { id: string };
   const status = await repo.getStatus(id);
   if (!status) {
-    void reply.status(404).send({ success: false, error: { code: 'DOCTOR_NOT_FOUND', message: 'Doctor not found' } });
+    return reply.status(404).send({ success: false, error: { code: 'DOCTOR_NOT_FOUND', message: 'Doctor not found' } });
     return;
   }
-  void reply.send({ success: true, data: status });
+  return reply.send({ success: true, data: status });
 }
 
 export async function patchDoctorStatus(request: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -86,14 +86,14 @@ export async function patchDoctorStatus(request: FastifyRequest, reply: FastifyR
   });
   await redis.publish('doctor:status_changed', payload);
 
-  void reply.send({ success: true, data: log });
+  return reply.send({ success: true, data: log });
 }
 
 export async function getDoctorStatusHistory(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { id } = request.params as { id: string };
   const { limit } = (request.query as { limit?: string });
   const history = await repo.getStatusHistory(id, limit ? Number(limit) : 50);
-  void reply.send({ success: true, data: history });
+  return reply.send({ success: true, data: history });
 }
 
 // ── Day Overrides ────────────────────────────────────────────────────────────
@@ -102,7 +102,7 @@ export async function getDayOverrides(request: FastifyRequest, reply: FastifyRep
   const { id } = request.params as { id: string };
   const { from } = request.query as { from?: string };
   const overrides = await repo.findDayOverrides(id, from);
-  void reply.send({ success: true, data: overrides });
+  return reply.send({ success: true, data: overrides });
 }
 
 export async function putDayOverride(request: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -110,7 +110,7 @@ export async function putDayOverride(request: FastifyRequest, reply: FastifyRepl
   const input = dayOverrideSchema.parse(request.body);
   const user = request.user as JwtPayload;
   const override = await repo.upsertDayOverride(id, input, user.sub, user.branchId);
-  void reply.status(200).send({ success: true, data: override });
+  return reply.status(200).send({ success: true, data: override });
 }
 
 // ── Availability ─────────────────────────────────────────────────────────────
@@ -122,5 +122,5 @@ export async function getDoctorAvailability(request: FastifyRequest, reply: Fast
 
   const targetDate = date ?? new Date().toISOString().split('T')[0];
   const availability = await repo.getDoctorAvailability(id, targetDate, user.branchId);
-  void reply.send({ success: true, data: availability });
+  return reply.send({ success: true, data: availability });
 }

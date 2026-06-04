@@ -86,7 +86,7 @@ export default function AlertsPage() {
     try {
       await procurementApi.post(`/alerts/check-${type}`, {});
       toast(t('اكتمل الفحص', `${type === 'expiry' ? 'Expiry' : 'Reorder'} scan complete`), 'success');
-      void refetch();
+      refetch();
     } catch {
       toast(t('فشل الفحص', 'Scan failed'), 'error');
     } finally {
@@ -110,7 +110,7 @@ export default function AlertsPage() {
             variant="outline"
             size="sm"
             className="gap-1.5"
-            onClick={() => void runScan('expiry')}
+            onClick={() => runScan('expiry')}
             disabled={scanning !== null}
           >
             <RefreshCw className={`w-3.5 h-3.5 ${scanning === 'expiry' ? 'animate-spin' : ''}`} />
@@ -120,7 +120,7 @@ export default function AlertsPage() {
             variant="outline"
             size="sm"
             className="gap-1.5"
-            onClick={() => void runScan('reorder')}
+            onClick={() => runScan('reorder')}
             disabled={scanning !== null}
           >
             <RefreshCw className={`w-3.5 h-3.5 ${scanning === 'reorder' ? 'animate-spin' : ''}`} />
@@ -131,7 +131,7 @@ export default function AlertsPage() {
               variant="outline"
               size="sm"
               className="gap-1.5"
-              onClick={() => void handleMarkAllRead()}
+              onClick={() => handleMarkAllRead()}
               disabled={markAllRead.isLoading}
             >
               <BellOff className="w-3.5 h-3.5" />
@@ -185,7 +185,7 @@ export default function AlertsPage() {
                   key={alert.id}
                   alert={alert}
                   lang={lang}
-                  onMarkRead={() => void handleMarkRead(alert.id)}
+                  onMarkRead={() => handleMarkRead(alert.id)}
                   isMarking={markRead.isLoading}
                   t={t}
                 />

@@ -340,7 +340,7 @@ function PrescriptionDetail({
     },
     onSuccess: () => {
       setIsDispensed(true);
-      void queryClient.invalidateQueries({ queryKey: ['prescriptions'] });
+      queryClient.invalidateQueries({ queryKey: ['prescriptions'] });
     },
   });
 

@@ -48,17 +48,17 @@ export async function getPatient(request: FastifyRequest, reply: FastifyReply): 
   const user = request.user as JwtPayload;
   const patient = await repo.findPatientById(user.branchId, id);
   if (!patient) {
-    void reply.status(404).send({ success: false, error: { code: 'PATIENT_NOT_FOUND', message: 'Patient not found' } });
+    return reply.status(404).send({ success: false, error: { code: 'PATIENT_NOT_FOUND', message: 'Patient not found' } });
     return;
   }
-  void reply.send({ success: true, data: patient });
+  return reply.send({ success: true, data: patient });
 }
 
 export async function searchPatients(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const params = searchSchema.parse(request.query);
   const user = request.user as JwtPayload;
   const result = await repo.searchPatients(user.branchId, params);
-  void reply.send({ success: true, ...result });
+  return reply.send({ success: true, ...result });
 }
 
 const batchSchema = z.object({
@@ -69,11 +69,11 @@ export async function batchGetPatients(request: FastifyRequest, reply: FastifyRe
   const { ids } = batchSchema.parse(request.query);
   const user = request.user as JwtPayload;
   if (ids.length > 200) {
-    void reply.status(400).send({ success: false, error: { code: 'TOO_MANY_IDS', message: 'Max 200 IDs per request' } });
+    return reply.status(400).send({ success: false, error: { code: 'TOO_MANY_IDS', message: 'Max 200 IDs per request' } });
     return;
   }
   const patients = await repo.findPatientsByIds(user.branchId, ids);
-  void reply.send({ success: true, data: patients });
+  return reply.send({ success: true, data: patients });
 }
 
 export async function createPatient(request: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -82,7 +82,7 @@ export async function createPatient(request: FastifyRequest, reply: FastifyReply
 
   const existing = await repo.findPatientByMobile(user.branchId, input.mobile);
   if (existing) {
-    void reply.status(409).send({
+    return reply.status(409).send({
       success: false,
       error: { code: 'MOBILE_ALREADY_EXISTS', message: 'A patient with this mobile number already exists' },
     });
@@ -90,7 +90,7 @@ export async function createPatient(request: FastifyRequest, reply: FastifyReply
   }
 
   const patient = await repo.createPatient(input, user.sub, user.branchId);
-  void reply.status(201).send({ success: true, data: patient });
+  return reply.status(201).send({ success: true, data: patient });
 }
 
 export async function updatePatient(request: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -98,12 +98,12 @@ export async function updatePatient(request: FastifyRequest, reply: FastifyReply
   const input = updateSchema.parse(request.body) as UpdatePatientInput;
   const user = request.user as JwtPayload;
   const patient = await repo.updatePatient(user.branchId, id, input, user.sub);
-  void reply.send({ success: true, data: patient });
+  return reply.send({ success: true, data: patient });
 }
 
 export async function deletePatient(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { id } = request.params as { id: string };
   const user = request.user as JwtPayload;
   await repo.softDeletePatient(user.branchId, id, user.sub);
-  void reply.status(204).send();
+  return reply.status(204).send();
 }

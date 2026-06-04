@@ -45,7 +45,7 @@ export function useUpdatePatient() {
       return data.data!;
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['patients'] });
+      qc.invalidateQueries({ queryKey: ['patients'] });
     },
   });
 }
@@ -66,7 +66,7 @@ export function useDeletePatient() {
       await patientApi.delete(`/patients/${id}`);
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['patients'] });
+      qc.invalidateQueries({ queryKey: ['patients'] });
     },
   });
 }

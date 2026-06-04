@@ -35,7 +35,7 @@ export async function doctorRoutes(app: FastifyInstance): Promise<void> {
   }, async (_req, reply) => {
     const { listSpecialties } = await import('../repositories/doctor.repository');
     const data = await listSpecialties();
-    void reply.send({ success: true, data });
+    return reply.send({ success: true, data });
   });
 
   // GET /doctors/:id

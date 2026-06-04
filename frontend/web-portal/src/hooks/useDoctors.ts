@@ -95,7 +95,7 @@ export function useUpsertSchedule(doctorId: string) {
       return data.data!;
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['doctor-schedules', doctorId] });
+      qc.invalidateQueries({ queryKey: ['doctor-schedules', doctorId] });
     },
   });
 }
@@ -118,7 +118,7 @@ export function useCreateOverride(doctorId: string) {
       return data.data!;
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['doctor-overrides', doctorId] });
+      qc.invalidateQueries({ queryKey: ['doctor-overrides', doctorId] });
     },
   });
 }
@@ -131,7 +131,7 @@ export function useUpdateDoctor() {
       return data.data!;
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['doctors'] });
+      qc.invalidateQueries({ queryKey: ['doctors'] });
     },
   });
 }
@@ -144,7 +144,7 @@ export function useToggleDoctorActive() {
       return data.data!;
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['doctors'] });
+      qc.invalidateQueries({ queryKey: ['doctors'] });
     },
   });
 }
@@ -156,7 +156,7 @@ export function useDeleteDoctor() {
       await doctorApi.delete(`/doctors/${id}`);
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['doctors'] });
+      qc.invalidateQueries({ queryKey: ['doctors'] });
     },
   });
 }
@@ -185,7 +185,7 @@ export function useUpsertConsultHours(doctorId: string) {
       );
       return data.data!;
     },
-    onSuccess: () => { void qc.invalidateQueries({ queryKey: ['consult-hours', doctorId] }); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['consult-hours', doctorId] }); },
   });
 }
 
@@ -212,8 +212,8 @@ export function useChangeDoctorStatus(doctorId: string) {
       return data.data!;
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['doctor-status', doctorId] });
-      void qc.invalidateQueries({ queryKey: ['doctors'] });
+      qc.invalidateQueries({ queryKey: ['doctor-status', doctorId] });
+      qc.invalidateQueries({ queryKey: ['doctors'] });
     },
   });
 }

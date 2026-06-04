@@ -202,9 +202,9 @@ export default function RegisterPage() {
   ) {
     return () => {
       if (langRef.current === 'en') {
-        void autoTranslate(enField, arField, 'en');
+        autoTranslate(enField, arField, 'en');
       } else {
-        void autoTranslate(arField, enField, 'ar');
+        autoTranslate(arField, enField, 'ar');
       }
     };
   }
@@ -276,7 +276,7 @@ export default function RegisterPage() {
               onGoSettings={() => router.push('/settings')}
             />
           ) : (
-            <form onSubmit={(e) => void handleSubmit((d) => mutation.mutateAsync(d))(e)} noValidate className="space-y-5">
+            <form onSubmit={(e) => handleSubmit((d) => mutation.mutateAsync(d))(e)} noValidate className="space-y-5">
 
               {/* ── Name section ─────────────────────────────────────── */}
               <div>

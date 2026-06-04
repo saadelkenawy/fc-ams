@@ -514,7 +514,7 @@ export default function ChatbotPage() {
 
   function handleSuggestion(s: Suggestion) {
     if (s.value === '__book__')  { addUser(t('حجز موعد جديد', 'Book New Appointment')); startBookingFlow(); return; }
-    if (s.value === '__today__') { addUser(t('عرض مواعيد اليوم', 'Show today\'s appointments')); void handleTodayAppts(); return; }
+    if (s.value === '__today__') { addUser(t('عرض مواعيد اليوم', 'Show today\'s appointments')); handleTodayAppts(); return; }
 
     addUser(s.label);
 
@@ -526,7 +526,7 @@ export default function ChatbotPage() {
     if (step === 'get_payment')   { handlePaymentPick(s, booking); return; }
 
     setBooking((b) => ({ ...b, step: 'chat' }));
-    void sendToLlm(s.value);
+    sendToLlm(s.value);
   }
 
   // ── Text input ────────────────────────────────────────────────────────────
@@ -546,12 +546,12 @@ export default function ChatbotPage() {
 
     if (step === 'idle' || step === 'done' || step === 'chat') {
       setBooking((b) => ({ ...b, step: 'chat' }));
-      void sendToLlm(text);
+      sendToLlm(text);
       return;
     }
 
     // Typed text during a pick step → LLM handles it
-    void sendToLlm(text);
+    sendToLlm(text);
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -636,7 +636,7 @@ export default function ChatbotPage() {
                     <ConfirmCardWidget
                       card={msg.confirmCard}
                       lang={lang}
-                      onConfirm={() => void handleConfirm(booking)}
+                      onConfirm={() => handleConfirm(booking)}
                       onCancel={handleCancelBooking}
                       loading={confirmLoading}
                     />

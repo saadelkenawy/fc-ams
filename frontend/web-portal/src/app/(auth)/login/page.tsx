@@ -266,7 +266,7 @@ export default function LoginPage() {
 
             <form
               key={shakeKey}
-              onSubmit={(e) => void handleSubmit(onSubmit)(e)}
+              onSubmit={(e) => handleSubmit(onSubmit)(e)}
               className={cn('space-y-4', error && 'animate-shake')}
               noValidate
             >

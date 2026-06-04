@@ -54,7 +54,7 @@ export function useCreateSource() {
       const { data } = await billingApi.post<{ success: boolean; data: SourceFeeRule }>('/sources', input);
       return data.data;
     },
-    onSuccess: () => { void qc.invalidateQueries({ queryKey: ['sources'] }); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['sources'] }); },
   });
 }
 
@@ -65,7 +65,7 @@ export function useUpdateSource() {
       const { data } = await billingApi.patch<{ success: boolean; data: SourceFeeRule }>(`/sources/${code}`, body);
       return data.data;
     },
-    onSuccess: () => { void qc.invalidateQueries({ queryKey: ['sources'] }); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['sources'] }); },
   });
 }
 
@@ -75,6 +75,6 @@ export function useDeleteSource() {
     mutationFn: async (code: string) => {
       await billingApi.delete(`/sources/${code}`);
     },
-    onSuccess: () => { void qc.invalidateQueries({ queryKey: ['sources'] }); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['sources'] }); },
   });
 }

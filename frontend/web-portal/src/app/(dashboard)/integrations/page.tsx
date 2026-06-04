@@ -95,7 +95,7 @@ export default function IntegrationsPage() {
         <Button
           size="sm"
           variant="outline"
-          onClick={() => void refetch()}
+          onClick={() => refetch()}
           disabled={isFetching}
           className="gap-1.5"
         >

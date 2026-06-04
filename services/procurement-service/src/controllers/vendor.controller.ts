@@ -34,28 +34,28 @@ const listSchema = z.object({
 export async function listVendors(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const params = listSchema.parse(request.query);
   const result = await repo.listVendors(params);
-  void reply.send({ success: true, ...result });
+  return reply.send({ success: true, ...result });
 }
 
 export async function getVendor(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { id } = request.params as { id: string };
   const vendor = await repo.findVendorById(id);
   if (!vendor) {
-    void reply.status(404).send({ success: false, error: { code: 'VENDOR_NOT_FOUND', message: 'Vendor not found' } });
+    return reply.status(404).send({ success: false, error: { code: 'VENDOR_NOT_FOUND', message: 'Vendor not found' } });
     return;
   }
-  void reply.send({ success: true, data: vendor });
+  return reply.send({ success: true, data: vendor });
 }
 
 export async function createVendor(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const input = vendorSchema.parse(request.body);
   const vendor = await repo.createVendor(input);
-  void reply.status(201).send({ success: true, data: vendor });
+  return reply.status(201).send({ success: true, data: vendor });
 }
 
 export async function updateVendor(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { id } = request.params as { id: string };
   const input = vendorSchema.partial().extend({ isApproved: z.boolean().optional() }).parse(request.body);
   const vendor = await repo.updateVendor(id, input);
-  void reply.send({ success: true, data: vendor });
+  return reply.send({ success: true, data: vendor });
 }

@@ -189,7 +189,7 @@ export function PrescriptionForm({ encounterId, patientId, doctorId, patientName
       return (res.data as { data: Prescription }).data;
     },
     onSuccess: (rx) => {
-      void queryClient.invalidateQueries({ queryKey: ['prescriptions'] });
+      queryClient.invalidateQueries({ queryKey: ['prescriptions'] });
       onSuccess?.(rx);
     },
     onError: () => {

@@ -204,7 +204,7 @@ function DayCard({
           )}
 
           <div className="flex gap-2 pt-1">
-            <Button size="sm" onClick={() => void handleSave()} loading={upsert.isPending} className="gap-1">
+            <Button size="sm" onClick={() => handleSave()} loading={upsert.isPending} className="gap-1">
               <Save className="w-3.5 h-3.5" />
               {t('حفظ', 'Save')}
             </Button>
@@ -357,7 +357,7 @@ function AddOverrideForm({
 
         <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100 dark:border-neutral-700">
           <Button variant="outline" size="sm" onClick={onDone}>{t('إلغاء', 'Cancel')}</Button>
-          <Button size="sm" onClick={() => void handleSubmit()} loading={create.isPending} disabled={!form.overrideDate}>
+          <Button size="sm" onClick={() => handleSubmit()} loading={create.isPending} disabled={!form.overrideDate}>
             {t('حفظ الاستثناء', 'Save Override')}
           </Button>
         </div>

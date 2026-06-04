@@ -175,7 +175,7 @@ function SourceModal({
           </button>
         </div>
 
-        <form onSubmit={(e) => void handleSubmit(onSubmit)(e)} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+        <form onSubmit={(e) => handleSubmit(onSubmit)(e)} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
           {/* Code */}
           <Field id="sourceCode" labelAr="كود المصدر" labelEn="Source Code" readOnly={isEdit} />
 
@@ -609,7 +609,7 @@ export default function SourcesPage() {
         )}
         confirmLabel={t('حذف', 'Delete')}
         loading={deleteSource.isPending}
-        onConfirm={() => void handleDelete()}
+        onConfirm={() => handleDelete()}
         onClose={() => setDeleteTarget(null)}
       />
     </div>

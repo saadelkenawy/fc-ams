@@ -102,7 +102,7 @@ export function AddPatientModal({ open, onClose, onCreated }: AddPatientModalPro
       return data.data;
     },
     onSuccess: (created) => {
-      void qc.invalidateQueries({ queryKey: ['patients'] });
+      qc.invalidateQueries({ queryKey: ['patients'] });
       toast(t('تم إضافة المريض بنجاح', 'Patient added successfully'), 'success');
       onCreated?.(created.patientId);
       onClose();
@@ -194,7 +194,7 @@ export function AddPatientModal({ open, onClose, onCreated }: AddPatientModalPro
                 onBlur={(e) => {
                   const v = e.target.value.trim();
                   if (lang === 'ar' && v && !form.nameEn.trim()) {
-                    void translate(v, 'ar').then((r) => { if (r) set('nameEn', r); });
+                    translate(v, 'ar').then((r) => { if (r) set('nameEn', r); });
                   }
                 }}
                 dir="rtl"
@@ -214,7 +214,7 @@ export function AddPatientModal({ open, onClose, onCreated }: AddPatientModalPro
                 onBlur={(e) => {
                   const v = e.target.value.trim();
                   if (lang === 'en' && v && !form.nameAr.trim()) {
-                    void translate(v, 'en').then((r) => { if (r) set('nameAr', r); });
+                    translate(v, 'en').then((r) => { if (r) set('nameAr', r); });
                   }
                 }}
                 dir="ltr"

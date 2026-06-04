@@ -117,7 +117,7 @@ async function processAppointmentWebhook(
   const headerSecret = (req.headers['x-webhook-secret'] ?? req.headers['x-hub-signature']) as string | undefined;
 
   if (!verifySecret(headerSecret, secret)) {
-    void reply.status(401).send({ success: false, error: { code: 'INVALID_SECRET', message: 'Invalid webhook secret' } });
+    return reply.status(401).send({ success: false, error: { code: 'INVALID_SECRET', message: 'Invalid webhook secret' } });
     return;
   }
 
@@ -131,7 +131,7 @@ async function processAppointmentWebhook(
   });
 
   if (event.status === 'duplicate') {
-    void reply.send({ success: true, data: { status: 'duplicate', eventId: event.id } });
+    return reply.send({ success: true, data: { status: 'duplicate', eventId: event.id } });
     return;
   }
 
@@ -139,7 +139,7 @@ async function processAppointmentWebhook(
 
   if (!norm || !norm.date || !norm.doctorId) {
     await repo.updateEvent(event.id, { status: 'failed', errorMessage: 'Could not normalise payload' });
-    void reply.status(422).send({ success: false, error: { code: 'NORMALISE_FAILED', message: 'Unrecognised payload shape' } });
+    return reply.status(422).send({ success: false, error: { code: 'NORMALISE_FAILED', message: 'Unrecognised payload shape' } });
     return;
   }
 
@@ -147,7 +147,7 @@ async function processAppointmentWebhook(
 
   if (!patientId) {
     await repo.updateEvent(event.id, { status: 'failed', normalized: norm as unknown as Record<string, unknown>, errorMessage: 'Could not create/find patient' });
-    void reply.status(422).send({ success: false, error: { code: 'PATIENT_RESOLVE_FAILED', message: 'Patient lookup failed' } });
+    return reply.status(422).send({ success: false, error: { code: 'PATIENT_RESOLVE_FAILED', message: 'Patient lookup failed' } });
     return;
   }
 
@@ -180,11 +180,11 @@ async function processAppointmentWebhook(
   });
 
   if (finalStatus === 'failed') {
-    void reply.status(422).send({ success: false, error: { code: 'APPOINTMENT_FAILED', message: errorMsg } });
+    return reply.status(422).send({ success: false, error: { code: 'APPOINTMENT_FAILED', message: errorMsg } });
     return;
   }
 
-  void reply.status(200).send({ success: true, data: { eventId: event.id, appointment: apptResult } });
+  return reply.status(200).send({ success: true, data: { eventId: event.id, appointment: apptResult } });
 }
 
 // ── Public handlers ───────────────────────────────────────────────────────
@@ -216,7 +216,7 @@ const instaPaySchema = z.object({
 export async function instaPayWebhook(req: FastifyRequest, reply: FastifyReply): Promise<void> {
   const headerSecret = req.headers['x-instapay-secret'] as string | undefined;
   if (!verifySecret(headerSecret, config.INSTAPAY_WEBHOOK_SECRET)) {
-    void reply.status(401).send({ success: false, error: { code: 'INVALID_SECRET', message: 'Invalid secret' } });
+    return reply.status(401).send({ success: false, error: { code: 'INVALID_SECRET', message: 'Invalid secret' } });
     return;
   }
 
@@ -230,18 +230,18 @@ export async function instaPayWebhook(req: FastifyRequest, reply: FastifyReply):
   });
 
   if (event.status === 'duplicate') {
-    void reply.send({ success: true, data: { status: 'duplicate' } });
+    return reply.send({ success: true, data: { status: 'duplicate' } });
     return;
   }
 
   if (!parsed.success || parsed.data.status !== 'success') {
     await repo.updateEvent(event.id, { status: 'processed', normalized: payload });
-    void reply.send({ success: true, data: { status: 'acknowledged' } });
+    return reply.send({ success: true, data: { status: 'acknowledged' } });
     return;
   }
 
   await repo.updateEvent(event.id, { status: 'processed', normalized: parsed.data as unknown as Record<string, unknown> });
-  void reply.send({ success: true, data: { status: 'payment_acknowledged', transactionId: parsed.data.transaction_id } });
+  return reply.send({ success: true, data: { status: 'payment_acknowledged', transactionId: parsed.data.transaction_id } });
 }
 
 // ── Admin: list events ────────────────────────────────────────────────────
@@ -255,5 +255,5 @@ const listSchema = z.object({
 export async function listEvents(req: FastifyRequest, reply: FastifyReply): Promise<void> {
   const params = listSchema.parse(req.query);
   const events = await repo.listEvents(params);
-  void reply.send({ success: true, data: events });
+  return reply.send({ success: true, data: events });
 }

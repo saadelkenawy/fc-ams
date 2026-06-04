@@ -250,7 +250,7 @@ export default function VendorsPage() {
         footer={
           <>
             <Button variant="ghost" size="sm" onClick={() => setModalOpen(false)} disabled={isSaving}>{t('إلغاء','Cancel')}</Button>
-            <Button size="sm" onClick={() => void handleSubmit()} disabled={isSaving} className="min-w-[100px]">
+            <Button size="sm" onClick={() => handleSubmit()} disabled={isSaving} className="min-w-[100px]">
               {isSaving ? t('جارٍ الحفظ...','Saving...') : editTarget ? t('حفظ','Save') : t('إضافة','Add')}
             </Button>
           </>

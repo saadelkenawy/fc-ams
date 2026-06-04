@@ -72,7 +72,7 @@ export default function DoctorSchedulePage() {
       await appointmentApi.patch(`/appointments/${id}/status`, { status, version });
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['appointments'] });
+      qc.invalidateQueries({ queryKey: ['appointments'] });
     },
   });
 

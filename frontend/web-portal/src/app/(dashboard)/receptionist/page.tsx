@@ -281,7 +281,7 @@ function NewAppointmentFormPanel({ lang, t, initialPatient, onClose, onSuccess }
       return data.data;
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['appointments'] });
+      queryClient.invalidateQueries({ queryKey: ['appointments'] });
       setSuccess(true);
       setTimeout(onSuccess, 800);
     },

@@ -65,7 +65,7 @@ export async function checkIn(request: FastifyRequest, reply: FastifyReply): Pro
     input.queueDate, user.branchId, user.sub,
   );
   void pushQueueUpdate(input.doctorId, input.queueDate, user.branchId);
-  void reply.status(201).send({ success: true, data: entry });
+  return reply.status(201).send({ success: true, data: entry });
 }
 
 export async function callPatient(request: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -76,7 +76,7 @@ export async function callPatient(request: FastifyRequest, reply: FastifyReply):
   broadcast(entry.doctorId, entry.queueDate, user.branchId, 'patient_called', {
     doctorId: entry.doctorId, patientId: entry.patientId, position: entry.position,
   });
-  void reply.send({ success: true, data: entry });
+  return reply.send({ success: true, data: entry });
 }
 
 export async function startSession(request: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -84,7 +84,7 @@ export async function startSession(request: FastifyRequest, reply: FastifyReply)
   const user = request.user as JwtPayload;
   const entry = await repo.startSession(id, user.sub, user.branchId);
   void pushQueueUpdate(entry.doctorId, entry.queueDate, user.branchId);
-  void reply.send({ success: true, data: entry });
+  return reply.send({ success: true, data: entry });
 }
 
 export async function completeSession(request: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -97,7 +97,7 @@ export async function completeSession(request: FastifyRequest, reply: FastifyRep
       ? Math.round((new Date(entry.sessionEnd!).getTime() - new Date(entry.sessionStart).getTime()) / 60000)
       : null,
   });
-  void reply.send({ success: true, data: entry });
+  return reply.send({ success: true, data: entry });
 }
 
 export async function markNoShow(request: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -105,7 +105,7 @@ export async function markNoShow(request: FastifyRequest, reply: FastifyReply): 
   const user = request.user as JwtPayload;
   const entry = await repo.markNoShow(id, user.sub, user.branchId);
   void pushQueueUpdate(entry.doctorId, entry.queueDate, user.branchId);
-  void reply.send({ success: true, data: entry });
+  return reply.send({ success: true, data: entry });
 }
 
 export async function cancelFromQueue(request: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -125,7 +125,7 @@ export async function cancelFromQueue(request: FastifyRequest, reply: FastifyRep
     shiftedPatients: result.patientsShifted,
   });
 
-  void reply.send({
+  return reply.send({
     success: true,
     data: {
       entry: result.entry,
@@ -141,17 +141,17 @@ export async function rejoinQueue(request: FastifyRequest, reply: FastifyReply):
   const user = request.user as JwtPayload;
   const entry = await repo.rejoinQueue(id, user.sub, user.branchId);
   void pushQueueUpdate(entry.doctorId, entry.queueDate, user.branchId);
-  void reply.send({ success: true, data: entry });
+  return reply.send({ success: true, data: entry });
 }
 
 export async function previewCancel(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { id } = request.params as { id: string };
   const preview = await repo.previewCancel(id);
   if (!preview) {
-    void reply.status(404).send({ success: false, error: { code: 'NOT_FOUND', message: 'Queue entry not found or not cancellable' } });
+    return reply.status(404).send({ success: false, error: { code: 'NOT_FOUND', message: 'Queue entry not found or not cancellable' } });
     return;
   }
-  void reply.send({ success: true, data: preview });
+  return reply.send({ success: true, data: preview });
 }
 
 // ── Read ──────────────────────────────────────────────────────────────────────
@@ -160,22 +160,22 @@ export async function getPosition(request: FastifyRequest, reply: FastifyReply):
   const { id } = request.params as { id: string };
   const entry = await repo.getQueuePosition(id);
   if (!entry) {
-    void reply.status(404).send({ success: false, error: { code: 'NOT_FOUND', message: 'Queue entry not found' } });
+    return reply.status(404).send({ success: false, error: { code: 'NOT_FOUND', message: 'Queue entry not found' } });
     return;
   }
-  void reply.send({ success: true, data: entry });
+  return reply.send({ success: true, data: entry });
 }
 
 export async function getFullQueue(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { doctorId, date } = request.query as { doctorId: string; date?: string };
   const targetDate = date ?? new Date().toISOString().split('T')[0];
   const queue = await repo.getFullQueue(doctorId, targetDate);
-  void reply.send({ success: true, data: queue });
+  return reply.send({ success: true, data: queue });
 }
 
 export async function getQueueStats(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { doctorId, date } = request.query as { doctorId: string; date?: string };
   const targetDate = date ?? new Date().toISOString().split('T')[0];
   const stats = await repo.getQueueStats(doctorId, targetDate);
-  void reply.send({ success: true, data: stats });
+  return reply.send({ success: true, data: stats });
 }

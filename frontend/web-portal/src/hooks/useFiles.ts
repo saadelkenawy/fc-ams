@@ -77,7 +77,7 @@ export function useUploadFile(entityType: string, entityId: string) {
       return fileId;
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['files', entityType, entityId] });
+      qc.invalidateQueries({ queryKey: ['files', entityType, entityId] });
     },
   });
 }
@@ -89,7 +89,7 @@ export function useDeleteFile(entityType: string, entityId: string) {
       await fileApi.delete(`/files/${fileId}`);
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['files', entityType, entityId] });
+      qc.invalidateQueries({ queryKey: ['files', entityType, entityId] });
     },
   });
 }
