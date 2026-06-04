@@ -119,8 +119,7 @@ export async function findItemById(id: string): Promise<CatalogItem | null> {
   });
 }
 
-export async function createItem(input: CatalogItemInput, staffId: string): Promise<CatalogItem> {
-  void staffId;
+export async function createItem(input: CatalogItemInput, _staffId: string): Promise<CatalogItem> {
   return withTransaction(async (client: PoolClient) => {
     const { rows } = await client.query(
       `INSERT INTO procurement_items
