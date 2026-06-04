@@ -1,6 +1,6 @@
 # ─── Jenkins Configuration as Code (JCasC) ────────────────────────────────────
 # Applied automatically on startup via CASC_JENKINS_CONFIG env var.
-# Requires .env with: JENKINS_ADMIN_PASSWORD, GITHUB_TOKEN, DOCKERHUB_TOKEN, DEPLOY_SSH_KEY
+# Requires .env with: JENKINS_ADMIN_PASSWORD, GITHUB_TOKEN, DOCKERHUB_TOKEN, DEPLOY_SSH_KEY, SONAR_TOKEN
 # Deploy: docker compose --env-file .env up -d --force-recreate
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -58,3 +58,9 @@ credentials:
               privateKeySource:
                 directEntry:
                   privateKey: "${DEPLOY_SSH_KEY}"
+
+          - string:
+              scope: GLOBAL
+              id: "sonarqube-token"
+              description: "SonarQube user token for CI quality gate scans"
+              secret: "${SONAR_TOKEN}"
