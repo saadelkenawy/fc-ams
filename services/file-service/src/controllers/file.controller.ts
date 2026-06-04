@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
@@ -32,7 +33,7 @@ export async function initiateUpload(request: FastifyRequest, reply: FastifyRepl
   const input = initiateSchema.parse(request.body);
 
   const ext = input.originalName.split('.').pop() ?? 'bin';
-  const fileKey = `branch-${user.branchId ?? 1}/${input.entityType}/${input.entityId ?? 'general'}/${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
+  const fileKey = `branch-${user.branchId ?? 1}/${input.entityType}/${input.entityId ?? 'general'}/${Date.now()}-${randomBytes(6).toString('hex')}.${ext}`;
 
   // Generate presigned PUT URL
   const putUrl = await getSignedUrl(

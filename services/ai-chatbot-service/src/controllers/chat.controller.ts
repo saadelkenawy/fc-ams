@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { randomBytes } from 'crypto';
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { config } from '../config';
@@ -229,7 +230,7 @@ async function executeAction(
       endTime:         addMinutes(time, 30),
       appointmentType: 'in_person',
       patientSource:   "Cl.'s",
-      idempotencyKey:  `chat-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      idempotencyKey:  `chat-${Date.now()}-${randomBytes(8).toString('hex')}`,
       specialtyId:     foundDoctor.specialtyId,
     };
     if (action.approvedCharge) apptBody.approvedCharge = Number(action.approvedCharge);
