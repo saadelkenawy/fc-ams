@@ -17,7 +17,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 import { useTransactions, useSettlements } from '@/hooks/useBilling';
 import { useDoctors, useSpecialties } from '@/hooks/useDoctors';
-import { useMonthlyRevenue, useSpecialtyBreakdown, useFinancialSummary, useSourceBreakdown } from '@/hooks/useAnalytics';
+import { useMonthlyRevenue, useSpecialtyBreakdown, useFinancialSummary, useSourceBreakdown, useAppointmentActivitySummary } from '@/hooks/useAnalytics';
 import { useSources } from '@/hooks/useSources';
 import type { DoctorSettlement } from '@fadl/types';
 
@@ -627,6 +627,7 @@ function SourcesReport({ lang, locale, from, to }: { lang: string; locale: strin
 function ActivityReport({ lang, locale, from, to, doctorId }: { lang: string; locale: string; from: string; to: string; doctorId?: string }) {
   const { data: doctorsData } = useDoctors({ limit: 100 });
   const { data, isLoading, isError } = useTransactions({ limit: 500, dateFrom: from, dateTo: to, doctorId });
+  const { data: summary, isLoading: summaryLoading } = useAppointmentActivitySummary(from, to);
   const txns = (data?.data ?? []).filter((t) =>
     t.paymentStatus === 'approved' || t.paymentStatus === 'paid' || t.paymentStatus === 'reconciled',
   );
@@ -651,8 +652,63 @@ function ActivityReport({ lang, locale, from, to, doctorId }: { lang: string; lo
   if (isLoading) return <div className="flex items-center justify-center py-20 text-gray-400"><Loader2 className="w-5 h-5 animate-spin me-2" /></div>;
   if (isError)   return <div className="flex items-center justify-center py-20 text-red-400 text-sm">Failed to load activity data — please refresh the page.</div>;
 
+  const statusCards = [
+    {
+      label:   lang === 'ar' ? 'مكتملة'   : 'Closed',
+      value:   summary?.closed      ?? 0,
+      color:   'text-emerald-600 dark:text-emerald-400',
+      bg:      'bg-emerald-50 dark:bg-emerald-900/20',
+    },
+    {
+      label:   lang === 'ar' ? 'مدفوعة'   : 'Paid',
+      value:   summary?.paid        ?? 0,
+      color:   'text-primary-600 dark:text-primary-400',
+      bg:      'bg-primary-50 dark:bg-primary-900/20',
+    },
+    {
+      label:   lang === 'ar' ? 'ملغية'    : 'Cancelled',
+      value:   summary?.cancelled   ?? 0,
+      color:   'text-rose-600 dark:text-rose-400',
+      bg:      'bg-rose-50 dark:bg-rose-900/20',
+    },
+    {
+      label:   lang === 'ar' ? 'مُسترجعة' : 'Refunded',
+      value:   summary?.refunded    ?? 0,
+      color:   'text-amber-600 dark:text-amber-400',
+      bg:      'bg-amber-50 dark:bg-amber-900/20',
+    },
+    {
+      label:   lang === 'ar' ? 'معاد جدولتها' : 'Rescheduled',
+      value:   summary?.rescheduled ?? 0,
+      color:   'text-violet-600 dark:text-violet-400',
+      bg:      'bg-violet-50 dark:bg-violet-900/20',
+    },
+    {
+      label:   lang === 'ar' ? 'مجدولة'   : 'Scheduled',
+      value:   summary?.scheduled   ?? 0,
+      color:   'text-cyan-600 dark:text-cyan-400',
+      bg:      'bg-cyan-50 dark:bg-cyan-900/20',
+    },
+  ];
+
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in space-y-5">
+      {/* Status KPI cards */}
+      <div className="grid grid-cols-3 lg:grid-cols-6 gap-3">
+        {statusCards.map((card) => (
+          <Card key={card.label}>
+            <CardContent className="pt-4 pb-3">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1 leading-tight">{card.label}</p>
+              {summaryLoading
+                ? <div className="h-7 w-12 bg-gray-100 dark:bg-neutral-700 rounded animate-pulse" />
+                : <p className={`text-2xl font-bold font-mono tabular-nums ${card.color}`}>{formatNumber(card.value, locale)}</p>
+              }
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Doctor performance table */}
       <Card>
         <CardHeader>
           <CardTitle>{lang === 'ar'

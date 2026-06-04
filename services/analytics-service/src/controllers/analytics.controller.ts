@@ -688,6 +688,7 @@ interface TxFull extends TxRow {
   id?: string;
   paymentMethod?: string;
   visitType?: string;
+  isRefund?: boolean;
 }
 
 interface ProcurementReceipt {
@@ -904,4 +905,62 @@ export async function getNoShowByDay(_req: FastifyRequest, reply: FastifyReply):
   });
 
   void reply.send({ success: true, data });
+}
+
+// ── Appointment Activity Summary ────────────────────────────────────────────
+
+const activitySummarySchema = z.object({
+  dateFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  dateTo:   z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+});
+
+export async function getAppointmentActivitySummary(req: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { dateFrom, dateTo } = activitySummarySchema.parse(req.query);
+
+  const [appts, txns] = await Promise.all([
+    fetchAppointments(2000),
+    dateFrom && dateTo
+      ? fetchTransactionsForPeriod(dateFrom, dateTo, 2000)
+      : fetchTransactions(1000),
+  ]);
+
+  const filtered = (dateFrom && dateTo)
+    ? appts.filter((a) => {
+        const d = a.appointmentDate ?? '';
+        return d >= dateFrom && d <= dateTo;
+      })
+    : appts;
+
+  let closed = 0, cancelled = 0, rescheduled = 0, referred = 0, scheduled = 0;
+  for (const a of filtered) {
+    switch (a.status) {
+      case 'Comp.':  closed++;      break;
+      case 'Canc.':  cancelled++;   break;
+      case 'Resch.': rescheduled++; break;
+      case 'Ref.':   referred++;    break;
+      default:       scheduled++;   break;
+    }
+  }
+
+  let paid = 0, pending = 0, refunded = 0;
+  for (const t of txns) {
+    if ((t as TxFull).isRefund) { refunded++; continue; }
+    if (t.paymentStatus === 'paid' || t.paymentStatus === 'reconciled') paid++;
+    else if (t.paymentStatus === 'pending' || t.paymentStatus === 'approved') pending++;
+  }
+
+  void reply.send({
+    success: true,
+    data: {
+      total: filtered.length,
+      closed,
+      cancelled,
+      rescheduled,
+      referred,
+      scheduled,
+      paid,
+      pending,
+      refunded,
+    },
+  });
 }

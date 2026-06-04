@@ -176,6 +176,33 @@ export interface FinancialSummaryData {
   recentTransactions: RecentTransaction[];
 }
 
+export interface AppointmentActivitySummary {
+  total:       number;
+  closed:      number;
+  cancelled:   number;
+  rescheduled: number;
+  referred:    number;
+  scheduled:   number;
+  paid:        number;
+  pending:     number;
+  refunded:    number;
+}
+
+export function useAppointmentActivitySummary(dateFrom: string, dateTo: string) {
+  return useQuery({
+    queryKey: ['analytics', 'appointment-activity', dateFrom, dateTo],
+    queryFn: async () => {
+      const { data } = await analyticsApi.get<{ success: boolean; data: AppointmentActivitySummary }>(
+        '/analytics/appointment-activity',
+        { params: { dateFrom, dateTo } },
+      );
+      return data.data;
+    },
+    staleTime: 30_000,
+    keepPreviousData: true,
+  });
+}
+
 export function useFinancialSummary(month: string) {
   return useQuery({
     queryKey: ['analytics', 'financial-summary', month],
