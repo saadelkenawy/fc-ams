@@ -1186,7 +1186,7 @@ export async function sendMessage(request: FastifyRequest, reply: FastifyReply):
 
       const specialtyList = Object.entries(SPECIALTY_NAMES)
         .map(([id, n]) => `${id}: ${session.language === 'ar' ? n.ar : n.en}`)
-        .join(session.language === 'ar' ? '\n' : '\n');
+        .join('\n');
       finalReply = session.language === 'ar'
         ? `ما التخصص الذي تبحث عنه؟\n\nالتخصصات المتاحة:\n${specialtyList}`
         : `Which specialty are you looking for?\n\nAvailable specialties:\n${specialtyList}`;
