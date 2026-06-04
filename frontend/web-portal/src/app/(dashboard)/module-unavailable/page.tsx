@@ -2,12 +2,10 @@
 
 import { useSearchParams } from 'next/navigation';
 import { ModuleUnavailablePage } from '@/components/shared/ModuleUnavailablePage';
+import { MODULES } from '@fadl/types';
 import type { ModuleId } from '@fadl/types';
 
-const VALID_MODULES = new Set<string>([
-  'patients', 'scheduling', 'billing', 'settlements',
-  'ehr', 'ai', 'analytics', 'telehealth', 'procurement', 'integrations',
-]);
+const VALID_MODULES = new Set<string>(MODULES);
 
 export default function ModuleUnavailableRoute() {
   const searchParams = useSearchParams();

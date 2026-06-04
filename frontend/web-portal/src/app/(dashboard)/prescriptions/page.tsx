@@ -334,6 +334,7 @@ function PrescriptionDetail({
   t: (ar: string, en: string) => string;
 }) {
   const queryClient = useQueryClient();
+  const ehrEnabled  = useModuleEnabled('ehr');
   const [isPrinting,  setIsPrinting]  = useState(false);
   const [isDispensed, setIsDispensed] = useState(rx.status === 'dispensed');
 
