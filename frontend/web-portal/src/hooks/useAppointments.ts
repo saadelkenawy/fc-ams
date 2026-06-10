@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { appointmentApi } from '@/lib/api';
 import type { Appointment, AppointmentStatus, PaginatedResponse } from '@fadl/types';
 
@@ -26,7 +26,7 @@ export function useAppointments(params: AppointmentListParams = {}, options?: { 
     },
     enabled: options?.enabled !== false,
     staleTime: 15_000,
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
   });
 }
 

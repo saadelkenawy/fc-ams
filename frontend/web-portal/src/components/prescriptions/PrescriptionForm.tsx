@@ -471,13 +471,13 @@ export function PrescriptionForm({ encounterId, patientId, doctorId, patientName
       {/* actions */}
       <div className="flex justify-end gap-3">
         {onCancel && (
-          <Button type="button" variant="ghost" onClick={onCancel} disabled={createMutation.isLoading}>
+          <Button type="button" variant="ghost" onClick={onCancel} disabled={createMutation.isPending}>
             {t('إلغاء', 'Cancel')}
           </Button>
         )}
-        <Button type="submit" variant="primary" disabled={createMutation.isLoading}>
+        <Button type="submit" variant="primary" disabled={createMutation.isPending}>
           <Save className="h-4 w-4" />
-          {createMutation.isLoading
+          {createMutation.isPending
             ? t('جارٍ الحفظ…', 'Saving…')
             : t('حفظ الوصفة', 'Save Prescription')}
         </Button>

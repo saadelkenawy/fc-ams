@@ -370,7 +370,7 @@ export default function DoctorsPage() {
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
-        loading={deleteDoctor.isLoading}
+        loading={deleteDoctor.isPending}
         title={t('حذف الطبيب', 'Delete Doctor')}
         message={
           deleteTarget

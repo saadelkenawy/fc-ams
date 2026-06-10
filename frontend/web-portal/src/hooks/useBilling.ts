@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { billingApi } from '@/lib/api';
 import type { FinancialTransaction, DoctorSettlement, PaginatedResponse } from '@fadl/types';
 
@@ -29,7 +29,7 @@ export function useTransactions(params: TransactionListParams = {}) {
     staleTime: 15_000,
     refetchInterval: 15_000,
     refetchOnWindowFocus: true,
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -161,7 +161,7 @@ export function useSettlements(params: SettlementParams) {
     enabled: !!params.from && !!params.to,
     staleTime: 30_000,
     refetchInterval: 30_000,
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
     retry: 1,
   });
 }

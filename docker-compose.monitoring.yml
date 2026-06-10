@@ -1,0 +1,41 @@
+# Prometheus + Grafana (fable-enhancement §4.4) — run alongside the main stack:
+#   docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d prometheus grafana
+# Prometheus UI: host 9090. Grafana: host 3200 (admin / GRAFANA_ADMIN_PASSWORD, default admin).
+# Every service exposes /metrics (prom-client via @fadl/service-kit).
+services:
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: fcms-prometheus
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=30d
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infra/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infra/monitoring/alert-rules.yml:/etc/prometheus/alert-rules.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - fadl-net
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: fcms-grafana
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports:
+      - "3200:3000"
+    volumes:
+      - ./infra/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana_data:/var/lib/grafana
+    networks:
+      - fadl-net
+
+volumes:
+  prometheus_data:
+  grafana_data:

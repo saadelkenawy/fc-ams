@@ -46,7 +46,7 @@ export function useFileDownloadUrl(fileId: string | null) {
     },
     enabled: !!fileId,
     staleTime: 0,
-    cacheTime: 0,
+    gcTime: 0,
   });
 }
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useTranslateName } from '@/hooks/useTranslateName';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { identityApi } from '@/lib/api';
 import {
   Building2, Users, Activity, Check, Loader2, Key, RefreshCw, X,
@@ -925,7 +925,7 @@ function NotificationsContent({ t, lang }: { t: (ar: string, en: string) => stri
       return res;
     },
     staleTime: 30_000,
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
   });
 
   const retry = useMutation({

@@ -5,13 +5,14 @@ import jwt from '@fastify/jwt';
 import rateLimit from '@fastify/rate-limit';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
-import { registerErrorHandler } from '@fadl/service-kit';
+import { genReqId, registerErrorHandler, registerObservability } from '@fadl/service-kit';
 import { config } from './config';
 import { redis } from './config/redis';
 import { doctorRoutes } from './routes/doctor.routes';
 
 export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
   const app = Fastify({
+    genReqId,
     logger: {
       level: config.LOG_LEVEL,
       serializers: {
@@ -22,6 +23,8 @@ export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
     },
     trustProxy: true,
   });
+
+  registerObservability(app, { serviceName: config.SERVICE_NAME });
 
   await app.register(helmet, { contentSecurityPolicy: config.NODE_ENV === 'production' ? undefined : false });
   await app.register(cors, { origin: config.NODE_ENV === 'production' ? false : true });

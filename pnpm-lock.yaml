@@ -73,8 +73,8 @@ importers:
         specifier: ^1.0.7
         version: 1.2.8(@types/react-dom@18.3.7)(@types/react@18.3.28)(react-dom@18.3.1)(react@18.3.1)
       '@tanstack/react-query':
-        specifier: ^4.36.1
-        version: 4.44.0(react-dom@18.3.1)(react@18.3.1)
+        specifier: ^5.62.0
+        version: 5.101.0(react@18.3.1)
       axios:
         specifier: ^1.16.0
         version: 1.16.1
@@ -1011,6 +1011,9 @@ importers:
       pg:
         specifier: ^8.11.0
         version: 8.20.0
+      prom-client:
+        specifier: ^15.1.0
+        version: 15.1.3
     devDependencies:
       '@fastify/jwt':
         specifier: ^10.0.0
@@ -2568,6 +2571,11 @@ packages:
     engines: {node: '>=12.4.0'}
     dev: true
 
+  /@opentelemetry/api@1.9.1:
+    resolution: {integrity: sha512-gLyJlPHPZYdAk1JENA9LeHejZe1Ti77/pTeFm/nMXmQH/HFZlcS/O2XJB+L8fkbrNSqhdtlvjBVjxwUYanNH5Q==}
+    engines: {node: '>=8.0.0'}
+    dev: false
+
   /@pinojs/redact@0.4.0:
     resolution: {integrity: sha512-k2ENnmBugE/rzQfEcdWHcCY+/FM3VLzH9cYEsbdsoqrvzAKRhUZeRNhAZvB8OitQJ1TBed3yqWtdjzS6wJKBwg==}
 
@@ -4022,26 +4030,17 @@ packages:
       tslib: 2.8.1
     dev: false
 
-  /@tanstack/query-core@4.44.0:
-    resolution: {integrity: sha512-swSgb7OiPRR3UuIL7NuDrZNSMGmQD+wdtHxPD7j60SvBEnxbXurl5XOirtGEX2gm2hbK6mC8kMV1I+uO3l0UOw==}
+  /@tanstack/query-core@5.101.0:
+    resolution: {integrity: sha512-cQetA74EB+seWySv1TTKr828TnP0u39m6LykwDXIo84SNortpDkp30TMEjkqtYCNP9c40uT/iwl6MLiufEt0Ow==}
     dev: false
 
-  /@tanstack/react-query@4.44.0(react-dom@18.3.1)(react@18.3.1):
-    resolution: {integrity: sha512-RuIqHYrS98LrK/8kJJOJMMSQ/BCpojwsXDh7p0fBmp38ZOz6dlk+uyFRRusH+V+t3POoCsDOQ2zhomEYOeReXw==}
+  /@tanstack/react-query@5.101.0(react@18.3.1):
+    resolution: {integrity: sha512-rLlJXSpkqfizLWgkR5+eLeIk0MvTx/meEIR7LRjxic+qxiQP8zVjq7BqQkiCMNLQBlLfuOLqqr6KO5GtrDlmSg==}
     peerDependencies:
-      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
-      react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
-      react-native: '*'
-    peerDependenciesMeta:
-      react-dom:
-        optional: true
-      react-native:
-        optional: true
+      react: ^18 || ^19
     dependencies:
-      '@tanstack/query-core': 4.44.0
+      '@tanstack/query-core': 5.101.0
       react: 18.3.1
-      react-dom: 18.3.1(react@18.3.1)
-      use-sync-external-store: 1.6.0(react@18.3.1)
     dev: false
 
   /@tsconfig/node10@1.0.12:
@@ -4898,6 +4897,10 @@ packages:
     dependencies:
       buffers: 0.1.1
       chainsaw: 0.1.0
+    dev: false
+
+  /bintrees@1.0.2:
+    resolution: {integrity: sha512-VOMgTMwjAaUG580SXn3LacVgjurrbMme7ZZNYGSSV7mmtY6QQRh0Eg3pwIcntQ77DErK1L0NxkbetjcoXzVwKw==}
     dev: false
 
   /bl@4.1.0:
@@ -7608,6 +7611,14 @@ packages:
     engines: {node: '>= 0.6.0'}
     dev: false
 
+  /prom-client@15.1.3:
+    resolution: {integrity: sha512-6ZiOBfCywsD4k1BN9IX0uZhF+tJkV8q8llP64G5Hajs4JOeVLPCwpPVcpXy3BwYiUGgyJzsJJQeOIv7+hDSq8g==}
+    engines: {node: ^16 || ^18 || >=20}
+    dependencies:
+      '@opentelemetry/api': 1.9.1
+      tdigest: 0.1.2
+    dev: false
+
   /prop-types@15.8.1:
     resolution: {integrity: sha512-oj87CgZICdulUohogVAR7AjlC0327U4el4L6eAvOqCeudMDVU0NThNaV+b9Df4dXgSP1gXMTnPdhfe/2qDH5cg==}
     dependencies:
@@ -8406,6 +8417,12 @@ packages:
       readable-stream: 3.6.2
     dev: false
 
+  /tdigest@0.1.2:
+    resolution: {integrity: sha512-+G0LLgjjo9BZX2MfdvPfH+MKLCrxlXSYec5DaPYP1fe6Iyhf0/fSmJ0bFiZ1F8BT6cGXl2LpltQptzjXKWEkKA==}
+    dependencies:
+      bintrees: 1.0.2
+    dev: false
+
   /text-table@0.2.0:
     resolution: {integrity: sha512-N+8UisAXDGk8PFXP4HAzVR9nbfmVJ3zYLAWiTIoqC5v5isinhr+r5uaO8+7r3BMfuNIufIsA7RdpVgacC2cSpw==}
     dev: true
@@ -8769,14 +8786,6 @@ packages:
       detect-node-es: 1.1.0
       react: 18.3.1
       tslib: 2.8.1
-    dev: false
-
-  /use-sync-external-store@1.6.0(react@18.3.1):
-    resolution: {integrity: sha512-Pp6GSwGP/NrPIrxVFAIkOQeyw8lFenOHijQWkUTrDvrF4ALqylP2C/KCkeS9dpUM3KvYRQhna5vt7IL95+ZQ9w==}
-    peerDependencies:
-      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
-    dependencies:
-      react: 18.3.1
     dev: false
 
   /util-deprecate@1.0.2:

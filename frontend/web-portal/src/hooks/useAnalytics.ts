@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { analyticsApi } from '@/lib/api';
 
 export interface AnalyticsOverview {
@@ -199,7 +199,7 @@ export function useAppointmentActivitySummary(dateFrom: string, dateTo: string) 
       return data.data;
     },
     staleTime: 30_000,
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -215,6 +215,6 @@ export function useFinancialSummary(month: string) {
     },
     staleTime: 30_000,
     refetchInterval: 60_000,
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
   });
 }

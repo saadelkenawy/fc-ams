@@ -1,8 +1,17 @@
-import { processDueBatch, OutboxRow } from '../repositories/outbox.repository';
+import { metricsRegistry, promClient } from '@fadl/service-kit';
+import { backlogCounts, processDueBatch, OutboxRow } from '../repositories/outbox.repository';
 import { createBillingTransaction, CreateBillingTransactionInput } from '../clients/billing';
+import { config } from '../config';
 
 const POLL_INTERVAL_MS = 5_000;
 const BATCH_SIZE = 20;
+
+const outboxGauge = new promClient.Gauge({
+  name: 'appointment_outbox_rows',
+  help: 'appointment_outbox rows by status (alert when pending grows or dead > 0)',
+  labelNames: ['status'],
+  registers: [metricsRegistry(config.SERVICE_NAME)],
+});
 
 let timer: NodeJS.Timeout | null = null;
 let running = false;
@@ -22,6 +31,9 @@ async function tick(): Promise<void> {
   running = true;
   try {
     await processDueBatch(BATCH_SIZE, deliver);
+    const { pending, dead } = await backlogCounts();
+    outboxGauge.set({ status: 'pending' }, pending);
+    outboxGauge.set({ status: 'dead' }, dead);
   } catch (err) {
     console.error('[outbox] poll failed:', (err as Error).message);
   } finally {

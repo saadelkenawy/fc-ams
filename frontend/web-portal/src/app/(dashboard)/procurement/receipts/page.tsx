@@ -240,8 +240,8 @@ export default function ReceiptsPage() {
                             </div>
                           </div>
                           <div className="flex gap-2 mt-3">
-                            <Button size="sm" className="h-7 text-xs" onClick={() => handleAddLine(r.id)} disabled={addLineItem.isLoading}>
-                              {addLineItem.isLoading ? t('جارٍ الإضافة...','Adding...') : t('إضافة','Add')}
+                            <Button size="sm" className="h-7 text-xs" onClick={() => handleAddLine(r.id)} disabled={addLineItem.isPending}>
+                              {addLineItem.isPending ? t('جارٍ الإضافة...','Adding...') : t('إضافة','Add')}
                             </Button>
                             <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setAddLineOpen(null); setLineForm(EMPTY_LINE); }}>
                               {t('إلغاء','Cancel')}
@@ -302,9 +302,9 @@ export default function ReceiptsPage() {
         maxWidth="lg"
         footer={
           <>
-            <Button variant="ghost" size="sm" onClick={() => setNewReceiptOpen(false)} disabled={createReceipt.isLoading}>{t('إلغاء','Cancel')}</Button>
-            <Button size="sm" onClick={() => handleCreateReceipt()} disabled={createReceipt.isLoading} className="min-w-[100px]">
-              {createReceipt.isLoading ? t('جارٍ الإنشاء...','Creating...') : t('إنشاء الإيصال','Create Receipt')}
+            <Button variant="ghost" size="sm" onClick={() => setNewReceiptOpen(false)} disabled={createReceipt.isPending}>{t('إلغاء','Cancel')}</Button>
+            <Button size="sm" onClick={() => handleCreateReceipt()} disabled={createReceipt.isPending} className="min-w-[100px]">
+              {createReceipt.isPending ? t('جارٍ الإنشاء...','Creating...') : t('إنشاء الإيصال','Create Receipt')}
             </Button>
           </>
         }

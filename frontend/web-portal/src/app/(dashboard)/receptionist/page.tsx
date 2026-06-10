@@ -166,7 +166,7 @@ function RegisterPatientModal({ lang, t, onClose, onCreated }: RegisterPatientMo
   const [form, setForm] = useState<RegisterPatientForm>({ nameEn: '', mobile: '' });
   const [error, setError] = useState('');
 
-  const { mutate, isLoading } = useMutation({
+  const { mutate, isPending } = useMutation({
     mutationFn: async (input: RegisterPatientForm) => {
       const { data } = await patientApi.post<{ data: Patient }>('/patients', {
         nameEn: input.nameEn,
@@ -210,7 +210,7 @@ function RegisterPatientModal({ lang, t, onClose, onCreated }: RegisterPatientMo
         <div className="flex gap-2 pt-1">
           <Button
             className="flex-1"
-            loading={isLoading}
+            loading={isPending}
             onClick={() => mutate(form)}
             disabled={!form.nameEn || !form.mobile}
           >
@@ -265,7 +265,7 @@ function NewAppointmentFormPanel({ lang, t, initialPatient, onClose, onSuccess }
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
-  const { mutate, isLoading } = useMutation({
+  const { mutate, isPending } = useMutation({
     mutationFn: async (payload: NewAppointmentForm) => {
       const { data } = await appointmentApi.post<{ data: Appointment }>('/appointments', {
         patientId: payload.patientId,
@@ -451,7 +451,7 @@ function NewAppointmentFormPanel({ lang, t, initialPatient, onClose, onSuccess }
         {error && <p className="text-xs text-red-500">{error}</p>}
 
         <div className="flex gap-2 pt-1">
-          <Button className="flex-1" loading={isLoading} disabled={!canSubmit} onClick={() => mutate(form)}>
+          <Button className="flex-1" loading={isPending} disabled={!canSubmit} onClick={() => mutate(form)}>
             {t('حفظ الموعد', 'Save Appointment')}
           </Button>
           <Button variant="outline" onClick={onClose}>{t('إلغاء', 'Cancel')}</Button>

@@ -4,3 +4,11 @@ export type { ServiceTokenOptions, ServiceClientOptions } from './service-token'
 export { createDb } from './db';
 export type { Db, DbOptions } from './db';
 export { registerErrorHandler } from './error-handler';
+export {
+  genReqId,
+  currentRequestId,
+  registerObservability,
+  metricsRegistry,
+  promClient,
+} from './observability';
+export type { ObservabilityOptions } from './observability';

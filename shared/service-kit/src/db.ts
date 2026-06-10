@@ -1,4 +1,5 @@
 import { Pool, PoolClient } from 'pg';
+import { metricsRegistry, promClient } from './observability';
 
 export interface DbOptions {
   connectionString: string;
@@ -42,6 +43,25 @@ export function createDb(opts: DbOptions): Db {
   pool.on('error', (err) => {
     console.error('Unexpected database pool error:', err);
   });
+
+  // Pool saturation gauges, sampled at scrape time (§4.4: alert when
+  // waiting > 0 sustained or total pins at max). Guarded so a second
+  // createDb in tests doesn't double-register.
+  const registry = metricsRegistry(opts.serviceName);
+  if (!registry.getSingleMetric('pg_pool_connections')) {
+    new promClient.Gauge({
+      name: 'pg_pool_connections',
+      help: 'pg pool connections by state (total/idle) and queued checkout requests (waiting)',
+      labelNames: ['state'],
+      registers: [registry],
+      collect() {
+        this.set({ state: 'total' }, pool.totalCount);
+        this.set({ state: 'idle' }, pool.idleCount);
+        this.set({ state: 'waiting' }, pool.waitingCount);
+        this.set({ state: 'max' }, opts.max);
+      },
+    });
+  }
 
   if (opts.rls) {
     // Default branch context for code paths that use pool.query directly (no

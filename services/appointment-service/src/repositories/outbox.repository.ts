@@ -110,3 +110,14 @@ export async function deadLetterCount(): Promise<number> {
   const { rows } = await pool.query(`SELECT COUNT(*)::int AS n FROM appointment_outbox WHERE status = 'dead'`);
   return (rows[0] as { n: number }).n;
 }
+
+/** Pending and dead-letter row counts in one query — feeds the /metrics gauges. */
+export async function backlogCounts(): Promise<{ pending: number; dead: number }> {
+  const { rows } = await pool.query(
+    `SELECT
+       COUNT(*) FILTER (WHERE status = 'pending')::int AS pending,
+       COUNT(*) FILTER (WHERE status = 'dead')::int    AS dead
+     FROM appointment_outbox`,
+  );
+  return rows[0] as { pending: number; dead: number };
+}

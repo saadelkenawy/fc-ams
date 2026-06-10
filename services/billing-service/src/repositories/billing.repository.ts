@@ -136,13 +136,36 @@ export async function createTransaction(
   branchId: number,
 ): Promise<FinancialTransaction> {
   return withTransaction(async (client: PoolClient) => {
-    // Idempotency check
+    // Idempotency fast path
     const { rows: existing } = await client.query(
       `SELECT * FROM financial_transactions WHERE idempotency_key = $1 AND branch_id = $2`,
       [input.idempotencyKey, branchId],
     );
     if (existing.length) {
       return rowToTransaction(existing[0] as Record<string, unknown>);
+    }
+
+    // Claim the key in the global (non-partitioned) table — §3.5. The per-date
+    // UNIQUE on financial_transactions can't dedupe a retry that crosses
+    // midnight; this claim is branch-global and, under concurrency, the second
+    // tx blocks here until the first commits and then takes the conflict path.
+    const id = uuidv4();
+    const { rows: claim } = await client.query(
+      `INSERT INTO idempotency_keys (branch_id, idempotency_key, transaction_id)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (branch_id, idempotency_key) DO NOTHING
+       RETURNING transaction_id`,
+      [branchId, input.idempotencyKey, id],
+    );
+    if (!claim.length) {
+      const { rows: winner } = await client.query(
+        `SELECT * FROM financial_transactions WHERE idempotency_key = $1 AND branch_id = $2`,
+        [input.idempotencyKey, branchId],
+      );
+      if (winner.length) {
+        return rowToTransaction(winner[0] as Record<string, unknown>);
+      }
+      throw new Error(`Idempotency key ${input.idempotencyKey} is claimed but its transaction is missing`);
     }
 
     // Resolve source fee: specialty-specific rate → fallback to general rate
@@ -155,7 +178,6 @@ export async function createTransaction(
     const grossRevenue = netPool;
     const vatRate = 0.14;
     const transactionDate = new Date().toISOString().split('T')[0];
-    const id = uuidv4();
 
     // Look up active doctor_compensation rate; fall back to caller-supplied splits when absent
     let splitDoctorPercentage = input.splitDoctorPercentage;

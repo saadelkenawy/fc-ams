@@ -132,7 +132,7 @@ export default function AlertsPage() {
               size="sm"
               className="gap-1.5"
               onClick={() => handleMarkAllRead()}
-              disabled={markAllRead.isLoading}
+              disabled={markAllRead.isPending}
             >
               <BellOff className="w-3.5 h-3.5" />
               {t('تحديد الكل كمقروء', 'Mark All Read')}
@@ -186,7 +186,7 @@ export default function AlertsPage() {
                   alert={alert}
                   lang={lang}
                   onMarkRead={() => handleMarkRead(alert.id)}
-                  isMarking={markRead.isLoading}
+                  isMarking={markRead.isPending}
                   t={t}
                 />
               ))}

@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { procedureApi } from '@/lib/api';
 
 export interface Procedure {
@@ -48,7 +48,7 @@ export function useProcedures(params: {
       return data;
     },
     staleTime: 60_000,
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
   });
 }
 

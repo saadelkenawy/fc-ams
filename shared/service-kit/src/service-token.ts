@@ -1,5 +1,6 @@
 import { createHmac } from 'crypto';
 import axios, { AxiosInstance } from 'axios';
+import { currentRequestId } from './observability';
 
 export interface ServiceTokenOptions {
   /** Shared HS256 secret (config.JWT_SECRET). */
@@ -52,6 +53,8 @@ export function createServiceClient(opts: ServiceClientOptions): AxiosInstance {
   });
   client.interceptors.request.use((cfg) => {
     cfg.headers.Authorization = `Bearer ${makeServiceToken(opts.aud, opts)}`;
+    const requestId = currentRequestId();
+    if (requestId) cfg.headers['x-request-id'] = requestId;
     return cfg;
   });
   return client;

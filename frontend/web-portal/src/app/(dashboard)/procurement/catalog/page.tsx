@@ -194,7 +194,7 @@ export default function CatalogPage() {
     } catch { toast(t('حدث خطأ', 'Something went wrong'), 'error'); }
   }
 
-  const isSaving = createItem.isLoading || updateItem.isLoading;
+  const isSaving = createItem.isPending || updateItem.isPending;
 
   return (
     <div className="space-y-5">

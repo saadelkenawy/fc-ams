@@ -1,0 +1,47 @@
+# Evaluated by Prometheus; visible under /alerts. No Alertmanager is wired
+# yet — these define the conditions so adding a receiver later is config-only.
+groups:
+  - name: fadl-services
+    rules:
+      - alert: High5xxRate
+        expr: >
+          sum by (service) (rate(http_request_duration_seconds_count{status_code=~"5.."}[5m]))
+          /
+          sum by (service) (rate(http_request_duration_seconds_count[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: '{{ $labels.service }} 5xx rate above 5% for 5 minutes'
+
+      - alert: OutboxDeadLetters
+        expr: appointment_outbox_rows{status="dead"} > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'appointment_outbox has dead-lettered billing events — reconcile manually'
+
+      - alert: OutboxBacklogGrowing
+        expr: appointment_outbox_rows{status="pending"} > 50
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'appointment_outbox pending backlog above 50 for 10 minutes (billing-service down?)'
+
+      - alert: DbPoolSaturated
+        expr: pg_pool_connections{state="waiting"} > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: '{{ $labels.service }} has queued DB checkouts for 5 minutes — pool at max'
+
+      - alert: ServiceDown
+        expr: up{job="fadl-services"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: '{{ $labels.instance }} is not answering /metrics'

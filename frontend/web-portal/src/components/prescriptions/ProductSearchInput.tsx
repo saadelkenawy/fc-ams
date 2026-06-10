@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useId } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { Search, X, Pill, Sparkles, AlertTriangle } from 'lucide-react';
 import { ehrApi } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -63,7 +63,7 @@ export function ProductSearchInput({
     },
     enabled: debounced.length >= 2 && !productId,
     staleTime: 60_000,
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
   });
 
   const isOpen = open && !productId && results.length > 0;

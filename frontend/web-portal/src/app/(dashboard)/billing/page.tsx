@@ -46,7 +46,7 @@ function StatusDropdown({
 }: { txId: string; current: PaymentStatus; lang: 'ar' | 'en'; onClose: () => void; }) {
   const { t } = useLang();
   const { toast } = useToast();
-  const { mutateAsync, isLoading: isPending } = useUpdateTransactionStatus();
+  const { mutateAsync, isPending } = useUpdateTransactionStatus();
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -379,10 +379,10 @@ function BulkDeleteModal({ selected, onClose, onDeleted, lang, t, locale }: Bulk
             <div className="flex gap-2">
               <Button
                 className="flex-1 bg-red-600 hover:bg-red-700 text-white border-0"
-                disabled={!password || bulkDelete.isLoading || cooldown > 0}
+                disabled={!password || bulkDelete.isPending || cooldown > 0}
                 onClick={() => handlePasswordSubmit()}
               >
-                {bulkDelete.isLoading
+                {bulkDelete.isPending
                   ? <><Loader2 className="w-4 h-4 animate-spin me-2 inline" />{t('جاري الحذف...', 'Deleting...')}</>
                   : <><Trash2 className="w-4 h-4 me-2 inline" />{t('تأكيد الحذف', 'Confirm Delete')}</>}
               </Button>
@@ -534,10 +534,10 @@ function BulkEditModal({ selected, onClose, onEdited, lang, t }: BulkEditModalPr
             <div className="flex gap-2">
               <Button
                 className="flex-1"
-                disabled={!password || bulkEdit.isLoading || cooldown > 0}
+                disabled={!password || bulkEdit.isPending || cooldown > 0}
                 onClick={() => handlePasswordSubmit()}
               >
-                {bulkEdit.isLoading
+                {bulkEdit.isPending
                   ? <><Loader2 className="w-4 h-4 animate-spin me-2 inline" />{t('جاري التحديث...', 'Updating...')}</>
                   : <><Check className="w-4 h-4 me-2 inline" />{t('تأكيد التعديل', 'Confirm Edit')}</>}
               </Button>

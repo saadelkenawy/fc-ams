@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { patientApi } from '@/lib/api';
 import type { Patient, PaginatedResponse, ApiResponse } from '@fadl/types';
@@ -21,7 +21,7 @@ export function usePatients(params: PatientListParams = {}) {
     },
     enabled,
     staleTime: 30_000,
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
   });
 }
 

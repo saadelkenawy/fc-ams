@@ -372,3 +372,34 @@ New workspace package consumed by all 14 services; four modules:
 - Per-request `branchId` plumbing through every repository (§3.1) — unchanged.
 - Asymmetric JWT (§2.1.4) — now a one-file change in the kit.
 - TanStack Query v4→v5, Playwright snapshots (§5.4).
+
+---
+
+## 11. Phase 4 — Mature (P2 batch) — IMPLEMENTED (2026-06-10)
+
+### 11.1 Observability baseline (§4.4)
+- **Request-ID propagation**: `genReqId` (kit) reuses a sane inbound `x-request-id` or mints a UUID at the edge; `registerObservability(app, { serviceName })` binds the id into AsyncLocalStorage, echoes it as a response header, and `createServiceClient` forwards it on every outbound call — one id now correlates the appointment→doctor→billing chain across containers. Error responses already carried `requestId`; pino logs carry `reqId` per request.
+- **Metrics**: every service exposes `GET /metrics` (prom-client): default process metrics + `http_request_duration_seconds{method,route,status_code}` histogram (per-service memoized registry, `service` default label). `createDb` adds `pg_pool_connections{state=total|idle|waiting|max}` sampled at scrape time; the outbox worker publishes `appointment_outbox_rows{status=pending|dead}` each poll.
+- **Prometheus + Grafana**: `docker-compose.monitoring.yml` (overlay, like sonar) — Prometheus on host 9090 scraping all 13 compose services, Grafana on host 3200 with a provisioned datasource. `infra/monitoring/alert-rules.yml` defines High5xxRate, OutboxDeadLetters, OutboxBacklogGrowing, DbPoolSaturated, ServiceDown (Alertmanager wiring is config-only later).
+
+### 11.2 Idempotency key scope (§3.5)
+- New `idempotency_keys` table in fadl_billing (V013, non-partitioned, `PK (branch_id, idempotency_key)`, RLS) claimed inside `createTransaction`'s tx via `INSERT … ON CONFLICT DO NOTHING RETURNING`; conflict path returns the winning transaction. Closes both the cross-midnight retry duplicate and the concurrent same-key race the SELECT pre-check missed. 128 existing keys backfilled (earliest row wins).
+
+### 11.3 Partition lifecycle (§3.4)
+- **Found live**: fadl_billing leaves existed only through **July 2026** — inserts would have started failing 2026-08-01. V014 adds `create_billing_partition(branch, year, month)` (also creates the branch LIST parent) and extends the runway to 2028-12.
+- **Found live**: appointment V010/V011 were ledger-*baselined* but V011 had never executed — `create_appointment_partition` didn't exist. Re-applied (idempotent). Lesson: baselining marks files applied without running them; verify objects exist when baselining.
+- `infra/backup/partition-maintenance.sh` now runs daily after backups in the db-backup container: ensures a rolling 12-month runway in both DBs via the factory functions (branches discovered from parent table names) and alerts (non-zero exit + ALERT log) if any of the next 3 months is missing. Verified green in the live container.
+
+### 11.4 Resolved without changes
+- **§3.6 analytics contract**: analytics-service no longer has any pg pools/DB URLs — all data already flows through billing/appointment/patient/doctor/procurement HTTP clients. The cross-DB coupling this section described no longer exists.
+- **§4.6 route prefixes**: all 14 services already mount under `/api/v1`. Remaining (deferred): exporting per-service OpenAPI JSON in CI and type-checking frontend hooks against it.
+
+### 11.5 Frontend (§5.3 / §5.4)
+- Deleted legacy `KpiCard.tsx` (zero importers; StatCard is canonical).
+- **TanStack Query v4 → v5** (`^5.62`): mutation `.isLoading` → `.isPending` (23 sites), `cacheTime` → `gcTime` (1), `keepPreviousData: true` → `placeholderData: keepPreviousData` (11 files). No `useQuery` callbacks existed, so no behavioral refactors. `tsc --noEmit` and `next build` green.
+
+### 11.6 Still open for later phases
+- Asymmetric JWT (§2.1.4) — one-file kit change.
+- Per-request branchId plumbing through repositories (§3.1).
+- Playwright visual snapshots + component tests (§5.4), CSS splitting (§5.3 second half).
+- OpenAPI contract check in CI (§4.6), Alertmanager receiver, partition archival/retention policy (§3.4 second half).

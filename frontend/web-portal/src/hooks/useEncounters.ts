@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { ehrApi } from '@/lib/api';
 
 export interface Encounter {
@@ -42,6 +42,6 @@ export function useEncounters(params: {
       return data;
     },
     staleTime: 30_000,
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
   });
 }

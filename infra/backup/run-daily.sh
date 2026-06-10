@@ -7,5 +7,6 @@ INTERVAL_SECS="${BACKUP_INTERVAL_SECS:-86400}"
 
 while true; do
   /opt/backup/backup.sh || echo "[backup] run failed — retrying at next interval" >&2
+  /opt/backup/partition-maintenance.sh || echo "[partitions] maintenance failed — retrying at next interval" >&2
   sleep "$INTERVAL_SECS"
 done

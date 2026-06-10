@@ -14,7 +14,8 @@
   "dependencies": {
     "@fadl/types": "workspace:*",
     "axios": "^1.16.0",
-    "pg": "^8.11.0"
+    "pg": "^8.11.0",
+    "prom-client": "^15.1.0"
   },
   "peerDependencies": {
     "fastify": "^5.0.0",

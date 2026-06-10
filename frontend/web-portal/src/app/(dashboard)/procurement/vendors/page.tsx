@@ -146,7 +146,7 @@ export default function VendorsPage() {
     } catch { toast(t('حدث خطأ', 'Something went wrong'), 'error'); }
   }
 
-  const isSaving = createVendor.isLoading || updateVendor.isLoading;
+  const isSaving = createVendor.isPending || updateVendor.isPending;
 
   return (
     <div className="space-y-5">

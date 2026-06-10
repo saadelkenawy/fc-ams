@@ -430,7 +430,7 @@ export default function PatientsPage() {
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
-        loading={deletePatient.isLoading}
+        loading={deletePatient.isPending}
         title={t('حذف المريض', 'Delete Patient')}
         message={
           deleteTarget

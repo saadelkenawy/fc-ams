@@ -5,7 +5,7 @@ import jwt from '@fastify/jwt';
 import rateLimit from '@fastify/rate-limit';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
-import { registerErrorHandler } from '@fadl/service-kit';
+import { genReqId, registerErrorHandler, registerObservability } from '@fadl/service-kit';
 import { config } from './config';
 import { catalogRoutes } from './routes/catalog.routes';
 import { vendorRoutes } from './routes/vendor.routes';
@@ -14,12 +14,15 @@ import { alertRoutes } from './routes/alert.routes';
 
 export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
   const app = Fastify({
+    genReqId,
     logger: {
       level: config.LOG_LEVEL,
       serializers: { req(req) { return { method: req.method, url: req.url }; } },
     },
     trustProxy: true,
   });
+
+  registerObservability(app, { serviceName: config.SERVICE_NAME });
 
   await app.register(helmet, { contentSecurityPolicy: config.NODE_ENV === 'production' ? undefined : false });
   await app.register(cors, { origin: config.NODE_ENV !== 'production' });

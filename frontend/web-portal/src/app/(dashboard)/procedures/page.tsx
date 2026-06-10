@@ -299,7 +299,7 @@ export default function ProceduresPage() {
   function handleTypeChange(type: ProcedureTypeFilter) { setTypeFilter(type); setPage(1); }
   function handleSearch(q: string) { setSearchQuery(q); setPage(1); }
 
-  const isSaving = createProcedure.isLoading || updateProcedure.isLoading;
+  const isSaving = createProcedure.isPending || updateProcedure.isPending;
 
   return (
     <div className="space-y-5">
@@ -553,7 +553,7 @@ export default function ProceduresPage() {
             : ''
         }
         confirmLabel={t('حذف', 'Delete')}
-        loading={deleteProcedure.isLoading}
+        loading={deleteProcedure.isPending}
       />
     </div>
   );
