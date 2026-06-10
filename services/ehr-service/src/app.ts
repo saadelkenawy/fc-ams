@@ -1,11 +1,11 @@
 import Fastify from 'fastify';
-import { z } from 'zod';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import jwt from '@fastify/jwt';
 import rateLimit from '@fastify/rate-limit';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
+import { registerErrorHandler } from '@fadl/service-kit';
 import { config } from './config';
 import { encounterRoutes } from './routes/encounter.routes';
 import { prescriptionRoutes } from './routes/prescription.routes';
@@ -63,29 +63,7 @@ export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
   await app.register(prescriptionRoutes, { prefix: '/api/v1' });
   await app.register(productRoutes,      { prefix: '/api/v1' });
 
-  app.setErrorHandler(async (error, request, reply) => {
-    if (error instanceof z.ZodError) {
-      reply.status(400).send({
-        success: false,
-        error: { code: 'VALIDATION_ERROR', message: 'Invalid request', details: error.flatten().fieldErrors, requestId: request.id },
-      });
-      return;
-    }
-
-    const statusCode = (error as { statusCode?: number }).statusCode ?? 500;
-    const code = (error as { code?: string }).code ?? 'INTERNAL_ERROR';
-
-    if (statusCode >= 500) {
-      request.log.error({ err: error }, 'Unhandled error');
-    }
-
-    reply.status(statusCode).send({
-      success: false,
-      error: statusCode >= 500
-        ? { code: 'INTERNAL_ERROR', message: 'Internal server error', requestId: request.id }
-        : { code, message: (error as Error).message, requestId: request.id },
-    });
-  });
+  registerErrorHandler(app);
 
   return app;
 }

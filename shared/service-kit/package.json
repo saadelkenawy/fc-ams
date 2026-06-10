@@ -1,0 +1,32 @@
+{
+  "name": "@fadl/service-kit",
+  "version": "0.0.1",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc --build",
+    "dev": "tsc --watch",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@fadl/types": "workspace:*",
+    "axios": "^1.16.0",
+    "pg": "^8.11.0"
+  },
+  "peerDependencies": {
+    "fastify": "^5.0.0",
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "@fastify/jwt": "^10.0.0",
+    "@types/node": "^20.0.0",
+    "@types/pg": "^8.11.0",
+    "fastify": "^5.8.5",
+    "typescript": "^5.3.0",
+    "vitest": "^4.0.0",
+    "zod": "^3.22.0"
+  }
+}

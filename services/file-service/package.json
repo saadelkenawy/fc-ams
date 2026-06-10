@@ -16,8 +16,10 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.540.0",
+    "@aws-sdk/s3-request-presigner": "^3.540.0",
+    "@fadl/service-kit": "workspace:*",
     "@fadl/types": "workspace:*",
-    "fastify": "^5.8.5",
     "@fastify/cors": "^11.2.0",
     "@fastify/helmet": "^13.0.2",
     "@fastify/jwt": "^10.0.0",
@@ -25,12 +27,11 @@
     "@fastify/rate-limit": "^10.3.0",
     "@fastify/swagger": "^9.7.0",
     "@fastify/swagger-ui": "^5.2.6",
-    "@aws-sdk/client-s3": "^3.540.0",
-    "@aws-sdk/s3-request-presigner": "^3.540.0",
+    "fastify": "^5.8.5",
     "pg": "^8.11.0",
-    "zod": "^3.22.0",
+    "pino": "^8.19.0",
     "uuid": "^11.0.0",
-    "pino": "^8.19.0"
+    "zod": "^3.22.0"
   },
   "devDependencies": {
     "@types/pg": "^8.11.0",

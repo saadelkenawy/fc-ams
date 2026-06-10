@@ -6,6 +6,9 @@
     "paths": {
       "@fadl/types": [
         "../../shared/types/dist"
+      ],
+      "@fadl/service-kit": [
+        "../../shared/service-kit/dist"
       ]
     }
   },
@@ -15,6 +18,9 @@
   "references": [
     {
       "path": "../../shared/types"
+    },
+    {
+      "path": "../../shared/service-kit"
     }
   ]
 }

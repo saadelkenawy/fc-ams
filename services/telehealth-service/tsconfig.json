@@ -4,9 +4,23 @@
     "rootDir": "src",
     "outDir": "dist",
     "paths": {
-      "@fadl/types": ["../../shared/types/src"]
+      "@fadl/types": [
+        "../../shared/types/src"
+      ],
+      "@fadl/service-kit": [
+        "../../shared/service-kit/dist"
+      ]
     }
   },
-  "include": ["src/**/*"],
-  "references": [{ "path": "../../shared/types" }]
+  "include": [
+    "src/**/*"
+  ],
+  "references": [
+    {
+      "path": "../../shared/types"
+    },
+    {
+      "path": "../../shared/service-kit"
+    }
+  ]
 }

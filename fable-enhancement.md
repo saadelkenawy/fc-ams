@@ -345,3 +345,30 @@ All Phase 1 items are done, deployed to the dev stack, and verified end-to-end.
 - **§4.3 shared `service-kit`/`db` packages**: deliberately deferred — it touches every service's package.json + all 14 Dockerfiles' COPY lists and is too risky to combine with this change set. Phase 1 made all duplicated copies (token mint, auth middleware, database helpers, error handler) **identical**, so extraction is now a mechanical move. Do it as an isolated PR before the asymmetric-JWT work (§2.1.4).
 - Full per-request `branchId` plumbing through every repository (§3.1 note) — current state: env default + explicit branchId on appointment-service write paths.
 - TanStack Query v4→v5 (§5.4) and Playwright visual snapshots — unchanged.
+
+---
+
+## 10. Phase 3 — shared service-kit (§4.3) — IMPLEMENTED (2026-06-10)
+
+### 10.1 `@fadl/service-kit` (`shared/service-kit`)
+New workspace package consumed by all 14 services; four modules:
+- **auth**: `createRequireAuth(serviceName)` (JWT verify + service-token `aud` enforcement) and `requireRole(...roles)`. Owns the `@fastify/jwt` `FastifyJWT` type augmentation.
+- **service-token**: `makeServiceToken(aud, { jwtSecret, branchId, sub? })` and `createServiceClient({ baseURL, aud, ... })` — axios instance, 8 s default timeout, fresh 120 s token per request. Per-service `sub` values (…0001/…0002/…0003) preserved.
+- **db**: `createDb({ connectionString, min, max, serviceName, rls? })` → `{ pool, withTransaction, withRlsContext, withClient }`. `rls: { defaultBranchId }` enables the branch-context binding (8 RLS services); identity / procurement / ai-chatbot / integration omit it (their tables aren't branch-scoped).
+- **error-handler**: `registerErrorHandler(app)` — the §2.7 contract, unified to include both the `field: msg` message and `details: error.flatten().fieldErrors`.
+
+### 10.2 What changed in services
+- `src/middleware/auth.ts` → 5-line re-export (was 8 divergent copies; diffs were cosmetic only — wording/formatting; identity & file had drifted error messages, now unified).
+- `src/config/database.ts` → `createDb` wrapper keeping the same exports, so **no repository/controller imports changed**.
+- 5 token-mint copies (appointment ×2, doctor, analytics, integration) → kit calls.
+- 14 `app.setErrorHandler` blocks (4 drifted variants) → `registerErrorHandler(app)`.
+- All 14 Dockerfiles + `Dockerfile.test`: `COPY shared/service-kit/package.json` + `pnpm --filter @fadl/service-kit build` (verified: image builds, kit resolves at runtime via `pnpm deploy`).
+
+### 10.3 Verified
+- `pnpm -r build`, `pnpm type-check`, `pnpm test` (16/16 incl. money-path + RLS) all green; appointment image smoke-built locally.
+- Net: −~600 lines of copy-pasted infrastructure; future drift (the §8.6 class of bug) is structurally impossible for these four concerns.
+
+### 10.4 Still open for later phases
+- Per-request `branchId` plumbing through every repository (§3.1) — unchanged.
+- Asymmetric JWT (§2.1.4) — now a one-file change in the kit.
+- TanStack Query v4→v5, Playwright snapshots (§5.4).

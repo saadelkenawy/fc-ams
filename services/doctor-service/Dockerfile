@@ -4,11 +4,13 @@ RUN npm install -g pnpm@8
 
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json tsconfig.base.json ./
 COPY shared/types/package.json ./shared/types/
+COPY shared/service-kit/package.json ./shared/service-kit/
 COPY services/doctor-service/package.json ./services/doctor-service/
 RUN pnpm install --no-frozen-lockfile
 
 COPY . .
 RUN pnpm --filter @fadl/types build
+RUN pnpm --filter @fadl/service-kit build
 RUN pnpm --filter @fadl/doctor-service build
 RUN pnpm --filter @fadl/doctor-service deploy --prod /deploy
 

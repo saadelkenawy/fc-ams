@@ -5,7 +5,7 @@ import jwt from '@fastify/jwt';
 import rateLimit from '@fastify/rate-limit';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
-import { ZodError } from 'zod';
+import { registerErrorHandler } from '@fadl/service-kit';
 import { config } from './config';
 import { redis } from './config/redis';
 import { startDoctorStatusSubscriber } from './subscribers/doctor-status.subscriber';
@@ -60,32 +60,7 @@ export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
   await app.register(appointmentRoutes, { prefix: '/api/v1' });
   await app.register(roomRoutes, { prefix: '/api/v1' });
 
-  app.setErrorHandler(async (error, request, reply) => {
-    if (error instanceof ZodError) {
-      const first = error.issues[0];
-      const field = first?.path?.join('.') ?? 'input';
-      const msg   = first?.message ?? 'Validation failed';
-      reply.status(400).send({
-        success: false,
-        error: { code: 'VALIDATION_ERROR', message: `${field}: ${msg}` },
-      });
-      return;
-    }
-
-    const statusCode = (error as { statusCode?: number }).statusCode ?? 500;
-    const code = (error as { code?: string }).code ?? 'INTERNAL_ERROR';
-
-    if (statusCode >= 500) {
-      request.log.error({ err: error }, 'Unhandled error');
-    }
-
-    reply.status(statusCode).send({
-      success: false,
-      error: statusCode >= 500
-        ? { code: 'INTERNAL_ERROR', message: 'Internal server error', requestId: request.id }
-        : { code, message: (error as Error).message, requestId: request.id },
-    });
-  });
+  registerErrorHandler(app);
 
   return app;
 }
