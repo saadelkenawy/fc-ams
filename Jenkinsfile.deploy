@@ -72,7 +72,20 @@ pipeline {
                 script {
                     def tag = params.IMAGE_TAG
                     def raw = params.SERVICES?.trim() ?: 'all'
-                    def list = (raw == 'all') ? env.ALL_SERVICES.split(',').toList() : raw.split(',').collect { it.trim() }
+                    def deployable = env.ALL_SERVICES.split(',').toList()
+                    def list = (raw == 'all') ? deployable : raw.split(',').collect { it.trim() }
+
+                    // Images may exist for services that aren't in docker-compose
+                    // (e.g. telehealth-service is scaffolded only) — deploying them
+                    // fails with "no such service", so drop them with a warning.
+                    def skipped = list.findAll { !deployable.contains(it) }
+                    if (skipped) {
+                        echo "Skipping non-deployable services (not in docker-compose): ${skipped.join(', ')}"
+                        list = list.findAll { deployable.contains(it) }
+                    }
+                    if (list.isEmpty()) {
+                        error("No deployable services in request: ${raw}")
+                    }
 
                     echo "Tag:     ${tag}"
                     echo "Target:  ${params.DEPLOY_TARGET}"

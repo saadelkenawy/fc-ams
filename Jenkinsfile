@@ -297,10 +297,12 @@ sys.exit(0 if qg == 'OK' else 1)
             echo "All images pushed to https://hub.docker.com/u/${env.DOCKERHUB_USER}"
             script {
                 if (env.BUILD_LIST?.trim()) {
-                    // Strip "fcms-" prefix from image names to match fcms-deploy's SERVICES format
+                    // Strip "fcms-" prefix from image names to match fcms-deploy's SERVICES format.
+                    // telehealth-service is built/pushed but not in docker-compose (scaffolded only),
+                    // so it must not be sent to the deploy job.
                     def deployServices = env.BUILD_LIST.split(';').collect { entry ->
                         entry.split('\\|')[0].replaceFirst('^fcms-', '')
-                    }.join(',')
+                    }.findAll { it != 'telehealth-service' }.join(',')
 
                     echo "Triggering fcms-deploy → local with tag=latest, services=${deployServices}"
                     build job: 'fcms-deploy',
