@@ -115,14 +115,16 @@ services:
       <<: *jwt-env
       NODE_ENV: development
       PORT: 3000
-      DATABASE_URL: postgresql://fadl:fadl_dev_secret@pgbouncer:5432/fadl_identity
+      DATABASE_URL: postgresql://fadl_app:fadl_app_dev_secret@pgbouncer:5432/fadl_identity
       DATABASE_POOL_MIN: 2
       DATABASE_POOL_MAX: 10
       LOG_LEVEL: info
       BRANCH_ID: 1
       SERVICE_NAME: identity-service
     ports:
-      - "3000:3000"
+      # host 3100 → container 3000 (host port 3000 is held by an unrelated
+      # local process; inter-service traffic uses the Docker network anyway)
+      - "3100:3000"
     depends_on:
       pgbouncer:
         condition: service_healthy
@@ -144,7 +146,7 @@ services:
       <<: *jwt-env
       NODE_ENV: development
       PORT: 3002
-      DATABASE_URL: postgresql://fadl:fadl_dev_secret@pgbouncer:5432/fadl_patients
+      DATABASE_URL: postgresql://fadl_app:fadl_app_dev_secret@pgbouncer:5432/fadl_patients
       DATABASE_POOL_MIN: 2
       DATABASE_POOL_MAX: 10
       LOG_LEVEL: info
@@ -173,7 +175,7 @@ services:
       <<: *jwt-env
       NODE_ENV: development
       PORT: 3001
-      DATABASE_URL: postgresql://fadl:fadl_dev_secret@pgbouncer:5432/fadl_appointments
+      DATABASE_URL: postgresql://fadl_app:fadl_app_dev_secret@pgbouncer:5432/fadl_appointments
       REDIS_URL: redis://redis:6379
       DATABASE_POOL_MIN: 2
       DATABASE_POOL_MAX: 10
@@ -214,7 +216,7 @@ services:
       <<: *jwt-env
       NODE_ENV: development
       PORT: 3003
-      DATABASE_URL: postgresql://fadl:fadl_dev_secret@pgbouncer:5432/fadl_doctors
+      DATABASE_URL: postgresql://fadl_app:fadl_app_dev_secret@pgbouncer:5432/fadl_doctors
       DATABASE_POOL_MIN: 2
       DATABASE_POOL_MAX: 10
       REDIS_URL: redis://redis:6379
@@ -246,7 +248,7 @@ services:
       <<: *jwt-env
       NODE_ENV: development
       PORT: 3004
-      DATABASE_URL: postgresql://fadl:fadl_dev_secret@pgbouncer:5432/fadl_billing
+      DATABASE_URL: postgresql://fadl_app:fadl_app_dev_secret@pgbouncer:5432/fadl_billing
       DATABASE_POOL_MIN: 2
       DATABASE_POOL_MAX: 10
       LOG_LEVEL: info
@@ -277,7 +279,7 @@ services:
       <<: *jwt-env
       NODE_ENV: development
       PORT: 3007
-      DATABASE_URL: postgresql://fadl:fadl_dev_secret@pgbouncer:5432/fadl_notifications
+      DATABASE_URL: postgresql://fadl_app:fadl_app_dev_secret@pgbouncer:5432/fadl_notifications
       DATABASE_POOL_MIN: 2
       DATABASE_POOL_MAX: 10
       LOG_LEVEL: info
@@ -314,7 +316,7 @@ services:
       <<: *jwt-env
       NODE_ENV: development
       PORT: 3008
-      DATABASE_URL: postgresql://fadl:fadl_dev_secret@pgbouncer:5432/fadl_chatbot
+      DATABASE_URL: postgresql://fadl_app:fadl_app_dev_secret@pgbouncer:5432/fadl_chatbot
       DATABASE_POOL_MIN: 2
       DATABASE_POOL_MAX: 10
       LOG_LEVEL: info
@@ -356,7 +358,7 @@ services:
       <<: *jwt-env
       NODE_ENV: development
       PORT: 3011
-      DATABASE_URL: postgresql://fadl:fadl_dev_secret@pgbouncer:5432/fadl_files
+      DATABASE_URL: postgresql://fadl_app:fadl_app_dev_secret@pgbouncer:5432/fadl_files
       DATABASE_POOL_MIN: 2
       DATABASE_POOL_MAX: 10
       LOG_LEVEL: info
@@ -426,7 +428,7 @@ services:
       <<: *jwt-env
       NODE_ENV: development
       PORT: 3005
-      DATABASE_URL: postgresql://fadl:fadl_dev_secret@pgbouncer:5432/fadl_ehr
+      DATABASE_URL: postgresql://fadl_app:fadl_app_dev_secret@pgbouncer:5432/fadl_ehr
       DATABASE_POOL_MIN: 2
       DATABASE_POOL_MAX: 10
       LOG_LEVEL: info
@@ -455,7 +457,7 @@ services:
       <<: *jwt-env
       NODE_ENV: development
       PORT: 3006
-      DATABASE_URL: postgresql://fadl:fadl_dev_secret@pgbouncer:5432/fadl_procedures
+      DATABASE_URL: postgresql://fadl_app:fadl_app_dev_secret@pgbouncer:5432/fadl_procedures
       DATABASE_POOL_MIN: 2
       DATABASE_POOL_MAX: 10
       LOG_LEVEL: info
@@ -484,7 +486,7 @@ services:
       <<: *jwt-env
       NODE_ENV: development
       PORT: 3013
-      DATABASE_URL: postgresql://fadl:fadl_dev_secret@pgbouncer:5432/fadl_procurement
+      DATABASE_URL: postgresql://fadl_app:fadl_app_dev_secret@pgbouncer:5432/fadl_procurement
       DATABASE_POOL_MIN: 2
       DATABASE_POOL_MAX: 10
       LOG_LEVEL: info
@@ -554,7 +556,7 @@ services:
       <<: *jwt-env
       NODE_ENV: development
       PORT: 3012
-      DATABASE_URL: postgresql://fadl:fadl_dev_secret@pgbouncer:5432/fadl_integrations
+      DATABASE_URL: postgresql://fadl_app:fadl_app_dev_secret@pgbouncer:5432/fadl_integrations
       DATABASE_POOL_MIN: 2
       DATABASE_POOL_MAX: 10
       LOG_LEVEL: info

@@ -148,7 +148,22 @@ sys.exit(0 if qg == 'OK' else 1)
             }
         }
 
-        // ── 3. Build each changed service image ──────────────────────────────
+        // ── 3. Money-path + RLS test suites (hard gate — fails the build) ───
+        stage('Tests') {
+            steps {
+                script {
+                    sh '''
+                        docker build -f Dockerfile.test -t fcms-tests:ci .
+                        docker run --rm --network fcms_fadl-net \
+                          -e TEST_PG_ADMIN_BASE=postgresql://fadl:fadl_dev_secret@postgres:5432 \
+                          -e TEST_PG_APP_BASE=postgresql://fadl_app:fadl_app_dev_secret@postgres:5432 \
+                          fcms-tests:ci
+                    '''
+                }
+            }
+        }
+
+        // ── 4. Build each changed service image ──────────────────────────────
         stage('Build Images') {
             when { expression { env.BUILD_LIST?.trim() } }
             steps {

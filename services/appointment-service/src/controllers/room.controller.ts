@@ -157,10 +157,8 @@ export async function releaseRoom(request: FastifyRequest, reply: FastifyReply):
   await redis.del(`room:doctor:${result.doctorId}:${result.assignedDate}`);
 
   // Clear room from pending appointments
-  const { pool } = await import('../config/database');
-  const client = await pool.connect();
-  try {
-    await client.query(`SET app.current_branch_id = $1`, [user.branchId]);
+  const { withTransaction } = await import('../config/database');
+  await withTransaction(user.branchId, async (client) => {
     await client.query(
       `UPDATE appointments
        SET room_id = NULL, room_code = NULL, room_assigned_at = NULL, updated_at = NOW()
@@ -168,9 +166,7 @@ export async function releaseRoom(request: FastifyRequest, reply: FastifyReply):
          AND status NOT IN ('Comp.','Canc.','Resch.') AND deleted_at IS NULL`,
       [result.doctorId, result.assignedDate],
     );
-  } finally {
-    client.release();
-  }
+  });
 
   broadcastRoom(user.branchId, 'room_released', {
     roomCode: roomCode.toUpperCase(),
@@ -232,10 +228,8 @@ export async function nextPatientHandler(request: FastifyRequest, reply: Fastify
       const released = await repo.releaseRoomByCode(roomCode.toUpperCase(), user.branchId);
       if (released) {
         await redis.del(`room:doctor:${released.doctorId}:${released.assignedDate}`);
-        const { pool } = await import('../config/database');
-        const client = await pool.connect();
-        try {
-          await client.query(`SET app.current_branch_id = $1`, [user.branchId]);
+        const { withTransaction } = await import('../config/database');
+        await withTransaction(user.branchId, async (client) => {
           await client.query(
             `UPDATE appointments
              SET room_id = NULL, room_code = NULL, room_assigned_at = NULL, updated_at = NOW()
@@ -243,9 +237,7 @@ export async function nextPatientHandler(request: FastifyRequest, reply: Fastify
                AND status NOT IN ('Comp.','Canc.','Resch.') AND deleted_at IS NULL`,
             [released.doctorId, released.assignedDate],
           );
-        } finally {
-          client.release();
-        }
+        });
         broadcastRoom(user.branchId, 'room_released', {
           roomCode: roomCode.toUpperCase(),
           doctorId: released.doctorId,

@@ -2,6 +2,7 @@ import { PoolClient } from 'pg';
 import { v4 as uuidv4 } from 'uuid';
 import type { Appointment, AppointmentStatus, PaginatedResponse } from '@fadl/types';
 import { withRlsContext, withTransaction, pool } from '../config/database';
+import * as outbox from './outbox.repository';
 
 // ---------------------------------------------------------------------------
 // Allowed status transitions
@@ -155,7 +156,7 @@ export async function createAppointment(
   createdBy: string,
   branchId: number,
 ): Promise<Appointment & { doctorSplitDoctor: number; doctorSplitClinic: number }> {
-  return withTransaction(async (client: PoolClient) => {
+  return withTransaction(branchId, async (client: PoolClient) => {
     if (input.idempotencyKey) {
       const { rows: existing } = await client.query(
         `SELECT * FROM appointments WHERE idempotency_key = $1 AND deleted_at IS NULL`,
@@ -258,6 +259,32 @@ export async function createAppointment(
     );
 
     const appt = rowToAppointment(insertResult.rows[0] as Record<string, unknown>);
+
+    // Transactional outbox: billing record creation commits atomically with
+    // the appointment and is delivered (with retries) by the outbox worker.
+    if (input.approvedCharge && input.approvedCharge > 0) {
+      const visitType = input.appointmentType === 'online'
+        ? 'online'
+        : input.appointmentType === 'operative'
+        ? 'operative'
+        : 'consultation';
+      await outbox.enqueue(client, 'billing.create', {
+        idempotencyKey:        `appt-billing-${id}`,
+        appointmentId:         id,
+        patientId:             input.patientId,
+        doctorId:              input.doctorId,
+        patientSource:         appt.patientSource,
+        doctorSpecialtyId:     input.specialtyId ?? null,
+        approvedCharge:        input.approvedCharge,
+        procedureCost:         input.procedureCost,
+        splitDoctorPercentage: splitDoctor,
+        splitClinicPercentage: splitClinic,
+        paymentMethod:         input.paymentMethod,
+        currencyCode:          'EGP',
+        visitType,
+      }, branchId);
+    }
+
     return { ...appt, doctorSplitDoctor: splitDoctor, doctorSplitClinic: splitClinic };
   });
 }

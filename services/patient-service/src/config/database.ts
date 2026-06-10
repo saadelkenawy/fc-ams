@@ -14,6 +14,14 @@ pool.on('error', (err) => {
   console.error('Unexpected database pool error:', err);
 });
 
+// Default branch context for code paths that use pool.query directly (no
+// explicit transaction). Session-scoped — safe with PgBouncer session pooling.
+pool.on('connect', (client) => {
+  client
+    .query(`SET app.current_branch_id = ${Number(config.BRANCH_ID)}`)
+    .catch((err) => console.error('Failed to set default branch context:', err));
+});
+
 /**
  * Bind the RLS branch context for the lifetime of the surrounding transaction.
  * Uses set_config(..., true) so the setting is scoped to the current tx and is

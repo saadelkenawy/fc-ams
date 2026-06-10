@@ -84,15 +84,17 @@ pnpm db:migrate:patient            # single service
 | telehealth | 3013 | Scaffolded only — not in docker-compose |
 
 ### Cross-service communication
-Services call each other over HTTP using `Authorization: Bearer <service-token>` — a synthesised HS256 JWT with `role: admin`, signed with the shared `JWT_SECRET`. All calls use an 8 s `AbortSignal.timeout`. The call graph:
-- `appointment-service` → `doctor-service` (resolve splits), `billing-service` (create transaction)
+Services call each other over HTTP using `Authorization: Bearer <service-token>` — a synthesised HS256 JWT with `role: admin`, `tokenType: 'service'`, a target-scoped `aud` claim, and a 120 s TTL (minted fresh per request), signed with the shared `JWT_SECRET`. Each receiving service rejects service tokens whose `aud` doesn't match its own `SERVICE_NAME`. All calls use an 8 s `AbortSignal.timeout`. The call graph:
+- `appointment-service` → `doctor-service` (resolve splits), `billing-service` (via **transactional outbox**: `appointment_outbox` table + 5 s poller in `lib/outbox-worker.ts`; enqueued in the same transaction as the appointment insert, delivered with retry/backoff, dead-letters after 12 attempts)
 - `doctor-service` → `billing-service` (push split changes, back-patch pending transactions)
 - `ai-chatbot-service` → `patient-service`, `appointment-service`, `doctor-service`
 - `integration-service` → `appointment-service`, `patient-service`
 - `analytics-service` → direct DB reads on `fadl_billing` + `fadl_appointments`
 
 ### Authentication
-All requests carry `Authorization: Bearer <JWT>`. Every service validates the HS256 signature locally (no central auth gateway). JWT payload: `{ sub, role, branchId, doctorId }`. After validation each service runs `SET LOCAL app.branch_id = $branchId` before any DB query — this activates PostgreSQL RLS on all tables.
+All requests carry `Authorization: Bearer <JWT>`. Every service validates the HS256 signature locally (no central auth gateway). JWT payload: `{ sub, role, branchId, doctorId, tokenType?, aud? }`.
+
+**RLS / branch context**: services connect as the non-superuser role `fadl_app` (RLS enforced; `fadl` is migrations-only — see `infra/postgres/apply-app-role.sh`). Branch context is bound with `SELECT set_config('app.current_branch_id', $1, true)` **inside a transaction** via `withTransaction(branchId, fn)` / `withRlsContext(branchId, fn)` in each service's `config/database.ts` (branchId optional — falls back to env `BRANCH_ID`, which also seeds a session-level default on pool connect for raw `pool.query` paths). Never use `SET app.current_branch_id = $1` (SET doesn't accept bind parameters) and never call `set_config(..., true)` outside a transaction (it evaporates after its own statement).
 
 Roles: `admin`, `finance`, `receptionist`, `doctor`.
 
@@ -100,8 +102,9 @@ Roles: `admin`, `finance`, `receptionist`, `doctor`.
 One PostgreSQL cluster; 12 logical databases (one per service). All connections go through PgBouncer on port 5432. Key invariants:
 - **Immutable billing ledger**: `protect_financial_amounts()` trigger blocks writes to core charge fields; `recalc_on_split_change()` (fires first, `aab_` prefix) auto-recalculates `doctor_share`/`clinic_share` when split % changes on pending rows.
 - **Partitioning**: `appointments` and `financial_transactions` are range-partitioned by `(branch_id, date)` with monthly sub-partitions.
-- **Migrations**: sequential `V001__*.sql` files under `services/<name>-service/db/migrations/`, applied manually via `bash scripts/migrate.sh`.
+- **Migrations**: sequential `V001__*.sql` files under `services/<name>-service/db/migrations/`, applied manually via `bash scripts/migrate.sh` (as `fadl`; new objects get `fadl_app` grants via default privileges).
 - **No auto-runner**: migrations do not run on service startup.
+- **Tests**: integration tests live in `services/<name>-service/tests/*.test.ts` (vitest, run against the dev stack's PostgreSQL; DB endpoints overridable via `TEST_PG_ADMIN_BASE`/`TEST_PG_APP_BASE`). The Jenkins `Tests` stage builds `Dockerfile.test` and runs it on `fcms_fadl-net` as a hard gate.
 
 ### Jenkins CI (`fcms-pipeline`)
 The pipeline runs on the `main` branch inside `fcms-jenkins` container (port 8080). It diffs changed files against the last successful build and rebuilds only the affected service images. All `docker build` commands run from the **repo root** with `-f <service>/Dockerfile .` so that pnpm workspaces resolve correctly.

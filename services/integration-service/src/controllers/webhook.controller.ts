@@ -7,8 +7,18 @@ import * as repo from '../repositories/event.repository';
 
 // ── Signature verification ────────────────────────────────────────────────
 
-function verifySecret(header: string | undefined, expected: string): boolean {
-  if (!expected) return true; // dev mode: skip verification
+const unverifiedPlatformsWarned = new Set<string>();
+
+function verifySecret(header: string | undefined, expected: string, platform: string): boolean {
+  if (!expected) {
+    // No secret configured: hard-fail in production, allow-with-warning in dev only.
+    if (config.NODE_ENV === 'production') return false;
+    if (!unverifiedPlatformsWarned.has(platform)) {
+      unverifiedPlatformsWarned.add(platform);
+      console.warn(`[webhook] WARNING: no secret configured for "${platform}" — accepting unverified webhooks (dev mode only)`);
+    }
+    return true;
+  }
   if (!header) return false;
   const a = createHash('sha256').update(header).digest();
   const b = createHash('sha256').update(expected).digest();
@@ -116,7 +126,7 @@ async function processAppointmentWebhook(
 ): Promise<void> {
   const headerSecret = (req.headers['x-webhook-secret'] ?? req.headers['x-hub-signature']) as string | undefined;
 
-  if (!verifySecret(headerSecret, secret)) {
+  if (!verifySecret(headerSecret, secret, platform)) {
     reply.status(401).send({ success: false, error: { code: 'INVALID_SECRET', message: 'Invalid webhook secret' } });
     return;
   }
@@ -215,7 +225,7 @@ const instaPaySchema = z.object({
 
 export async function instaPayWebhook(req: FastifyRequest, reply: FastifyReply): Promise<void> {
   const headerSecret = req.headers['x-instapay-secret'] as string | undefined;
-  if (!verifySecret(headerSecret, config.INSTAPAY_WEBHOOK_SECRET)) {
+  if (!verifySecret(headerSecret, config.INSTAPAY_WEBHOOK_SECRET, 'instapay')) {
     reply.status(401).send({ success: false, error: { code: 'INVALID_SECRET', message: 'Invalid secret' } });
     return;
   }

@@ -1,0 +1,15 @@
+# Ignore rules for the CI test image only (BuildKit per-Dockerfile ignore).
+# Unlike the service images' .dockerignore, test files are NOT excluded here.
+**/node_modules
+**/.pnpm-store
+frontend/web-portal/.next
+shared/types/dist
+**/*.tsbuildinfo
+**/.env.local
+**/*.local
+**/coverage
+**/.git
+.scannerwork
+.claude
+graphify-out
+design-system

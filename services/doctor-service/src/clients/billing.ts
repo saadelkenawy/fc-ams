@@ -5,13 +5,14 @@ function base64url(input: string): string {
   return Buffer.from(input).toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
 }
 
-function makeServiceToken(): string {
+function makeServiceToken(aud: string): string {
   const header  = base64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
   const now     = Math.floor(Date.now() / 1000);
   const payload = base64url(JSON.stringify({
     sub: '00000000-0000-0000-0000-000000000001', role: 'admin',
+    tokenType: 'service', aud,
     branchId: config.BRANCH_ID, doctorId: null,
-    iat: now, exp: now + 86400,
+    iat: now, exp: now + 120,
   }));
   const sig = createHmac('sha256', config.JWT_SECRET)
     .update(`${header}.${payload}`)
@@ -30,7 +31,7 @@ export async function setCompensation(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${makeServiceToken()}`,
+      'Authorization': `Bearer ${makeServiceToken('billing-service')}`,
     },
     body: JSON.stringify({
       visitType,

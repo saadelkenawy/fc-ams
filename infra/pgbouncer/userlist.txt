@@ -1,1 +1,2 @@
 "fadl" "fadl_dev_secret"
+"fadl_app" "fadl_app_dev_secret"

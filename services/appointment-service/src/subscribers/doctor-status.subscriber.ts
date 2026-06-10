@@ -1,5 +1,5 @@
 import { redisSub, redis } from '../config/redis';
-import { pool } from '../config/database';
+import { pool, withTransaction } from '../config/database';
 import { cascadeCancelForDoctor } from '../repositories/queue.repository';
 import * as roomRepo from '../repositories/room.repository';
 import { broadcastRoom } from '../lib/room-sse';
@@ -54,9 +54,7 @@ async function handleRoomOnStatusChange(
       await redis.del(`room:doctor:${doctorId}:${today}`);
 
       // Clear room from pending appointments
-      const client = await pool.connect();
-      try {
-        await client.query(`SET app.current_branch_id = $1`, [branchId]);
+      await withTransaction(branchId, async (client) => {
         await client.query(
           `UPDATE appointments
            SET room_id = NULL, room_code = NULL, room_assigned_at = NULL, updated_at = NOW()
@@ -64,9 +62,7 @@ async function handleRoomOnStatusChange(
              AND status NOT IN ('Comp.','Canc.','Resch.') AND deleted_at IS NULL`,
           [doctorId, today],
         );
-      } finally {
-        client.release();
-      }
+      });
 
       broadcastRoom(branchId, 'room_released', {
         roomCode: released.roomCode,
@@ -111,18 +107,14 @@ export async function startDoctorStatusSubscriber(): Promise<void> {
         );
 
         if (cancelledIds.length > 0) {
-          const client = await pool.connect();
-          try {
-            await client.query(`SET app.current_branch_id = $1`, [payload.branchId]);
+          await withTransaction(payload.branchId, async (client) => {
             await client.query(
               `UPDATE appointments
                SET status = 'Canc.', updated_at = NOW()
                WHERE id = ANY($1::uuid[]) AND status NOT IN ('Comp.', 'Canc.', 'Resch.')`,
               [cancelledIds],
             );
-          } finally {
-            client.release();
-          }
+          });
 
           console.log(`[queue-sub] Cascade-cancelled ${cancelledIds.length} appointments for doctor ${payload.doctorId}`);
         }

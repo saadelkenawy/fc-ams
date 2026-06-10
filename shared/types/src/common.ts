@@ -51,4 +51,8 @@ export interface JwtPayload {
   doctorId?: string; // set when role = doctor
   iat: number;
   exp: number;
+  /** 'service' on machine-to-machine tokens; absent on user tokens */
+  tokenType?: 'service';
+  /** target service name — required when tokenType is 'service' */
+  aud?: string;
 }

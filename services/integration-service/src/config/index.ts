@@ -16,7 +16,7 @@ const envSchema = z.object({
   BILLING_SERVICE_URL:     z.string().default('http://localhost:3004/api/v1'),
   PATIENT_SERVICE_URL:     z.string().default('http://localhost:3002/api/v1'),
 
-  // Per-platform webhook secrets (empty = accept all in dev)
+  // Per-platform webhook secrets (empty = accept all in dev; REQUIRED in production)
   VIZITA_WEBHOOK_SECRET:  z.string().default(''),
   EKSHF_WEBHOOK_SECRET:   z.string().default(''),
   CLINIDO_WEBHOOK_SECRET: z.string().default(''),
@@ -26,6 +26,14 @@ const envSchema = z.object({
   VIZITA_SOURCE_CODE:  z.string().default('VEZ'),
   EKSHF_SOURCE_CODE:   z.string().default('EKF'),
   CLINIDO_SOURCE_CODE: z.string().default('DO'),
+}).superRefine((env, ctx) => {
+  if (env.NODE_ENV !== 'production') return;
+  const secrets = ['VIZITA_WEBHOOK_SECRET', 'EKSHF_WEBHOOK_SECRET', 'CLINIDO_WEBHOOK_SECRET', 'INSTAPAY_WEBHOOK_SECRET'] as const;
+  for (const key of secrets) {
+    if (env[key].length < 16) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: [key], message: 'must be set (min 16 chars) in production — empty secrets disable webhook authentication' });
+    }
+  }
 });
 
 const parsed = envSchema.safeParse(process.env);

@@ -105,18 +105,14 @@ export async function createAppointment(request: FastifyRequest, reply: FastifyR
         const cached = await redis.get(`room:doctor:${input.doctorId}:${input.appointmentDate}`);
         if (cached) {
           const { roomId, roomCode } = JSON.parse(cached) as { roomId: number; roomCode: string };
-          const { pool } = await import('../config/database');
-          const client = await pool.connect();
-          try {
-            await client.query(`SET app.current_branch_id = $1`, [user.branchId]);
+          const { withTransaction } = await import('../config/database');
+          await withTransaction(user.branchId, async (client) => {
             await client.query(
               `UPDATE appointments SET room_id = $1, room_code = $2, room_assigned_at = NOW(), updated_at = NOW() WHERE id = $3`,
               [roomId, roomCode, appointment.id],
             );
-            broadcastRoom(user.branchId, 'room_updated', { roomId, roomCode, appointmentId: appointment.id });
-          } finally {
-            client.release();
-          }
+          });
+          broadcastRoom(user.branchId, 'room_updated', { roomId, roomCode, appointmentId: appointment.id });
         }
       } catch (err) {
         console.error('[appt] auto-room assignment failed', (err as Error).message);
@@ -124,36 +120,8 @@ export async function createAppointment(request: FastifyRequest, reply: FastifyR
     })();
   }
 
-  // Auto-create billing record when approvedCharge is set (fire-and-forget)
-  if (input.approvedCharge && input.approvedCharge > 0) {
-    void (async () => {
-      try {
-        const apptType = appointment.appointmentType as string | undefined;
-        const visitType = apptType === 'online'
-          ? 'online'
-          : apptType === 'operative'
-          ? 'operative'
-          : 'consultation';
-        await createBillingTransaction({
-          idempotencyKey:        `appt-billing-${appointment.id}`,
-          appointmentId:         appointment.id,
-          patientId:             appointment.patientId,
-          doctorId:              appointment.doctorId,
-          patientSource:         appointment.patientSource,
-          doctorSpecialtyId:     appointment.specialtyId ?? null,
-          approvedCharge:        input.approvedCharge!,
-          procedureCost:         input.procedureCost,
-          splitDoctorPercentage: appointment.doctorSplitDoctor,
-          splitClinicPercentage: appointment.doctorSplitClinic,
-          paymentMethod:         input.paymentMethod,
-          currencyCode:          'EGP',
-          visitType,
-        });
-      } catch (err) {
-        console.error('[appt] auto-billing creation failed', (err as Error).message);
-      }
-    })();
-  }
+  // Billing record creation now goes through the transactional outbox inside
+  // repo.createAppointment — committed atomically and delivered with retries.
 
   // SMS notification (fire-and-forget)
   void fireNotification({
@@ -246,10 +214,8 @@ export async function updateStatus(request: FastifyRequest, reply: FastifyReply)
 
         await redis.del(`room:doctor:${adv.doctorId}:${adv.queueDate}`);
 
-        const { pool } = await import('../config/database');
-        const client = await pool.connect();
-        try {
-          await client.query(`SET app.current_branch_id = $1`, [user.branchId]);
+        const { withTransaction } = await import('../config/database');
+        await withTransaction(user.branchId, async (client) => {
           await client.query(
             `UPDATE appointments
              SET room_id = NULL, room_code = NULL, room_assigned_at = NULL, updated_at = NOW()
@@ -257,9 +223,7 @@ export async function updateStatus(request: FastifyRequest, reply: FastifyReply)
                AND status NOT IN ('Comp.','Canc.','Resch.') AND deleted_at IS NULL`,
             [adv.doctorId, adv.queueDate],
           );
-        } finally {
-          client.release();
-        }
+        });
 
         broadcastRoom(user.branchId, 'room_released', {
           roomCode,
