@@ -49,10 +49,11 @@
     <scriptPath>Jenkinsfile</scriptPath>
   </factory>
   <triggers>
-    <!-- Fallback scan every hour in case the webhook is missed -->
+    <!-- Fallback scan every 5 min — the webhook rides an ephemeral trycloudflare
+         tunnel, so a dead tunnel must not stall push builds for an hour -->
     <com.cloudbees.hudson.plugins.folder.computed.PeriodicFolderTrigger plugin="cloudbees-folder">
-      <spec>H * * * *</spec>
-      <interval>3600000</interval>
+      <spec>H/5 * * * *</spec>
+      <interval>300000</interval>
     </com.cloudbees.hudson.plugins.folder.computed.PeriodicFolderTrigger>
   </triggers>
   <disabled>false</disabled>
