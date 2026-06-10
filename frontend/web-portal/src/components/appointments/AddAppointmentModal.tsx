@@ -320,7 +320,7 @@ function PatientPicker({ lang, t, value, onChange, disabled }: {
               </div>
               <div>
                 <p className="text-sm font-medium text-primary-700 dark:text-primary-300">{t('إنشاء مريض جديد', 'Create new patient')}</p>
-                <p className="text-xs text-primary-500 dark:text-primary-400 truncate">"{q}"</p>
+                <p className="text-xs text-primary-500 dark:text-primary-400 truncate">&ldquo;{q}&rdquo;</p>
               </div>
             </button>
           )}

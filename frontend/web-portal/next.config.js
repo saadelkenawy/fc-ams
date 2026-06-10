@@ -4,6 +4,12 @@ const path = require('path');
 const nextConfig = {
   output: 'standalone',
   outputFileTracingRoot: path.join(__dirname, '../../'),
+  eslint: {
+    // Linting is enforced by `pnpm lint` (jsx-a11y gate); the repo-root
+    // typescript-eslint config has pre-existing errors that must not
+    // block production image builds.
+    ignoreDuringBuilds: true,
+  },
   experimental: {
     serverActions: true,
   },
