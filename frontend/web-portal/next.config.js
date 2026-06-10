@@ -13,6 +13,35 @@ const nextConfig = {
       { protocol: 'https', hostname: 'images.unsplash.com' },
     ],
   },
+  async headers() {
+    const isDev = process.env.NODE_ENV !== 'production';
+    // 'unsafe-eval' is required by react-refresh in dev only.
+    // 'unsafe-inline' styles are required by Tailwind/Next inline style tags.
+    const csp = [
+      `default-src 'self'`,
+      `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}`,
+      `style-src 'self' 'unsafe-inline'`,
+      `img-src 'self' data: blob: https://fadl-clinic.com https://images.unsplash.com http://localhost:9000`,
+      `font-src 'self' data:`,
+      `connect-src 'self' http://localhost:9000`,
+      `frame-ancestors 'none'`,
+      `base-uri 'self'`,
+      `form-action 'self'`,
+    ].join('; ');
+
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          { key: 'Content-Security-Policy', value: csp },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+        ],
+      },
+    ];
+  },
   async rewrites() {
     // Server-side vars (no NEXT_PUBLIC) — resolved inside the container on the Docker network
     // Defaults use Docker-internal service names (resolved by Next.js server inside the container)

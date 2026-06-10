@@ -21,6 +21,7 @@ import {
   type SourceFeeRule, type CreateSourceInput, type SpecialtyRate,
 } from '@/hooks/useSources';
 import { useSpecialties } from '@/hooks/useDoctors';
+import { DialogOverlay } from '@/components/ui/DialogOverlay';
 
 // ─── Schema ──────────────────────────────────────────────────────────────────
 
@@ -164,8 +165,9 @@ function SourceModal({
   const canAddMore = specialties.some((s) => !usedSpecialtyIds.has(s.id));
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-panel max-w-lg" onClick={(e) => e.stopPropagation()}>
+    <DialogOverlay onClose={onClose} label={isEdit ? t('تعديل مصدر', 'Edit Source') : t('إضافة مصدر جديد', 'Add New Source')}
+      overlayClassName="modal-overlay"
+      panelClassName="modal-panel max-w-lg">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-neutral-700">
           <h3 className="font-semibold text-gray-900 dark:text-gray-100">
             {isEdit ? t('تعديل مصدر', 'Edit Source') : t('إضافة مصدر جديد', 'Add New Source')}
@@ -349,8 +351,7 @@ function SourceModal({
             </Button>
           </div>
         </form>
-      </div>
-    </div>
+    </DialogOverlay>
   );
 }
 

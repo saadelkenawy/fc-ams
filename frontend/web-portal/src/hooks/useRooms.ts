@@ -111,6 +111,25 @@ export function useReleaseRoom() {
       const { data } = await appointmentApi.delete<ApiResponse<unknown>>(`/rooms/${roomCode}/assignment`, { params });
       return data;
     },
+    onMutate: async ({ roomCode }) => {
+      await qc.cancelQueries({ queryKey: ['rooms'] });
+      const snapshots = qc.getQueriesData<RoomDetail[]>({ queryKey: ['rooms'] });
+      qc.setQueriesData<RoomDetail[]>({ queryKey: ['rooms'] }, (old) =>
+        old?.map((r) =>
+          r.roomCode === roomCode
+            ? { ...r, status: 'available' as const, assignedDoctor: null, assignmentId: null }
+            : r,
+        ),
+      );
+      return { snapshots };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.snapshots) {
+        for (const [key, data] of context.snapshots) {
+          qc.setQueryData(key, data);
+        }
+      }
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['rooms'] });
     },

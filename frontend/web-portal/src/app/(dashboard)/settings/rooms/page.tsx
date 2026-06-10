@@ -47,15 +47,17 @@ function RoomSettingsRow({ room }: { room: RoomDetail }) {
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="sm:col-span-2">
-          <label className="block text-xs text-slate-400 mb-1">Room Name</label>
+          <label htmlFor="room-name" className="block text-xs text-slate-400 mb-1">Room Name</label>
           <input
+            id="room-name"
             value={name} onChange={(e) => setName(e.target.value)}
             className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-primary-500"
           />
         </div>
         <div>
-          <label className="block text-xs text-slate-400 mb-1">Floor</label>
+          <label htmlFor="room-floor" className="block text-xs text-slate-400 mb-1">Floor</label>
           <input
+            id="room-floor"
             type="number" value={floor} onChange={(e) => setFloor(e.target.value)}
             placeholder="e.g. 2"
             className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-primary-500"
@@ -64,8 +66,9 @@ function RoomSettingsRow({ room }: { room: RoomDetail }) {
       </div>
 
       <div>
-        <label className="block text-xs text-slate-400 mb-1">Description / Directions</label>
+        <label htmlFor="room-desc" className="block text-xs text-slate-400 mb-1">Description / Directions</label>
         <input
+          id="room-desc"
           value={desc} onChange={(e) => setDesc(e.target.value)}
           placeholder="e.g. Turn left from reception, end of corridor"
           className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-primary-500"

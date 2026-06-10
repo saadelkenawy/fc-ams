@@ -7,6 +7,7 @@ import { Download, Filter, Search, Clock, TrendingUp, Loader2, Check, X, Trash2,
 import ExcelJS from 'exceljs';
 import { analyticsApi, appointmentApi, billingApi } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/Card';
+import { DialogOverlay } from '@/components/ui/DialogOverlay';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
@@ -137,8 +138,9 @@ function SecureDeleteModal({ appointmentId, onClose, onDeleted }: SecureDeleteMo
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-md mx-4 bg-white dark:bg-neutral-800 rounded-2xl shadow-2xl p-6" onClick={(e) => e.stopPropagation()}>
+    <DialogOverlay onClose={onClose} label={t('حذف آمن للموعد', 'Secure Appointment Deletion')}
+      overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+      panelClassName="w-full max-w-md mx-4 bg-white dark:bg-neutral-800 rounded-2xl shadow-2xl p-6">
         <div className="flex items-center gap-3 mb-5">
           <div className="w-11 h-11 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center flex-shrink-0">
             <ShieldAlert className="w-6 h-6 text-red-600 dark:text-red-400" />
@@ -205,8 +207,7 @@ function SecureDeleteModal({ appointmentId, onClose, onDeleted }: SecureDeleteMo
           </Button>
           <Button variant="ghost" onClick={onClose}>{t('إلغاء', 'Cancel')}</Button>
         </div>
-      </div>
-    </div>
+    </DialogOverlay>
   );
 }
 
@@ -263,8 +264,9 @@ function BulkDeleteModal({ selected, onClose, onDeleted, lang, t, locale }: Bulk
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="w-full max-w-lg mx-4 bg-white dark:bg-neutral-800 rounded-2xl shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+    <DialogOverlay onClose={onClose} closeOnBackdrop={false} label={t('حذف معاملات', 'Delete transactions')}
+      overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      panelClassName="w-full max-w-lg mx-4 bg-white dark:bg-neutral-800 rounded-2xl shadow-2xl overflow-hidden">
         <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100 dark:border-neutral-700 bg-red-50 dark:bg-red-900/20">
           <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/40 flex items-center justify-center flex-shrink-0">
             <ShieldAlert className="w-5 h-5 text-red-600 dark:text-red-400" />
@@ -388,8 +390,7 @@ function BulkDeleteModal({ selected, onClose, onDeleted, lang, t, locale }: Bulk
             </div>
           </div>
         )}
-      </div>
-    </div>
+    </DialogOverlay>
   );
 }
 
@@ -445,8 +446,9 @@ function BulkEditModal({ selected, onClose, onEdited, lang, t }: BulkEditModalPr
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="w-full max-w-md mx-4 bg-white dark:bg-neutral-800 rounded-2xl shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+    <DialogOverlay onClose={onClose} closeOnBackdrop={false} label={t('تعديل معاملات', 'Edit transactions')}
+      overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      panelClassName="w-full max-w-md mx-4 bg-white dark:bg-neutral-800 rounded-2xl shadow-2xl overflow-hidden">
         <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100 dark:border-neutral-700">
           <h3 className="font-semibold text-gray-900 dark:text-gray-100">
             {t(`تعديل ${selected.length} معاملة`, `Edit ${selected.length} transaction${selected.length !== 1 ? 's' : ''}`)}
@@ -543,8 +545,7 @@ function BulkEditModal({ selected, onClose, onEdited, lang, t }: BulkEditModalPr
             </div>
           </div>
         )}
-      </div>
-    </div>
+    </DialogOverlay>
   );
 }
 

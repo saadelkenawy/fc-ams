@@ -14,6 +14,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/Button';
 import { AppointmentStatusBadge } from '@/components/ui/Badge';
 import { useLang } from '@/contexts/LanguageContext';
+import { DialogOverlay } from '@/components/ui/DialogOverlay';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatTime, cn } from '@/lib/utils';
 import { useAppointments } from '@/hooks/useAppointments';
@@ -277,8 +278,9 @@ function BulkDeleteModal({ ids, lang, t, onClose, onDeleted }: BulkDeleteModalPr
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-md mx-4 bg-white dark:bg-neutral-800 rounded-2xl shadow-xl" onClick={(e) => e.stopPropagation()}>
+    <DialogOverlay onClose={onClose} label={t('حذف المواعيد', 'Delete appointments')}
+      overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+      panelClassName="w-full max-w-md mx-4 bg-white dark:bg-neutral-800 rounded-2xl shadow-xl">
         <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100 dark:border-neutral-700">
           <div className="p-2 rounded-xl bg-red-50 dark:bg-red-900/20">
             <ShieldAlert className="w-5 h-5 text-red-500" />
@@ -345,8 +347,7 @@ function BulkDeleteModal({ ids, lang, t, onClose, onDeleted }: BulkDeleteModalPr
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </DialogOverlay>
   );
 }
 
@@ -377,8 +378,9 @@ function StatusModal({ appointment, lang, t, onClose, onDone, userRole }: Status
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-sm mx-4 bg-white dark:bg-neutral-800 rounded-2xl shadow-xl p-6" onClick={(e) => e.stopPropagation()}>
+    <DialogOverlay onClose={onClose} label={t('تغيير حالة الموعد', 'Change Appointment Status')}
+      overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      panelClassName="w-full max-w-sm mx-4 bg-white dark:bg-neutral-800 rounded-2xl shadow-xl p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold text-gray-900 dark:text-gray-100">{t('تغيير حالة الموعد', 'Change Appointment Status')}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
@@ -420,8 +422,7 @@ function StatusModal({ appointment, lang, t, onClose, onDone, userRole }: Status
           </Button>
           <Button variant="ghost" onClick={onClose}>{t('إلغاء', 'Cancel')}</Button>
         </div>
-      </div>
-    </div>
+    </DialogOverlay>
   );
 }
 
@@ -474,11 +475,9 @@ function NewTransactionModal({ appointment, patientName, lang, t, onClose, onCre
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
-      <div
-        className="w-full max-w-sm mx-4 bg-white dark:bg-neutral-800 rounded-2xl shadow-xl p-6 space-y-4"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <DialogOverlay onClose={onClose} label={t('إنشاء فاتورة', 'Generate Invoice')}
+      overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      panelClassName="w-full max-w-sm mx-4 bg-white dark:bg-neutral-800 rounded-2xl shadow-xl p-6 space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
@@ -584,8 +583,7 @@ function NewTransactionModal({ appointment, patientName, lang, t, onClose, onCre
           </Button>
           <Button variant="ghost" onClick={onClose}>{t('إلغاء', 'Cancel')}</Button>
         </div>
-      </div>
-    </div>
+    </DialogOverlay>
   );
 }
 
@@ -1158,7 +1156,10 @@ export default function AppointmentsPage() {
                     key={a.id}
                     className="fc-apt-tl-block"
                     style={{ top, height, borderLeftColor: borderColor }}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => setStatusAppt(a)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setStatusAppt(a); } }}
                   >
                     <div className="fc-apt-tl-time" dir="ltr">{formatTime(a.startTime, lang)}</div>
                     <div>

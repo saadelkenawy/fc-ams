@@ -1,7 +1,9 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import axios from 'axios';
 import type { UserRole } from '@fadl/types';
+import { setAccessToken, refreshAccessToken } from '@/lib/api';
 
 interface AuthUser {
   id: string;
@@ -28,30 +30,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Session restore: the access token lives in memory only, so on a fresh
+  // page load we exchange the HttpOnly refresh cookie for a new one. The
+  // user object (display data only) is cached in localStorage.
   useEffect(() => {
-    const stored = localStorage.getItem('fadl_token');
-    const storedUser = localStorage.getItem('fadl_user');
-    if (stored && storedUser) {
-      setToken(stored);
-      setUser(JSON.parse(storedUser) as AuthUser);
-    }
-    setIsLoading(false);
+    let cancelled = false;
+    void (async () => {
+      const storedUser = localStorage.getItem('fadl_user');
+      if (!storedUser) {
+        setIsLoading(false);
+        return;
+      }
+      const restored = await refreshAccessToken();
+      if (cancelled) return;
+      if (restored) {
+        setToken(restored);
+        setUser(JSON.parse(storedUser) as AuthUser);
+      } else {
+        localStorage.removeItem('fadl_user');
+      }
+      setIsLoading(false);
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   function login(newToken: string, newUser: AuthUser) {
-    localStorage.setItem('fadl_token', newToken);
+    // Tokens are set as HttpOnly cookies by the /api/auth/login route handler;
+    // here we only keep the access token in memory and the user for display.
     localStorage.setItem('fadl_user', JSON.stringify(newUser));
-    // Store the JWT itself as a cookie so middleware can verify its signature.
-    // 24-hour expiry matches typical token lifetime.
-    document.cookie = `fadl_token=${newToken}; path=/; SameSite=Strict; max-age=${60 * 60 * 24}`;
+    setAccessToken(newToken);
     setToken(newToken);
     setUser(newUser);
   }
 
   function logout() {
-    localStorage.removeItem('fadl_token');
+    void axios.post('/api/auth/logout').catch(() => undefined);
     localStorage.removeItem('fadl_user');
-    document.cookie = 'fadl_token=; path=/; max-age=0';
+    setAccessToken(null);
     setToken(null);
     setUser(null);
   }

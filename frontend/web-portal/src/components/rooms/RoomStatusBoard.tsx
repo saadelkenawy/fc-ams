@@ -648,7 +648,7 @@ function AssignDoctorModal({ room, initialDate, onClose }: { room: RoomDetail; i
     <Modal open onClose={onClose} title={`Assign Doctor to ${room.roomCode}`}>
       <div className="flex flex-col gap-4">
         <div>
-          <label className={labelCls}>Room</label>
+          <span className={labelCls}>Room</span>
           <div className="px-3 py-2 rounded-lg bg-gray-50 dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 text-gray-900 dark:text-gray-100 text-sm">
             {room.roomCode}: {room.roomName}
           </div>
@@ -807,8 +807,9 @@ function ReleaseConfirmModal({ room, onClose }: { room: RoomDetail; onClose: () 
 
         {hasAppointments && (
           <div>
-            <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Admin Password</label>
+            <label htmlFor="room-release-password" className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Admin Password</label>
             <input
+              id="room-release-password"
               type="password"
               value={password}
               onChange={(e) => { setPassword(e.target.value); setPwError(''); }}

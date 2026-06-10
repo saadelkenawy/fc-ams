@@ -302,7 +302,46 @@ All Phase 1 items are done, deployed to the dev stack, and verified end-to-end.
 - `Dockerfile.test` (+ `Dockerfile.test.dockerignore`) builds a runner image; new **`Tests` stage in the Jenkinsfile** runs it on `fcms_fadl-net` as a hard gate before image builds.
 - Every service's `test` script now uses `vitest run --passWithNoTests`, so root `pnpm -r test` is green (exit 0).
 
-### 8.6 Bonus findings fixed along the way
+### 8.6 Bonus findings fixed along the way (Phase 1)
 - **V011 had regressed V009**: the live `protect_financial_amounts()` hard-blocked all split changes, breaking the documented `applyToExisting` back-patch flow. Fixed by `V012__restore_pending_split_soft_guard.sql` (splits updatable unless `payment_status IN ('reconciled','refunded')`; approved_charge relaxation kept). Covered by tests. This is exactly the drift class §3.2's migration runner prevents.
 - Identity-service host port mapping moved to **3100→3000** (an unrelated local process holds host 3000; inter-service traffic is unaffected).
 - §2.3 correction: the `fadl_token` cookie *is* set at login, so middleware role rules execute — but it's not HttpOnly and outlives the 15-min token; still Phase 2 work.
+
+---
+
+## 9. Phase 2 — IMPLEMENTED (2026-06-10)
+
+### 9.1 Quick security wins (§2.5 / §2.6 / §2.7)
+- **MinIO credentials** (`file-service/src/config/index.ts`): production refuses to start with the dev-default `fadl_minio`/`fadl_minio_secret` or a secret < 16 chars.
+- **Error handlers** (all 14 `app.ts`): 5xx responses now return a generic `INTERNAL_ERROR` + `requestId` instead of leaking internal error messages; Zod validation errors return proper `400 VALIDATION_ERROR` with field details (they previously surfaced as 500s).
+- **§2.6 correction**: prod compose was already locked down — it publishes only nginx 80/443 and Redis already has `requirepass`. No change needed; the audit item applied to the dev compose only (acceptable).
+- **Helmet CSP** on all services: enabled in production (left off in dev so Swagger UI at `/docs` keeps working).
+
+### 9.2 Auth token storage + CSP + single-flight refresh (§2.3 / §5.2)
+- New Next.js route handlers `POST /api/auth/{login,refresh,logout}` (`src/app/api/auth/`): proxy to identity-service and manage two **HttpOnly, SameSite=Strict** cookies — `fadl_token` (15 min, read by middleware) and `fadl_refresh` (7 days, rotated on every refresh). **The refresh token never reaches page JavaScript**; the legacy localStorage slots are actively cleaned up on boot.
+- `lib/api.ts`: access token now lives **in memory only** (`setAccessToken`); the 401 handler does a **single-flight** refresh (one in-flight promise shared by all concurrent 401s — fixes the rotation race that could randomly log users out).
+- `AuthContext`: session restore on page load via the refresh cookie; logout revokes server-side and clears cookies.
+- `middleware.ts`: fully-unauthenticated visitors (no access *and* no refresh cookie) are now redirected to `/login` server-side — no more protected-shell flash.
+- **CSP + security headers** added in `next.config.js` (`headers()`): CSP (script-src 'self' + dev-only unsafe-eval), nosniff, frame DENY, referrer policy, permissions policy.
+
+### 9.3 Migration runner with ledger (§3.2)
+- `scripts/migrate.sh` rewritten: per-DB `schema_version` table (version, description, sha256 checksum, applied_at, baselined), drift detection (editing an applied file fails the run), per-file transactions, covers **all 12 services** (was 7), works with host psql or via `docker exec` fallback.
+- `bash scripts/migrate.sh all baseline` run against the dev stack — all existing migrations recorded. Drift detection and idempotent re-runs verified live.
+
+### 9.4 Backups (§3.3)
+- New `db-backup` compose service (postgres:16-alpine): nightly `pg_dump -Fc` of all 12 DBs + `pg_dumpall --globals-only` into the `pgbackups` volume, 14-day retention (30 in prod), first run at startup. Verified: all 12 dumps + globals produced; archive integrity checked with `pg_restore --list`.
+- `infra/backup/restore.sh <db> <date>` — confirmation-gated single-DB restore.
+- Remaining for later: ship dumps off-host (MinIO/S3 sync) and schedule a quarterly restore drill.
+
+### 9.5 Accessibility pass (§5.1)
+- `eslint-plugin-jsx-a11y` wired into `.eslintrc.json` (recommended ruleset) — **62 findings → 0** (6 are documented inline suppressions for legitimate patterns: backdrop click-shields, Safari `role="list"`, pointer-only sidebar resize).
+- New `DialogOverlay` component (`components/ui/DialogOverlay.tsx`): drop-in accessible wrapper for the inline `fixed inset-0` modal pattern — role=dialog, aria-modal, aria-label, Escape, focus trap, focus restore, optional `closeOnBackdrop={false}` for destructive flows.
+- Converted **10 inline modals** to DialogOverlay (appointments ×3, billing ×3, settings, sources, doctor-schedule, QueueBoard cancel-turn).
+- Keyboard activation (role=button + tabIndex + Enter/Space) added to clickable cards/rows: doctors grid, patients list, doctor-patients list, appointments timeline blocks.
+- Label associations fixed (settings/rooms ×3, RoomStatusBoard ×2); `ActionButtons` rewritten (per-button stopPropagation, aria-labels, aria-hidden icons).
+- Note: the existing `Modal.tsx` was already exemplary (focus trap, reduced-motion) — the audit's raw aria-count understated the component quality; the real gaps were the page-level inline modals, now fixed.
+
+### 9.6 Deferred from Phase 2 (do in Phase 3)
+- **§4.3 shared `service-kit`/`db` packages**: deliberately deferred — it touches every service's package.json + all 14 Dockerfiles' COPY lists and is too risky to combine with this change set. Phase 1 made all duplicated copies (token mint, auth middleware, database helpers, error handler) **identical**, so extraction is now a mechanical move. Do it as an isolated PR before the asymmetric-JWT work (§2.1.4).
+- Full per-request `branchId` plumbing through every repository (§3.1 note) — current state: env default + explicit branchId on appointment-service write paths.
+- TanStack Query v4→v5 (§5.4) and Playwright visual snapshots — unchanged.

@@ -24,6 +24,8 @@ CardHeader.displayName = 'CardHeader';
 
 export const CardTitle = forwardRef<HTMLParagraphElement, HTMLAttributes<HTMLParagraphElement>>(
   ({ className, ...props }, ref) => (
+    // Heading content arrives via {...props} children — the static rule can't see it
+    // eslint-disable-next-line jsx-a11y/heading-has-content
     <h3
       ref={ref}
       className={cn('text-base font-semibold text-gray-900 dark:text-gray-100 font-display', className)}

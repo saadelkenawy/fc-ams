@@ -98,8 +98,10 @@ export function InvoiceDetailModal({ open, transaction: tx, patientName, doctorN
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
-      {/* backdrop */}
+      {/* backdrop — pointer convenience; the close button is the keyboard path */}
+      {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
       <div
+        aria-hidden="true"
         className="absolute inset-0 bg-black/55"
         style={{ backdropFilter: 'blur(4px)' }}
         onClick={onClose}

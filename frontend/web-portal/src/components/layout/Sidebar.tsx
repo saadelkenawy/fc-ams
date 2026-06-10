@@ -305,8 +305,11 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
         }
       </button>
 
-      {/* Drag handle — desktop only */}
+      {/* Drag handle — desktop only; pointer-only affordance (sidebar width is
+          cosmetic), hidden from assistive tech */}
+      {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
       <div
+        aria-hidden="true"
         onMouseDown={onHandleMouseDown}
         className="hidden lg:block absolute inset-y-0 end-0 w-1.5 cursor-col-resize group z-10"
       >

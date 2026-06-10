@@ -412,6 +412,8 @@ export default function EncountersPage() {
                       return (
                         <li
                           key={p.patientId}
+                          role="option"
+                          aria-selected={false}
                           onMouseDown={() => selectPatient(p)}
                           className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors"
                         >

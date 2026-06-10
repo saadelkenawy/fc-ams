@@ -12,6 +12,7 @@ import {
 } from '@/hooks/useQueue';
 import { useRooms } from '@/hooks/useRooms';
 import type { PatientQueueEntry, QueueStatus } from '@fadl/types';
+import { DialogOverlay } from '@/components/ui/DialogOverlay';
 
 const STATUS_CONFIG: Record<QueueStatus, { labelAr: string; labelEn: string; bg: string; text: string; dot: string }> = {
   waiting:    { labelAr: 'انتظار',    labelEn: 'Waiting',     bg: 'bg-blue-50 dark:bg-blue-950/30',    text: 'text-blue-700 dark:text-blue-400',    dot: 'bg-blue-500'    },
@@ -38,11 +39,9 @@ function CancelConfirmDialog({ entry, patientLabel, onConfirm, onClose, isPendin
   const { data: preview, isLoading } = useCancelPreview(entry.id, true);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
-      <div
-        className="w-full max-w-sm mx-4 bg-white dark:bg-neutral-800 rounded-2xl shadow-xl p-6"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <DialogOverlay onClose={onClose} label={t('إلغاء دور المريض', 'Cancel Patient Turn')}
+      overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      panelClassName="w-full max-w-sm mx-4 bg-white dark:bg-neutral-800 rounded-2xl shadow-xl p-6">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
             <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
@@ -105,8 +104,7 @@ function CancelConfirmDialog({ entry, patientLabel, onConfirm, onClose, isPendin
             <X className="w-3.5 h-3.5" />{t('تراجع', 'Back')}
           </button>
         </div>
-      </div>
-    </div>
+    </DialogOverlay>
   );
 }
 

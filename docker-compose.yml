@@ -102,6 +102,24 @@ services:
       retries: 10
       start_period: 5s
 
+  # Nightly pg_dump of all 12 databases into the pgbackups volume.
+  # Restore: bash infra/backup/restore.sh <db> <YYYY-MM-DD>
+  db-backup:
+    <<: *service-defaults
+    image: postgres:16-alpine
+    entrypoint: ["/bin/sh", "/opt/backup/run-daily.sh"]
+    environment:
+      PGHOST: postgres
+      PGUSER: fadl
+      PGPASSWORD: fadl_dev_secret
+      BACKUP_RETENTION_DAYS: 14
+    volumes:
+      - ./infra/backup:/opt/backup:ro
+      - pgbackups:/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   # ── Microservices ───────────────────────────────────────────────────────────
 
   identity-service:
@@ -595,3 +613,4 @@ volumes:
   pgdata:
   redisdata:
   miniodata:
+  pgbackups:

@@ -159,7 +159,11 @@ export default function DoctorPatientsPage() {
                 return (
                   <li
                     key={patient.patientId}
+                    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-to-interactive-role -- whole-row activation with full keyboard support; list markup kept for styling
+                    role="button"
+                    tabIndex={0}
                     onClick={() => router.push(`/patients/${patient.patientId}`)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/patients/${patient.patientId}`); } }}
                     className="flex items-center gap-4 px-5 py-4 hover:bg-gray-50 dark:hover:bg-neutral-700/30 transition-colors cursor-pointer"
                   >
                     {/* Avatar */}

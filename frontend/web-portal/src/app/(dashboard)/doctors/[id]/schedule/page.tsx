@@ -18,6 +18,7 @@ import {
   useCreateOverride,
 } from '@/hooks/useDoctors';
 import type { DoctorSchedule, DoctorScheduleOverride } from '@fadl/types';
+import { DialogOverlay } from '@/components/ui/DialogOverlay';
 
 /* ── Constants ───────────────────────────────────────────────────────── */
 
@@ -259,8 +260,9 @@ function AddOverrideForm({
   }
 
   return (
-    <div className="modal-overlay" onClick={onDone}>
-      <div className="modal-panel max-w-md" onClick={(e) => e.stopPropagation()}>
+    <DialogOverlay onClose={onDone} label={t('إضافة استثناء', 'Add Override')}
+      overlayClassName="modal-overlay"
+      panelClassName="modal-panel max-w-md">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-neutral-700">
           <h3 className="font-semibold text-gray-900 dark:text-gray-100">{t('إضافة استثناء', 'Add Override')}</h3>
           <button onClick={onDone} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
@@ -361,8 +363,7 @@ function AddOverrideForm({
             {t('حفظ الاستثناء', 'Save Override')}
           </Button>
         </div>
-      </div>
-    </div>
+    </DialogOverlay>
   );
 }
 

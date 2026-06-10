@@ -5,21 +5,67 @@ interface RetryableConfig extends InternalAxiosRequestConfig {
   _retry?: boolean;
 }
 
+// ─── In-memory access token ────────────────────────────────────────────────
+// The access token lives only in memory (and in an HttpOnly cookie used by
+// middleware.ts). The refresh token is an HttpOnly cookie managed entirely by
+// the /api/auth/* route handlers — page JavaScript never sees it, so XSS
+// cannot exfiltrate a long-lived credential.
+
+let accessToken: string | null = null;
+
+export function setAccessToken(token: string | null): void {
+  accessToken = token;
+}
+
+export function getAccessToken(): string | null {
+  return accessToken;
+}
+
+// One-time cleanup of the legacy localStorage token slots (pre-cookie auth)
+if (typeof window !== 'undefined') {
+  localStorage.removeItem('fadl_token');
+  localStorage.removeItem('fadl_refresh_token');
+}
+
 function addAuthRequest(client: AxiosInstance): void {
   client.interceptors.request.use((config) => {
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('fadl_token');
-      if (token) config.headers.Authorization = `Bearer ${token}`;
-    }
+    if (accessToken) config.headers.Authorization = `Bearer ${accessToken}`;
     return config;
   });
 }
 
 function redirectToLogin(): void {
-  localStorage.removeItem('fadl_token');
-  localStorage.removeItem('fadl_refresh_token');
+  accessToken = null;
   localStorage.removeItem('fadl_user');
   window.location.href = '/login';
+}
+
+// ─── Single-flight silent refresh ──────────────────────────────────────────
+// When several queries 401 at once, only ONE refresh request is sent; all
+// callers await the same promise. This avoids refresh-token rotation races
+// that previously could log users out at random.
+
+let refreshInFlight: Promise<string | null> | null = null;
+
+export async function refreshAccessToken(): Promise<string | null> {
+  refreshInFlight ??= axios
+    .post<{ data: { accessToken: string } }>(
+      '/api/auth/refresh',
+      {},
+      { headers: { 'Content-Type': 'application/json' } },
+    )
+    .then((res) => {
+      accessToken = res.data.data.accessToken;
+      return accessToken;
+    })
+    .catch(() => {
+      accessToken = null;
+      return null;
+    })
+    .finally(() => {
+      refreshInFlight = null;
+    });
+  return refreshInFlight;
 }
 
 /** Simple redirect-on-401 — used by identityApi to avoid refresh loops. */
@@ -35,13 +81,6 @@ function addSimple401Handler(client: AxiosInstance): void {
   );
 }
 
-interface RefreshResponse {
-  data: {
-    accessToken: string;
-    refreshToken: string;
-  };
-}
-
 /** Silent-refresh-on-401 — used by all non-identity clients. */
 function addRefresh401Handler(client: AxiosInstance): void {
   client.interceptors.response.use(
@@ -55,29 +94,16 @@ function addRefresh401Handler(client: AxiosInstance): void {
 
       if (typeof window === 'undefined') return Promise.reject(err);
 
-      const refreshToken = localStorage.getItem('fadl_refresh_token');
-      if (!refreshToken) {
-        redirectToLogin();
-        return Promise.reject(err);
-      }
-
       config._retry = true;
 
-      try {
-        const { data } = await axios.post<RefreshResponse>(
-          `/api/proxy/identity/auth/refresh`,
-          { refreshToken },
-          { headers: { 'Content-Type': 'application/json' } },
-        );
-        const { accessToken, refreshToken: newRefresh } = data.data;
-        localStorage.setItem('fadl_token', accessToken);
-        localStorage.setItem('fadl_refresh_token', newRefresh);
-        config.headers.Authorization = `Bearer ${accessToken}`;
-        return client(config);
-      } catch {
+      const token = await refreshAccessToken();
+      if (!token) {
         redirectToLogin();
         return Promise.reject(err);
       }
+
+      config.headers.Authorization = `Bearer ${token}`;
+      return client(config);
     },
   );
 }

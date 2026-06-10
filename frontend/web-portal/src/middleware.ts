@@ -43,8 +43,18 @@ export async function middleware(request: NextRequest) {
   }
 
   const token = request.cookies.get('fadl_token')?.value;
+  const refresh = request.cookies.get('fadl_refresh')?.value;
 
-  // No token cookie → let client layout handle the redirect via useAuth
+  // Neither access nor refresh cookie → definitely unauthenticated: redirect
+  // server-side so protected shells never flash for logged-out visitors.
+  if (!token && !refresh) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/login';
+    return NextResponse.redirect(url);
+  }
+
+  // Refresh cookie only (access token expired mid-session) → let the client
+  // restore the session via /api/auth/refresh.
   if (!token) {
     return NextResponse.next();
   }

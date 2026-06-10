@@ -25,7 +25,7 @@ export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
     trustProxy: true,
   });
 
-  await app.register(helmet, { contentSecurityPolicy: false });
+  await app.register(helmet, { contentSecurityPolicy: config.NODE_ENV === 'production' ? undefined : false });
   await app.register(cors, { origin: config.NODE_ENV === 'production' ? false : true });
   await app.register(rateLimit, { max: 200, timeWindow: '1 minute' });
 
@@ -81,7 +81,9 @@ export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
 
     reply.status(statusCode).send({
       success: false,
-      error: { code, message: (error as Error).message },
+      error: statusCode >= 500
+        ? { code: 'INTERNAL_ERROR', message: 'Internal server error', requestId: request.id }
+        : { code, message: (error as Error).message, requestId: request.id },
     });
   });
 

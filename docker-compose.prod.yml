@@ -72,6 +72,14 @@ services:
   pgbouncer:
     <<: *prod-svc
 
+  db-backup:
+    <<: *prod-svc
+    environment:
+      PGHOST: postgres
+      PGUSER: ${DB_USER}
+      PGPASSWORD: ${DB_PASSWORD}
+      BACKUP_RETENTION_DAYS: 30
+
   # ── Microservices ──────────────────────────────────────────────────────────
 
   identity-service:

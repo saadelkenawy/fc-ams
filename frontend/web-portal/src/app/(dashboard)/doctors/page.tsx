@@ -247,7 +247,10 @@ export default function DoctorsPage() {
               <div
                 key={doc.id}
                 className="fc-dr-card"
+                role="button"
+                tabIndex={0}
                 onClick={() => router.push(`/doctors/${doc.id}`)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/doctors/${doc.id}`); } }}
               >
                 {/* Avatar */}
                 <div
@@ -282,6 +285,8 @@ export default function DoctorsPage() {
                 </div>
 
                 {/* Hover actions */}
+                {/* click-shield so row navigation doesn't fire from the action strip */}
+                {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
                 <div className="fc-dr-actions" onClick={(e) => e.stopPropagation()}>
                   <button
                     className="fc-dr-act"

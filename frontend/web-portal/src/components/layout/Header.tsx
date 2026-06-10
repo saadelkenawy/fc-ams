@@ -159,6 +159,8 @@ function NotificationBell() {
                 <p className="text-sm text-gray-400 dark:text-gray-500">{t('لا توجد إشعارات', 'No notifications')}</p>
               </motion.div>
             ) : (
+              /* role="list" is intentional: list-style-none strips list semantics in Safari/VoiceOver */
+              // eslint-disable-next-line jsx-a11y/no-redundant-roles
               <ul className="divide-y divide-gray-50 dark:divide-neutral-700 max-h-80 overflow-y-auto list-none" role="list" aria-label={t('قائمة الإشعارات', 'Notification list')}>
                 {notifications.map((n, idx) => {
                   const Icon = NOTIF_ICON[n.status] ?? Bell;

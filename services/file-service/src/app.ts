@@ -1,4 +1,5 @@
 import Fastify from 'fastify';
+import { z } from 'zod';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import jwt from '@fastify/jwt';
@@ -16,7 +17,7 @@ export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
     trustProxy: true,
   });
 
-  await app.register(helmet, { contentSecurityPolicy: false });
+  await app.register(helmet, { contentSecurityPolicy: config.NODE_ENV === 'production' ? undefined : false });
   await app.register(cors, { origin: config.NODE_ENV === 'production' ? false : true });
   await app.register(rateLimit, { max: 100, timeWindow: '1 minute' });
   await app.register(multipart, { limits: { fileSize: 50 * 1024 * 1024 } });
@@ -43,7 +44,19 @@ export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
     const statusCode = (error as { statusCode?: number }).statusCode ?? 500;
     const code = (error as { code?: string }).code ?? 'INTERNAL_ERROR';
     if (statusCode >= 500) request.log.error({ err: error }, 'Unhandled error');
-    reply.status(statusCode).send({ success: false, error: { code, message: (error as Error).message } });
+    if (error instanceof z.ZodError) {
+      reply.status(400).send({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'Invalid request', details: error.flatten().fieldErrors, requestId: request.id },
+      });
+      return;
+    }
+    reply.status(statusCode).send({
+      success: false,
+      error: statusCode >= 500
+        ? { code: 'INTERNAL_ERROR', message: 'Internal server error', requestId: request.id }
+        : { code, message: (error as Error).message, requestId: request.id },
+    });
   });
 
   // Ensure MinIO bucket exists on startup

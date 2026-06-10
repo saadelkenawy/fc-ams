@@ -19,6 +19,16 @@ const envSchema = z.object({
   MINIO_USE_SSL:    z.coerce.boolean().default(false),
   MINIO_PUBLIC_URL: z.string().optional(), // override host in presigned URLs for browser access
   PRESIGN_TTL_SECS: z.coerce.number().default(3600),
+}).superRefine((env, ctx) => {
+  if (env.NODE_ENV !== 'production') return;
+  // Known dev defaults must never reach production
+  if (env.MINIO_ACCESS_KEY === 'fadl_minio' || env.MINIO_SECRET_KEY === 'fadl_minio_secret' || env.MINIO_SECRET_KEY.length < 16) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['MINIO_SECRET_KEY'],
+      message: 'MINIO_ACCESS_KEY/MINIO_SECRET_KEY must be set to non-default values (secret >=16 chars) in production',
+    });
+  }
 });
 
 const parsed = envSchema.safeParse(process.env);

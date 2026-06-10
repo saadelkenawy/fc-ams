@@ -15,7 +15,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLang } from '@/contexts/LanguageContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/lib/utils';
-import { identityApi } from '@/lib/api';
+import axios from 'axios';
 
 const schema = z.object({
   email:    z.string().email(),
@@ -61,12 +61,16 @@ export default function LoginPage() {
   async function onSubmit(data: FormValues) {
     setError('');
     try {
-      const res = await identityApi.post<{
-        data: { accessToken: string; refreshToken: string; user: Parameters<typeof login>[1] };
-      }>('/auth/login', { email: data.email, password: data.password });
+      // Route handler proxies to identity-service and stores both tokens as
+      // HttpOnly cookies — the refresh token never reaches page JavaScript.
+      const res = await axios.post<{
+        data: { accessToken: string; user: Parameters<typeof login>[1] };
+      }>('/api/auth/login', { email: data.email, password: data.password });
 
       const returnedRole = res.data.data.user.role;
       if (returnedRole !== role) {
+        // Cookies were already set by the route handler — clear them again
+        void axios.post('/api/auth/logout').catch(() => undefined);
         const returnedLabel = ROLE_OPTIONS.find((r) => r.key === returnedRole);
         const selectedLabel = ROLE_OPTIONS.find((r) => r.key === role);
         const returnedName = returnedLabel ? t(returnedLabel.labelAr, returnedLabel.labelEn) : returnedRole;
@@ -81,7 +85,6 @@ export default function LoginPage() {
         return;
       }
 
-      localStorage.setItem('fadl_refresh_token', res.data.data.refreshToken);
       login(res.data.data.accessToken, res.data.data.user);
       const ROLE_HOME: Record<string, string> = {
         receptionist: '/receptionist',

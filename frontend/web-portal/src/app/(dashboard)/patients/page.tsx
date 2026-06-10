@@ -305,7 +305,10 @@ export default function PatientsPage() {
               <div
                 key={p.patientId}
                 className="fc-pt-row"
+                role="button"
+                tabIndex={0}
                 onClick={() => router.push(`/patients/${p.patientId}`)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/patients/${p.patientId}`); } }}
               >
                 {/* Name + avatar */}
                 <div className="fc-pt-cell-name">
@@ -358,6 +361,8 @@ export default function PatientsPage() {
                 </div>
 
                 {/* Actions */}
+                {/* click-shield so row navigation doesn't fire from the action strip */}
+                {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
                 <div className="fc-pt-actions" onClick={(e) => e.stopPropagation()}>
                   <button
                     className="fc-pt-act fc-pt-act-primary"

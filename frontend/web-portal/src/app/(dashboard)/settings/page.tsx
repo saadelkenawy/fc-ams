@@ -18,6 +18,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { notificationApi } from '@/lib/api';
 import type { ThemeId } from '@/lib/theme.config';
 import { doctorApi } from '@/lib/api';
+import { DialogOverlay } from '@/components/ui/DialogOverlay';
 
 function getUser() {
   if (typeof window === 'undefined') return {} as Record<string, string>;
@@ -151,8 +152,9 @@ function ClinicInfoContent({ t, lang }: { t: (ar: string, en: string) => string;
 /* ──────────────── Modal helper ──────────────── */
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-md mx-4 bg-white dark:bg-neutral-800 rounded-2xl shadow-xl" onClick={(e) => e.stopPropagation()}>
+    <DialogOverlay onClose={onClose} label={title}
+      overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      panelClassName="w-full max-w-md mx-4 bg-white dark:bg-neutral-800 rounded-2xl shadow-xl">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-neutral-700">
           <h3 className="font-semibold text-gray-900 dark:text-gray-100">{title}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
@@ -160,8 +162,7 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
           </button>
         </div>
         <div className="px-6 py-5 space-y-4">{children}</div>
-      </div>
-    </div>
+    </DialogOverlay>
   );
 }
 
