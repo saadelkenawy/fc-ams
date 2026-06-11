@@ -27,7 +27,7 @@ let db: DbModule;
 beforeAll(async () => {
   db = await import('../src/config/database');
   outbox = await import('../src/repositories/outbox.repository');
-});
+}, 30_000); // generous: CI shares the host with image builds (build #162 flake)
 
 afterAll(async () => {
   if (!db) return;
