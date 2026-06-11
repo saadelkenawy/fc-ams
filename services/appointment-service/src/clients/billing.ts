@@ -4,7 +4,7 @@ import { config } from '../config';
 const billingClient = createServiceClient({
   baseURL: config.BILLING_SERVICE_URL,
   aud: 'billing-service',
-  jwtSecret: config.JWT_SECRET,
+  serviceTokenSecret: config.SERVICE_JWT_SECRET,
   branchId: config.BRANCH_ID,
 });
 

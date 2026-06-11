@@ -403,3 +403,26 @@ New workspace package consumed by all 14 services; four modules:
 - Per-request branchId plumbing through repositories (§3.1).
 - Playwright visual snapshots + component tests (§5.4), CSS splitting (§5.3 second half).
 - OpenAPI contract check in CI (§4.6), Alertmanager receiver, partition archival/retention policy (§3.4 second half).
+
+---
+
+## 12. Phase 5 — Polish (P3 batch) — IMPLEMENTED (2026-06-11)
+
+### 12.1 Asymmetric JWT (§2.1.4 / §2.4)
+Two trust domains replace the single shared HS256 secret:
+- **User access tokens: RS256.** identity-service signs with the private key (`JWT_PRIVATE_KEY_B64`, identity env only); every other service registers @fastify/jwt with `{ public }` and `algorithms: ['RS256']` — they can verify but structurally cannot mint. The web-portal middleware (jose `importSPKI`) also verifies with the public key only, so a leaked frontend env can no longer forge auth.
+- **Service-to-service tokens: HS256 with a dedicated `SERVICE_JWT_SECRET`.** Minted by `makeServiceToken` (kit), verified by hand in `createRequireAuth` (timing-safe compare, `exp`, `tokenType === 'service'`, target-scoped `aud`). Holding this secret reaches internal endpoints but cannot forge a user token; the RS256 path rejects any token claiming `tokenType: 'service'`, and the HS256 path requires it — no algorithm-confusion crossover.
+- Dev keypair: `infra/jwt/` (PEMs are gitignored by the existing `*.pem` rule; the base64 values are inline in docker-compose.yml like the other dev secrets; README documents prod key generation). `JWT_SECRET` is gone from all 14 service configs, app.ts registrations, compose dev+prod, and `.env.example` files. Prod compose fails fast on missing `JWT_PRIVATE_KEY_B64`/`JWT_PUBLIC_KEY_B64`/`SERVICE_JWT_SECRET` (`${…:?}`).
+- **Verified live** (7/7): login issues RS256; RS256 accepted by appointment + billing; service token accepted with correct secret+aud; rejected with wrong `aud`; rejected when forged with the old shared JWT_SECRET; HS256-without-tokenType rejected. 16/16 integration tests green.
+- **Operator note:** pre-prod/production deploy targets in Jenkinsfile.deploy still inject `JWT_SECRET` into their `.env` — harmless dead var locally, but remote hosts using docker-compose.prod.yml need the three new vars in `/opt/fcms/.env` before their next deploy. The `prod-jwt-secret` Jenkins credential can be retired then.
+
+### 12.2 Phase 3 gap found and fixed
+`services/Dockerfile.backend` — the shared dockerfile docker-compose dev builds use (all backend services build via `SERVICE_DIR` arg) — was missed in the Phase 3 service-kit rollout: it never copied `shared/service-kit`, so every local `docker compose build` of a backend service failed since Phase 3 (CI was unaffected — it uses the per-service Dockerfiles). Now wires service-kit through deps/builder stages. This also explains fcms-deploy #90/#91 failures: they ran Phase-4 hub images against this working tree's Phase-5 compose env mid-migration (JWT_SECRET removed) → identity crashloop → healthcheck deps failed. Resolves itself when images and compose come from the same commit.
+
+### 12.3 Repo cleanup (§4.7)
+`.gitignore` now covers `.scannerwork/`, `.claude/worktrees/` (stale repo copy that polluted searches), `claude-convert-accounts/`, `design-system/`, `*.zip`, `.next/`, `.mcp.json`. telehealth-service stays scaffolded (excluded from deploys by the fcms-deploy filter).
+
+### 12.4 Still open (opportunistic)
+- §3.7 query review — needs pg_stat_statements under real load.
+- §3.1 per-request branchId plumbing through repositories.
+- §5.4 Playwright snapshots / component tests; §5.3 CSS splitting; §4.6 OpenAPI contract checks in CI; §5.5 polish backlog.

@@ -25,7 +25,7 @@ export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
   await app.register(rateLimit, { max: 100, timeWindow: '1 minute' });
   await app.register(multipart, { limits: { fileSize: 50 * 1024 * 1024 } });
 
-  await app.register(jwt, { secret: config.JWT_SECRET, sign: { expiresIn: config.JWT_EXPIRY } });
+  await app.register(jwt, { secret: { public: config.JWT_PUBLIC_KEY }, verify: { algorithms: ['RS256'] } });
 
   await app.register(swagger, {
     openapi: {

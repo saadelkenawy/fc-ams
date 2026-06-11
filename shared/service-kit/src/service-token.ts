@@ -3,8 +3,12 @@ import axios, { AxiosInstance } from 'axios';
 import { currentRequestId } from './observability';
 
 export interface ServiceTokenOptions {
-  /** Shared HS256 secret (config.JWT_SECRET). */
-  jwtSecret: string;
+  /**
+   * Dedicated HS256 secret for service-to-service tokens
+   * (config.SERVICE_JWT_SECRET) — deliberately NOT the user-token key
+   * material, so holding it cannot forge user access tokens (§2.1.4).
+   */
+  serviceTokenSecret: string;
   /** Branch the calling service operates in (config.BRANCH_ID). */
   branchId: number;
   /** Synthetic caller identity for audit logs; defaults to the shared service UUID. */
@@ -28,7 +32,7 @@ export function makeServiceToken(aud: string, opts: ServiceTokenOptions): string
     branchId: opts.branchId, doctorId: null,
     iat: now, exp: now + 120,
   }));
-  const sig = createHmac('sha256', opts.jwtSecret)
+  const sig = createHmac('sha256', opts.serviceTokenSecret)
     .update(`${header}.${payload}`)
     .digest('base64url');
   return `${header}.${payload}.${sig}`;

@@ -94,3 +94,12 @@ export function registerObservability(app: FastifyInstance, opts: ObservabilityO
     return registry.metrics();
   });
 }
+
+/** Decode a base64-encoded PEM env var (JWT_PUBLIC_KEY_B64 / JWT_PRIVATE_KEY_B64). */
+export function pemFromBase64(b64: string): string {
+  const pem = Buffer.from(b64, 'base64').toString('utf8');
+  if (!pem.includes('-----BEGIN')) {
+    throw new Error('Decoded value is not a PEM key — check the *_B64 env var');
+  }
+  return pem;
+}

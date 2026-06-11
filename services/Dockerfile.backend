@@ -12,21 +12,25 @@ FROM base AS deps
 ARG SERVICE_DIR
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json ./
 COPY shared/types/package.json                          ./shared/types/package.json
+COPY shared/service-kit/package.json                    ./shared/service-kit/package.json
 COPY services/${SERVICE_DIR}/package.json               ./services/${SERVICE_DIR}/package.json
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --no-frozen-lockfile
 
 # ── builder: compile shared types then the service ───────────────────────────
 FROM base AS builder
 ARG SERVICE_DIR
 COPY --from=deps /app/node_modules                              ./node_modules
 COPY --from=deps /app/shared/types/node_modules                 ./shared/types/node_modules
+COPY --from=deps /app/shared/service-kit/node_modules           ./shared/service-kit/node_modules
 COPY --from=deps /app/services/${SERVICE_DIR}/node_modules      ./services/${SERVICE_DIR}/node_modules
 # Source (.dockerignore excludes **/node_modules so these won't clobber above)
 COPY tsconfig.base.json                  ./tsconfig.base.json
 COPY shared/types                        ./shared/types
+COPY shared/service-kit                  ./shared/service-kit
 COPY services/${SERVICE_DIR}             ./services/${SERVICE_DIR}
-# Build composite project chain: types → service
+# Build composite project chain: types → service-kit → service
 RUN node_modules/.bin/tsc --build --force shared/types/tsconfig.json
+RUN node_modules/.bin/tsc --build --force shared/service-kit/tsconfig.json
 RUN pnpm --filter ${SERVICE_DIR} build
 # Deploy: creates /deploy with flat node_modules (no pnpm symlinks)
 RUN pnpm --filter ${SERVICE_DIR} deploy --prod /deploy

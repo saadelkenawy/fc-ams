@@ -4,7 +4,7 @@ import { config } from '../config';
 export const notificationClient = createServiceClient({
   baseURL: config.NOTIFICATION_SERVICE_URL,
   aud: 'notification-service',
-  jwtSecret: config.JWT_SECRET,
+  serviceTokenSecret: config.SERVICE_JWT_SECRET,
   branchId: config.BRANCH_ID,
   timeoutMs: 5_000,
 });

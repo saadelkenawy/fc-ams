@@ -2,7 +2,7 @@ import { makeServiceToken as mintToken } from '@fadl/service-kit';
 import { config } from '../config';
 
 function makeServiceToken(aud: string): string {
-  return mintToken(aud, { jwtSecret: config.JWT_SECRET, branchId: config.BRANCH_ID });
+  return mintToken(aud, { serviceTokenSecret: config.SERVICE_JWT_SECRET, branchId: config.BRANCH_ID });
 }
 
 export async function setCompensation(

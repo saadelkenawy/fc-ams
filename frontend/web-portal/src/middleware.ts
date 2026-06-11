@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { jwtVerify } from 'jose';
+import { jwtVerify, importSPKI } from 'jose';
 
 // Pages that are always public
 const PUBLIC_PATHS = ['/login', '/api'];
@@ -23,11 +23,26 @@ const ROLE_RULES: Array<{ pattern: RegExp; roles: string[] }> = [
   { pattern: /^\/chatbot/,            roles: ['admin', 'receptionist'] },
 ];
 
-async function getRoleFromToken(token: string): Promise<string | null> {
-  const secret = process.env.JWT_SECRET;
-  if (!secret) return null;
+// §2.1.4: the portal only ever needs the PUBLIC key — it verifies tokens but
+// can no longer mint them, so an XSS or leaked frontend env can't forge auth.
+let publicKey: CryptoKey | null = null;
+async function getPublicKey(): Promise<CryptoKey | null> {
+  if (publicKey) return publicKey;
+  const b64 = process.env.JWT_PUBLIC_KEY_B64;
+  if (!b64) return null;
   try {
-    const { payload } = await jwtVerify(token, new TextEncoder().encode(secret));
+    publicKey = await importSPKI(atob(b64), 'RS256');
+    return publicKey;
+  } catch {
+    return null;
+  }
+}
+
+async function getRoleFromToken(token: string): Promise<string | null> {
+  const key = await getPublicKey();
+  if (!key) return null;
+  try {
+    const { payload } = await jwtVerify(token, key, { algorithms: ['RS256'] });
     return typeof payload.role === 'string' ? payload.role : null;
   } catch {
     return null;

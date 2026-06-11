@@ -14,7 +14,9 @@ const APP_URL = `${APP_BASE}/fadl_appointments`;
 process.env.NODE_ENV = 'development';
 process.env.DATABASE_URL = APP_URL;
 process.env.REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6379';
-process.env.JWT_SECRET = process.env.JWT_SECRET ?? 'test-secret-test-secret-test-secret!';
+process.env.JWT_PUBLIC_KEY_B64 = process.env.JWT_PUBLIC_KEY_B64
+  ?? Buffer.from('-----BEGIN PUBLIC KEY-----\ntest-only\n-----END PUBLIC KEY-----').toString('base64');
+process.env.SERVICE_JWT_SECRET = process.env.SERVICE_JWT_SECRET ?? 'test-secret-test-secret-test-secret!';
 
 type OutboxModule = typeof import('../src/repositories/outbox.repository');
 type DbModule = typeof import('../src/config/database');

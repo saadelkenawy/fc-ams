@@ -40,3 +40,12 @@ agentdb.rvf
 agentdb.rvf.lock
 ruvector.db
 skills-lock.json
+
+# §4.7 cleanup — local artifacts that polluted searches
+.scannerwork/
+.claude/worktrees/
+claude-convert-accounts/
+design-system/
+*.zip
+.next/
+.mcp.json

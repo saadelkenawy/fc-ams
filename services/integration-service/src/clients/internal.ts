@@ -6,7 +6,7 @@ function makeClient(baseURL: string, aud: string): AxiosInstance {
   return createServiceClient({
     baseURL,
     aud,
-    jwtSecret: config.JWT_SECRET,
+    serviceTokenSecret: config.SERVICE_JWT_SECRET,
     branchId: config.BRANCH_ID,
     sub: '00000000-0000-0000-0000-000000000003',
     timeoutMs: 10_000,

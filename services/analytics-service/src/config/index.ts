@@ -1,10 +1,12 @@
 import { z } from 'zod';
+import { pemFromBase64 } from '@fadl/service-kit';
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'staging', 'production']).default('development'),
   PORT: z.coerce.number().default(3009),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
-  JWT_SECRET: z.string().min(32),
+  JWT_PUBLIC_KEY_B64: z.string().min(64),
+  SERVICE_JWT_SECRET: z.string().min(32),
   JWT_EXPIRY: z.string().default('15m'),
   BRANCH_ID: z.coerce.number().default(1),
   SERVICE_NAME: z.string().default('analytics-service'),
@@ -22,5 +24,8 @@ if (!parsed.success) {
   process.exit(1);
 }
 
-export const config = parsed.data;
+export const config = {
+  ...parsed.data,
+  JWT_PUBLIC_KEY: pemFromBase64(parsed.data.JWT_PUBLIC_KEY_B64),
+};
 export type Config = typeof config;

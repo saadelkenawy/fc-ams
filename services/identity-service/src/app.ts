@@ -32,8 +32,8 @@ export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
   await app.register(rateLimit, { max: 30, timeWindow: '1 minute', keyGenerator: (req) => req.ip });
 
   await app.register(jwt, {
-    secret: config.JWT_SECRET,
-    sign:   { expiresIn: config.JWT_EXPIRY },
+    secret: { private: config.JWT_PRIVATE_KEY, public: config.JWT_PUBLIC_KEY },
+    sign:   { algorithm: 'RS256', expiresIn: config.JWT_EXPIRY },
   });
 
   await app.register(swagger, {

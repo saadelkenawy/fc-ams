@@ -27,7 +27,7 @@ export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
   await app.register(helmet, { contentSecurityPolicy: config.NODE_ENV === 'production' ? undefined : false });
   await app.register(cors, { origin: config.NODE_ENV !== 'production' });
   await app.register(rateLimit, { max: 200, timeWindow: '1 minute' });
-  await app.register(jwt, { secret: config.JWT_SECRET, sign: { expiresIn: config.JWT_EXPIRY } });
+  await app.register(jwt, { secret: { public: config.JWT_PUBLIC_KEY }, verify: { algorithms: ['RS256'] } });
 
   await app.register(swagger, {
     openapi: {

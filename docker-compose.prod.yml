@@ -88,7 +88,9 @@ services:
       NODE_ENV:     production
       LOG_LEVEL:    warn
       DATABASE_URL: postgresql://${APP_DB_USER:-fadl_app}:${APP_DB_PASSWORD}@pgbouncer:5432/fadl_identity
-      JWT_SECRET:   ${JWT_SECRET}
+      JWT_PRIVATE_KEY_B64: ${JWT_PRIVATE_KEY_B64:?identity needs the RS256 signing key}
+      JWT_PUBLIC_KEY_B64: ${JWT_PUBLIC_KEY_B64:?}
+      SERVICE_JWT_SECRET: ${SERVICE_JWT_SECRET:?}
       JWT_EXPIRY:   ${JWT_EXPIRY:-15m}
     deploy:
       resources:
@@ -102,7 +104,8 @@ services:
       NODE_ENV:     production
       LOG_LEVEL:    warn
       DATABASE_URL: postgresql://${APP_DB_USER:-fadl_app}:${APP_DB_PASSWORD}@pgbouncer:5432/fadl_patients
-      JWT_SECRET:   ${JWT_SECRET}
+      JWT_PUBLIC_KEY_B64: ${JWT_PUBLIC_KEY_B64:?}
+      SERVICE_JWT_SECRET: ${SERVICE_JWT_SECRET:?}
       JWT_EXPIRY:   ${JWT_EXPIRY:-15m}
     deploy:
       resources:
@@ -116,7 +119,8 @@ services:
       NODE_ENV:     production
       LOG_LEVEL:    warn
       DATABASE_URL: postgresql://${APP_DB_USER:-fadl_app}:${APP_DB_PASSWORD}@pgbouncer:5432/fadl_appointments
-      JWT_SECRET:   ${JWT_SECRET}
+      JWT_PUBLIC_KEY_B64: ${JWT_PUBLIC_KEY_B64:?}
+      SERVICE_JWT_SECRET: ${SERVICE_JWT_SECRET:?}
       JWT_EXPIRY:   ${JWT_EXPIRY:-15m}
       REDIS_URL:    redis://:${REDIS_PASSWORD}@redis:6379
     deploy:
@@ -131,7 +135,8 @@ services:
       NODE_ENV:     production
       LOG_LEVEL:    warn
       DATABASE_URL: postgresql://${APP_DB_USER:-fadl_app}:${APP_DB_PASSWORD}@pgbouncer:5432/fadl_doctors
-      JWT_SECRET:   ${JWT_SECRET}
+      JWT_PUBLIC_KEY_B64: ${JWT_PUBLIC_KEY_B64:?}
+      SERVICE_JWT_SECRET: ${SERVICE_JWT_SECRET:?}
       JWT_EXPIRY:   ${JWT_EXPIRY:-15m}
       REDIS_URL:    redis://:${REDIS_PASSWORD}@redis:6379
     deploy:
@@ -146,7 +151,8 @@ services:
       NODE_ENV:     production
       LOG_LEVEL:    warn
       DATABASE_URL: postgresql://${APP_DB_USER:-fadl_app}:${APP_DB_PASSWORD}@pgbouncer:5432/fadl_billing
-      JWT_SECRET:   ${JWT_SECRET}
+      JWT_PUBLIC_KEY_B64: ${JWT_PUBLIC_KEY_B64:?}
+      SERVICE_JWT_SECRET: ${SERVICE_JWT_SECRET:?}
       JWT_EXPIRY:   ${JWT_EXPIRY:-15m}
     deploy:
       resources:
@@ -160,7 +166,8 @@ services:
       NODE_ENV:     production
       LOG_LEVEL:    warn
       DATABASE_URL: postgresql://${APP_DB_USER:-fadl_app}:${APP_DB_PASSWORD}@pgbouncer:5432/fadl_notifications
-      JWT_SECRET:   ${JWT_SECRET}
+      JWT_PUBLIC_KEY_B64: ${JWT_PUBLIC_KEY_B64:?}
+      SERVICE_JWT_SECRET: ${SERVICE_JWT_SECRET:?}
       JWT_EXPIRY:   ${JWT_EXPIRY:-15m}
       SMTP_HOST:    ${SMTP_HOST:-}
       SMTP_PORT:    ${SMTP_PORT:-587}
@@ -183,7 +190,8 @@ services:
       NODE_ENV:            production
       LOG_LEVEL:           warn
       DATABASE_URL:        postgresql://${APP_DB_USER:-fadl_app}:${APP_DB_PASSWORD}@pgbouncer:5432/fadl_chatbot
-      JWT_SECRET:          ${JWT_SECRET}
+      JWT_PUBLIC_KEY_B64: ${JWT_PUBLIC_KEY_B64:?}
+      SERVICE_JWT_SECRET: ${SERVICE_JWT_SECRET:?}
       JWT_EXPIRY:          ${JWT_EXPIRY:-15m}
       ANTHROPIC_API_KEY:   ${ANTHROPIC_API_KEY:-}
       OPENROUTER_API_KEY:  ${OPENROUTER_API_KEY:-}
@@ -200,7 +208,8 @@ services:
       NODE_ENV:          production
       LOG_LEVEL:         warn
       DATABASE_URL:      postgresql://${APP_DB_USER:-fadl_app}:${APP_DB_PASSWORD}@pgbouncer:5432/fadl_files
-      JWT_SECRET:        ${JWT_SECRET}
+      JWT_PUBLIC_KEY_B64: ${JWT_PUBLIC_KEY_B64:?}
+      SERVICE_JWT_SECRET: ${SERVICE_JWT_SECRET:?}
       JWT_EXPIRY:        ${JWT_EXPIRY:-15m}
       MINIO_ACCESS_KEY:  ${MINIO_ACCESS_KEY}
       MINIO_SECRET_KEY:  ${MINIO_SECRET_KEY}
@@ -217,7 +226,8 @@ services:
     environment:
       NODE_ENV:   production
       LOG_LEVEL:  warn
-      JWT_SECRET: ${JWT_SECRET}
+      JWT_PUBLIC_KEY_B64: ${JWT_PUBLIC_KEY_B64:?}
+      SERVICE_JWT_SECRET: ${SERVICE_JWT_SECRET:?}
       JWT_EXPIRY: ${JWT_EXPIRY:-15m}
     deploy:
       resources:
@@ -231,7 +241,8 @@ services:
       NODE_ENV:     production
       LOG_LEVEL:    warn
       DATABASE_URL: postgresql://${APP_DB_USER:-fadl_app}:${APP_DB_PASSWORD}@pgbouncer:5432/fadl_ehr
-      JWT_SECRET:   ${JWT_SECRET}
+      JWT_PUBLIC_KEY_B64: ${JWT_PUBLIC_KEY_B64:?}
+      SERVICE_JWT_SECRET: ${SERVICE_JWT_SECRET:?}
       JWT_EXPIRY:   ${JWT_EXPIRY:-15m}
     deploy:
       resources:
@@ -245,7 +256,8 @@ services:
       NODE_ENV:     production
       LOG_LEVEL:    warn
       DATABASE_URL: postgresql://${APP_DB_USER:-fadl_app}:${APP_DB_PASSWORD}@pgbouncer:5432/fadl_procedures
-      JWT_SECRET:   ${JWT_SECRET}
+      JWT_PUBLIC_KEY_B64: ${JWT_PUBLIC_KEY_B64:?}
+      SERVICE_JWT_SECRET: ${SERVICE_JWT_SECRET:?}
       JWT_EXPIRY:   ${JWT_EXPIRY:-15m}
     deploy:
       resources:
@@ -259,7 +271,8 @@ services:
       NODE_ENV:     production
       LOG_LEVEL:    warn
       DATABASE_URL: postgresql://${APP_DB_USER:-fadl_app}:${APP_DB_PASSWORD}@pgbouncer:5432/fadl_procurement
-      JWT_SECRET:   ${JWT_SECRET}
+      JWT_PUBLIC_KEY_B64: ${JWT_PUBLIC_KEY_B64:?}
+      SERVICE_JWT_SECRET: ${SERVICE_JWT_SECRET:?}
       JWT_EXPIRY:   ${JWT_EXPIRY:-15m}
     deploy:
       resources:
@@ -273,7 +286,8 @@ services:
       NODE_ENV:                production
       LOG_LEVEL:               warn
       DATABASE_URL:            postgresql://${APP_DB_USER:-fadl_app}:${APP_DB_PASSWORD}@pgbouncer:5432/fadl_integrations
-      JWT_SECRET:              ${JWT_SECRET}
+      JWT_PUBLIC_KEY_B64: ${JWT_PUBLIC_KEY_B64:?}
+      SERVICE_JWT_SECRET: ${SERVICE_JWT_SECRET:?}
       JWT_EXPIRY:              ${JWT_EXPIRY:-15m}
       VIZITA_WEBHOOK_SECRET:   ${VIZITA_WEBHOOK_SECRET:-}
       EKSHF_WEBHOOK_SECRET:    ${EKSHF_WEBHOOK_SECRET:-}
@@ -289,6 +303,7 @@ services:
     <<: *prod-svc
     environment:
       NODE_ENV: production
+      JWT_PUBLIC_KEY_B64: ${JWT_PUBLIC_KEY_B64:?}
     deploy:
       resources:
         limits:

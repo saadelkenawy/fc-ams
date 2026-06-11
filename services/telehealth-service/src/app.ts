@@ -27,8 +27,8 @@ export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
   await app.register(rateLimit, { max: 200, timeWindow: '1 minute' });
 
   await app.register(jwt, {
-    secret: config.JWT_SECRET,
-    sign: { expiresIn: config.JWT_EXPIRY },
+    secret: { public: config.JWT_PUBLIC_KEY },
+    verify: { algorithms: ['RS256'] },
   });
 
   app.get('/health', { logLevel: 'silent' }, async () => ({ status: 'ok', service: 'telehealth-service' }));
