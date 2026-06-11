@@ -8,6 +8,9 @@ export { registerErrorHandler } from './error-handler';
 export {
   genReqId,
   currentRequestId,
+  currentBranchId,
+  setRequestBranchId,
+  withRequestContext,
   registerObservability,
   metricsRegistry,
   promClient,

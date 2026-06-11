@@ -5,11 +5,36 @@ import promClient from 'prom-client';
 
 export { promClient };
 
-const requestContext = new AsyncLocalStorage<{ requestId: string }>();
+interface RequestStore {
+  requestId: string;
+  /** Branch of the authenticated caller (§3.1) — set by requireAuth from the verified JWT. */
+  branchId?: number;
+}
+
+const requestContext = new AsyncLocalStorage<RequestStore>();
 
 /** Request id of the request currently being handled (undefined outside one). */
 export function currentRequestId(): string | undefined {
   return requestContext.getStore()?.requestId;
+}
+
+/** Branch of the authenticated request being handled (undefined outside one / before auth). */
+export function currentBranchId(): number | undefined {
+  return requestContext.getStore()?.branchId;
+}
+
+/** Called by requireAuth once the JWT is verified — binds the caller's branch to this request. */
+export function setRequestBranchId(branchId: number | null | undefined): void {
+  const store = requestContext.getStore();
+  if (store && typeof branchId === 'number') store.branchId = branchId;
+}
+
+/**
+ * Run `fn` inside a synthetic request context — for background workers and
+ * tests that need a specific RLS branch without an HTTP request.
+ */
+export function withRequestContext<T>(ctx: { requestId?: string; branchId?: number }, fn: () => T): T {
+  return requestContext.run({ requestId: ctx.requestId ?? randomUUID(), branchId: ctx.branchId }, fn);
 }
 
 // Accept only sane ids from callers so a malicious header can't inject log noise.
@@ -62,7 +87,8 @@ export interface ObservabilityOptions {
 export function registerObservability(app: FastifyInstance, opts: ObservabilityOptions): void {
   app.addHook('onRequest', (request, reply, done) => {
     void reply.header('x-request-id', String(request.id));
-    requestContext.run({ requestId: String(request.id) }, done);
+    const store: RequestStore = { requestId: String(request.id) };
+    requestContext.run(store, done);
   });
 
   if (opts.metrics === false) return;

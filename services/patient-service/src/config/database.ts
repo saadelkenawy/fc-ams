@@ -12,3 +12,4 @@ const db = createDb({
 export const pool = db.pool;
 export const withTransaction = db.withTransaction;
 export const withRlsContext = db.withRlsContext;
+export const rlsQuery = db.query;

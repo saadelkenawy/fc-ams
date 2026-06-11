@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start -p 4000",
     "lint": "next lint",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "contracts:types": "bash ../../scripts/generate-contract-types.sh",
+    "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
     "@fadl/types": "workspace:*",
@@ -48,6 +50,12 @@
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "postcss": "^8.5.0",
     "tailwindcss": "^3.4.1",
-    "typescript": "^5.3.0"
+    "typescript": "^5.3.0",
+    "openapi-typescript": "^7.4.0",
+    "vitest": "^4.0.0",
+    "jsdom": "^25.0.0",
+    "@testing-library/react": "^16.1.0",
+    "@testing-library/jest-dom": "^6.6.0",
+    "@vitejs/plugin-react": "^4.3.0"
   }
 }

@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from 'crypto';
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import type { JwtPayload } from '@fadl/types';
+import { setRequestBranchId } from './observability';
 // Type-side import: applies @fastify/jwt's augmentation of FastifyRequest
 // (request.user, request.jwtVerify) for this module and for consumers.
 import '@fastify/jwt';
@@ -88,6 +89,9 @@ export function createRequireAuth(opts: RequireAuthOptions): PreHandler {
         return;
       }
       request.user = payload;
+      // §3.1: RLS context for this request comes from the verified token,
+      // not the deployment env.
+      setRequestBranchId(payload.branchId);
       return;
     }
 
@@ -97,7 +101,9 @@ export function createRequireAuth(opts: RequireAuthOptions): PreHandler {
       // signed with the identity private key pretending to be internal.
       if ((request.user as JwtPayload).tokenType === 'service') {
         unauthorized(reply, 'Token not valid for this service');
+        return;
       }
+      setRequestBranchId((request.user as JwtPayload).branchId);
     } catch {
       unauthorized(reply, 'Authentication required');
     }

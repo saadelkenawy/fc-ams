@@ -42,6 +42,8 @@ async function withBranch<T>(pool: Pool, branchId: number, sql: string, params: 
 }
 
 beforeAll(async () => {
+  // Clear leftovers from interrupted runs (fixed mobiles collide on doctors_mobile_key)
+  await admin.query(`DELETE FROM doctors WHERE mobile LIKE '010000000%'`);
   // Seed one doctor per branch as admin (bypasses RLS)
   await admin.query(
     `INSERT INTO doctors (id, mobile, name_en, branch_id) VALUES

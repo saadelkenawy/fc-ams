@@ -7,7 +7,7 @@ import type {
   Specialty,
   PaginatedResponse,
 } from '@fadl/types';
-import { withRlsContext, withTransaction, pool } from '../config/database';
+import { withRlsContext, withTransaction, rlsQuery } from '../config/database';
 import { setCompensation } from '../clients/billing';
 
 // ---------------------------------------------------------------------------
@@ -317,7 +317,7 @@ export async function toggleDoctorActive(
 }
 
 export async function softDeleteDoctor(id: string, deletedBy: string): Promise<void> {
-  const result = await pool.query(
+  const result = await rlsQuery(
     `UPDATE doctors SET deleted_at = NOW(), updated_by = $2 WHERE id = $1 AND deleted_at IS NULL`,
     [id, deletedBy],
   );
@@ -430,7 +430,7 @@ export async function findOverridesByDoctorId(
   doctorId: string,
   fromDate?: string,
 ): Promise<DoctorScheduleOverride[]> {
-  const { rows } = await pool.query(
+  const { rows } = await rlsQuery(
     `SELECT * FROM doctor_schedule_overrides
      WHERE doctor_id = $1 ${fromDate ? 'AND override_date >= $2' : ''}
      ORDER BY override_date ASC`,
@@ -444,7 +444,7 @@ export async function findOverridesByDoctorId(
 // ---------------------------------------------------------------------------
 
 export async function listSpecialties(): Promise<Specialty[]> {
-  const { rows } = await pool.query(
+  const { rows } = await rlsQuery(
     `SELECT * FROM specialties WHERE is_active = TRUE ORDER BY name_en`,
   );
   return rows.map((r) => {

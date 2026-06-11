@@ -7,7 +7,7 @@ import type {
   PaymentStatus,
   PaginatedResponse,
 } from '@fadl/types';
-import { withRlsContext, withTransaction, pool } from '../config/database';
+import { withRlsContext, withTransaction, pool, rlsQuery } from '../config/database';
 
 
 function rowToTransaction(row: Record<string, unknown>): FinancialTransaction {
@@ -503,7 +503,7 @@ function rowToExtraService(row: Record<string, unknown>): ExtraServiceRecord {
 }
 
 export async function listExtraServices(transactionId: string): Promise<ExtraServiceRecord[]> {
-  const { rows } = await pool.query(
+  const { rows } = await rlsQuery(
     `SELECT * FROM transaction_extra_services WHERE transaction_id = $1 ORDER BY created_at ASC`,
     [transactionId],
   );
@@ -552,7 +552,7 @@ export async function replaceExtraServices(
 }
 
 export async function listExtraServicesByAppointmentId(appointmentId: string): Promise<ExtraServiceRecord[]> {
-  const { rows: txRows } = await pool.query(
+  const { rows: txRows } = await rlsQuery(
     `SELECT id FROM financial_transactions WHERE appointment_id = $1 LIMIT 1`,
     [appointmentId],
   );
@@ -824,12 +824,12 @@ async function replaceSpecialtyRates(
 }
 
 export async function listSources(): Promise<SourceFeeRule[]> {
-  const { rows } = await pool.query(
+  const { rows } = await rlsQuery(
     `SELECT * FROM source_fee_rules ORDER BY is_active DESC, source_code ASC`,
   );
   if (!rows.length) return [];
 
-  const { rows: rateRows } = await pool.query(
+  const { rows: rateRows } = await rlsQuery(
     `SELECT source_code, specialty_id, fee_value FROM source_specialty_rates ORDER BY source_code, specialty_id`,
   );
 
@@ -848,7 +848,7 @@ export async function listSources(): Promise<SourceFeeRule[]> {
 }
 
 export async function getSourceRate(sourceCode: string, specialtyId?: number): Promise<number> {
-  const { rows } = await pool.query(
+  const { rows } = await rlsQuery(
     `SELECT fee_value, is_general FROM source_fee_rules
      WHERE source_code = $1 AND is_active = TRUE
        AND valid_from <= CURRENT_DATE
@@ -864,7 +864,7 @@ export async function getSourceRate(sourceCode: string, specialtyId?: number): P
 
   if (isGeneral || !specialtyId) return defaultRate;
 
-  const { rows: srRows } = await pool.query(
+  const { rows: srRows } = await rlsQuery(
     `SELECT fee_value FROM source_specialty_rates WHERE source_code = $1 AND specialty_id = $2`,
     [sourceCode, specialtyId],
   );
@@ -942,7 +942,7 @@ export async function updateSource(sourceCode: string, input: UpdateSourceInput,
 }
 
 export async function deleteSource(sourceCode: string): Promise<void> {
-  const result = await pool.query(
+  const result = await rlsQuery(
     `DELETE FROM source_fee_rules WHERE source_code = $1`,
     [sourceCode],
   );
@@ -1154,8 +1154,8 @@ export async function listSettlementRecords(params: {
   const where = `WHERE ${conditions.join(' AND ')}`;
 
   const [{ rows: countRows }, { rows: dataRows }] = await Promise.all([
-    pool.query(`SELECT COUNT(*)::int AS total FROM settlement_records ${where}`, values),
-    pool.query(
+    rlsQuery(`SELECT COUNT(*)::int AS total FROM settlement_records ${where}`, values),
+    rlsQuery(
       `SELECT * FROM settlement_records ${where} ORDER BY settlement_date DESC, created_at DESC LIMIT $${idx++} OFFSET $${idx++}`,
       [...values, limit, offset],
     ),
@@ -1248,7 +1248,7 @@ function rowToCompensation(row: Record<string, unknown>): DoctorCompensationRule
 }
 
 export async function listDoctorCompensation(doctorId: string, branchId: number): Promise<DoctorCompensationRule[]> {
-  const { rows } = await pool.query(
+  const { rows } = await rlsQuery(
     `SELECT * FROM doctor_compensation
      WHERE doctor_id = $1 AND branch_id = $2
      ORDER BY visit_type, effective_from DESC`,
@@ -1308,7 +1308,7 @@ export async function getCompensationRateForDoctor(
   visitType: string,
   branchId: number,
 ): Promise<{ doctorPercentage: number; clinicPercentage: number } | null> {
-  const { rows } = await pool.query(
+  const { rows } = await rlsQuery(
     `SELECT doctor_percentage, clinic_percentage
      FROM doctor_compensation
      WHERE doctor_id = $1 AND visit_type = $2 AND branch_id = $3
@@ -1325,7 +1325,7 @@ export async function getCompensationRateForDoctor(
 }
 
 export async function deleteCompensationRule(id: string, branchId: number): Promise<void> {
-  const { rowCount } = await pool.query(
+  const { rowCount } = await rlsQuery(
     `DELETE FROM doctor_compensation WHERE id = $1 AND branch_id = $2`,
     [id, branchId],
   );

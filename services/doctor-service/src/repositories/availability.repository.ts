@@ -8,7 +8,7 @@ import type {
   DoctorAvailability,
   DoctorAvailabilitySlot,
 } from '@fadl/types';
-import { withRlsContext, withTransaction, pool } from '../config/database';
+import { withRlsContext, withTransaction, rlsQuery } from '../config/database';
 
 // ── Row mappers ──────────────────────────────────────────────────────────────
 
@@ -140,7 +140,7 @@ export async function deleteConsultHoursForDay(
   doctorId: string,
   dayOfWeek: number,
 ): Promise<void> {
-  await pool.query(
+  await rlsQuery(
     `UPDATE doctor_consultation_hours SET is_active = FALSE, updated_at = NOW()
      WHERE doctor_id = $1 AND day_of_week = $2`,
     [doctorId, dayOfWeek],

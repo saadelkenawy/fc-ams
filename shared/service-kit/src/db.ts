@@ -1,5 +1,5 @@
-import { Pool, PoolClient } from 'pg';
-import { metricsRegistry, promClient } from './observability';
+import { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
+import { currentBranchId, metricsRegistry, promClient } from './observability';
 
 export interface DbOptions {
   connectionString: string;
@@ -28,6 +28,12 @@ export interface Db {
   withRlsContext<T>(branchId: number, fn: TxFn<T>): Promise<T>;
   /** Checkout a client without a transaction (multi-statement reads, LISTEN, etc.). */
   withClient<T>(fn: TxFn<T>): Promise<T>;
+  /**
+   * Drop-in replacement for `pool.query` that binds the RLS branch context
+   * (request branch > env default) around the statement — use for request-path
+   * reads instead of raw pool.query so isolation is user-scoped (§3.1).
+   */
+  query<R extends QueryResultRow = QueryResultRow>(text: string, values?: unknown[]): Promise<QueryResult<R>>;
 }
 
 export function createDb(opts: DbOptions): Db {
@@ -93,7 +99,11 @@ export function createDb(opts: DbOptions): Db {
 
   function resolveArgs<T>(branchIdOrFn: number | TxFn<T>, maybeFn?: TxFn<T>): { branchId?: number; fn: TxFn<T> } {
     if (typeof branchIdOrFn === 'function') {
-      return { branchId: opts.rls?.defaultBranchId, fn: branchIdOrFn };
+      // §3.1 resolution order: the authenticated request's branch (set by
+      // requireAuth from the verified JWT) wins over the deployment default,
+      // so RLS is user-scoped without threading branchId through every
+      // repository signature. Explicit args (overload below) still win overall.
+      return { branchId: currentBranchId() ?? opts.rls?.defaultBranchId, fn: branchIdOrFn };
     }
     if (!maybeFn) throw new Error('withTransaction/withRlsContext: callback is required');
     return { branchId: branchIdOrFn, fn: maybeFn };
@@ -127,5 +137,9 @@ export function createDb(opts: DbOptions): Db {
     }
   }
 
-  return { pool, withTransaction: run, withRlsContext: run, withClient };
+  function query<R extends QueryResultRow = QueryResultRow>(text: string, values?: unknown[]): Promise<QueryResult<R>> {
+    return run((client) => client.query<R>(text, values));
+  }
+
+  return { pool, withTransaction: run, withRlsContext: run, withClient, query };
 }

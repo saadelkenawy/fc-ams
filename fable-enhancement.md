@@ -426,3 +426,30 @@ Two trust domains replace the single shared HS256 secret:
 - §3.7 query review — needs pg_stat_statements under real load.
 - §3.1 per-request branchId plumbing through repositories.
 - §5.4 Playwright snapshots / component tests; §5.3 CSS splitting; §4.6 OpenAPI contract checks in CI; §5.5 polish backlog.
+
+---
+
+## 13. Phase 6 — Per-request isolation & contracts — IMPLEMENTED (2026-06-11)
+
+### 13.1 Per-request branchId (§3.1 — the last open P0)
+RLS context is now **user-scoped, not deployment-scoped**, with zero repository signature churn:
+- `requireAuth` (kit) stores the verified JWT's `branchId` in the per-request AsyncLocalStorage (same store Phase 4 added for request ids).
+- `createDb` resolves the branch as **explicit argument → authenticated request's branch → env default** — so every existing `withTransaction`/`withRlsContext` call automatically binds the caller's branch; env `BRANCH_ID` remains only the fallback for workers/startup.
+- New `db.query(text, values)` — a drop-in `pool.query` replacement that binds the context; 19 raw request-path `pool.query` sites in appointment/billing/doctor converted (`rlsQuery` export). The outbox worker's 2 sites intentionally stay env-scoped.
+- `withRequestContext({ branchId }, fn)` exported for workers/tests.
+- **Proven** by `tests/rls-request-context.test.ts` (4 tests): branch-2 request context sees only branch-2 rows through the same code path that previously used the env default; explicit args still win; the `db.query` helper binds too.
+
+### 13.2 OpenAPI contracts (§4.6)
+- `scripts/export-openapi.sh` exports all 12 documented services' specs from the running stack into `contracts/openapi/` (integration-service excluded — webhook-only, no swagger).
+- `pnpm --filter web-portal contracts:types` (openapi-typescript) regenerates `src/types/api/<service>.ts`. Workflow: change routes/schemas → re-export → regenerate → a portal type error = contract drift caught before runtime. Adoption in hooks is incremental.
+
+### 13.3 Frontend component tests (§5.4 first half)
+- vitest + jsdom + Testing Library wired into web-portal (`vitest.config.ts`, setup with RTL cleanup, `pnpm test`).
+- 11 tests across Button (variants, loading/disabled semantics), Badge + AppointmentStatusBadge (bilingual labels), EmptyState (action wiring).
+- Playwright visual snapshots remain deferred (browser infra in CI).
+
+### 13.4 Verified
+31 tests green (14 appointment incl. RLS proofs, 6 billing, 11 portal); workspace build + type-check clean; deploy #92 (Phase 5) SUCCESS with all 14 services healthy and **13/13 Prometheus targets up** — the full Phase 4 observability stack is live.
+
+### 13.5 Remaining backlog (opportunistic)
+§3.7 query review under load, Playwright snapshots, CSS splitting (§5.3), §5.5 polish, Alertmanager receiver, partition retention/archival, secret manager (Vault).

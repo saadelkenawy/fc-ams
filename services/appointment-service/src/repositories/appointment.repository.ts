@@ -1,7 +1,7 @@
 import { PoolClient } from 'pg';
 import { v4 as uuidv4 } from 'uuid';
 import type { Appointment, AppointmentStatus, PaginatedResponse } from '@fadl/types';
-import { withRlsContext, withTransaction, pool } from '../config/database';
+import { withRlsContext, withTransaction, rlsQuery } from '../config/database';
 import * as outbox from './outbox.repository';
 
 // ---------------------------------------------------------------------------
@@ -506,7 +506,7 @@ export async function hardDeleteAppointment(
 // softDeleteAppointment (kept for backward compat)
 // ---------------------------------------------------------------------------
 export async function softDeleteAppointment(id: string, deletedBy: string): Promise<void> {
-  const result = await pool.query(
+  const result = await rlsQuery(
     `UPDATE appointments SET deleted_at = NOW(), updated_by = $2
       WHERE id = $1 AND deleted_at IS NULL AND status != 'Comp.'`,
     [id, deletedBy],
@@ -546,7 +546,7 @@ export async function getDoctorsOnDate(date: string): Promise<{ doctorId: string
 }
 
 export async function cascadeSoftDeleteFromBilling(id: string, deletedBy: string): Promise<'deleted' | 'skipped'> {
-  const result = await pool.query(
+  const result = await rlsQuery(
     `UPDATE appointments
         SET deleted_at = NOW(), updated_by = $2
       WHERE id = $1

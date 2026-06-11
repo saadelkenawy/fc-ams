@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { withTransaction, withRlsContext, pool } from '../config/database';
+import { withTransaction, withRlsContext, rlsQuery } from '../config/database';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -183,7 +183,7 @@ export async function getRoomByCode(roomCode: string, branchId: number): Promise
 }
 
 export async function getActiveAssignment(doctorId: string, date: string): Promise<RoomAssignmentRow | null> {
-  const { rows } = await pool.query(
+  const { rows } = await rlsQuery(
     `SELECT ra.*, cr.room_code FROM room_assignments ra
      JOIN clinic_rooms cr ON cr.id = ra.room_id
      WHERE ra.doctor_id = $1 AND ra.assigned_date = $2 AND ra.status IN ('reserved','active')
