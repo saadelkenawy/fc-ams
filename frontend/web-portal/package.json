@@ -9,7 +9,8 @@
     "lint": "next lint",
     "type-check": "tsc --noEmit",
     "contracts:types": "bash ../../scripts/generate-contract-types.sh",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "test:visual": "playwright test"
   },
   "dependencies": {
     "@fadl/types": "workspace:*",
@@ -56,6 +57,7 @@
     "jsdom": "^25.0.0",
     "@testing-library/react": "^16.1.0",
     "@testing-library/jest-dom": "^6.6.0",
-    "@vitejs/plugin-react": "^4.3.0"
+    "@vitejs/plugin-react": "^4.3.0",
+    "@playwright/test": "^1.49.0"
   }
 }

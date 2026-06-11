@@ -536,6 +536,9 @@ services:
     environment:
       <<: *jwt-env
       NODE_ENV: development
+      # next start forces NODE_ENV=production in the image; dev runs on plain
+      # http (LAN/localhost) so Secure cookies must be disabled explicitly.
+      COOKIE_SECURE: "false"
       PORT: 3010
       # Server-side vars for next.config.js rewrites (resolved inside Docker network)
       IDENTITY_SERVICE_URL: http://identity-service:3000/api/v1

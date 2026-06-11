@@ -3,7 +3,10 @@
 export const ACCESS_COOKIE = 'fadl_token';
 export const REFRESH_COOKIE = 'fadl_refresh';
 
-const isProd = process.env.NODE_ENV === 'production';
+// `next start` always forces NODE_ENV=production inside the image, so the
+// dev stack must opt out explicitly: COOKIE_SECURE=false in docker-compose.yml.
+// Anything else (unset included) keeps Secure on — production needs no config.
+const isProd = process.env.COOKIE_SECURE !== 'false';
 
 interface CookieOptions {
   httpOnly: boolean;

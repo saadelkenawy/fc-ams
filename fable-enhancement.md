@@ -453,3 +453,27 @@ RLS context is now **user-scoped, not deployment-scoped**, with zero repository 
 
 ### 13.5 Remaining backlog (opportunistic)
 §3.7 query review under load, Playwright snapshots, CSS splitting (§5.3), §5.5 polish, Alertmanager receiver, partition retention/archival, secret manager (Vault).
+
+## 14. Phase 7 — Visual snapshots & typed contracts adoption — IMPLEMENTED (2026-06-11)
+
+### 14.1 Playwright visual snapshots (§5.4 second half)
+- `playwright.config.ts` + `e2e/` in web-portal: runs against the live dev stack (`PORTAL_URL`, default `localhost:3010`); baselines in `e2e/__screenshots__/`, refreshed with `pnpm test:visual --update-snapshots`; `maxDiffPixelRatio 0.02` tolerates live-data drift; not a CI gate.
+- **28 baselines**: 6 admin pages (dashboard, patients, doctors, appointments, billing, encounters) × light/dark × LTR/RTL as the admin demo account, plus the receptionist workspace ×4 as the receptionist demo account. Plus a UI-login smoke test (`login.spec.ts`).
+- **Auth architecture for e2e** (`e2e/fixtures.ts`): identity rotates the refresh token on every `/api/auth/refresh` (old token revoked immediately), so the stock Playwright many-contexts-one-storageState pattern self-destructs — the first context's refresh invalidates the cookie for all others and they bounce to `/login`; login is rate-limited 5/min/IP, so per-test logins are out too. Each **worker** instead logs in once via `context.request.post('/api/auth/login')` into a long-lived context (its cookie jar follows rotations like a real browser) and seeds `localStorage.fadl_user` (AuthContext only attempts the cookie session-restore when that cache exists); every test gets a fresh page in that context. Role per project via the `account` worker option.
+- Login blockers root-caused on the way:
+  1. **Secure cookies on plain http** — `next start` forces `NODE_ENV=production` inside the image, so the old `NODE_ENV` check in `api/auth/cookies.ts` hard-coded `Secure` (minified to `secure:!0`) and the browser dropped the cookies. New opt-out: `COOKIE_SECURE=false` env (dev compose only); unset keeps `Secure` — production needs no change.
+  2. Stale portal image — the first rebuild predated the fix; verified the running bundle greps `COOKIE_SECURE` and live `Set-Cookie` has no `Secure` flag before re-running.
+  3. **Role selector** — login page defaults to "Receptionist" and logs straight back out on role mismatch (API still 200); setup now clicks the right role per account.
+- Receptionist page snapshots skip `networkidle` — the queue board's SSE stream never lets the network go idle. Patients snapshots wait for `.fc-pt-row .fc-pt-act` (a loaded row's action buttons) — capture once raced the FTS query and baselined a half-loaded page.
+- **Silent-green trap**: while auth was broken, 25 "passing" snapshots were all screenshots of the login page (baseline == actual == login). Baselines were re-captured after the fix and visually inspected.
+
+### 14.2 Typed API contracts adopted (§4.6 second half)
+- patient-service list/detail routes now declare full response schemas (`patientSchema`: all 25 Patient fields; required list matches `@fadl/types`; `enum` on `gender`/`bloodType`/`preferredLanguage` so the contract carries the exact unions). Fastify serializes **and drops** unlisted fields — schema completeness verified against a live row (24/24 returned fields).
+- `usePatients.ts` carries a compile-time drift check: `AssertAssignable<NoNulls<ContractPatient>, Patient>` — renaming/removing a field, widening an enum, or forgetting `required` in the service schema now fails `tsc` in the portal. Pattern is ready to copy into the other hooks as their services gain response schemas.
+- Loop verified end-to-end: schema change → rebuild service → `scripts/export-openapi.sh` → `contracts:types` → `tsc` (caught the missing `mobileHistory` required entry and the un-enum'd `gender` for real before passing clean).
+
+### 14.3 Verified
+Playwright 29/29 on both the baseline-update and the verification pass (1 login smoke + 28 snapshots); baselines visually confirmed to show authenticated pages with data; portal `tsc --noEmit` clean with the drift check active; vitest 11/11; receptionist demo login verified live (role `receptionist`, branch 1). Build #163 SUCCESS (outbox flake fix) → deploy #93 SUCCESS.
+
+### 14.4 Remaining backlog (opportunistic)
+§3.7 query review under load, CSS splitting (§5.3), §5.5 polish, Alertmanager receiver, partition retention/archival, secret manager (Vault), response schemas + drift checks for the remaining services' hooks.

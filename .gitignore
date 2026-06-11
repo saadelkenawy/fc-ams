@@ -49,3 +49,9 @@ design-system/
 *.zip
 .next/
 .mcp.json
+
+# Playwright (web-portal e2e) — generated auth state + run artifacts
+frontend/web-portal/e2e/.auth/
+frontend/web-portal/e2e/.results/
+# …but the visual baselines must be tracked despite the global *.png rule
+!frontend/web-portal/e2e/__screenshots__/*.png

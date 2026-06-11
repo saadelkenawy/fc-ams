@@ -2,6 +2,19 @@ import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tansta
 import { useMemo } from 'react';
 import { patientApi } from '@/lib/api';
 import type { Patient, PaginatedResponse, ApiResponse } from '@fadl/types';
+import type { paths as PatientPaths } from '@/types/api/patient';
+
+// ── §4.6 contract drift check ────────────────────────────────────────────────
+// The generated contract (src/types/api/patient.ts, regenerated from the
+// service's exported OpenAPI spec) must keep providing every field the shared
+// Patient type promises. OpenAPI expresses optionality as `| null`, TS as
+// `?`/undefined — NoNulls bridges that; everything else (renamed/removed
+// fields, changed primitives) fails type-check right here.
+type ContractPatient =
+  PatientPaths['/api/v1/patients']['get']['responses'][200]['content']['application/json']['data'][number];
+type NoNulls<T> = { [K in keyof T]: Exclude<T[K], null> };
+type AssertAssignable<A extends B, B> = A;
+type _PatientContractCheck = AssertAssignable<NoNulls<ContractPatient>, Patient>;
 
 export interface PatientListParams {
   query?: string;

@@ -95,7 +95,42 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: {
+                                /** Format: uuid */
+                                patientId: string;
+                                mobile: string;
+                                mobileHistory: string[];
+                                nationalId?: string | null;
+                                nameEn: string;
+                                nameAr?: string | null;
+                                dateOfBirth?: string | null;
+                                /** @enum {string|null} */
+                                gender?: "M" | "F" | null;
+                                /** @enum {string|null} */
+                                bloodType?: "A+" | "A-" | "B+" | "B-" | "AB+" | "AB-" | "O+" | "O-" | null;
+                                address?: string | null;
+                                email?: string | null;
+                                emergencyContactMobile?: string | null;
+                                emergencyContactName?: string | null;
+                                /** @enum {string} */
+                                preferredLanguage: "ar" | "en";
+                                sourceFirstVisit?: string | null;
+                                isFutureSource: boolean;
+                                futureSourceType?: string | null;
+                                futureSourceSetAt?: string | null;
+                                futureSourceSetBy?: string | null;
+                                deletedAt?: string | null;
+                                version: number;
+                                createdAt: string;
+                                updatedAt: string;
+                                createdBy?: string | null;
+                                branchId: number;
+                            };
+                        };
+                    };
                 };
             };
         };
@@ -173,7 +208,46 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: {
+                                /** Format: uuid */
+                                patientId: string;
+                                mobile: string;
+                                mobileHistory: string[];
+                                nationalId?: string | null;
+                                nameEn: string;
+                                nameAr?: string | null;
+                                dateOfBirth?: string | null;
+                                /** @enum {string|null} */
+                                gender?: "M" | "F" | null;
+                                /** @enum {string|null} */
+                                bloodType?: "A+" | "A-" | "B+" | "B-" | "AB+" | "AB-" | "O+" | "O-" | null;
+                                address?: string | null;
+                                email?: string | null;
+                                emergencyContactMobile?: string | null;
+                                emergencyContactName?: string | null;
+                                /** @enum {string} */
+                                preferredLanguage: "ar" | "en";
+                                sourceFirstVisit?: string | null;
+                                isFutureSource: boolean;
+                                futureSourceType?: string | null;
+                                futureSourceSetAt?: string | null;
+                                futureSourceSetBy?: string | null;
+                                deletedAt?: string | null;
+                                version: number;
+                                createdAt: string;
+                                updatedAt: string;
+                                createdBy?: string | null;
+                                branchId: number;
+                            }[];
+                            total: number;
+                            page: number;
+                            limit: number;
+                            totalPages: number;
+                        };
+                    };
                 };
             };
         };
