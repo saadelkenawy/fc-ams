@@ -9,6 +9,63 @@ const idParam = {
   required: ['id'],
 };
 
+// Response schema for a Doctor (§4.6 contract). Must list EVERY field the
+// repository returns — fastify serializes responses per schema and silently
+// drops anything missing here. Keep in sync with @fadl/types Doctor.
+const revenueSplitSchema = {
+  type: 'object',
+  properties: {
+    doctorPercentage: { type: 'number' },
+    clinicPercentage: { type: 'number' },
+  },
+  required: ['doctorPercentage', 'clinicPercentage'],
+} as const;
+
+const doctorSchema = {
+  type: 'object',
+  properties: {
+    id: { type: 'string', format: 'uuid' },
+    mobile: { type: 'string' },
+    nameEn: { type: 'string' },
+    nameAr: { type: 'string', nullable: true },
+    specialtyId: { type: 'integer' },
+    subSpecialty: { type: 'string', nullable: true },
+    isOnlineDoctor: { type: 'boolean' },
+    revenueSplits: {
+      type: 'object',
+      properties: {
+        consultation: revenueSplitSchema,
+        operative: revenueSplitSchema,
+        online: revenueSplitSchema,
+      },
+      required: ['consultation', 'operative', 'online'],
+    },
+    paymentMethod: { type: 'string', enum: ['cash', 'instapay', 'bank_transfer', 'vfc_wallet', 'mobile_wallet'], nullable: true },
+    allowOverbooking: { type: 'boolean' },
+    overbookingBufferPercentage: { type: 'number' },
+    isActive: { type: 'boolean' },
+    deletedAt: { type: 'string', nullable: true },
+    version: { type: 'integer' },
+    createdAt: { type: 'string' },
+    updatedAt: { type: 'string' },
+    branchId: { type: 'integer' },
+  },
+  required: ['id', 'mobile', 'nameEn', 'specialtyId', 'isOnlineDoctor', 'revenueSplits', 'allowOverbooking', 'overbookingBufferPercentage', 'isActive', 'version', 'createdAt', 'updatedAt', 'branchId'],
+} as const;
+
+const specialtySchema = {
+  type: 'object',
+  properties: {
+    id: { type: 'integer' },
+    code: { type: 'string' },
+    nameEn: { type: 'string' },
+    nameAr: { type: 'string' },
+    category: { type: 'string', nullable: true },
+    isActive: { type: 'boolean' },
+  },
+  required: ['id', 'code', 'nameEn', 'nameAr', 'isActive'],
+} as const;
+
 export async function doctorRoutes(app: FastifyInstance): Promise<void> {
   app.addHook('onRequest', requireAuth);
 
@@ -26,12 +83,38 @@ export async function doctorRoutes(app: FastifyInstance): Promise<void> {
           limit:          { type: 'integer', minimum: 1, maximum: 500, default: 20 },
         },
       },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            data: { type: 'array', items: doctorSchema },
+            total: { type: 'integer' },
+            page: { type: 'integer' },
+            limit: { type: 'integer' },
+            totalPages: { type: 'integer' },
+          },
+          required: ['success', 'data', 'total', 'page', 'limit', 'totalPages'],
+        },
+      },
     },
   }, ctrl.listDoctors);
 
   // GET /specialties (no id param — must come before /doctors/:id)
   app.get('/specialties', {
-    schema: { tags: ['doctors'] },
+    schema: {
+      tags: ['doctors'],
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            data: { type: 'array', items: specialtySchema },
+          },
+          required: ['success', 'data'],
+        },
+      },
+    },
   }, async (_req, reply) => {
     const { listSpecialties } = await import('../repositories/doctor.repository');
     const data = await listSpecialties();
@@ -40,7 +123,17 @@ export async function doctorRoutes(app: FastifyInstance): Promise<void> {
 
   // GET /doctors/:id
   app.get('/doctors/:id', {
-    schema: { tags: ['doctors'], params: idParam },
+    schema: {
+      tags: ['doctors'],
+      params: idParam,
+      response: {
+        200: {
+          type: 'object',
+          properties: { success: { type: 'boolean' }, data: doctorSchema },
+          required: ['success', 'data'],
+        },
+      },
+    },
   }, ctrl.getDoctor);
 
   // POST /doctors

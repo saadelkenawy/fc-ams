@@ -67,7 +67,56 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: {
+                                /** Format: uuid */
+                                id: string;
+                                idempotencyKey: string;
+                                appointmentId?: string | null;
+                                patientId: string;
+                                doctorId?: string | null;
+                                procedureId?: string | null;
+                                patientSource: string;
+                                sourceFeePercentage: number;
+                                sourceFeeAmount: number;
+                                approvedCharge: number;
+                                procedureCost?: number | null;
+                                grossRevenue: number;
+                                splitDoctorPercentage: number;
+                                splitClinicPercentage: number;
+                                doctorShare: number;
+                                clinicShare: number;
+                                paymentMethod?: string | null;
+                                /** @enum {string} */
+                                paymentStatus: "pending" | "verified" | "approved" | "paid" | "reconciled" | "refunded";
+                                checkInAmount?: number | null;
+                                checkOutAmount?: number | null;
+                                isRefund: boolean;
+                                originalTransactionId?: string | null;
+                                refundReason?: string | null;
+                                settledAt?: string | null;
+                                settledBy?: string | null;
+                                settlementReference?: string | null;
+                                /** @enum {string} */
+                                currencyCode: "EGP" | "USD" | "EUR" | "SAR" | "AED";
+                                exchangeRate: number;
+                                vatRate: number;
+                                vatAmount: number;
+                                createdAt: string;
+                                createdBy?: string | null;
+                                transactionDate: string;
+                                branchId: number;
+                                /** @enum {string|null} */
+                                visitType?: "consultation" | "operative" | "online" | null;
+                            }[];
+                            total: number;
+                            page: number;
+                            limit: number;
+                            totalPages: number;
+                        };
+                    };
                 };
             };
         };
@@ -145,7 +194,52 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: {
+                                /** Format: uuid */
+                                id: string;
+                                idempotencyKey: string;
+                                appointmentId?: string | null;
+                                patientId: string;
+                                doctorId?: string | null;
+                                procedureId?: string | null;
+                                patientSource: string;
+                                sourceFeePercentage: number;
+                                sourceFeeAmount: number;
+                                approvedCharge: number;
+                                procedureCost?: number | null;
+                                grossRevenue: number;
+                                splitDoctorPercentage: number;
+                                splitClinicPercentage: number;
+                                doctorShare: number;
+                                clinicShare: number;
+                                paymentMethod?: string | null;
+                                /** @enum {string} */
+                                paymentStatus: "pending" | "verified" | "approved" | "paid" | "reconciled" | "refunded";
+                                checkInAmount?: number | null;
+                                checkOutAmount?: number | null;
+                                isRefund: boolean;
+                                originalTransactionId?: string | null;
+                                refundReason?: string | null;
+                                settledAt?: string | null;
+                                settledBy?: string | null;
+                                settlementReference?: string | null;
+                                /** @enum {string} */
+                                currencyCode: "EGP" | "USD" | "EUR" | "SAR" | "AED";
+                                exchangeRate: number;
+                                vatRate: number;
+                                vatAmount: number;
+                                createdAt: string;
+                                createdBy?: string | null;
+                                transactionDate: string;
+                                branchId: number;
+                                /** @enum {string|null} */
+                                visitType?: "consultation" | "operative" | "online" | null;
+                            };
+                        };
+                    };
                 };
             };
         };

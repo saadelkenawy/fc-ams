@@ -64,7 +64,49 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: {
+                                /** Format: uuid */
+                                id: string;
+                                mobile: string;
+                                nameEn: string;
+                                nameAr?: string | null;
+                                specialtyId: number;
+                                subSpecialty?: string | null;
+                                isOnlineDoctor: boolean;
+                                revenueSplits: {
+                                    consultation: {
+                                        doctorPercentage: number;
+                                        clinicPercentage: number;
+                                    };
+                                    operative: {
+                                        doctorPercentage: number;
+                                        clinicPercentage: number;
+                                    };
+                                    online: {
+                                        doctorPercentage: number;
+                                        clinicPercentage: number;
+                                    };
+                                };
+                                /** @enum {string|null} */
+                                paymentMethod?: "cash" | "instapay" | "bank_transfer" | "vfc_wallet" | "mobile_wallet" | null;
+                                allowOverbooking: boolean;
+                                overbookingBufferPercentage: number;
+                                isActive: boolean;
+                                deletedAt?: string | null;
+                                version: number;
+                                createdAt: string;
+                                updatedAt: string;
+                                branchId: number;
+                            }[];
+                            total: number;
+                            page: number;
+                            limit: number;
+                            totalPages: number;
+                        };
+                    };
                 };
             };
         };
@@ -114,7 +156,19 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: {
+                                id: number;
+                                code: string;
+                                nameEn: string;
+                                nameAr: string;
+                                category?: string | null;
+                                isActive: boolean;
+                            }[];
+                        };
+                    };
                 };
             };
         };
@@ -149,7 +203,45 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: {
+                                /** Format: uuid */
+                                id: string;
+                                mobile: string;
+                                nameEn: string;
+                                nameAr?: string | null;
+                                specialtyId: number;
+                                subSpecialty?: string | null;
+                                isOnlineDoctor: boolean;
+                                revenueSplits: {
+                                    consultation: {
+                                        doctorPercentage: number;
+                                        clinicPercentage: number;
+                                    };
+                                    operative: {
+                                        doctorPercentage: number;
+                                        clinicPercentage: number;
+                                    };
+                                    online: {
+                                        doctorPercentage: number;
+                                        clinicPercentage: number;
+                                    };
+                                };
+                                /** @enum {string|null} */
+                                paymentMethod?: "cash" | "instapay" | "bank_transfer" | "vfc_wallet" | "mobile_wallet" | null;
+                                allowOverbooking: boolean;
+                                overbookingBufferPercentage: number;
+                                isActive: boolean;
+                                deletedAt?: string | null;
+                                version: number;
+                                createdAt: string;
+                                updatedAt: string;
+                                branchId: number;
+                            };
+                        };
+                    };
                 };
             };
         };

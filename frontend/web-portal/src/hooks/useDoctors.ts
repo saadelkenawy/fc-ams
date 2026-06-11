@@ -7,6 +7,22 @@ import type {
   DoctorConsultationHours, DoctorStatus, DoctorStatusLog, DoctorDayOverride,
   DoctorAvailability,
 } from '@fadl/types';
+import type { paths as DoctorPaths } from '@/types/api/doctor';
+
+// ── §4.6 contract drift check ────────────────────────────────────────────────
+// The generated contract (src/types/api/doctor.ts, regenerated from the
+// service's exported OpenAPI spec) must keep providing every field the shared
+// Doctor/Specialty types promise. OpenAPI expresses optionality as `| null`,
+// TS as `?`/undefined — NoNulls bridges that; everything else (renamed/removed
+// fields, changed primitives, widened enums) fails type-check right here.
+type ContractDoctor =
+  DoctorPaths['/api/v1/doctors']['get']['responses'][200]['content']['application/json']['data'][number];
+type ContractSpecialty =
+  DoctorPaths['/api/v1/specialties']['get']['responses'][200]['content']['application/json']['data'][number];
+type NoNulls<T> = { [K in keyof T]: Exclude<T[K], null> };
+type AssertAssignable<A extends B, B> = A;
+type _DoctorContractCheck = AssertAssignable<NoNulls<ContractDoctor>, Doctor>;
+type _SpecialtyContractCheck = AssertAssignable<NoNulls<ContractSpecialty>, Specialty>;
 
 export function useDoctors(params: { isActive?: boolean; limit?: number } = {}) {
   return useQuery({

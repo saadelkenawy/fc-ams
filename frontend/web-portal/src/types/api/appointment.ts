@@ -65,7 +65,58 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: {
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: uuid */
+                                patientId: string;
+                                /** Format: uuid */
+                                doctorId: string;
+                                specialtyId: number;
+                                appointmentDate: string;
+                                startTime: string;
+                                endTime: string;
+                                timeZone: string;
+                                /** @enum {string} */
+                                status: "TBC" | "Ok!" | "Conf." | "Comp." | "Canc." | "Resch." | "Inf." | "Ref.";
+                                /** @enum {string} */
+                                appointmentType: "in_person" | "online" | "walk_in";
+                                isOnline: boolean;
+                                isOverbooked: boolean;
+                                /** @enum {string} */
+                                patientSource: "Cl.'s" | "Dr.'s" | "VEZ" | "Ex-VEZ" | "EKF" | "Ex-EKF" | "DO" | "Ex-DO" | "SHL";
+                                /** @enum {string|null} */
+                                paymentMethod?: "cash" | "visa" | "instapay" | null;
+                                procedureId?: string | null;
+                                approvedCharge?: number | null;
+                                procedureCost?: number | null;
+                                queueNumber?: number | null;
+                                checkedInAt?: string | null;
+                                checkedOutAt?: string | null;
+                                roomId?: string | null;
+                                roomCode?: string | null;
+                                roomAssignedAt?: string | null;
+                                waitingTimeMinutes?: number | null;
+                                originalAppointmentId?: string | null;
+                                rescheduleCount: number;
+                                idempotencyKey?: string | null;
+                                version: number;
+                                deletedAt?: string | null;
+                                notes?: string | null;
+                                createdBy?: string | null;
+                                createdAt: string;
+                                updatedAt: string;
+                                branchId: number;
+                            }[];
+                            total: number;
+                            page: number;
+                            limit: number;
+                            totalPages: number;
+                        };
+                    };
                 };
             };
         };
@@ -180,7 +231,54 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: {
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: uuid */
+                                patientId: string;
+                                /** Format: uuid */
+                                doctorId: string;
+                                specialtyId: number;
+                                appointmentDate: string;
+                                startTime: string;
+                                endTime: string;
+                                timeZone: string;
+                                /** @enum {string} */
+                                status: "TBC" | "Ok!" | "Conf." | "Comp." | "Canc." | "Resch." | "Inf." | "Ref.";
+                                /** @enum {string} */
+                                appointmentType: "in_person" | "online" | "walk_in";
+                                isOnline: boolean;
+                                isOverbooked: boolean;
+                                /** @enum {string} */
+                                patientSource: "Cl.'s" | "Dr.'s" | "VEZ" | "Ex-VEZ" | "EKF" | "Ex-EKF" | "DO" | "Ex-DO" | "SHL";
+                                /** @enum {string|null} */
+                                paymentMethod?: "cash" | "visa" | "instapay" | null;
+                                procedureId?: string | null;
+                                approvedCharge?: number | null;
+                                procedureCost?: number | null;
+                                queueNumber?: number | null;
+                                checkedInAt?: string | null;
+                                checkedOutAt?: string | null;
+                                roomId?: string | null;
+                                roomCode?: string | null;
+                                roomAssignedAt?: string | null;
+                                waitingTimeMinutes?: number | null;
+                                originalAppointmentId?: string | null;
+                                rescheduleCount: number;
+                                idempotencyKey?: string | null;
+                                version: number;
+                                deletedAt?: string | null;
+                                notes?: string | null;
+                                createdBy?: string | null;
+                                createdAt: string;
+                                updatedAt: string;
+                                branchId: number;
+                            };
+                        };
+                    };
                 };
             };
         };

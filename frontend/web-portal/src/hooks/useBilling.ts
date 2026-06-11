@@ -1,6 +1,20 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { billingApi } from '@/lib/api';
 import type { FinancialTransaction, DoctorSettlement, PaginatedResponse } from '@fadl/types';
+import type { paths as BillingPaths } from '@/types/api/billing';
+
+// ── §4.6 contract drift check ────────────────────────────────────────────────
+// The generated contract (src/types/api/billing.ts, regenerated from the
+// service's exported OpenAPI spec) must keep providing every field the shared
+// FinancialTransaction type promises. OpenAPI expresses optionality as
+// `| null`, TS as `?`/undefined — NoNulls bridges that; everything else
+// (renamed/removed fields, changed primitives, widened enums) fails
+// type-check right here.
+type ContractTransaction =
+  BillingPaths['/api/v1/transactions']['get']['responses'][200]['content']['application/json']['data'][number];
+type NoNulls<T> = { [K in keyof T]: Exclude<T[K], null> };
+type AssertAssignable<A extends B, B> = A;
+type _TransactionContractCheck = AssertAssignable<NoNulls<ContractTransaction>, FinancialTransaction>;
 
 export interface TransactionListParams {
   status?: string;

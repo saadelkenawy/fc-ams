@@ -11,6 +11,52 @@ const idParam = {
   required: ['id'],
 };
 
+// Response schema for an Appointment (§4.6 contract). Must list EVERY field the
+// repository returns — fastify serializes responses per schema and silently
+// drops anything missing here. Keep in sync with @fadl/types Appointment.
+// Status enum matches the DB CHECK (V010) which includes 'Ref.'; the request
+// STATUS_ENUM above deliberately excludes it (refund flow sets it internally).
+const appointmentSchema = {
+  type: 'object',
+  properties: {
+    id: { type: 'string', format: 'uuid' },
+    patientId: { type: 'string', format: 'uuid' },
+    doctorId: { type: 'string', format: 'uuid' },
+    specialtyId: { type: 'integer' },
+    appointmentDate: { type: 'string' },
+    startTime: { type: 'string' },
+    endTime: { type: 'string' },
+    timeZone: { type: 'string' },
+    status: { type: 'string', enum: ['TBC', 'Ok!', 'Conf.', 'Comp.', 'Canc.', 'Resch.', 'Inf.', 'Ref.'] },
+    appointmentType: { type: 'string', enum: ['in_person', 'online', 'walk_in'] },
+    isOnline: { type: 'boolean' },
+    isOverbooked: { type: 'boolean' },
+    patientSource: { type: 'string', enum: ["Cl.'s", "Dr.'s", 'VEZ', 'Ex-VEZ', 'EKF', 'Ex-EKF', 'DO', 'Ex-DO', 'SHL'] },
+    paymentMethod: { type: 'string', enum: ['cash', 'visa', 'instapay'], nullable: true },
+    procedureId: { type: 'string', nullable: true },
+    approvedCharge: { type: 'number', nullable: true },
+    procedureCost: { type: 'number', nullable: true },
+    queueNumber: { type: 'integer', nullable: true },
+    checkedInAt: { type: 'string', nullable: true },
+    checkedOutAt: { type: 'string', nullable: true },
+    roomId: { type: 'string', nullable: true },
+    roomCode: { type: 'string', nullable: true },
+    roomAssignedAt: { type: 'string', nullable: true },
+    waitingTimeMinutes: { type: 'integer', nullable: true },
+    originalAppointmentId: { type: 'string', nullable: true },
+    rescheduleCount: { type: 'integer' },
+    idempotencyKey: { type: 'string', nullable: true },
+    version: { type: 'integer' },
+    deletedAt: { type: 'string', nullable: true },
+    notes: { type: 'string', nullable: true },
+    createdBy: { type: 'string', nullable: true },
+    createdAt: { type: 'string' },
+    updatedAt: { type: 'string' },
+    branchId: { type: 'integer' },
+  },
+  required: ['id', 'patientId', 'doctorId', 'specialtyId', 'appointmentDate', 'startTime', 'endTime', 'timeZone', 'status', 'appointmentType', 'isOnline', 'isOverbooked', 'patientSource', 'rescheduleCount', 'version', 'createdAt', 'updatedAt', 'branchId'],
+} as const;
+
 export async function appointmentRoutes(app: FastifyInstance): Promise<void> {
   // All routes require authentication
   app.addHook('onRequest', requireAuth);
@@ -28,6 +74,20 @@ export async function appointmentRoutes(app: FastifyInstance): Promise<void> {
           status:    { type: 'string', enum: STATUS_ENUM },
           page:      { type: 'integer', minimum: 1, default: 1 },
           limit:     { type: 'integer', minimum: 1, maximum: 100, default: 20 },
+        },
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            data: { type: 'array', items: appointmentSchema },
+            total: { type: 'integer' },
+            page: { type: 'integer' },
+            limit: { type: 'integer' },
+            totalPages: { type: 'integer' },
+          },
+          required: ['success', 'data', 'total', 'page', 'limit', 'totalPages'],
         },
       },
     },
@@ -53,6 +113,13 @@ export async function appointmentRoutes(app: FastifyInstance): Promise<void> {
     schema: {
       tags: ['appointments'],
       params: idParam,
+      response: {
+        200: {
+          type: 'object',
+          properties: { success: { type: 'boolean' }, data: appointmentSchema },
+          required: ['success', 'data'],
+        },
+      },
     },
   }, ctrl.getAppointment);
 

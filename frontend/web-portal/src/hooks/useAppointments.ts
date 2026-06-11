@@ -1,6 +1,19 @@
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { appointmentApi } from '@/lib/api';
 import type { Appointment, AppointmentStatus, PaginatedResponse } from '@fadl/types';
+import type { paths as AppointmentPaths } from '@/types/api/appointment';
+
+// ── §4.6 contract drift check ────────────────────────────────────────────────
+// The generated contract (src/types/api/appointment.ts, regenerated from the
+// service's exported OpenAPI spec) must keep providing every field the shared
+// Appointment type promises. OpenAPI expresses optionality as `| null`, TS as
+// `?`/undefined — NoNulls bridges that; everything else (renamed/removed
+// fields, changed primitives, widened enums) fails type-check right here.
+type ContractAppointment =
+  AppointmentPaths['/api/v1/appointments']['get']['responses'][200]['content']['application/json']['data'][number];
+type NoNulls<T> = { [K in keyof T]: Exclude<T[K], null> };
+type AssertAssignable<A extends B, B> = A;
+type _AppointmentContractCheck = AssertAssignable<NoNulls<ContractAppointment>, Appointment>;
 
 export interface AppointmentListParams {
   date?: string;

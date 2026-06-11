@@ -477,3 +477,24 @@ Playwright 29/29 on both the baseline-update and the verification pass (1 login 
 
 ### 14.4 Remaining backlog (opportunistic)
 §3.7 query review under load, CSS splitting (§5.3), §5.5 polish, Alertmanager receiver, partition retention/archival, secret manager (Vault), response schemas + drift checks for the remaining services' hooks.
+
+## 15. Phase 8 — Typed contracts for doctor / appointment / billing — IMPLEMENTED (2026-06-12)
+
+### 15.1 Response schemas (§4.6 continued — core read paths)
+Extended the Phase-7 patient-service pattern to the three most-consumed portal data paths:
+- **doctor-service**: `GET /doctors` (paginated), `GET /doctors/:id`, `GET /specialties` — `doctorSchema` carries all 17 `@fadl/types Doctor` fields including the nested `revenueSplits` object (`consultation`/`operative`/`online` × `doctorPercentage`/`clinicPercentage`) and the `paymentMethod` enum (5 values); `specialtySchema` all 6 Specialty fields.
+- **appointment-service**: `GET /appointments` (paginated), `GET /appointments/:id` — `appointmentSchema` carries all 32 Appointment fields. **Status enum is the full 8-value DB CHECK set including `Ref.`** (V010); the request-side `STATUS_ENUM` deliberately omits `Ref.` (set internally by the refund flow). `patientSource` carries the exact 9-value union, `appointmentType` the 3-value `@fadl/types` union.
+- **billing-service**: `GET /transactions` (paginated), `GET /transactions/:id` — `transactionSchema` carries all 35 FinancialTransaction fields with `paymentStatus` (6), `currencyCode` (5) and `visitType` (3) enums.
+
+Drift found en route (left as-is, documented): the appointment **create/update body** enums allow `home_visit`, which exists nowhere else — not in `@fadl/types AppointmentType`, not in the portal, no DB CHECK on `appointment_type`. The response schema follows `@fadl/types` (3 values); removing `home_visit` from the body enum would be an API behaviour change and is deferred.
+
+### 15.2 Portal drift checks
+`useDoctors.ts` (Doctor + Specialty), `useAppointments.ts` (Appointment) and `useBilling.ts` (FinancialTransaction) now carry the same compile-time check as `usePatients.ts`: `AssertAssignable<NoNulls<Contract…>, …>` against the regenerated `src/types/api/{doctor,appointment,billing}.ts`. Renaming/removing a field, widening an enum, or forgetting a `required` entry in any of the three services now fails portal `tsc`.
+
+### 15.3 Verified
+- All three services `tsc --build` clean; images rebuilt + containers force-recreated; live specs re-exported (12/12 ok) and contract types regenerated; portal `tsc --noEmit` clean with all four drift checks active on first pass.
+- Live field check against real rows: doctor 16/17 (only `deletedAt` absent — undefined on non-deleted rows), specialty 6/6, appointment 29/32, transaction 31/35 — every absent field is an optional the mapper emits as `undefined` when NULL (fastify drops undefined; `nullable: true` fields pass `null` through). Envelopes intact (`success/data/total/page/limit/totalPages`).
+- vitest: appointment 14/14, billing 6/6, portal 11/11; Playwright visual suite re-run against the rebuilt services (doctors/appointments/billing pages render from the schema-gated endpoints).
+
+### 15.4 Remaining backlog (opportunistic)
+§3.7 query review under load, CSS splitting (§5.3), §5.5 polish, Alertmanager receiver, partition retention/archival, secret manager (Vault), response schemas for the remaining services (ehr encounters, procedure, identity users, queue/rooms sub-resources), `home_visit` body-enum cleanup.

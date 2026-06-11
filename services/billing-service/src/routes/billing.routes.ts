@@ -10,6 +10,52 @@ const idParam = {
 
 const STATUS_ENUM = ['pending', 'verified', 'approved', 'paid', 'reconciled', 'refunded'];
 
+// Response schema for a FinancialTransaction (§4.6 contract). Must list EVERY
+// field the repository returns — fastify serializes responses per schema and
+// silently drops anything missing here. Keep in sync with @fadl/types
+// FinancialTransaction.
+const transactionSchema = {
+  type: 'object',
+  properties: {
+    id: { type: 'string', format: 'uuid' },
+    idempotencyKey: { type: 'string' },
+    appointmentId: { type: 'string', nullable: true },
+    patientId: { type: 'string' },
+    doctorId: { type: 'string', nullable: true },
+    procedureId: { type: 'string', nullable: true },
+    patientSource: { type: 'string' },
+    sourceFeePercentage: { type: 'number' },
+    sourceFeeAmount: { type: 'number' },
+    approvedCharge: { type: 'number' },
+    procedureCost: { type: 'number', nullable: true },
+    grossRevenue: { type: 'number' },
+    splitDoctorPercentage: { type: 'number' },
+    splitClinicPercentage: { type: 'number' },
+    doctorShare: { type: 'number' },
+    clinicShare: { type: 'number' },
+    paymentMethod: { type: 'string', nullable: true },
+    paymentStatus: { type: 'string', enum: STATUS_ENUM },
+    checkInAmount: { type: 'number', nullable: true },
+    checkOutAmount: { type: 'number', nullable: true },
+    isRefund: { type: 'boolean' },
+    originalTransactionId: { type: 'string', nullable: true },
+    refundReason: { type: 'string', nullable: true },
+    settledAt: { type: 'string', nullable: true },
+    settledBy: { type: 'string', nullable: true },
+    settlementReference: { type: 'string', nullable: true },
+    currencyCode: { type: 'string', enum: ['EGP', 'USD', 'EUR', 'SAR', 'AED'] },
+    exchangeRate: { type: 'number' },
+    vatRate: { type: 'number' },
+    vatAmount: { type: 'number' },
+    createdAt: { type: 'string' },
+    createdBy: { type: 'string', nullable: true },
+    transactionDate: { type: 'string' },
+    branchId: { type: 'integer' },
+    visitType: { type: 'string', enum: ['consultation', 'operative', 'online'], nullable: true },
+  },
+  required: ['id', 'idempotencyKey', 'patientId', 'patientSource', 'sourceFeePercentage', 'sourceFeeAmount', 'approvedCharge', 'grossRevenue', 'splitDoctorPercentage', 'splitClinicPercentage', 'doctorShare', 'clinicShare', 'paymentStatus', 'isRefund', 'currencyCode', 'exchangeRate', 'vatRate', 'vatAmount', 'createdAt', 'transactionDate', 'branchId'],
+} as const;
+
 export async function billingRoutes(app: FastifyInstance): Promise<void> {
   app.addHook('onRequest', requireAuth);
 
@@ -31,13 +77,37 @@ export async function billingRoutes(app: FastifyInstance): Promise<void> {
           limit:         { type: 'integer', minimum: 1, maximum: 500, default: 20 },
         },
       },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            data: { type: 'array', items: transactionSchema },
+            total: { type: 'integer' },
+            page: { type: 'integer' },
+            limit: { type: 'integer' },
+            totalPages: { type: 'integer' },
+          },
+          required: ['success', 'data', 'total', 'page', 'limit', 'totalPages'],
+        },
+      },
     },
   }, ctrl.listTransactions);
 
   // GET /transactions/:id
   app.get('/transactions/:id', {
     preHandler: [requireRole('admin', 'finance', 'doctor', 'receptionist')],
-    schema: { tags: ['billing'], params: idParam },
+    schema: {
+      tags: ['billing'],
+      params: idParam,
+      response: {
+        200: {
+          type: 'object',
+          properties: { success: { type: 'boolean' }, data: transactionSchema },
+          required: ['success', 'data'],
+        },
+      },
+    },
   }, ctrl.getTransaction);
 
   // POST /transactions
