@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { procedureApi } from '@/lib/api';
+import type { paths as ProcedurePaths } from '@/types/api/procedure';
 
 export interface Procedure {
   id: string;
@@ -26,6 +27,17 @@ export interface ProcedurePayload {
   requiresPreAuth: boolean;
   isActive: boolean;
 }
+
+// ── §4.6 contract drift check ────────────────────────────────────────────────
+// The generated contract (src/types/api/procedure.ts, regenerated from the
+// service's exported OpenAPI spec) must keep providing every field the local
+// Procedure type promises. OpenAPI expresses optionality as `| null`, TS as
+// `?`/undefined — NoNulls bridges that; everything else fails type-check here.
+type ContractProcedure =
+  ProcedurePaths['/api/v1/procedures']['get']['responses'][200]['content']['application/json']['data'][number];
+type NoNulls<T> = { [K in keyof T]: Exclude<T[K], null> };
+type AssertAssignable<A extends B, B> = A;
+type _ProcedureContractCheck = AssertAssignable<NoNulls<ContractProcedure>, Procedure>;
 
 export function useProcedures(params: {
   specialtyId?: number;

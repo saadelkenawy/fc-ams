@@ -3,11 +3,12 @@
 import { useState } from 'react';
 import { Settings, Save } from 'lucide-react';
 import { useRooms, useRoomStats, useUpdateRoom } from '@/hooks/useRooms';
+import { useDoctorMap } from '@/hooks/useDoctors';
 import { Button } from '@/components/ui/Button';
 import type { RoomDetail } from '@fadl/types';
 
 function RoomSettingsRow({ room }: { room: RoomDetail }) {
-  const [name, setName] = useState(room.roomName);
+  const [name, setName] = useState(room.nameEn);
   const [floor, setFloor] = useState<string>(room.floor?.toString() ?? '');
   const [desc, setDesc] = useState(room.description ?? '');
   const [active, setActive] = useState(room.isActive);
@@ -16,6 +17,7 @@ function RoomSettingsRow({ room }: { room: RoomDetail }) {
   const update = useUpdateRoom();
 
   async function handleSave() {
+    if (!room.roomCode) return; // rooms without a code can't be addressed by the settings API
     await update.mutateAsync({
       roomCode: room.roomCode,
       roomName: name,
@@ -87,6 +89,7 @@ function RoomSettingsRow({ room }: { room: RoomDetail }) {
 
 function StatsSection() {
   const { data: stats = [] } = useRoomStats();
+  const doctorMap = useDoctorMap();
   if (!stats.length) return null;
   return (
     <div className="flex flex-col gap-3">
@@ -97,7 +100,7 @@ function StatsSection() {
             <span className="text-base font-bold text-white">{s.roomCode}</span>
             <span className="text-xs text-slate-400">Today: {s.appointmentsToday}</span>
             <span className="text-xs text-slate-400">Avg/day: {s.avgOccupancyThisMonth}</span>
-            {s.topDoctorNameEn && <span className="text-xs text-slate-500 truncate">{s.topDoctorNameEn}</span>}
+            {s.topDoctorId && <span className="text-xs text-slate-500 truncate">{doctorMap.get(s.topDoctorId)?.nameEn}</span>}
           </div>
         ))}
       </div>

@@ -130,6 +130,7 @@ function NextPatientModal({
   const nextPatient = useNextPatient();
 
   async function handleConfirm() {
+    if (!room.roomCode) return; // rooms without a code can't be addressed by the API
     try {
       await nextPatient.mutateAsync({ roomCode: room.roomCode, appointmentId: currentEntry.appointmentId });
       onClose();
@@ -258,7 +259,7 @@ function RoomCard({
               </span>
               <div>
                 <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm leading-tight">
-                  {room.roomName}{room.floor != null ? ` · Floor ${room.floor}` : ''}
+                  {room.nameEn}{room.floor != null ? ` · Floor ${room.floor}` : ''}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                   {doctorName ?? t('لا يوجد طبيب', 'No doctor assigned')}
@@ -650,7 +651,7 @@ function AssignDoctorModal({ room, initialDate, onClose }: { room: RoomDetail; i
         <div>
           <span className={labelCls}>Room</span>
           <div className="px-3 py-2 rounded-lg bg-gray-50 dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 text-gray-900 dark:text-gray-100 text-sm">
-            {room.roomCode}: {room.roomName}
+            {room.roomCode}: {room.nameEn}
           </div>
         </div>
 
@@ -776,6 +777,7 @@ function ReleaseConfirmModal({ room, onClose }: { room: RoomDetail; onClose: () 
       }
       if (!valid) { setPwError('Incorrect password. Release cancelled.'); return; }
     }
+    if (!room.roomCode) return; // rooms without a code can't be addressed by the API
     try {
       await release.mutateAsync({ roomCode: room.roomCode });
       onClose();

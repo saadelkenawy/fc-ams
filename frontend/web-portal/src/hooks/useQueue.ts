@@ -2,6 +2,24 @@ import { useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { appointmentApi } from '@/lib/api';
 import type { PatientQueueEntry, QueueStats, QueueCancelPreview, ApiResponse } from '@fadl/types';
+import type { paths as AppointmentPaths } from '@/types/api/appointment';
+
+// ── §4.6 contract drift check ────────────────────────────────────────────────
+// The generated contract (src/types/api/appointment.ts) must keep providing
+// every field the shared queue types promise. OpenAPI expresses optionality as
+// `| null`, TS as `?`/undefined — NoNulls bridges that; everything else fails
+// type-check right here.
+type ContractQueueEntry =
+  AppointmentPaths['/api/v1/queue']['get']['responses'][200]['content']['application/json']['data'][number];
+type ContractQueueStats =
+  AppointmentPaths['/api/v1/queue/stats']['get']['responses'][200]['content']['application/json']['data'];
+type ContractCancelPreview =
+  AppointmentPaths['/api/v1/queue/{id}/cancel-preview']['get']['responses'][200]['content']['application/json']['data'];
+type NoNulls<T> = { [K in keyof T]: Exclude<T[K], null> };
+type AssertAssignable<A extends B, B> = A;
+type _QueueEntryContractCheck = AssertAssignable<NoNulls<ContractQueueEntry>, PatientQueueEntry>;
+type _QueueStatsContractCheck = AssertAssignable<NoNulls<ContractQueueStats>, QueueStats>;
+type _CancelPreviewContractCheck = AssertAssignable<NoNulls<ContractCancelPreview>, QueueCancelPreview>;
 
 const TODAY = () => new Date().toISOString().split('T')[0];
 

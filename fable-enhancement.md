@@ -498,3 +498,26 @@ Drift found en route (left as-is, documented): the appointment **create/update b
 
 ### 15.4 Remaining backlog (opportunistic)
 §3.7 query review under load, CSS splitting (§5.3), §5.5 polish, Alertmanager receiver, partition retention/archival, secret manager (Vault), response schemas for the remaining services (ehr encounters, procedure, identity users, queue/rooms sub-resources), `home_visit` body-enum cleanup.
+
+## 16. Phase 9 — Contracts rollout completed (ehr/procedure/queue/rooms/sources) + room type realignment — IMPLEMENTED (2026-06-12)
+
+### 16.1 Response schemas (§4.6 — remaining portal read paths)
+- **ehr-service**: `GET /encounters` (+ `/patients/:patientId/encounters`, same envelope `{success,data,total,page,limit}` — no totalPages) and `GET /encounters/:id` — `encounterSchema` carries all 25 repository fields; `vitalSigns` keeps free-form keys via `additionalProperties: true`; the `unknown[]` arrays (`diagnosisSecondary`/`prescriptions`/`labOrders`) use unconstrained `items: {}`.
+- **procedure-service**: `GET /procedures` (+ `/:id`) — all 16 fields with the 6-value `procedureType` enum.
+- **appointment-service**: `GET /queue` (+ `/:id`, `/stats`, `/:id/cancel-preview`) — PatientQueueEntry (20 fields, 6-value status enum), QueueStats, QueueCancelPreview; `GET /rooms` (+ `/availability`, `/stats`) — RoomDetail incl. the nullable nested `assignedDoctor` object.
+- **billing-service**: `GET /sources` — SourceFeeRule (13 fields incl. nested `specialtyRates`).
+
+### 16.2 Room types realigned to reality (drift found by this work)
+`@fadl/types` room.ts was fiction: the service returns `{id: number, code, roomCode: string|null, nameEn, nameAr, roomType, floor, description, isActive, branchId}` — not `{id: string, roomCode, roomName, …}`. The shared `ClinicRoom`/`RoomDetail`/`RoomAssignment`/`AssignRoomResult`/`RoomStats` now mirror the repository shapes (assignedDoctor.doctorStatus and RoomStats.topDoctorNameEn removed — the service never sends them). **Two live portal bugs surfaced and fixed**: (1) the room board and room settings page rendered `room.roomName` = `undefined` (now `nameEn`; the PATCH body still sends `roomName` — the service maps it to `name_en`); (2) the room-stats "top doctor" label never displayed (server sends `topDoctorId` only — now resolved client-side via `useDoctorMap`). `roomCode` is honestly `string | null` (DB column is nullable VARCHAR(10)); portal mutation sites guard null.
+
+### 16.3 home_visit body-enum cleanup
+`home_visit` removed from the appointment create/update body enums — it existed nowhere else (no @fadl/types member, no portal usage, no DB CHECK). Response and request enums for appointmentType now agree: `in_person | online | walk_in`.
+
+### 16.4 Drift checks — full coverage
+`useQueue` (PatientQueueEntry, QueueStats, QueueCancelPreview), `useRooms` (RoomDetail, RoomStats), `useEncounters`, `useProcedures`, `useSources` join the Phase 7/8 checks — 9 hooks now fail portal `tsc` on any contract regression across patient, doctor, appointment, billing, ehr, and procedure services.
+
+### 16.5 Verified
+Four services rebuilt + recreated; specs re-exported and contract types regenerated; portal `tsc --noEmit` clean with all drift checks on first pass. Live field checks: encounters 25/25, procedures 15/16 (`deletedAt` undefined on live rows), rooms 15/15, room-stats 4/4, sources 13/13, queue-stats 9/9 (queue list empty that day — entry schema exercised by integration tests). vitest: appointment 14/14, billing 6/6, portal 11/11. Web-portal image rebuilt (frontend fixes are runtime); Playwright 29/29 with no baseline churn (RoomStatusBoard isn't on a snapshotted page).
+
+### 16.6 Remaining backlog (opportunistic)
+§3.7 query review under load, CSS splitting (§5.3), §5.5 polish, Alertmanager receiver, partition retention/archival, secret manager (Vault), response schemas for identity users + notification/file/procurement if the portal grows reads there.

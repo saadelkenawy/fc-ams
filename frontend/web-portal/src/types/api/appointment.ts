@@ -144,7 +144,7 @@ export interface paths {
                          * @default in_person
                          * @enum {string}
                          */
-                        appointmentType?: "in_person" | "online" | "home_visit" | "walk_in";
+                        appointmentType?: "in_person" | "online" | "walk_in";
                         /** @default false */
                         isOnline?: boolean;
                         patientSource?: string;
@@ -333,7 +333,7 @@ export interface paths {
                         startTime?: string;
                         endTime?: string;
                         /** @enum {string} */
-                        appointmentType?: "in_person" | "online" | "home_visit" | "walk_in";
+                        appointmentType?: "in_person" | "online" | "walk_in";
                         patientSource?: string;
                         /** @enum {string|null} */
                         paymentMethod?: "cash" | "visa" | "instapay" | null;
@@ -575,7 +575,38 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: {
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: uuid */
+                                appointmentId: string;
+                                /** Format: uuid */
+                                doctorId: string;
+                                /** Format: uuid */
+                                patientId: string;
+                                queueDate: string;
+                                position: number;
+                                originalPosition?: number | null;
+                                /** @enum {string} */
+                                status: "waiting" | "called" | "in_session" | "completed" | "cancelled" | "no_show";
+                                checkedInAt: string;
+                                calledAt?: string | null;
+                                cancelledAt?: string | null;
+                                cancelReason?: string | null;
+                                rejoinedAt?: string | null;
+                                rejoinPosition?: number | null;
+                                sessionStart?: string | null;
+                                sessionEnd?: string | null;
+                                estimatedWaitMinutes?: number | null;
+                                branchId: number;
+                                createdAt: string;
+                                updatedAt: string;
+                            }[];
+                        };
+                    };
                 };
             };
         };
@@ -611,7 +642,23 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: {
+                                /** Format: uuid */
+                                doctorId: string;
+                                queueDate: string;
+                                waiting: number;
+                                called: number;
+                                inSession: number;
+                                completed: number;
+                                cancelled: number;
+                                avgSessionMinutes: number;
+                                estimatedWaitForNext: number;
+                            };
+                        };
+                    };
                 };
             };
         };
@@ -646,7 +693,38 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: {
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: uuid */
+                                appointmentId: string;
+                                /** Format: uuid */
+                                doctorId: string;
+                                /** Format: uuid */
+                                patientId: string;
+                                queueDate: string;
+                                position: number;
+                                originalPosition?: number | null;
+                                /** @enum {string} */
+                                status: "waiting" | "called" | "in_session" | "completed" | "cancelled" | "no_show";
+                                checkedInAt: string;
+                                calledAt?: string | null;
+                                cancelledAt?: string | null;
+                                cancelReason?: string | null;
+                                rejoinedAt?: string | null;
+                                rejoinPosition?: number | null;
+                                sessionStart?: string | null;
+                                sessionEnd?: string | null;
+                                estimatedWaitMinutes?: number | null;
+                                branchId: number;
+                                createdAt: string;
+                                updatedAt: string;
+                            };
+                        };
+                    };
                 };
             };
         };
@@ -840,7 +918,16 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: {
+                                cancelledPosition: number;
+                                newEndPosition: number;
+                                patientsToShift: number;
+                            };
+                        };
+                    };
                 };
             };
         };
@@ -976,7 +1063,36 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: {
+                                id: number;
+                                code: string;
+                                roomCode: string | null;
+                                nameEn: string;
+                                nameAr: string | null;
+                                roomType: string;
+                                floor: number | null;
+                                description: string | null;
+                                isActive: boolean;
+                                branchId: number;
+                                /** @enum {string} */
+                                status: "available" | "reserved" | "occupied" | "inactive";
+                                assignedDoctor: {
+                                    id: string;
+                                    nameEn: string | null;
+                                    nameAr: string | null;
+                                    specialtyNameEn: string | null;
+                                    assignedFrom: string | null;
+                                    assignedUntil: string | null;
+                                } | null;
+                                assignmentId: string | null;
+                                appointmentsToday: number;
+                                appointmentsRemaining: number;
+                            }[];
+                        };
+                    };
                 };
             };
         };
@@ -1011,7 +1127,16 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: {
+                                roomCode: string | null;
+                                /** @enum {string} */
+                                status: "available" | "reserved" | "occupied" | "inactive";
+                            }[];
+                        };
+                    };
                 };
             };
         };
@@ -1044,7 +1169,17 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: {
+                                roomCode: string;
+                                appointmentsToday: number;
+                                avgOccupancyThisMonth: number;
+                                topDoctorId?: string | null;
+                            }[];
+                        };
+                    };
                 };
             };
         };

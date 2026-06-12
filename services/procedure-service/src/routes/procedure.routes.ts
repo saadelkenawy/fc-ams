@@ -2,6 +2,33 @@ import { FastifyInstance } from 'fastify';
 import { requireAuth, requireRole } from '../middleware/auth';
 import * as ctrl from '../controllers/procedure.controller';
 
+// Response schema for a Procedure (§4.6 contract). Must list EVERY field the
+// repository returns — fastify serializes responses per schema and silently
+// drops anything missing here. Keep in sync with the repository's Procedure
+// interface (and the portal's local Procedure type in useProcedures.ts).
+const procedureSchema = {
+  type: 'object',
+  properties: {
+    id: { type: 'string', format: 'uuid' },
+    code: { type: 'string' },
+    nameEn: { type: 'string' },
+    nameAr: { type: 'string', nullable: true },
+    procedureType: { type: 'string', enum: ['consultation', 'follow_up', 'operative', 'settling_fee', 'lab_test', 'imaging'] },
+    specialtyId: { type: 'integer' },
+    basePrice: { type: 'number' },
+    durationMinutes: { type: 'integer' },
+    requiresPreAuth: { type: 'boolean' },
+    notes: { type: 'string', nullable: true },
+    isActive: { type: 'boolean' },
+    deletedAt: { type: 'string', nullable: true },
+    version: { type: 'integer' },
+    createdAt: { type: 'string' },
+    updatedAt: { type: 'string' },
+    branchId: { type: 'integer' },
+  },
+  required: ['id', 'code', 'nameEn', 'procedureType', 'specialtyId', 'basePrice', 'durationMinutes', 'requiresPreAuth', 'isActive', 'version', 'createdAt', 'updatedAt', 'branchId'],
+} as const;
+
 export async function procedureRoutes(app: FastifyInstance): Promise<void> {
   app.addHook('onRequest', requireAuth);
 
@@ -19,6 +46,20 @@ export async function procedureRoutes(app: FastifyInstance): Promise<void> {
           limit: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
         },
       },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            data: { type: 'array', items: procedureSchema },
+            total: { type: 'integer' },
+            page: { type: 'integer' },
+            limit: { type: 'integer' },
+            totalPages: { type: 'integer' },
+          },
+          required: ['success', 'data', 'total', 'page', 'limit', 'totalPages'],
+        },
+      },
     },
   }, ctrl.listProcedures);
 
@@ -26,6 +67,13 @@ export async function procedureRoutes(app: FastifyInstance): Promise<void> {
     schema: {
       tags: ['procedures'],
       params: { type: 'object', properties: { id: { type: 'string', format: 'uuid' } }, required: ['id'] },
+      response: {
+        200: {
+          type: 'object',
+          properties: { success: { type: 'boolean' }, data: procedureSchema },
+          required: ['success', 'data'],
+        },
+      },
     },
   }, ctrl.getProcedure);
 

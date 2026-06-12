@@ -1,48 +1,52 @@
-import type { DoctorStatus } from './doctor';
-
 export type RoomAssignmentStatus = 'reserved' | 'active' | 'released' | 'cancelled';
 
+export type RoomStatus = 'available' | 'reserved' | 'occupied' | 'inactive';
+
+// Mirrors appointment-service room.repository RoomRow — the shape GET /rooms
+// actually returns (numeric serial id; display name is nameEn/nameAr, not
+// "roomName"; the PATCH /rooms/:roomCode/settings *body* still accepts
+// `roomName`, which the service maps to name_en).
 export interface ClinicRoom {
-  id: string;
-  roomCode: string;
-  roomName: string;
-  floor?: number;
-  description?: string;
+  id: number;
+  code: string;
+  roomCode: string | null;
+  nameEn: string;
+  nameAr: string | null;
+  roomType: string;
+  floor: number | null;
+  description: string | null;
   isActive: boolean;
   branchId: number;
-  createdAt: string;
 }
 
+// Mirrors appointment-service RoomAssignmentRow.
 export interface RoomAssignment {
   id: string;
-  roomId: string;
+  roomId: number;
   doctorId: string;
   assignedDate: string;
   assignedFrom: string;
   assignedUntil: string;
-  assignedBy?: string;
+  assignedBy: string | null;
   assignedAt: string;
   status: RoomAssignmentStatus;
-  releasedAt?: string;
+  releasedAt: string | null;
   branchId: number;
-  createdAt: string;
-  updatedAt: string;
 }
-
-export type RoomStatus = 'available' | 'reserved' | 'occupied' | 'inactive';
 
 export interface RoomDetail extends ClinicRoom {
   status: RoomStatus;
   assignedDoctor: {
     id: string;
-    nameEn?: string;
-    nameAr?: string;
-    specialtyNameEn?: string;
-    doctorStatus?: DoctorStatus;
+    nameEn: string | null;
+    nameAr: string | null;
+    specialtyNameEn: string | null;
+    assignedFrom: string | null;
+    assignedUntil: string | null;
   } | null;
+  assignmentId: string | null;
   appointmentsToday: number;
   appointmentsRemaining: number;
-  assignmentId: string | null;
 }
 
 export interface RoomScheduleEntry {
@@ -67,6 +71,7 @@ export interface AssignRoomResult {
   assignment: RoomAssignment;
   roomCode: string;
   roomName: string;
+  roomId: number;
   appointmentsUpdated: number;
 }
 
@@ -75,5 +80,4 @@ export interface RoomStats {
   appointmentsToday: number;
   avgOccupancyThisMonth: number;
   topDoctorId?: string;
-  topDoctorNameEn?: string;
 }

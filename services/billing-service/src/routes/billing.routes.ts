@@ -56,6 +56,38 @@ const transactionSchema = {
   required: ['id', 'idempotencyKey', 'patientId', 'patientSource', 'sourceFeePercentage', 'sourceFeeAmount', 'approvedCharge', 'grossRevenue', 'splitDoctorPercentage', 'splitClinicPercentage', 'doctorShare', 'clinicShare', 'paymentStatus', 'isRefund', 'currencyCode', 'exchangeRate', 'vatRate', 'vatAmount', 'createdAt', 'transactionDate', 'branchId'],
 } as const;
 
+// Response schema for a SourceFeeRule (§4.6 contract). Keep in sync with
+// billing.repository SourceFeeRule (mirrored by the portal's useSources.ts).
+const sourceFeeRuleSchema = {
+  type: 'object',
+  properties: {
+    id: { type: 'integer' },
+    sourceCode: { type: 'string' },
+    sourceNameEn: { type: 'string' },
+    sourceNameAr: { type: 'string' },
+    feeType: { type: 'string', enum: ['percentage', 'fixed'] },
+    feeValue: { type: 'number' },
+    deductFrom: { type: 'string', enum: ['clinic', 'doctor', 'both'] },
+    isGeneral: { type: 'boolean' },
+    isActive: { type: 'boolean' },
+    validFrom: { type: 'string' },
+    validUntil: { type: 'string', nullable: true },
+    specialtyRates: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          specialtyId: { type: 'integer' },
+          feeValue: { type: 'number' },
+        },
+        required: ['specialtyId', 'feeValue'],
+      },
+    },
+    lastModifiedAt: { type: 'string' },
+  },
+  required: ['id', 'sourceCode', 'sourceNameEn', 'sourceNameAr', 'feeType', 'feeValue', 'deductFrom', 'isGeneral', 'isActive', 'validFrom', 'validUntil', 'specialtyRates', 'lastModifiedAt'],
+} as const;
+
 export async function billingRoutes(app: FastifyInstance): Promise<void> {
   app.addHook('onRequest', requireAuth);
 
@@ -226,7 +258,16 @@ export async function billingRoutes(app: FastifyInstance): Promise<void> {
   // ── Source Fee Rules ────────────────────────────────────────────────────────
   app.get('/sources', {
     preHandler: [requireRole('admin', 'finance', 'receptionist')],
-    schema: { tags: ['billing'] },
+    schema: {
+      tags: ['billing'],
+      response: {
+        200: {
+          type: 'object',
+          properties: { success: { type: 'boolean' }, data: { type: 'array', items: sourceFeeRuleSchema } },
+          required: ['success', 'data'],
+        },
+      },
+    },
   }, ctrl.listSourcesHandler);
 
   app.post('/sources', {

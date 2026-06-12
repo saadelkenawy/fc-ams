@@ -66,7 +66,48 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: {
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: uuid */
+                                patientId: string;
+                                appointmentId?: string | null;
+                                /** Format: uuid */
+                                doctorId: string;
+                                specialtyId?: number | null;
+                                encounterDate: string;
+                                /** @enum {string} */
+                                encounterType: "outpatient" | "inpatient" | "emergency" | "telehealth" | "follow_up";
+                                /** @enum {string} */
+                                status: "draft" | "in_progress" | "completed" | "signed_off";
+                                chiefComplaint?: string | null;
+                                historyOfPresentIllness?: string | null;
+                                diagnosisPrimary?: string | null;
+                                diagnosisSecondary: unknown[];
+                                clinicalNotes?: string | null;
+                                vitalSigns: {
+                                    [key: string]: unknown;
+                                };
+                                prescriptions: unknown[];
+                                labOrders: unknown[];
+                                followUpDate?: string | null;
+                                followUpNotes?: string | null;
+                                signedOffBy?: string | null;
+                                signedOffAt?: string | null;
+                                version: number;
+                                createdBy?: string | null;
+                                createdAt: string;
+                                updatedAt: string;
+                                branchId: number;
+                            }[];
+                            total: number;
+                            page: number;
+                            limit: number;
+                        };
+                    };
                 };
             };
         };
@@ -118,7 +159,45 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: {
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: uuid */
+                                patientId: string;
+                                appointmentId?: string | null;
+                                /** Format: uuid */
+                                doctorId: string;
+                                specialtyId?: number | null;
+                                encounterDate: string;
+                                /** @enum {string} */
+                                encounterType: "outpatient" | "inpatient" | "emergency" | "telehealth" | "follow_up";
+                                /** @enum {string} */
+                                status: "draft" | "in_progress" | "completed" | "signed_off";
+                                chiefComplaint?: string | null;
+                                historyOfPresentIllness?: string | null;
+                                diagnosisPrimary?: string | null;
+                                diagnosisSecondary: unknown[];
+                                clinicalNotes?: string | null;
+                                vitalSigns: {
+                                    [key: string]: unknown;
+                                };
+                                prescriptions: unknown[];
+                                labOrders: unknown[];
+                                followUpDate?: string | null;
+                                followUpNotes?: string | null;
+                                signedOffBy?: string | null;
+                                signedOffAt?: string | null;
+                                version: number;
+                                createdBy?: string | null;
+                                createdAt: string;
+                                updatedAt: string;
+                                branchId: number;
+                            };
+                        };
+                    };
                 };
             };
         };
@@ -213,7 +292,48 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: {
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: uuid */
+                                patientId: string;
+                                appointmentId?: string | null;
+                                /** Format: uuid */
+                                doctorId: string;
+                                specialtyId?: number | null;
+                                encounterDate: string;
+                                /** @enum {string} */
+                                encounterType: "outpatient" | "inpatient" | "emergency" | "telehealth" | "follow_up";
+                                /** @enum {string} */
+                                status: "draft" | "in_progress" | "completed" | "signed_off";
+                                chiefComplaint?: string | null;
+                                historyOfPresentIllness?: string | null;
+                                diagnosisPrimary?: string | null;
+                                diagnosisSecondary: unknown[];
+                                clinicalNotes?: string | null;
+                                vitalSigns: {
+                                    [key: string]: unknown;
+                                };
+                                prescriptions: unknown[];
+                                labOrders: unknown[];
+                                followUpDate?: string | null;
+                                followUpNotes?: string | null;
+                                signedOffBy?: string | null;
+                                signedOffAt?: string | null;
+                                version: number;
+                                createdBy?: string | null;
+                                createdAt: string;
+                                updatedAt: string;
+                                branchId: number;
+                            }[];
+                            total: number;
+                            page: number;
+                            limit: number;
+                        };
+                    };
                 };
             };
         };

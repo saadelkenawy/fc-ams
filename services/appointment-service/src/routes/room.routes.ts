@@ -2,6 +2,63 @@ import { FastifyInstance } from 'fastify';
 import { requireAuth, requireRole } from '../middleware/auth';
 import * as ctrl from '../controllers/room.controller';
 
+// Response schema for a RoomDetail (§4.6 contract). Must list EVERY field the
+// repository returns — fastify serializes responses per schema and silently
+// drops anything missing here. Keep in sync with room.repository RoomDetail
+// (mirrored by @fadl/types RoomDetail).
+const roomDetailSchema = {
+  type: 'object',
+  properties: {
+    id: { type: 'integer' },
+    code: { type: 'string' },
+    roomCode: { type: 'string', nullable: true },
+    nameEn: { type: 'string' },
+    nameAr: { type: 'string', nullable: true },
+    roomType: { type: 'string' },
+    floor: { type: 'integer', nullable: true },
+    description: { type: 'string', nullable: true },
+    isActive: { type: 'boolean' },
+    branchId: { type: 'integer' },
+    status: { type: 'string', enum: ['available', 'reserved', 'occupied', 'inactive'] },
+    assignedDoctor: {
+      type: 'object',
+      nullable: true,
+      properties: {
+        id: { type: 'string' },
+        nameEn: { type: 'string', nullable: true },
+        nameAr: { type: 'string', nullable: true },
+        specialtyNameEn: { type: 'string', nullable: true },
+        assignedFrom: { type: 'string', nullable: true },
+        assignedUntil: { type: 'string', nullable: true },
+      },
+      required: ['id', 'nameEn', 'nameAr', 'specialtyNameEn', 'assignedFrom', 'assignedUntil'],
+    },
+    assignmentId: { type: 'string', nullable: true },
+    appointmentsToday: { type: 'integer' },
+    appointmentsRemaining: { type: 'integer' },
+  },
+  required: ['id', 'code', 'roomCode', 'nameEn', 'nameAr', 'roomType', 'floor', 'description', 'isActive', 'branchId', 'status', 'assignedDoctor', 'assignmentId', 'appointmentsToday', 'appointmentsRemaining'],
+} as const;
+
+const roomStatsItemSchema = {
+  type: 'object',
+  properties: {
+    roomCode: { type: 'string' },
+    appointmentsToday: { type: 'integer' },
+    avgOccupancyThisMonth: { type: 'number' },
+    topDoctorId: { type: 'string', nullable: true },
+  },
+  required: ['roomCode', 'appointmentsToday', 'avgOccupancyThisMonth'],
+} as const;
+
+const listEnvelope = (items: object) => ({
+  200: {
+    type: 'object',
+    properties: { success: { type: 'boolean' }, data: { type: 'array', items } },
+    required: ['success', 'data'],
+  },
+});
+
 export async function roomRoutes(app: FastifyInstance): Promise<void> {
   // SSE — no body schema, no auth middleware (handled in controller via request.user)
   app.addHook('onRequest', requireAuth);
@@ -14,6 +71,7 @@ export async function roomRoutes(app: FastifyInstance): Promise<void> {
     schema: {
       tags: ['rooms'],
       querystring: { type: 'object', properties: { date: { type: 'string', format: 'date' } } },
+      response: listEnvelope(roomDetailSchema),
     },
   }, ctrl.listRooms);
 
@@ -22,11 +80,21 @@ export async function roomRoutes(app: FastifyInstance): Promise<void> {
     schema: {
       tags: ['rooms'],
       querystring: { type: 'object', properties: { date: { type: 'string', format: 'date' } } },
+      response: listEnvelope({
+        type: 'object',
+        properties: {
+          roomCode: { type: 'string', nullable: true },
+          status: { type: 'string', enum: ['available', 'reserved', 'occupied', 'inactive'] },
+        },
+        required: ['roomCode', 'status'],
+      }),
     },
   }, ctrl.getRoomAvailability);
 
   // GET /rooms/stats — usage stats per room
-  app.get('/rooms/stats', { schema: { tags: ['rooms'] } }, ctrl.getRoomStats);
+  app.get('/rooms/stats', {
+    schema: { tags: ['rooms'], response: listEnvelope(roomStatsItemSchema) },
+  }, ctrl.getRoomStats);
 
   // POST /rooms/:roomCode/assign — manual assignment (admin/receptionist)
   app.post('/rooms/:roomCode/assign', {

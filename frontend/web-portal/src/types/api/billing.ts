@@ -460,7 +460,31 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: {
+                                id: number;
+                                sourceCode: string;
+                                sourceNameEn: string;
+                                sourceNameAr: string;
+                                /** @enum {string} */
+                                feeType: "percentage" | "fixed";
+                                feeValue: number;
+                                /** @enum {string} */
+                                deductFrom: "clinic" | "doctor" | "both";
+                                isGeneral: boolean;
+                                isActive: boolean;
+                                validFrom: string;
+                                validUntil: string | null;
+                                specialtyRates: {
+                                    specialtyId: number;
+                                    feeValue: number;
+                                }[];
+                                lastModifiedAt: string;
+                            }[];
+                        };
+                    };
                 };
             };
         };

@@ -57,6 +57,59 @@ const appointmentSchema = {
   required: ['id', 'patientId', 'doctorId', 'specialtyId', 'appointmentDate', 'startTime', 'endTime', 'timeZone', 'status', 'appointmentType', 'isOnline', 'isOverbooked', 'patientSource', 'rescheduleCount', 'version', 'createdAt', 'updatedAt', 'branchId'],
 } as const;
 
+// Response schema for a PatientQueueEntry (§4.6 contract). Keep in sync with
+// queue.repository rowToEntry and @fadl/types PatientQueueEntry.
+const queueEntrySchema = {
+  type: 'object',
+  properties: {
+    id: { type: 'string', format: 'uuid' },
+    appointmentId: { type: 'string', format: 'uuid' },
+    doctorId: { type: 'string', format: 'uuid' },
+    patientId: { type: 'string', format: 'uuid' },
+    queueDate: { type: 'string' },
+    position: { type: 'integer' },
+    originalPosition: { type: 'integer', nullable: true },
+    status: { type: 'string', enum: ['waiting', 'called', 'in_session', 'completed', 'cancelled', 'no_show'] },
+    checkedInAt: { type: 'string' },
+    calledAt: { type: 'string', nullable: true },
+    cancelledAt: { type: 'string', nullable: true },
+    cancelReason: { type: 'string', nullable: true },
+    rejoinedAt: { type: 'string', nullable: true },
+    rejoinPosition: { type: 'integer', nullable: true },
+    sessionStart: { type: 'string', nullable: true },
+    sessionEnd: { type: 'string', nullable: true },
+    estimatedWaitMinutes: { type: 'integer', nullable: true },
+    branchId: { type: 'integer' },
+    createdAt: { type: 'string' },
+    updatedAt: { type: 'string' },
+  },
+  required: ['id', 'appointmentId', 'doctorId', 'patientId', 'queueDate', 'position', 'status', 'checkedInAt', 'branchId', 'createdAt', 'updatedAt'],
+} as const;
+
+const queueStatsSchema = {
+  type: 'object',
+  properties: {
+    doctorId: { type: 'string', format: 'uuid' },
+    queueDate: { type: 'string' },
+    waiting: { type: 'integer' },
+    called: { type: 'integer' },
+    inSession: { type: 'integer' },
+    completed: { type: 'integer' },
+    cancelled: { type: 'integer' },
+    avgSessionMinutes: { type: 'number' },
+    estimatedWaitForNext: { type: 'number' },
+  },
+  required: ['doctorId', 'queueDate', 'waiting', 'called', 'inSession', 'completed', 'cancelled', 'avgSessionMinutes', 'estimatedWaitForNext'],
+} as const;
+
+const dataEnvelope = (data: object) => ({
+  200: {
+    type: 'object',
+    properties: { success: { type: 'boolean' }, data },
+    required: ['success', 'data'],
+  },
+});
+
 export async function appointmentRoutes(app: FastifyInstance): Promise<void> {
   // All routes require authentication
   app.addHook('onRequest', requireAuth);
@@ -138,7 +191,7 @@ export async function appointmentRoutes(app: FastifyInstance): Promise<void> {
           appointmentDate: { type: 'string', format: 'date' },
           startTime:       { type: 'string', pattern: '^\\d{2}:\\d{2}$' },
           endTime:         { type: 'string', pattern: '^\\d{2}:\\d{2}$' },
-          appointmentType: { type: 'string', enum: ['in_person', 'online', 'home_visit', 'walk_in'], default: 'in_person' },
+          appointmentType: { type: 'string', enum: ['in_person', 'online', 'walk_in'], default: 'in_person' },
           isOnline:        { type: 'boolean', default: false },
           patientSource:   { type: 'string' },
           paymentMethod:   { type: 'string', enum: ['cash', 'visa', 'instapay'] },
@@ -165,7 +218,7 @@ export async function appointmentRoutes(app: FastifyInstance): Promise<void> {
           appointmentDate: { type: 'string', format: 'date' },
           startTime:       { type: 'string', pattern: '^\\d{2}:\\d{2}$' },
           endTime:         { type: 'string', pattern: '^\\d{2}:\\d{2}$' },
-          appointmentType: { type: 'string', enum: ['in_person', 'online', 'home_visit', 'walk_in'] },
+          appointmentType: { type: 'string', enum: ['in_person', 'online', 'walk_in'] },
           patientSource:   { type: 'string' },
           paymentMethod:   { type: ['string', 'null'], enum: ['cash', 'visa', 'instapay', null] },
           approvedCharge:  { type: ['number', 'null'], exclusiveMinimum: 0 },
@@ -265,6 +318,7 @@ export async function appointmentRoutes(app: FastifyInstance): Promise<void> {
           date:     { type: 'string', format: 'date' },
         },
       },
+      response: dataEnvelope({ type: 'array', items: queueEntrySchema }),
     },
   }, queue.getFullQueue);
 
@@ -280,12 +334,13 @@ export async function appointmentRoutes(app: FastifyInstance): Promise<void> {
           date:     { type: 'string', format: 'date' },
         },
       },
+      response: dataEnvelope(queueStatsSchema),
     },
   }, queue.getQueueStats);
 
   // GET /queue/:id
   app.get('/queue/:id', {
-    schema: { tags: ['queue'], params: idParam },
+    schema: { tags: ['queue'], params: idParam, response: dataEnvelope(queueEntrySchema) },
   }, queue.getPosition);
 
   // POST /queue/:id/call
@@ -320,7 +375,19 @@ export async function appointmentRoutes(app: FastifyInstance): Promise<void> {
 
   // GET /queue/:id/cancel-preview  (read-only shift preview for confirmation dialog)
   app.get('/queue/:id/cancel-preview', {
-    schema: { tags: ['queue'], params: idParam },
+    schema: {
+      tags: ['queue'],
+      params: idParam,
+      response: dataEnvelope({
+        type: 'object',
+        properties: {
+          cancelledPosition: { type: 'integer' },
+          newEndPosition: { type: 'integer' },
+          patientsToShift: { type: 'integer' },
+        },
+        required: ['cancelledPosition', 'newEndPosition', 'patientsToShift'],
+      }),
+    },
   }, queue.previewCancel);
 
   // POST /queue/:id/rejoin  (manual rejoin for no_show only)

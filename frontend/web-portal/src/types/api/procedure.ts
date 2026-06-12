@@ -65,7 +65,35 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: {
+                                /** Format: uuid */
+                                id: string;
+                                code: string;
+                                nameEn: string;
+                                nameAr?: string | null;
+                                /** @enum {string} */
+                                procedureType: "consultation" | "follow_up" | "operative" | "settling_fee" | "lab_test" | "imaging";
+                                specialtyId: number;
+                                basePrice: number;
+                                durationMinutes: number;
+                                requiresPreAuth: boolean;
+                                notes?: string | null;
+                                isActive: boolean;
+                                deletedAt?: string | null;
+                                version: number;
+                                createdAt: string;
+                                updatedAt: string;
+                                branchId: number;
+                            }[];
+                            total: number;
+                            page: number;
+                            limit: number;
+                            totalPages: number;
+                        };
+                    };
                 };
             };
         };
@@ -117,7 +145,31 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: {
+                                /** Format: uuid */
+                                id: string;
+                                code: string;
+                                nameEn: string;
+                                nameAr?: string | null;
+                                /** @enum {string} */
+                                procedureType: "consultation" | "follow_up" | "operative" | "settling_fee" | "lab_test" | "imaging";
+                                specialtyId: number;
+                                basePrice: number;
+                                durationMinutes: number;
+                                requiresPreAuth: boolean;
+                                notes?: string | null;
+                                isActive: boolean;
+                                deletedAt?: string | null;
+                                version: number;
+                                createdAt: string;
+                                updatedAt: string;
+                                branchId: number;
+                            };
+                        };
+                    };
                 };
             };
         };
