@@ -10,10 +10,15 @@ const revenueSplitSchema = z.object({
   message: 'doctorPercentage + clinicPercentage must equal 100',
 });
 
-const revenueSplitsSchema = z.object({
+const visitTypeSplitsSchema = z.object({
   consultation: revenueSplitSchema,
   operative: revenueSplitSchema,
   online: revenueSplitSchema,
+});
+
+const revenueSplitsSchema = visitTypeSplitsSchema.extend({
+  // Per-specialty overrides keyed by specialtyId (multi-specialty doctors)
+  bySpecialty: z.record(z.string().regex(/^\d+$/), visitTypeSplitsSchema).optional(),
 });
 
 const createDoctorSchema = z.object({
@@ -21,6 +26,7 @@ const createDoctorSchema = z.object({
   nameEn: z.string().min(2).max(200),
   nameAr: z.string().max(200).optional(),
   specialtyId: z.number().int().positive(),
+  secondarySpecialtyIds: z.array(z.number().int().positive()).max(10).optional(),
   subSpecialty: z.string().max(100).optional(),
   isOnlineDoctor: z.boolean().default(false),
   revenueSplits: revenueSplitsSchema,

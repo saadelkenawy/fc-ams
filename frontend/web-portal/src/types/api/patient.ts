@@ -117,6 +117,18 @@ export interface paths {
                                 emergencyContactName?: string | null;
                                 /** @enum {string} */
                                 preferredLanguage: "ar" | "en";
+                                insuranceProvider?: string | null;
+                                insurancePolicyNumber?: string | null;
+                                currentMedications: {
+                                    name: string;
+                                    dosage?: string;
+                                }[];
+                                allergies: {
+                                    /** @enum {string} */
+                                    type: "medication" | "food";
+                                    name: string;
+                                }[];
+                                chronicDiseases: string[];
                                 sourceFirstVisit?: string | null;
                                 isFutureSource: boolean;
                                 futureSourceType?: string | null;
@@ -230,6 +242,18 @@ export interface paths {
                                 emergencyContactName?: string | null;
                                 /** @enum {string} */
                                 preferredLanguage: "ar" | "en";
+                                insuranceProvider?: string | null;
+                                insurancePolicyNumber?: string | null;
+                                currentMedications: {
+                                    name: string;
+                                    dosage?: string;
+                                }[];
+                                allergies: {
+                                    /** @enum {string} */
+                                    type: "medication" | "food";
+                                    name: string;
+                                }[];
+                                chronicDiseases: string[];
                                 sourceFirstVisit?: string | null;
                                 isFutureSource: boolean;
                                 futureSourceType?: string | null;

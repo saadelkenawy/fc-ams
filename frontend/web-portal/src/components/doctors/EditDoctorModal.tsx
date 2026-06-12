@@ -64,8 +64,29 @@ function SplitRow({ label, value, onChange, lang }: {
       </div>
       <div className="flex items-center gap-3">
         <div className="flex-1">
-          <div className="h-2 bg-gray-200 dark:bg-neutral-700 rounded-full overflow-hidden">
-            <div className="h-full w-full bg-primary-600 origin-left transition-transform duration-300" style={{ transform: `scaleX(${value.doctor / 100})` }} />
+          {/* Draggable bar: the invisible range input sits on top — moving the
+              doctor share immediately re-balances the clinic share. */}
+          <div className="relative h-2 group">
+            <div className="absolute inset-0 bg-gray-200 dark:bg-neutral-700 rounded-full overflow-hidden">
+              <div className="h-full w-full bg-primary-600 origin-left transition-transform duration-150" style={{ transform: `scaleX(${value.doctor / 100})` }} />
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={0.5}
+              value={value.doctor}
+              onChange={(e) => {
+                const dr = Number(e.target.value);
+                onChange({ doctor: dr, clinic: Math.round((100 - dr) * 2) / 2 });
+              }}
+              aria-label={`${label} — doctor share`}
+              className="absolute inset-x-0 -inset-y-1.5 w-full opacity-0 cursor-pointer"
+            />
+            <div
+              className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-white border-2 border-primary-600 shadow pointer-events-none transition-all duration-150 group-hover:scale-110"
+              style={{ insetInlineStart: `calc(${value.doctor}% - 7px)` }}
+            />
           </div>
         </div>
         <div className="flex items-center gap-2 text-xs">

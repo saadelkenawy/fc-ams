@@ -74,6 +74,7 @@ export interface paths {
                                 nameEn: string;
                                 nameAr?: string | null;
                                 specialtyId: number;
+                                secondarySpecialtyIds: number[];
                                 subSpecialty?: string | null;
                                 isOnlineDoctor: boolean;
                                 revenueSplits: {
@@ -88,6 +89,22 @@ export interface paths {
                                     online: {
                                         doctorPercentage: number;
                                         clinicPercentage: number;
+                                    };
+                                    bySpecialty?: {
+                                        [key: string]: {
+                                            consultation: {
+                                                doctorPercentage: number;
+                                                clinicPercentage: number;
+                                            };
+                                            operative: {
+                                                doctorPercentage: number;
+                                                clinicPercentage: number;
+                                            };
+                                            online: {
+                                                doctorPercentage: number;
+                                                clinicPercentage: number;
+                                            };
+                                        };
                                     };
                                 };
                                 /** @enum {string|null} */
@@ -213,6 +230,7 @@ export interface paths {
                                 nameEn: string;
                                 nameAr?: string | null;
                                 specialtyId: number;
+                                secondarySpecialtyIds: number[];
                                 subSpecialty?: string | null;
                                 isOnlineDoctor: boolean;
                                 revenueSplits: {
@@ -227,6 +245,22 @@ export interface paths {
                                     online: {
                                         doctorPercentage: number;
                                         clinicPercentage: number;
+                                    };
+                                    bySpecialty?: {
+                                        [key: string]: {
+                                            consultation: {
+                                                doctorPercentage: number;
+                                                clinicPercentage: number;
+                                            };
+                                            operative: {
+                                                doctorPercentage: number;
+                                                clinicPercentage: number;
+                                            };
+                                            online: {
+                                                doctorPercentage: number;
+                                                clinicPercentage: number;
+                                            };
+                                        };
                                     };
                                 };
                                 /** @enum {string|null} */

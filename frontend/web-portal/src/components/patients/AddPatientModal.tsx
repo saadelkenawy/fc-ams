@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { UserPlus, Phone, CreditCard, Calendar, Heart, MapPin, Users, Globe2, AlertCircle, Loader2 } from 'lucide-react';
+import { UserPlus, Phone, CreditCard, Calendar, Heart, MapPin, Users, Globe2, AlertCircle, Loader2, Pill, ShieldAlert, Activity, Plus, X, BadgeCheck } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { useLang } from '@/contexts/LanguageContext';
@@ -10,6 +10,7 @@ import { patientApi } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 import { cn } from '@/lib/utils';
 import { useTranslateName } from '@/hooks/useTranslateName';
+import type { Patient } from '@fadl/types';
 
 // All patient sources from data.md §3.3
 const PATIENT_SOURCES = [
@@ -34,19 +35,53 @@ const CLS_SOURCE = "Cl.'s";
 
 interface FormData {
   nameAr: string;
-  nameEn: string;
+  firstName: string;
+  middleName: string;
+  lastName: string;
   mobile: string;
   nationalId: string;
   dateOfBirth: string;
+  age: string;
   gender: 'M' | 'F' | '';
   bloodType: string;
   address: string;
   email: string;
+  insuranceProvider: string;
+  insurancePolicyNumber: string;
   emergencyContactName: string;
   emergencyContactMobile: string;
   sourceFirstVisit: string;
   preferredLanguage: 'ar' | 'en';
   isFutureSource: boolean;
+}
+
+interface MedRow { name: string; dosage: string; }
+interface AllergyRow { type: 'medication' | 'food'; name: string; }
+
+const EMPTY_FORM: FormData = {
+  nameAr: '', firstName: '', middleName: '', lastName: '',
+  mobile: '', nationalId: '', dateOfBirth: '', age: '',
+  gender: '', bloodType: '', address: '', email: '',
+  insuranceProvider: '', insurancePolicyNumber: '',
+  emergencyContactName: '', emergencyContactMobile: '',
+  sourceFirstVisit: CLS_SOURCE, preferredLanguage: 'ar',
+  isFutureSource: false,
+};
+
+function dobFromAge(age: number): string {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() - age);
+  return d.toISOString().split('T')[0];
+}
+
+function ageFromDob(dob: string): string {
+  const b = new Date(dob);
+  if (Number.isNaN(b.getTime())) return '';
+  const now = new Date();
+  let a = now.getFullYear() - b.getFullYear();
+  const m = now.getMonth() - b.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < b.getDate())) a--;
+  return a >= 0 ? String(a) : '';
 }
 
 function mobileToE164(raw: string): string {
@@ -60,7 +95,8 @@ function mobileToE164(raw: string): string {
 interface AddPatientModalProps {
   open: boolean;
   onClose: () => void;
-  onCreated?: (id: string) => void;
+  /** Receives the full created patient — used to chain straight into appointment booking. */
+  onCreated?: (patient: Patient) => void;
 }
 
 export function AddPatientModal({ open, onClose, onCreated }: AddPatientModalProps) {
@@ -69,22 +105,36 @@ export function AddPatientModal({ open, onClose, onCreated }: AddPatientModalPro
   const { toast } = useToast();
   const { translate, translating } = useTranslateName();
 
-  const [form, setForm] = useState<FormData>({
-    nameAr: '', nameEn: '', mobile: '', nationalId: '', dateOfBirth: '',
-    gender: '', bloodType: '', address: '', email: '',
-    emergencyContactName: '', emergencyContactMobile: '',
-    sourceFirstVisit: CLS_SOURCE, preferredLanguage: 'ar',
-    isFutureSource: false,
-  });
+  const [form, setForm] = useState<FormData>(EMPTY_FORM);
+  const [medications, setMedications] = useState<MedRow[]>([]);
+  const [allergyRows, setAllergyRows] = useState<AllergyRow[]>([]);
+  const [chronicRows, setChronicRows] = useState<string[]>([]);
+  // Arabic name is auto-translated from the English parts unless the
+  // receptionist typed it themselves.
+  const arManuallyEdited = useRef(false);
 
   const showFutureSource = form.sourceFirstVisit !== CLS_SOURCE;
   const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({});
+
+  const fullNameEn = [form.firstName, form.middleName, form.lastName]
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .join(' ');
+
+  function autoTranslateAr(parts?: Partial<FormData>) {
+    const name = [parts?.firstName ?? form.firstName, parts?.middleName ?? form.middleName, parts?.lastName ?? form.lastName]
+      .map((p) => p.trim()).filter(Boolean).join(' ');
+    if (!name || arManuallyEdited.current) return;
+    translate(name, 'en').then((r) => {
+      if (r && !arManuallyEdited.current) setForm((p) => ({ ...p, nameAr: r }));
+    });
+  }
 
   const mutation = useMutation({
     mutationFn: async (payload: FormData) => {
       const body: Record<string, unknown> = {
         mobile:           mobileToE164(payload.mobile),
-        nameEn:           payload.nameEn || payload.nameAr,
+        nameEn:           fullNameEn || payload.nameAr,
         preferredLanguage: payload.preferredLanguage,
         sourceFirstVisit: payload.sourceFirstVisit,
       };
@@ -95,19 +145,35 @@ export function AddPatientModal({ open, onClose, onCreated }: AddPatientModalPro
       if (payload.bloodType)             body.bloodType = payload.bloodType;
       if (payload.address)               body.address = payload.address;
       if (payload.email)                 body.email = payload.email;
+      if (payload.insuranceProvider)     body.insuranceProvider = payload.insuranceProvider.trim();
+      if (payload.insurancePolicyNumber) body.insurancePolicyNumber = payload.insurancePolicyNumber;
       if (payload.emergencyContactName)  body.emergencyContactName = payload.emergencyContactName;
       if (payload.emergencyContactMobile) body.emergencyContactMobile = mobileToE164(payload.emergencyContactMobile);
+      const meds = medications
+        .map((m) => ({ name: m.name.trim(), ...(m.dosage.trim() ? { dosage: m.dosage.trim() } : {}) }))
+        .filter((m) => m.name);
+      if (meds.length) body.currentMedications = meds;
+      const algs = allergyRows
+        .map((a) => ({ type: a.type, name: a.name.trim() }))
+        .filter((a) => a.name);
+      if (algs.length) body.allergies = algs;
+      const chronic = chronicRows.map((c) => c.trim()).filter(Boolean);
+      if (chronic.length) body.chronicDiseases = chronic;
       body.isFutureSource = payload.isFutureSource === true && payload.sourceFirstVisit !== CLS_SOURCE;
-      const { data } = await patientApi.post<{ data: { patientId: string } }>('/patients', body);
+      const { data } = await patientApi.post<{ data: Patient }>('/patients', body);
       return data.data;
     },
     onSuccess: (created) => {
       qc.invalidateQueries({ queryKey: ['patients'] });
       toast(t('تم إضافة المريض بنجاح', 'Patient added successfully'), 'success');
-      onCreated?.(created.patientId);
       onClose();
-      setForm({ nameAr: '', nameEn: '', mobile: '', nationalId: '', dateOfBirth: '', gender: '', bloodType: '', address: '', email: '', emergencyContactName: '', emergencyContactMobile: '', sourceFirstVisit: CLS_SOURCE, preferredLanguage: 'ar', isFutureSource: false });
+      setForm(EMPTY_FORM);
+      setMedications([]);
+      setAllergyRows([]);
+      setChronicRows([]);
+      arManuallyEdited.current = false;
       setErrors({});
+      onCreated?.(created);
     },
     onError: (err: unknown) => {
       const raw = (err as { response?: { data?: { error?: { message?: string }; message?: string } } })?.response?.data;
@@ -123,6 +189,12 @@ export function AddPatientModal({ open, onClose, onCreated }: AddPatientModalPro
     setForm((p) => {
       const next = { ...p, [key]: val };
       if (key === 'sourceFirstVisit' && val === CLS_SOURCE) next.isFutureSource = false;
+      // Age ↔ date-of-birth stay in sync whichever one the receptionist fills.
+      if (key === 'age') {
+        const a = parseInt(val as string, 10);
+        next.dateOfBirth = Number.isInteger(a) && a >= 0 && a <= 130 ? dobFromAge(a) : '';
+      }
+      if (key === 'dateOfBirth') next.age = val ? ageFromDob(val as string) : '';
       return next;
     });
     if (errors[key]) setErrors((p) => ({ ...p, [key]: undefined }));
@@ -130,13 +202,16 @@ export function AddPatientModal({ open, onClose, onCreated }: AddPatientModalPro
 
   function validate(): boolean {
     const e: Partial<Record<keyof FormData, string>> = {};
-    const name = form.nameAr || form.nameEn;
-    if (!name.trim()) e.nameAr = t('الاسم مطلوب', 'Name is required');
+    if (!form.firstName.trim()) e.firstName = t('الاسم الأول مطلوب', 'First name is required');
+    if (!form.middleName.trim()) e.middleName = t('الاسم الأوسط مطلوب', 'Middle name is required');
+    if (!form.lastName.trim()) e.lastName = t('اسم العائلة مطلوب', 'Last name is required');
     if (!form.mobile.trim()) e.mobile = t('رقم الموبايل مطلوب', 'Mobile is required');
     else if (!/^\+20\d{10}$/.test(mobileToE164(form.mobile)))
       e.mobile = t('رقم غير صحيح (مثال: 01XXXXXXXXXX)', 'Invalid mobile (e.g. 01XXXXXXXXXX)');
     if (form.nationalId && form.nationalId.replace(/\D/g, '').length !== 14)
       e.nationalId = t('الرقم القومي 14 رقم', 'National ID must be 14 digits');
+    if (form.insurancePolicyNumber && !/^\d+$/.test(form.insurancePolicyNumber))
+      e.insurancePolicyNumber = t('رقم البوليصة أرقام فقط', 'Policy number must be digits only');
     setErrors(e);
     return Object.keys(e).length === 0;
   }
@@ -155,7 +230,7 @@ export function AddPatientModal({ open, onClose, onCreated }: AddPatientModalPro
       open={open}
       onClose={onClose}
       title={t('إضافة مريض جديد', 'Add New Patient')}
-      subtitle={t('البيانات الأساسية الآن؛ التفاصيل الطبية تُضاف من سجل المريض لاحقًا', 'Fill in the basics; clinical details can be added from the patient record later.')}
+      subtitle={t('بعد الحفظ سيُفتح حجز موعد للمريض الجديد مباشرة', 'After saving, an appointment booking opens for the new patient.')}
       maxWidth="2xl"
       footer={
         <>
@@ -182,45 +257,37 @@ export function AddPatientModal({ open, onClose, onCreated }: AddPatientModalPro
           <UserPlus className="w-3.5 h-3.5" />
           {t('الهوية', 'Identity')}
         </p>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="field-label">{t('الاسم بالعربي', 'Name (Arabic)')}</label>
-            <div className="relative">
+        <div className="grid grid-cols-3 gap-3">
+          {([
+            ['firstName', t('الاسم الأول *', 'First Name *'), 'Ahmed'],
+            ['middleName', t('الاسم الأوسط *', 'Middle Name *'), 'Mohamed'],
+            ['lastName', t('اسم العائلة *', 'Last Name *'), 'Ali'],
+          ] as const).map(([key, label, ph]) => (
+            <div key={key}>
+              <label className="field-label">{label}</label>
               <input
-                className={cn(inputClass, errors.nameAr && 'border-red-400 focus:ring-red-500', translating === 'ar' && 'pe-8')}
-                placeholder="مثال: أحمد محمد علي"
-                value={form.nameAr}
-                onChange={(e) => set('nameAr', e.target.value)}
-                onBlur={(e) => {
-                  const v = e.target.value.trim();
-                  if (v && !form.nameEn.trim()) {
-                    translate(v, 'ar').then((r) => { if (r) set('nameEn', r); });
-                  }
-                }}
-                dir="rtl"
-              />
-              {translating === 'ar' && <Loader2 className="absolute inset-y-0 end-2.5 my-auto w-4 h-4 text-primary-500 animate-spin pointer-events-none" />}
-            </div>
-            {errors.nameAr && <p className="text-xs text-red-500 mt-1">{errors.nameAr}</p>}
-          </div>
-          <div>
-            <label className="field-label">{t('الاسم بالإنجليزي', 'Name (English)')}</label>
-            <div className="relative">
-              <input
-                className={cn(inputClass, translating === 'en' && 'pe-8')}
-                placeholder="e.g. Ahmed Mohamed Ali"
-                value={form.nameEn}
-                onChange={(e) => set('nameEn', e.target.value)}
-                onBlur={(e) => {
-                  const v = e.target.value.trim();
-                  if (v && !form.nameAr.trim()) {
-                    translate(v, 'en').then((r) => { if (r) set('nameAr', r); });
-                  }
-                }}
+                className={cn(inputClass, errors[key] && 'border-red-400 focus:ring-red-500')}
+                placeholder={ph}
+                value={form[key]}
+                onChange={(e) => set(key, e.target.value)}
+                onBlur={(e) => autoTranslateAr({ [key]: e.target.value } as Partial<FormData>)}
                 dir="ltr"
               />
-              {translating === 'en' && <Loader2 className="absolute inset-y-0 end-2.5 my-auto w-4 h-4 text-primary-500 animate-spin pointer-events-none" />}
+              {errors[key] && <p className="text-xs text-red-500 mt-1">{errors[key]}</p>}
             </div>
+          ))}
+        </div>
+        <div>
+          <label className="field-label">{t('الاسم الكامل بالعربي (تلقائي)', 'Full Name in Arabic (auto)')}</label>
+          <div className="relative">
+            <input
+              className={cn(inputClass, translating === 'en' && 'pe-8')}
+              placeholder="مثال: أحمد محمد علي"
+              value={form.nameAr}
+              onChange={(e) => { arManuallyEdited.current = e.target.value.trim().length > 0; set('nameAr', e.target.value); }}
+              dir="rtl"
+            />
+            {translating === 'en' && <Loader2 className="absolute inset-y-0 end-2.5 my-auto w-4 h-4 text-primary-500 animate-spin pointer-events-none" />}
           </div>
         </div>
 
@@ -259,7 +326,7 @@ export function AddPatientModal({ open, onClose, onCreated }: AddPatientModalPro
           <CreditCard className="w-3.5 h-3.5" />
           {t('البيانات الشخصية', 'Demographics')}
         </p>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-4 gap-3">
           <div>
             <label className="field-label">{t('الرقم القومي', 'National ID')}</label>
             <input
@@ -272,6 +339,17 @@ export function AddPatientModal({ open, onClose, onCreated }: AddPatientModalPro
               dir="ltr"
             />
             {errors.nationalId && <p className="text-xs text-red-500 mt-1">{errors.nationalId}</p>}
+          </div>
+          <div>
+            <label className="field-label">{t('السن', 'Age')}</label>
+            <input
+              className={inputClass}
+              placeholder={t('بالسنوات', 'Years')}
+              value={form.age}
+              onChange={(e) => set('age', e.target.value.replace(/\D/g, '').slice(0, 3))}
+              inputMode="numeric"
+              dir="ltr"
+            />
           </div>
           <div>
             <label className="field-label">{t('تاريخ الميلاد', 'Date of Birth')}</label>
@@ -310,6 +388,124 @@ export function AddPatientModal({ open, onClose, onCreated }: AddPatientModalPro
               ))}
             </select>
           </div>
+        </div>
+
+        {/* ── Insurance (optional) ── */}
+        <p className="form-section-title">
+          <BadgeCheck className="w-3.5 h-3.5" />
+          {t('التأمين (اختياري)', 'Insurance (optional)')}
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="field-label">{t('شركة التأمين', 'Insurance Provider')}</label>
+            <input
+              className={inputClass}
+              placeholder={t('اسم شركة التأمين', 'Provider name')}
+              value={form.insuranceProvider}
+              onChange={(e) => set('insuranceProvider', e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="field-label">{t('رقم البوليصة', 'Policy Number')}</label>
+            <input
+              className={cn(inputClass, errors.insurancePolicyNumber && 'border-red-400')}
+              placeholder="123456789"
+              value={form.insurancePolicyNumber}
+              onChange={(e) => set('insurancePolicyNumber', e.target.value.replace(/\D/g, '').slice(0, 50))}
+              inputMode="numeric"
+              dir="ltr"
+            />
+            {errors.insurancePolicyNumber && <p className="text-xs text-red-500 mt-1">{errors.insurancePolicyNumber}</p>}
+          </div>
+        </div>
+
+        {/* ── Current medications ── */}
+        <p className="form-section-title">
+          <Pill className="w-3.5 h-3.5" />
+          {t('الأدوية الحالية', 'Current Medications')}
+        </p>
+        <div className="space-y-2">
+          {medications.map((m, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <input
+                className={cn(inputClass, 'flex-[2]')}
+                placeholder={t('اسم الدواء', 'Medication name')}
+                value={m.name}
+                onChange={(e) => setMedications((p) => p.map((row, j) => j === i ? { ...row, name: e.target.value } : row))}
+              />
+              <input
+                className={cn(inputClass, 'flex-1')}
+                placeholder={t('الجرعة', 'Dosage')}
+                value={m.dosage}
+                onChange={(e) => setMedications((p) => p.map((row, j) => j === i ? { ...row, dosage: e.target.value } : row))}
+              />
+              <button type="button" aria-label={t('حذف', 'Remove')} className="p-2 text-gray-400 hover:text-red-500 transition-colors" onClick={() => setMedications((p) => p.filter((_, j) => j !== i))}>
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+          <Button type="button" variant="ghost" size="sm" className="gap-1.5" onClick={() => setMedications((p) => [...p, { name: '', dosage: '' }])}>
+            <Plus className="w-3.5 h-3.5" />
+            {t('إضافة دواء', 'Add medication')}
+          </Button>
+        </div>
+
+        {/* ── Allergies ── */}
+        <p className="form-section-title">
+          <ShieldAlert className="w-3.5 h-3.5" />
+          {t('الحساسية (أدوية أو طعام)', 'Allergies (medication or food)')}
+        </p>
+        <div className="space-y-2">
+          {allergyRows.map((a, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <select
+                className={cn(selectClass, 'w-36 flex-shrink-0')}
+                value={a.type}
+                onChange={(e) => setAllergyRows((p) => p.map((row, j) => j === i ? { ...row, type: e.target.value as AllergyRow['type'] } : row))}
+              >
+                <option value="medication">{t('دواء', 'Medication')}</option>
+                <option value="food">{t('طعام', 'Food')}</option>
+              </select>
+              <input
+                className={cn(inputClass, 'flex-1')}
+                placeholder={t('اسم المادة المسببة للحساسية', 'Allergen name')}
+                value={a.name}
+                onChange={(e) => setAllergyRows((p) => p.map((row, j) => j === i ? { ...row, name: e.target.value } : row))}
+              />
+              <button type="button" aria-label={t('حذف', 'Remove')} className="p-2 text-gray-400 hover:text-red-500 transition-colors" onClick={() => setAllergyRows((p) => p.filter((_, j) => j !== i))}>
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+          <Button type="button" variant="ghost" size="sm" className="gap-1.5" onClick={() => setAllergyRows((p) => [...p, { type: 'medication', name: '' }])}>
+            <Plus className="w-3.5 h-3.5" />
+            {t('إضافة حساسية', 'Add allergy')}
+          </Button>
+        </div>
+
+        {/* ── Chronic diseases ── */}
+        <p className="form-section-title">
+          <Activity className="w-3.5 h-3.5" />
+          {t('الأمراض المزمنة', 'Chronic Diseases')}
+        </p>
+        <div className="space-y-2">
+          {chronicRows.map((c, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <input
+                className={cn(inputClass, 'flex-1')}
+                placeholder={t('مثال: السكري، الضغط', 'e.g. Diabetes, Hypertension')}
+                value={c}
+                onChange={(e) => setChronicRows((p) => p.map((row, j) => j === i ? e.target.value : row))}
+              />
+              <button type="button" aria-label={t('حذف', 'Remove')} className="p-2 text-gray-400 hover:text-red-500 transition-colors" onClick={() => setChronicRows((p) => p.filter((_, j) => j !== i))}>
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+          <Button type="button" variant="ghost" size="sm" className="gap-1.5" onClick={() => setChronicRows((p) => [...p, ''])}>
+            <Plus className="w-3.5 h-3.5" />
+            {t('إضافة مرض مزمن', 'Add chronic disease')}
+          </Button>
         </div>
 
         {/* ── Future Source (conditional — hidden when Cl.'s is selected) ── */}

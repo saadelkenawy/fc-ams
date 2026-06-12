@@ -6,10 +6,16 @@ export interface RevenueSplit {
   clinicPercentage: number;
 }
 
-export interface DoctorRevenueSplits {
+export interface VisitTypeSplits {
   consultation: RevenueSplit;
   operative: RevenueSplit;
   online: RevenueSplit;
+}
+
+export interface DoctorRevenueSplits extends VisitTypeSplits {
+  /** Per-specialty overrides keyed by specialtyId — used when the doctor
+   *  practices multiple specialties; absent keys fall back to the base splits. */
+  bySpecialty?: Record<string, VisitTypeSplits>;
 }
 
 export interface Doctor {
@@ -18,6 +24,8 @@ export interface Doctor {
   nameEn: string;
   nameAr?: string;
   specialtyId: number;
+  /** Additional specialties beyond the primary specialtyId. */
+  secondarySpecialtyIds: number[];
   subSpecialty?: string;
   isOnlineDoctor: boolean;
   revenueSplits: DoctorRevenueSplits;
@@ -116,6 +124,10 @@ export interface DoctorAvailabilitySlot {
 export interface DoctorAvailability {
   doctorId: string;
   date: string;
+  /** Whether the doctor has ANY working-hours configuration (consultation
+   *  hours or day overrides). Appointment validation only enforces working
+   *  hours for doctors who actually have a schedule configured. */
+  hasSchedule: boolean;
   isWorking: boolean;
   slots: DoctorAvailabilitySlot[];
   totalSlots: number;

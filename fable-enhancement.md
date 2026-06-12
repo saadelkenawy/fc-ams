@@ -521,3 +521,26 @@ Four services rebuilt + recreated; specs re-exported and contract types regenera
 
 ### 16.6 Remaining backlog (opportunistic)
 §3.7 query review under load, CSS splitting (§5.3), §5.5 polish, Alertmanager receiver, partition retention/archival, secret manager (Vault), response schemas for identity users + notification/file/procurement if the portal grows reads there.
+
+## 17. Feature batch — patient intake, doctor profile, room-aware scheduling — IMPLEMENTED (2026-06-12)
+
+User-requested feature set (3 tasks), delivered end-to-end:
+
+### 17.1 Add-patient popup (Task 1)
+- **New patient fields** (patient-service V003): `insurance_provider`, `insurance_policy_number` (digits-only validated), and three JSONB lists — `current_medications` [{name, dosage?}], `allergies` [{type: medication|food, name}], `chronic_diseases` [string]. Full pipeline: zod ← @fadl/types ← repository (JSONB columns must be `JSON.stringify`'d — node-pg encodes JS arrays as PG arrays otherwise) ← response schema ← regenerated contract (drift check caught a nested-nullable mismatch on `dosage`).
+- **Modal rework**: first/middle/last name fields (all required) concatenated into `nameEn`; Arabic name auto-translated from the parts on blur (manual edits respected via a ref guard); integer Age box ↔ DOB picker stay in sync both directions; + button list editors for medications/allergies/chronic diseases; insurance section.
+- **Chained booking**: on create, the patients page opens `AddAppointmentModal` with the new patient pre-selected (reuses the modal's `editPatient` open-sync — create mode + pre-filled patient).
+
+### 17.2 Doctor profile (Task 2)
+- **Edit button wired** — opens the existing `EditDoctorModal` (was a dead button).
+- **Multi-specialty** (doctor-service V005): `secondary_specialty_ids INT[]`; profile shows specialty chips with a + popup (and removable secondary chips) persisting via PATCH; primary stays `specialtyId` (referenced by appointments/billing).
+- **Per-specialty revenue splits**: `revenue_splits.bySpecialty[{specialtyId}]` JSONB overrides (response schema keeps them via `additionalProperties`); the profile Revenue Splits card is now an interactive editor — one bar group per specialty, each bar a draggable range slider where moving the doctor share live-rebalances the clinic share; Save PATCHes the whole splits object. EditDoctorModal bars are draggable too. NOTE: billing resolution still uses the base (per-visit-type) splits — per-specialty billing resolution is future work.
+
+### 17.3 Room-aware scheduling (Task 3)
+- **Doctor availability gate**: POST /appointments (non-online) now pre-checks doctor-service `GET /doctors/:id/availability` via a new appointment→doctor service client. 422 `DOCTOR_NOT_AVAILABLE` when the day is off or the time is outside working hours (message includes the day's window). **Only enforced for doctors with a configured schedule** (`hasSchedule` flag added to the availability response) — unconfigured doctors stay bookable, so deploying this cannot brick booking. Fail-open on doctor-service outage.
+- **Latent bug fixed en route**: doctor-service availability queried a non-existent local `appointments` table (42P01 → 500 the moment any doctor had consultation hours). Booked start-times now come from appointment-service via HTTP (new doctor→appointment client, fail-open to "no slots booked").
+- **Room capacity**: `roomCode` accepted on appointment creation; validated in-transaction against `ROOM_DAILY_SLOT_CAPACITY` (env, default 30/day per room). 409 `ROOM_FULL` lists rooms that still have capacity; 422 `ROOM_NOT_FOUND` for unknown/inactive rooms. Room id/code/assigned-at stored on the appointment row.
+- **Modal**: Clinic Room select shows per-room usage for the chosen date (`C1 — Clinic-1 (12/30) · Dr. X`, full rooms disabled) from `useRooms(date)`; the room the doctor is already assigned to that day is auto-selected (override allowed; green hint shown); ROOM_FULL / DOCTOR_NOT_AVAILABLE rendered as specific error banners.
+
+### 17.4 Verified
+Live API checks: clinical-intake fields round-trip; multi-specialty + bySpecialty splits round-trip (then reverted on the demo doctor); 422 on day-off and outside-hours for a configured doctor; create-with-room stores roomCode/roomId; unknown room 422; unconfigured doctor bookable; availability now returns 18 slots 09:00–14:40 with booked flags sourced cross-service. Suites: appointment 14/14, billing 6/6, portal 11/11, tsc clean (all drift checks), Playwright 29/29 (billing re-baselined after refund-flow data drift). Dev data: demo doctor now has Saturday 09:00–15:00 consultation hours (test fixture, kept).

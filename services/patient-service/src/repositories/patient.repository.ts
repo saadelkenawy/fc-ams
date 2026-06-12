@@ -25,6 +25,11 @@ function rowToPatient(row: Record<string, unknown>): Patient {
     emergencyContactMobile: row.emergency_contact_mobile as string | undefined,
     emergencyContactName: row.emergency_contact_name as string | undefined,
     preferredLanguage: (row.preferred_language as Patient['preferredLanguage']) ?? 'ar',
+    insuranceProvider: row.insurance_provider as string | undefined,
+    insurancePolicyNumber: row.insurance_policy_number as string | undefined,
+    currentMedications: (row.current_medications as Patient['currentMedications']) ?? [],
+    allergies: (row.allergies as Patient['allergies']) ?? [],
+    chronicDiseases: (row.chronic_diseases as string[]) ?? [],
     sourceFirstVisit: row.source_first_visit as string | undefined,
     isFutureSource: (row.is_future_source as boolean) ?? false,
     futureSourceType: row.future_source_type as string | undefined,
@@ -160,12 +165,14 @@ export async function createPatient(
         patient_id, mobile, name_en, name_ar, national_id,
         date_of_birth, gender, blood_type, address, email,
         emergency_contact_mobile, emergency_contact_name,
-        preferred_language, source_first_visit,
+        preferred_language, insurance_provider, insurance_policy_number,
+        current_medications, allergies, chronic_diseases,
+        source_first_visit,
         is_future_source, future_source_type, future_source_set_at, future_source_set_by,
         created_by, branch_id
       ) VALUES (
         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,
-        $15,$16,$17,$18,$19,$20
+        $15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25
       ) RETURNING *`,
       [
         patientId,
@@ -181,6 +188,13 @@ export async function createPatient(
         input.emergencyContactMobile ?? null,
         input.emergencyContactName ?? null,
         input.preferredLanguage ?? 'ar',
+        input.insuranceProvider ?? null,
+        input.insurancePolicyNumber ?? null,
+        // JSONB columns: stringify explicitly — node-pg would otherwise encode
+        // JS arrays as Postgres array literals
+        JSON.stringify(input.currentMedications ?? []),
+        JSON.stringify(input.allergies ?? []),
+        JSON.stringify(input.chronicDiseases ?? []),
         input.sourceFirstVisit ?? null,
         isFutureSource,
         isFutureSource ? 'CLS' : null,
@@ -235,6 +249,8 @@ export async function updatePatient(
       ['emergencyContactMobile', 'emergency_contact_mobile'],
       ['emergencyContactName', 'emergency_contact_name'],
       ['preferredLanguage', 'preferred_language'],
+      ['insuranceProvider', 'insurance_provider'],
+      ['insurancePolicyNumber', 'insurance_policy_number'],
       ['sourceFirstVisit', 'source_first_visit'],
     ];
 
@@ -242,6 +258,20 @@ export async function updatePatient(
       if (key in input && key !== 'version') {
         fields.push(`${col} = $${idx++}`);
         values.push((input as unknown as Record<string, unknown>)[key] ?? null);
+      }
+    }
+
+    // JSONB list columns: stringify explicitly — node-pg would otherwise
+    // encode JS arrays as Postgres array literals
+    const jsonbUpdatable: Array<[keyof UpdatePatientInput, string]> = [
+      ['currentMedications', 'current_medications'],
+      ['allergies', 'allergies'],
+      ['chronicDiseases', 'chronic_diseases'],
+    ];
+    for (const [key, col] of jsonbUpdatable) {
+      if (key in input) {
+        fields.push(`${col} = $${idx++}`);
+        values.push(JSON.stringify((input as unknown as Record<string, unknown>)[key] ?? []));
       }
     }
 

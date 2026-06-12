@@ -17,6 +17,9 @@ const envSchema = z.object({
   NOTIFICATION_SERVICE_URL: z.string().default('http://localhost:3007/api/v1'),
   BILLING_SERVICE_URL: z.string().default('http://localhost:3004/api/v1'),
   IDENTITY_SERVICE_URL: z.string().default('http://localhost:3000/api/v1'),
+  DOCTOR_SERVICE_URL: z.string().default('http://localhost:3003/api/v1'),
+  // Max booked (non-cancelled) appointments a clinic room can hold per day
+  ROOM_DAILY_SLOT_CAPACITY: z.coerce.number().default(30),
 });
 
 const parsed = envSchema.safeParse(process.env);

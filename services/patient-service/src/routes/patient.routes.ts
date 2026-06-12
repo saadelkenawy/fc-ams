@@ -22,6 +22,31 @@ const patientSchema = {
     emergencyContactMobile: { type: 'string', nullable: true },
     emergencyContactName: { type: 'string', nullable: true },
     preferredLanguage: { type: 'string', enum: ['ar', 'en'] },
+    insuranceProvider: { type: 'string', nullable: true },
+    insurancePolicyNumber: { type: 'string', nullable: true },
+    currentMedications: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+          dosage: { type: 'string' },
+        },
+        required: ['name'],
+      },
+    },
+    allergies: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          type: { type: 'string', enum: ['medication', 'food'] },
+          name: { type: 'string' },
+        },
+        required: ['type', 'name'],
+      },
+    },
+    chronicDiseases: { type: 'array', items: { type: 'string' } },
     sourceFirstVisit: { type: 'string', nullable: true },
     isFutureSource: { type: 'boolean' },
     futureSourceType: { type: 'string', nullable: true },
@@ -34,7 +59,7 @@ const patientSchema = {
     createdBy: { type: 'string', nullable: true },
     branchId: { type: 'integer' },
   },
-  required: ['patientId', 'mobile', 'mobileHistory', 'nameEn', 'preferredLanguage', 'isFutureSource', 'version', 'createdAt', 'updatedAt', 'branchId'],
+  required: ['patientId', 'mobile', 'mobileHistory', 'nameEn', 'preferredLanguage', 'currentMedications', 'allergies', 'chronicDiseases', 'isFutureSource', 'version', 'createdAt', 'updatedAt', 'branchId'],
 } as const;
 
 export async function patientRoutes(app: FastifyInstance): Promise<void> {

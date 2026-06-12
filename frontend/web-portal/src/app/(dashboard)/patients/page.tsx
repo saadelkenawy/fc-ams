@@ -13,6 +13,7 @@ import { usePatients, useDeletePatient } from '@/hooks/usePatients';
 import { useDebounce } from '@/hooks/useDebounce';
 import { AddPatientModal } from '@/components/patients/AddPatientModal';
 import { EditPatientModal } from '@/components/patients/EditPatientModal';
+import { AddAppointmentModal } from '@/components/appointments/AddAppointmentModal';
 import { useToast } from '@/components/ui/Toast';
 import type { Patient } from '@fadl/types';
 
@@ -100,6 +101,8 @@ export default function PatientsPage() {
   const [source, setSource]           = useState<SourceFilter>('all');
   const [futureOnly, setFutureOnly]   = useState(false);
   const [addOpen, setAddOpen]         = useState(false);
+  // Set right after a patient is created — chains straight into booking their first appointment.
+  const [apptPatient, setApptPatient] = useState<Patient | null>(null);
   const [editPatient, setEditPatient] = useState<Patient | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Patient | null>(null);
 
@@ -415,7 +418,15 @@ export default function PatientsPage() {
       <AddPatientModal
         open={addOpen}
         onClose={() => setAddOpen(false)}
-        onCreated={(id) => router.push(`/patients/${id}`)}
+        onCreated={(p) => { setAddOpen(false); setApptPatient(p); }}
+      />
+
+      {/* Chained booking: opens with the freshly created patient pre-selected */}
+      <AddAppointmentModal
+        open={!!apptPatient}
+        onClose={() => setApptPatient(null)}
+        editPatient={apptPatient}
+        onCreated={() => setApptPatient(null)}
       />
 
       {editPatient && (

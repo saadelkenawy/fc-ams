@@ -197,6 +197,7 @@ export async function appointmentRoutes(app: FastifyInstance): Promise<void> {
           paymentMethod:   { type: 'string', enum: ['cash', 'visa', 'instapay'] },
           approvedCharge:  { type: 'number', exclusiveMinimum: 0 },
           procedureCost:   { type: 'number', exclusiveMinimum: 0 },
+          roomCode:        { type: 'string', maxLength: 10 },
           idempotencyKey:  { type: 'string', maxLength: 100 },
           notes:           { type: 'string', maxLength: 2000 },
         },

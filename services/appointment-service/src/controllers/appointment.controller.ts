@@ -7,6 +7,7 @@ import * as roomRepo from '../repositories/room.repository';
 import { fireNotification } from '../clients/notification';
 import { createBillingTransaction, refundTransactionByAppointment, syncBillingApprovedCharge, syncBillingPaymentStatus } from '../clients/billing';
 import { verifyUserPassword } from '../clients/identity';
+import { getDoctorAvailability } from '../clients/doctor';
 import { broadcastRoom } from '../lib/room-sse';
 import { broadcast as broadcastQueue } from '../lib/queue-sse';
 
@@ -19,12 +20,13 @@ export const createSchema = z.object({
   appointmentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   startTime:       z.string().regex(/^\d{2}:\d{2}$/),
   endTime:         z.string().regex(/^\d{2}:\d{2}$/),
-  appointmentType: z.enum(['in_person', 'online', 'home_visit', 'walk_in']).default('in_person'),
+  appointmentType: z.enum(['in_person', 'online', 'walk_in']).default('in_person'),
   isOnline:        z.boolean().default(false),
   patientSource:   z.string().default("Cl.'s"),
   paymentMethod:   z.enum(['cash', 'visa', 'instapay']).optional(),
   approvedCharge:  z.number().positive().optional(),
   procedureCost:   z.number().positive().optional(),
+  roomCode:        z.string().max(10).optional(),
   idempotencyKey:  z.string().max(100).optional(),
   notes:           z.string().max(2000).optional(),
 }).refine(
@@ -38,7 +40,7 @@ export const updateSchema = z.object({
   appointmentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   startTime:       z.string().regex(/^\d{2}:\d{2}$/).optional(),
   endTime:         z.string().regex(/^\d{2}:\d{2}$/).optional(),
-  appointmentType: z.enum(['in_person', 'online', 'home_visit', 'walk_in']).optional(),
+  appointmentType: z.enum(['in_person', 'online', 'walk_in']).optional(),
   patientSource:   z.string().optional(),
   paymentMethod:   z.enum(['cash', 'visa', 'instapay']).nullable().optional(),
   approvedCharge:  z.number().positive().nullable().optional(),
@@ -95,6 +97,35 @@ export async function listDoctorsOnDate(request: FastifyRequest, reply: FastifyR
 export async function createAppointment(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const input = createSchema.parse(request.body);
   const user = request.user as JwtPayload;
+
+  // Validate against the doctor's configured working days/hours (doctor-service
+  // consultation hours + day overrides). Only enforced for doctors who have a
+  // schedule configured; fail-open when doctor-service is down.
+  if (input.appointmentType !== 'online') {
+    const availability = await getDoctorAvailability(input.doctorId, input.appointmentDate);
+    if (availability && availability.hasSchedule === true) {
+      if (!availability.isWorking || availability.slots.length === 0) {
+        reply.status(422).send({
+          success: false,
+          error: { code: 'DOCTOR_NOT_AVAILABLE', message: 'Doctor is not available on this day' },
+        });
+        return;
+      }
+      const first = availability.slots[0].time;
+      const last = availability.slots[availability.slots.length - 1].time;
+      if (input.startTime < first || input.startTime > last) {
+        reply.status(422).send({
+          success: false,
+          error: {
+            code: 'DOCTOR_NOT_AVAILABLE',
+            message: `Doctor is not available at this time — working hours on this day are ${first}–${last}`,
+          },
+        });
+        return;
+      }
+    }
+  }
+
   const appointment = await repo.createAppointment(input, user.sub, user.branchId);
 
   // Auto-assign room via Redis cache (fire-and-forget)

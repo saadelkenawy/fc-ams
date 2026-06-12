@@ -20,6 +20,7 @@ import { useRouter } from 'next/navigation';
 import { appointmentApi, patientApi, fileApi, billingApi } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 import { useAppointments } from '@/hooks/useAppointments';
+import { useRooms } from '@/hooks/useRooms';
 import { cn } from '@/lib/utils';
 import type { Appointment, Doctor, Patient, Specialty } from '@fadl/types';
 
@@ -489,6 +490,7 @@ export function AddAppointmentModal({
   const [procedureId,   setProcedureId]   = useState(editAppointment?.procedureId ?? '');
   const [showBillingWarn, setShowBillingWarn] = useState(false);
   const [procCost,      setProcCost]      = useState(editAppointment?.procedureCost != null ? String(editAppointment.procedureCost) : '');
+  const [roomCode,      setRoomCode]      = useState(editAppointment?.roomCode ?? '');
   const [errors,        setErrors]        = useState<Record<string, string>>({});
   const [attachment,    setAttachment]    = useState<File | null>(null);
 
@@ -499,7 +501,20 @@ export function AddAppointmentModal({
 
   const timeManuallyEdited     = useRef(false);
   const durationManuallyEdited = useRef(false);
+  const roomManuallyChosen     = useRef(false);
   const fileInputRef           = useRef<HTMLInputElement>(null);
+
+  // Clinic rooms with live usage for the selected date (C1–C5, 30 slots/day each)
+  const ROOM_DAILY_CAPACITY = 30;
+  const { data: rooms = [] } = useRooms(date);
+
+  // Auto-select the room the doctor is already assigned to on this date —
+  // the receptionist can still override it.
+  useEffect(() => {
+    if (isEdit || !doctor || roomManuallyChosen.current) return;
+    const assigned = rooms.find((r) => r.assignedDoctor?.id === doctor.id && r.roomCode);
+    if (assigned?.roomCode) setRoomCode(assigned.roomCode);
+  }, [isEdit, doctor, rooms]);
 
   // Query doctor's existing appointments for the selected date (create mode only)
   const { data: doctorAppts, isFetching: apptsFetching } = useAppointments(
@@ -578,6 +593,8 @@ export function AddAppointmentModal({
       setProcedureId('');
       setProcCost('');
     }
+    setRoomCode(editAppointment?.roomCode ?? '');
+    roomManuallyChosen.current = false;
     setErrors({});
     setAttachment(null);
     setExtraLines([]);
@@ -651,6 +668,7 @@ export function AddAppointmentModal({
         if (notes)       body.notes          = notes;
         if (procedureId) body.procedureId    = procedureId;
         if (procCost)    body.procedureCost  = Number(procCost);
+        if (roomCode)    body.roomCode       = roomCode;
         const res = await appointmentApi.post<{ data: { id: string } }>('/appointments', body);
         appointmentId = res.data.data.id;
       }
@@ -763,7 +781,13 @@ export function AddAppointmentModal({
           let title: string;
           let description: React.ReactNode;
 
-          if (mutation.isError && (code === 'DOUBLE_BOOKING' || (errObj as { response?: { status?: number } })?.response?.status === 409)) {
+          if (mutation.isError && code === 'ROOM_FULL') {
+            title       = t('الغرفة ممتلئة', 'Room is full');
+            description = apiMsg ?? t('الغرفة المختارة ممتلئة لهذا اليوم. اختر غرفة أخرى.', 'The selected room is full for this date. Please pick another room.');
+          } else if (mutation.isError && code === 'DOCTOR_NOT_AVAILABLE') {
+            title       = t('الطبيب غير متاح', 'Doctor not available');
+            description = apiMsg ?? t('الطبيب غير متاح في هذا اليوم أو الوقت.', 'The doctor is not available on this day or time.');
+          } else if (mutation.isError && (code === 'DOUBLE_BOOKING' || (errObj as { response?: { status?: number } })?.response?.status === 409)) {
             title       = t('تعارض في الموعد', 'Time slot conflict');
             description = t('هذا الموعد محجوز بالفعل. اختر وقتاً آخر.', 'This time slot is already booked. Please pick another time.');
           } else if (mutation.isError) {
@@ -855,6 +879,37 @@ export function AddAppointmentModal({
                     <option key={m} value={m}>{m} {t('د', 'min')}</option>
                   ))}
                 </select>
+              </div>
+
+              {/* Clinic room — pick by remaining daily capacity; auto-selected
+                  when the doctor is already assigned to a room on this date */}
+              <div className="space-y-1">
+                <label className="field-label">{t('العيادة / الغرفة', 'Clinic Room')}</label>
+                <select
+                  className={cn(inputCls, 'cursor-pointer')}
+                  value={roomCode}
+                  onChange={(e) => { roomManuallyChosen.current = true; setRoomCode(e.target.value); }}
+                >
+                  <option value="">{t('بدون غرفة محددة', 'No specific room')}</option>
+                  {rooms.filter((r) => r.roomCode && r.isActive).map((r) => {
+                    const used = r.appointmentsToday;
+                    const full = used >= ROOM_DAILY_CAPACITY;
+                    const docName = r.assignedDoctor
+                      ? (lang === 'ar' ? (r.assignedDoctor.nameAr ?? r.assignedDoctor.nameEn) : r.assignedDoctor.nameEn)
+                      : null;
+                    return (
+                      <option key={r.roomCode} value={r.roomCode!} disabled={full}>
+                        {r.roomCode} — {r.nameEn} ({used}/{ROOM_DAILY_CAPACITY}{full ? ` · ${t('ممتلئة', 'FULL')}` : ''})
+                        {docName ? ` · ${docName}` : ''}
+                      </option>
+                    );
+                  })}
+                </select>
+                {roomCode && doctor && rooms.find((r) => r.roomCode === roomCode)?.assignedDoctor?.id === doctor.id && (
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                    {t('تم اختيار الغرفة تلقائياً — الطبيب معيّن لها في هذا اليوم', 'Auto-selected — the doctor is assigned to this room on this date')}
+                  </p>
+                )}
               </div>
             </div>
           </StepSection>

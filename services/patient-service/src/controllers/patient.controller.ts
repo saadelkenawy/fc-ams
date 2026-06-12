@@ -28,6 +28,17 @@ const createSchema = z.object({
   emergencyContactMobile: z.string().optional(),
   emergencyContactName: z.string().optional(),
   preferredLanguage: z.enum(['ar', 'en']).default('ar'),
+  insuranceProvider: z.string().max(200).optional(),
+  insurancePolicyNumber: z.string().regex(/^\d+$/, 'Policy number must be numeric').max(50).optional(),
+  currentMedications: z.array(z.object({
+    name: z.string().min(1).max(200),
+    dosage: z.string().max(100).optional(),
+  })).max(50).optional(),
+  allergies: z.array(z.object({
+    type: z.enum(['medication', 'food']),
+    name: z.string().min(1).max(200),
+  })).max(50).optional(),
+  chronicDiseases: z.array(z.string().min(1).max(200)).max(50).optional(),
   sourceFirstVisit: z.string().optional(),
   isFutureSource: z.boolean().optional(),
 });

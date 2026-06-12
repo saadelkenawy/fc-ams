@@ -152,6 +152,7 @@ export interface paths {
                         paymentMethod?: "cash" | "visa" | "instapay";
                         approvedCharge?: number;
                         procedureCost?: number;
+                        roomCode?: string;
                         idempotencyKey?: string;
                         notes?: string;
                     };

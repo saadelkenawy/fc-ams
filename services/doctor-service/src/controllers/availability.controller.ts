@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { JwtPayload } from '@fadl/types';
 import type { DoctorStatus } from '@fadl/types';
 import * as repo from '../repositories/availability.repository';
+import { getBookedStartTimes } from '../clients/appointment';
 import { redis } from '../config/redis';
 
 const consultHoursSchema = z.object({
@@ -121,6 +122,7 @@ export async function getDoctorAvailability(request: FastifyRequest, reply: Fast
   const user = request.user as JwtPayload;
 
   const targetDate = date ?? new Date().toISOString().split('T')[0];
-  const availability = await repo.getDoctorAvailability(id, targetDate, user.branchId);
+  const bookedTimes = await getBookedStartTimes(id, targetDate);
+  const availability = await repo.getDoctorAvailability(id, targetDate, user.branchId, bookedTimes);
   reply.send({ success: true, data: availability });
 }

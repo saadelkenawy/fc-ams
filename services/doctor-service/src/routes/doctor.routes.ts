@@ -21,6 +21,16 @@ const revenueSplitSchema = {
   required: ['doctorPercentage', 'clinicPercentage'],
 } as const;
 
+const visitTypeSplitsSchema = {
+  type: 'object',
+  properties: {
+    consultation: revenueSplitSchema,
+    operative: revenueSplitSchema,
+    online: revenueSplitSchema,
+  },
+  required: ['consultation', 'operative', 'online'],
+} as const;
+
 const doctorSchema = {
   type: 'object',
   properties: {
@@ -29,6 +39,7 @@ const doctorSchema = {
     nameEn: { type: 'string' },
     nameAr: { type: 'string', nullable: true },
     specialtyId: { type: 'integer' },
+    secondarySpecialtyIds: { type: 'array', items: { type: 'integer' } },
     subSpecialty: { type: 'string', nullable: true },
     isOnlineDoctor: { type: 'boolean' },
     revenueSplits: {
@@ -37,6 +48,8 @@ const doctorSchema = {
         consultation: revenueSplitSchema,
         operative: revenueSplitSchema,
         online: revenueSplitSchema,
+        // Per-specialty overrides keyed by specialtyId (multi-specialty doctors)
+        bySpecialty: { type: 'object', additionalProperties: visitTypeSplitsSchema },
       },
       required: ['consultation', 'operative', 'online'],
     },
@@ -50,7 +63,7 @@ const doctorSchema = {
     updatedAt: { type: 'string' },
     branchId: { type: 'integer' },
   },
-  required: ['id', 'mobile', 'nameEn', 'specialtyId', 'isOnlineDoctor', 'revenueSplits', 'allowOverbooking', 'overbookingBufferPercentage', 'isActive', 'version', 'createdAt', 'updatedAt', 'branchId'],
+  required: ['id', 'mobile', 'nameEn', 'specialtyId', 'secondarySpecialtyIds', 'isOnlineDoctor', 'revenueSplits', 'allowOverbooking', 'overbookingBufferPercentage', 'isActive', 'version', 'createdAt', 'updatedAt', 'branchId'],
 } as const;
 
 const specialtySchema = {

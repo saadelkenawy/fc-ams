@@ -263,10 +263,23 @@ export async function getDoctorAvailability(
   doctorId: string,
   date: string,
   branchId: number,
+  // Booked HH:MM start times for the doctor on this date — fetched by the
+  // controller from appointment-service (appointments are not in this DB).
+  bookedTimes: Set<string> = new Set(),
 ): Promise<DoctorAvailability> {
   return withRlsContext(async (client) => {
     const d = new Date(date);
     const dayOfWeek = d.getDay() as 0 | 1 | 2 | 3 | 4 | 5 | 6;
+
+    // Does the doctor have ANY schedule configuration? Callers (appointment
+    // validation) only enforce working hours for configured doctors.
+    const { rows: schedCount } = await client.query(
+      `SELECT
+         (SELECT COUNT(*) FROM doctor_consultation_hours WHERE doctor_id = $1 AND is_active = TRUE)
+       + (SELECT COUNT(*) FROM doctor_day_overrides WHERE doctor_id = $1) AS cnt`,
+      [doctorId],
+    );
+    const hasSchedule = Number((schedCount[0] as { cnt: string | number }).cnt) > 0;
 
     // Check day override first
     const { rows: overrides } = await client.query(
@@ -304,24 +317,11 @@ export async function getDoctorAvailability(
     }
 
     if (!isWorking || !startTime || !endTime) {
-      return { doctorId, date, isWorking: false, slots: [], totalSlots: 0, bookedSlots: 0, maxPatients: 0 };
+      return { doctorId, date, hasSchedule, isWorking: false, slots: [], totalSlots: 0, bookedSlots: 0, maxPatients: 0 };
     }
 
-    // Get booked appointments for this doctor on this date
-    const { rows: booked } = await client.query(
-      `SELECT start_time FROM appointments
-       WHERE doctor_id = $1 AND appointment_date = $2
-         AND status NOT IN ('Canc.', 'Resch.') AND deleted_at IS NULL`,
-      [doctorId, date],
-    );
-
-    const bookedTimes = new Set(booked.map((r) => {
-      const row = r as Record<string, unknown>;
-      const t = row.start_time as string;
-      return t.substring(0, 5); // HH:MM
-    }));
-
-    // Generate slots
+    // Generate slots (bookedTimes supplied by the controller — appointments
+    // live in appointment-service's database, not here)
     const slots: DoctorAvailabilitySlot[] = [];
     const [startH, startM] = startTime.split(':').map(Number);
     const [endH, endM] = endTime.split(':').map(Number);
@@ -348,6 +348,7 @@ export async function getDoctorAvailability(
     return {
       doctorId,
       date,
+      hasSchedule,
       isWorking: true,
       slots,
       totalSlots: slots.length,

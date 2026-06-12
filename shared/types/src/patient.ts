@@ -1,6 +1,17 @@
 export type Gender = 'M' | 'F';
 export type PreferredLanguage = 'ar' | 'en';
 export type BloodType = 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-';
+export type AllergyType = 'medication' | 'food';
+
+export interface PatientMedication {
+  name: string;
+  dosage?: string;
+}
+
+export interface PatientAllergy {
+  type: AllergyType;
+  name: string;
+}
 
 export interface Patient {
   patientId: string; // UUID — never mobile as PK
@@ -17,6 +28,11 @@ export interface Patient {
   emergencyContactMobile?: string;
   emergencyContactName?: string;
   preferredLanguage: PreferredLanguage;
+  insuranceProvider?: string;
+  insurancePolicyNumber?: string;
+  currentMedications: PatientMedication[];
+  allergies: PatientAllergy[];
+  chronicDiseases: string[];
   sourceFirstVisit?: string;
   isFutureSource: boolean;
   futureSourceType?: string;
@@ -43,6 +59,11 @@ export interface CreatePatientInput {
   emergencyContactMobile?: string;
   emergencyContactName?: string;
   preferredLanguage?: PreferredLanguage;
+  insuranceProvider?: string;
+  insurancePolicyNumber?: string;
+  currentMedications?: PatientMedication[];
+  allergies?: PatientAllergy[];
+  chronicDiseases?: string[];
   sourceFirstVisit?: string;
   isFutureSource?: boolean;
 }

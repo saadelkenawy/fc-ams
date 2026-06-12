@@ -2,6 +2,7 @@ import { PoolClient } from 'pg';
 import { v4 as uuidv4 } from 'uuid';
 import type { Appointment, AppointmentStatus, PaginatedResponse } from '@fadl/types';
 import { withRlsContext, withTransaction, rlsQuery } from '../config/database';
+import { config } from '../config';
 import * as outbox from './outbox.repository';
 
 // ---------------------------------------------------------------------------
@@ -150,6 +151,7 @@ export async function createAppointment(
     paymentMethod?: string;
     approvedCharge?: number;
     procedureCost?: number;
+    roomCode?: string;
     idempotencyKey?: string;
     notes?: string;
   },
@@ -199,6 +201,51 @@ export async function createAppointment(
     const splitDoctor = docRows.length ? Number((docRows[0] as Record<string, unknown>).consultation_split_doctor) : 50;
     const splitClinic = docRows.length ? Number((docRows[0] as Record<string, unknown>).consultation_split_clinic) : 50;
 
+    // Clinic room: validate the room exists and still has daily capacity.
+    // On overflow the error lists rooms that can still take appointments so
+    // the receptionist (or UI) can immediately pick another room.
+    let roomId: number | null = null;
+    if (input.roomCode) {
+      const { rows: roomRows } = await client.query(
+        `SELECT id FROM clinic_rooms WHERE room_code = $1 AND is_active = TRUE`,
+        [input.roomCode],
+      );
+      if (!roomRows.length) {
+        throw Object.assign(new Error(`Unknown or inactive room: ${input.roomCode}`), {
+          code: 'ROOM_NOT_FOUND', statusCode: 422,
+        });
+      }
+      roomId = (roomRows[0] as { id: number }).id;
+
+      const { rows: usageRows } = await client.query(
+        `SELECT cr.room_code, COUNT(a.id)::int AS used
+         FROM clinic_rooms cr
+         LEFT JOIN appointments a
+           ON a.room_code = cr.room_code
+          AND a.appointment_date = $1
+          AND a.status NOT IN ('Canc.', 'Resch.')
+          AND a.deleted_at IS NULL
+         WHERE cr.is_active = TRUE AND cr.room_code IS NOT NULL
+         GROUP BY cr.room_code
+         ORDER BY cr.room_code`,
+        [input.appointmentDate],
+      );
+      const capacity = config.ROOM_DAILY_SLOT_CAPACITY;
+      const usage = usageRows as Array<{ room_code: string; used: number }>;
+      const selected = usage.find((u) => u.room_code === input.roomCode);
+      if ((selected?.used ?? 0) >= capacity) {
+        const free = usage.filter((u) => u.used < capacity).map((u) => `${u.room_code} (${u.used}/${capacity})`);
+        throw Object.assign(
+          new Error(
+            free.length
+              ? `Room ${input.roomCode} is full for this date (${capacity}/${capacity}). Rooms with capacity: ${free.join(', ')}`
+              : `Room ${input.roomCode} is full for this date and no other room has capacity`,
+          ),
+          { code: 'ROOM_FULL', statusCode: 409 },
+        );
+      }
+    }
+
     const id = uuidv4();
 
     let insertResult;
@@ -210,6 +257,7 @@ export async function createAppointment(
           appointment_type, is_online,
           patient_source, payment_method, approved_charge, procedure_cost,
           queue_number, idempotency_key, notes,
+          room_id, room_code, room_assigned_at,
           status, created_by, branch_id
         ) VALUES (
           $1, $2, $3, $4,
@@ -217,7 +265,8 @@ export async function createAppointment(
           $8, $9,
           $10, $11, $12, $13,
           $14, $15, $16,
-          'TBC', $17, $18
+          $17, $18, CASE WHEN $18::varchar IS NULL THEN NULL ELSE NOW() END,
+          'TBC', $19, $20
         ) RETURNING *`,
         [
           id,
@@ -236,6 +285,8 @@ export async function createAppointment(
           queueNumber,
           input.idempotencyKey ?? null,
           input.notes ?? null,
+          roomId,
+          input.roomCode ?? null,
           createdBy,
           branchId,
         ],
