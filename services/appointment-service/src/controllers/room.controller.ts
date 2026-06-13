@@ -52,6 +52,13 @@ export async function listRooms(request: FastifyRequest, reply: FastifyReply): P
   reply.send({ success: true, data: rooms });
 }
 
+export async function listRoomAssignments(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { date } = request.query as { date?: string };
+  const targetDate = date ?? new Date().toISOString().split('T')[0];
+  const assignments = await repo.listAssignmentsByDate(targetDate);
+  reply.send({ success: true, data: assignments });
+}
+
 export async function getRoomAvailability(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const user = request.user as JwtPayload;
   const { date } = request.query as { date?: string };

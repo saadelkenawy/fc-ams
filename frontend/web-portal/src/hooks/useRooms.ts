@@ -1,7 +1,8 @@
+import { localDateISO } from '@/lib/utils';
 import { useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { appointmentApi } from '@/lib/api';
-import type { RoomDetail, AssignRoomResult, ClinicRoom, RoomStats, ApiResponse } from '@fadl/types';
+import type { RoomDetail, AssignRoomResult, ClinicRoom, RoomAssignment, RoomStats, ApiResponse } from '@fadl/types';
 import type { paths as AppointmentPaths } from '@/types/api/appointment';
 
 // ── §4.6 contract drift check ────────────────────────────────────────────────
@@ -19,7 +20,25 @@ type AssertAssignable<A extends B, B> = A;
 type _RoomDetailContractCheck = AssertAssignable<NoNulls<ContractRoomDetail>, RoomDetail>;
 type _RoomStatsContractCheck = AssertAssignable<NoNulls<ContractRoomStats>, RoomStats>;
 
-const TODAY = () => new Date().toISOString().split('T')[0];
+const TODAY = () => localDateISO();
+
+export interface RoomAssignmentWithCode extends RoomAssignment {
+  roomCode: string | null;
+}
+
+/** All room assignments for a date — waiting-screen "next doctor" lookup. */
+export function useRoomAssignments(date?: string, refetchInterval?: number) {
+  const d = date ?? TODAY();
+  return useQuery({
+    queryKey: ['room-assignments', d],
+    queryFn: async () => {
+      const { data } = await appointmentApi.get<ApiResponse<RoomAssignmentWithCode[]>>('/rooms/assignments', { params: { date: d } });
+      return data.data ?? [];
+    },
+    staleTime: 15_000,
+    refetchInterval,
+  });
+}
 
 export function useRooms(date?: string) {
   const d = date ?? TODAY();

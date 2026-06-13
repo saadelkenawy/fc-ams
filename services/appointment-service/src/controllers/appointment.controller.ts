@@ -111,14 +111,16 @@ export async function createAppointment(request: FastifyRequest, reply: FastifyR
         });
         return;
       }
-      const first = availability.slots[0].time;
-      const last = availability.slots[availability.slots.length - 1].time;
-      if (input.startTime < first || input.startTime > last) {
+      // The whole session (start → end) must fit inside the clinic working
+      // window so dynamic session lengths can't run past closing time.
+      const workStart = availability.workStart ?? availability.slots[0].time;
+      const workEnd = availability.workEnd ?? availability.slots[availability.slots.length - 1].time;
+      if (input.startTime < workStart || input.endTime > workEnd) {
         reply.status(422).send({
           success: false,
           error: {
             code: 'DOCTOR_NOT_AVAILABLE',
-            message: `Doctor is not available at this time — working hours on this day are ${first}–${last}`,
+            message: `Doctor is not available at this time — working hours on this day are ${workStart}–${workEnd}`,
           },
         });
         return;
@@ -180,6 +182,21 @@ export async function updateAppointment(request: FastifyRequest, reply: FastifyR
   }
 
   reply.send({ success: true, data: appointment });
+}
+
+export const swapSchema = z.object({
+  appointmentIdA: z.string().uuid(),
+  appointmentIdB: z.string().uuid(),
+}).refine((d) => d.appointmentIdA !== d.appointmentIdB, {
+  message: 'Cannot swap an appointment with itself',
+  path: ['appointmentIdB'],
+});
+
+export async function swapAppointments(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { appointmentIdA, appointmentIdB } = swapSchema.parse(request.body);
+  const user = request.user as JwtPayload;
+  const result = await repo.swapAppointmentTimes(appointmentIdA, appointmentIdB, user.sub);
+  reply.send({ success: true, data: result });
 }
 
 export async function updateStatus(request: FastifyRequest, reply: FastifyReply): Promise<void> {

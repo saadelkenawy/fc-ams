@@ -1,5 +1,6 @@
 'use client';
 
+import { localDateISO } from '@/lib/utils';
 import { useState } from 'react';
 import { UserCheck, DoorOpen, Sparkles } from 'lucide-react';
 import { RoomStatusBoard } from '@/components/rooms/RoomStatusBoard';
@@ -8,7 +9,7 @@ import { useRooms } from '@/hooks/useRooms';
 import { useLang } from '@/contexts/LanguageContext';
 
 export default function RoomsPage() {
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(localDateISO());
   const { t } = useLang();
   const { data: rooms = [] } = useRooms(date);
 

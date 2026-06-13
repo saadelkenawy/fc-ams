@@ -205,6 +205,22 @@ export async function appointmentRoutes(app: FastifyInstance): Promise<void> {
     },
   }, ctrl.createAppointment);
 
+  // POST /appointments/swap  (atomically exchange two appointments' time slots)
+  app.post('/appointments/swap', {
+    preHandler: [requireRole('receptionist', 'admin')],
+    schema: {
+      tags: ['appointments'],
+      body: {
+        type: 'object',
+        required: ['appointmentIdA', 'appointmentIdB'],
+        properties: {
+          appointmentIdA: { type: 'string', format: 'uuid' },
+          appointmentIdB: { type: 'string', format: 'uuid' },
+        },
+      },
+    },
+  }, ctrl.swapAppointments);
+
   // PATCH /appointments/:id  (edit appointment — admin and receptionist)
   app.patch('/appointments/:id', {
     preHandler: [requireRole('receptionist', 'admin')],

@@ -1,3 +1,4 @@
+import { localDateISO } from '@/lib/utils';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { appointmentApi } from '@/lib/api';
 import type { Appointment, AppointmentStatus, PaginatedResponse } from '@fadl/types';
@@ -44,7 +45,7 @@ export function useAppointments(params: AppointmentListParams = {}, options?: { 
 }
 
 export function useTodayAppointments() {
-  const today = new Date().toISOString().split('T')[0];
+  const today = localDateISO();
   return useAppointments({ date: today, limit: 50 });
 }
 

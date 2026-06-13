@@ -8,7 +8,7 @@ import { AppointmentStatusBadge, Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { useLang } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { formatTime } from '@/lib/utils';
+import { formatTime, localDateISO } from '@/lib/utils';
 import { useAppointments } from '@/hooks/useAppointments';
 import { useDoctors, useDoctorMap, useSpecialtyMap } from '@/hooks/useDoctors';
 import { usePatients, usePatientMap } from '@/hooks/usePatients';
@@ -47,7 +47,7 @@ export default function DashboardPage() {
   const greetEn = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
   const isDoctor = user?.role === 'doctor';
-  const today    = new Date().toISOString().split('T')[0];
+  const today    = localDateISO();
 
   const { data: apptData, isLoading: apptLoading, refetch } = useAppointments({
     date:     today,
@@ -295,7 +295,7 @@ export default function DashboardPage() {
                 return (
                   <button
                     key={appt.id}
-                    onClick={() => router.push(`/appointments?date=${now.toISOString().split('T')[0]}`)}
+                    onClick={() => router.push(`/appointments?date=${localDateISO(now)}`)}
                     className="w-full flex items-center gap-3 p-2.5 rounded-lg bg-gray-50 dark:bg-neutral-800/60 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-colors cursor-pointer text-start"
                     aria-label={t(
                       `موعد ${patName} مع ${doctorLabel} الساعة ${formatTime(appt.startTime)}`,

@@ -15,7 +15,7 @@ import { StatCard } from '@/components/ui/StatCard';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useLang } from '@/contexts/LanguageContext';
 import { useToast } from '@/components/ui/Toast';
-import { cn } from '@/lib/utils';
+import { cn, localDateISO } from '@/lib/utils';
 import {
   useSources, useCreateSource, useUpdateSource, useDeleteSource,
   type SourceFeeRule, type CreateSourceInput, type SpecialtyRate,
@@ -87,7 +87,7 @@ function SourceModal({
       deductFrom:     initial?.deductFrom     ?? 'clinic',
       isGeneral:      initial?.isGeneral      ?? true,
       isActive:       initial?.isActive       ?? true,
-      validFrom:      initial?.validFrom      ?? new Date().toISOString().split('T')[0],
+      validFrom:      initial?.validFrom      ?? localDateISO(),
       validUntil:     initial?.validUntil     ?? '',
       specialtyRates: initial?.specialtyRates ?? [],
     },

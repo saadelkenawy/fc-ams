@@ -131,8 +131,12 @@ export async function listRooms(date: string, branchId: number): Promise<RoomDet
          COUNT(al.id) FILTER (WHERE al.assigned_date = $1)                          AS appointments_today,
          COUNT(al.id) FILTER (WHERE al.assigned_date = $1 AND al.exited_at IS NULL) AS remaining
        FROM clinic_rooms cr
-       LEFT JOIN room_assignments ra
-         ON ra.room_id = cr.id AND ra.assigned_date = $1 AND ra.status IN ('reserved','active')
+       LEFT JOIN LATERAL (
+         SELECT * FROM room_assignments ra2
+         WHERE ra2.room_id = cr.id AND ra2.assigned_date = $1 AND ra2.status IN ('reserved','active')
+         ORDER BY ra2.assigned_from
+         LIMIT 1
+       ) ra ON TRUE
        LEFT JOIN doctors d ON d.id = ra.doctor_id
        LEFT JOIN specialties s ON s.id = d.specialty_id
        LEFT JOIN room_appointment_log al ON al.room_id = cr.id
@@ -172,6 +176,28 @@ export async function listRooms(date: string, branchId: number): Promise<RoomDet
   });
 }
 
+// All assignments for a date (waiting-screen "next doctor" lookup) — ordered
+// per room by start time so consumers can find the assignment following the
+// active one.
+export async function listAssignmentsByDate(
+  date: string,
+): Promise<Array<RoomAssignmentRow & { roomCode: string | null }>> {
+  return withRlsContext(async (client) => {
+    const { rows } = await client.query(
+      `SELECT ra.*, cr.room_code
+       FROM room_assignments ra
+       JOIN clinic_rooms cr ON cr.id = ra.room_id
+       WHERE ra.assigned_date = $1 AND ra.status != 'cancelled'
+       ORDER BY cr.room_code, ra.assigned_from`,
+      [date],
+    );
+    return rows.map((r) => {
+      const row = r as Record<string, unknown>;
+      return { ...rowToAssignment(row), roomCode: row.room_code as string | null };
+    });
+  });
+}
+
 export async function getRoomByCode(roomCode: string, branchId: number): Promise<RoomRow | null> {
   return withRlsContext(async (client) => {
     const { rows } = await client.query(
@@ -187,6 +213,7 @@ export async function getActiveAssignment(doctorId: string, date: string): Promi
     `SELECT ra.*, cr.room_code FROM room_assignments ra
      JOIN clinic_rooms cr ON cr.id = ra.room_id
      WHERE ra.doctor_id = $1 AND ra.assigned_date = $2 AND ra.status IN ('reserved','active')
+     ORDER BY ra.assigned_from
      LIMIT 1`,
     [doctorId, date],
   );
@@ -201,8 +228,12 @@ export async function getAvailabilityByDate(date: string, branchId: number): Pro
                    WHEN ra.status = 'active' THEN 'occupied'
                    ELSE 'reserved' END AS status
        FROM clinic_rooms cr
-       LEFT JOIN room_assignments ra
-         ON ra.room_id = cr.id AND ra.assigned_date = $1 AND ra.status IN ('reserved','active')
+       LEFT JOIN LATERAL (
+         SELECT * FROM room_assignments ra2
+         WHERE ra2.room_id = cr.id AND ra2.assigned_date = $1 AND ra2.status IN ('reserved','active')
+         ORDER BY ra2.assigned_from
+         LIMIT 1
+       ) ra ON TRUE
        WHERE cr.branch_id = $2 AND cr.is_active = TRUE AND cr.room_code IS NOT NULL
        ORDER BY cr.room_code`,
       [date, branchId],
@@ -235,19 +266,24 @@ export async function assignRoom(
     }
     const room = rowToRoomRow(roomRows[0] as Record<string, unknown>);
 
+    // Rooms hold several sequential assignments per day (V013) — only a
+    // time-window overlap is a conflict.
     const { rows: conflicts } = await client.query(
-      `SELECT id FROM room_assignments WHERE room_id = $1 AND assigned_date = $2 AND status IN ('reserved','active')`,
-      [room.id, date],
+      `SELECT id FROM room_assignments
+       WHERE room_id = $1 AND assigned_date = $2 AND status IN ('reserved','active')
+         AND assigned_from < $4::time AND assigned_until > $3::time`,
+      [room.id, date, fromTime, untilTime],
     );
     if (conflicts.length) {
-      throw Object.assign(new Error(`Room ${roomCode} is already assigned on ${date}`), { statusCode: 409, code: 'ROOM_ALREADY_ASSIGNED' });
+      throw Object.assign(new Error(`Room ${roomCode} is already assigned during ${fromTime}–${untilTime} on ${date}`), { statusCode: 409, code: 'ROOM_ALREADY_ASSIGNED' });
     }
 
     const { rows: doctorConflicts } = await client.query(
       `SELECT ra.id, cr.room_code FROM room_assignments ra
        JOIN clinic_rooms cr ON cr.id = ra.room_id
-       WHERE ra.doctor_id = $1 AND ra.assigned_date = $2 AND ra.status IN ('reserved','active')`,
-      [doctorId, date],
+       WHERE ra.doctor_id = $1 AND ra.assigned_date = $2 AND ra.status IN ('reserved','active')
+         AND ra.assigned_from < $4::time AND ra.assigned_until > $3::time`,
+      [doctorId, date, fromTime, untilTime],
     );
     if (doctorConflicts.length) {
       const existing = (doctorConflicts[0] as Record<string, unknown>).room_code;
@@ -299,8 +335,10 @@ export async function autoAssignRoom(
     if (!allRooms.length) return null;
 
     const { rows: taken } = await client.query(
-      `SELECT room_id FROM room_assignments WHERE assigned_date = $1 AND status IN ('reserved','active')`,
-      [date],
+      `SELECT room_id FROM room_assignments
+       WHERE assigned_date = $1 AND status IN ('reserved','active')
+         AND assigned_from < $3::time AND assigned_until > $2::time`,
+      [date, fromTime, untilTime],
     );
     const takenIds = new Set(taken.map((r) => (r as Record<string, unknown>).room_id as number));
 
@@ -310,8 +348,10 @@ export async function autoAssignRoom(
     const room = rowToRoomRow(available);
 
     const { rows: doctorConflicts } = await client.query(
-      `SELECT id FROM room_assignments WHERE doctor_id = $1 AND assigned_date = $2 AND status IN ('reserved','active')`,
-      [doctorId, date],
+      `SELECT id FROM room_assignments
+       WHERE doctor_id = $1 AND assigned_date = $2 AND status IN ('reserved','active')
+         AND assigned_from < $4::time AND assigned_until > $3::time`,
+      [doctorId, date, fromTime, untilTime],
     );
     if (doctorConflicts.length) return null;
 
@@ -383,13 +423,21 @@ export async function releaseRoomByCode(
   branchId: number,
 ): Promise<{ assignment: RoomAssignmentRow; doctorId: string; assignedDate: string } | null> {
   return withTransaction(async (client) => {
+    // Release only the room's current (earliest) assignment so the next
+    // doctor's reservation survives and the room advances to them.
     const { rows } = await client.query(
       `UPDATE room_assignments ra
        SET status = 'released', released_at = NOW(), updated_at = NOW()
        FROM clinic_rooms cr
        WHERE ra.room_id = cr.id
-         AND cr.room_code = $1 AND cr.branch_id = $2
-         AND ra.status IN ('reserved','active')
+         AND ra.id = (
+           SELECT ra2.id FROM room_assignments ra2
+           JOIN clinic_rooms cr2 ON cr2.id = ra2.room_id
+           WHERE cr2.room_code = $1 AND cr2.branch_id = $2
+             AND ra2.status IN ('reserved','active')
+           ORDER BY ra2.assigned_date, ra2.assigned_from
+           LIMIT 1
+         )
        RETURNING ra.*, ra.doctor_id AS did, ra.assigned_date AS adate`,
       [roomCode, branchId],
     );

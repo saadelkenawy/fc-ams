@@ -72,13 +72,18 @@ export async function checkIn(
       throw Object.assign(new Error('Patient already checked in'), { code: 'ALREADY_CHECKED_IN', statusCode: 409 });
     }
 
-    // Atomic position claim (SELECT FOR UPDATE)
+    // Atomic position claim — FOR UPDATE can't be combined with aggregates,
+    // so serialize concurrent check-ins per (doctor, date) with a
+    // transaction-scoped advisory lock instead.
+    await client.query(
+      `SELECT pg_advisory_xact_lock(hashtextextended($1 || ':' || $2, 0))`,
+      [doctorId, queueDate],
+    );
     const { rows: maxRows } = await client.query(
       `SELECT COALESCE(MAX(position), 0) + 1 AS next_pos
        FROM patient_queue
        WHERE doctor_id = $1 AND queue_date = $2
-         AND status IN ('waiting', 'called', 'in_session')
-       FOR UPDATE`,
+         AND status IN ('waiting', 'called', 'in_session')`,
       [doctorId, queueDate],
     );
     const position = (maxRows[0] as { next_pos: number }).next_pos;

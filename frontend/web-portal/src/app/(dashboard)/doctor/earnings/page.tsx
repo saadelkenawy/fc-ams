@@ -9,13 +9,13 @@ import { StatCard } from '@/components/ui/StatCard';
 import { Badge } from '@/components/ui/Badge';
 import { useLang } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { formatCurrency, formatDate } from '@/lib/utils';
+import { formatCurrency, formatDate, localDateISO } from '@/lib/utils';
 import { billingApi } from '@/lib/api';
 import type { DoctorSettlement } from '@fadl/types';
 
 function getMonthBounds(year: number, month: number) {
-  const from = new Date(year, month, 1).toISOString().split('T')[0];
-  const to = new Date(year, month + 1, 0).toISOString().split('T')[0]; // last day of month
+  const from = localDateISO(new Date(year, month, 1));
+  const to = localDateISO(new Date(year, month + 1, 0)); // last day of month
   return { from, to };
 }
 

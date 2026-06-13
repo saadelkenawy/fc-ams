@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge, AppointmentStatusBadge } from '@/components/ui/Badge';
 import { useLang } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { formatTime, formatDate } from '@/lib/utils';
+import { formatTime, formatDate, localDateISO } from '@/lib/utils';
 import { useAppointments } from '@/hooks/useAppointments';
 import { doctorApi, appointmentApi } from '@/lib/api';
 import type { DoctorSchedule } from '@fadl/types';
@@ -27,7 +27,7 @@ function getDayDates(): { dayIndex: number; dateStr: string; label: string; labe
     d.setDate(sunday.getDate() + i);
     return {
       dayIndex: i,
-      dateStr: d.toISOString().split('T')[0],
+      dateStr: localDateISO(d),
       label: DAYS_EN[i],
       labelAr: DAYS_AR[i],
     };
@@ -40,7 +40,7 @@ export default function DoctorSchedulePage() {
   const { user } = useAuth();
   const doctorId = user?.doctorId;
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = localDateISO();
   const [selectedDate, setSelectedDate] = useState(today);
 
   const days = useMemo(() => getDayDates(), []);

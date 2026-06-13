@@ -129,6 +129,11 @@ export interface DoctorAvailability {
    *  hours for doctors who actually have a schedule configured. */
   hasSchedule: boolean;
   isWorking: boolean;
+  /** Clinic working window for this day (HH:MM) — null when not working.
+   *  Total bookable slots for a chosen session length =
+   *  floor((workEnd − workStart) / sessionMinutes). */
+  workStart: string | null;
+  workEnd: string | null;
   slots: DoctorAvailabilitySlot[];
   totalSlots: number;
   bookedSlots: number;

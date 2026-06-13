@@ -24,6 +24,7 @@ const NAV: Record<UserRole, NavGroup[]> = {
         { key: 'dashboard',    href: '/',             labelAr: 'الرئيسية',        labelEn: 'Dashboard',    icon: 'LayoutDashboard' },
         { key: 'appointments', href: '/appointments', labelAr: 'المواعيد',        labelEn: 'Appointments', icon: 'CalendarDays' },
         { key: 'queue',        href: '/rooms',        labelAr: 'الطابور',         labelEn: 'Queue',        icon: 'List' },
+        { key: 'waiting',      href: '/waiting',      labelAr: 'شاشة الانتظار',   labelEn: 'Waiting Screen', icon: 'Monitor' },
       ],
     },
     {
@@ -68,6 +69,7 @@ const NAV: Record<UserRole, NavGroup[]> = {
         { key: 'quick-entry',  href: '/receptionist', labelAr: 'الإدخال السريع',  labelEn: 'Quick Entry',  icon: 'Zap' },
         { key: 'queue',        href: '/receptionist/queue', labelAr: 'قائمة الانتظار', labelEn: 'Queue Board', icon: 'List' },
         { key: 'rooms',        href: '/rooms',        labelAr: 'الغرف',           labelEn: 'Rooms',        icon: 'DoorOpen' },
+        { key: 'waiting',      href: '/waiting',      labelAr: 'شاشة الانتظار',   labelEn: 'Waiting Screen', icon: 'Monitor' },
         { key: 'appointments', href: '/appointments', labelAr: 'المواعيد',        labelEn: 'Appointments', icon: 'CalendarDays' },
         { key: 'patients',     href: '/patients',     labelAr: 'المرضى',          labelEn: 'Patients',     icon: 'Users' },
         { key: 'payments',     href: '/billing/payments', labelAr: 'المدفوعات',   labelEn: 'Payments',     icon: 'CreditCard' },

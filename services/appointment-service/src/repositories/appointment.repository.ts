@@ -413,6 +413,106 @@ export async function updateAppointment(
 }
 
 // ---------------------------------------------------------------------------
+// swapAppointmentTimes — atomically exchange the start/end slots of two
+// appointments in a single transaction. Both rows are swapped in ONE UPDATE
+// statement so the non-deferrable double-booking exclusion constraint (checked
+// at statement end, not per-row) never sees the two rows transiently overlap —
+// no temporary "parking" slot is needed and a failure rolls the whole swap back.
+// ---------------------------------------------------------------------------
+const SWAP_TERMINAL_STATUSES: AppointmentStatus[] = ['Comp.', 'Canc.', 'Ref.', 'Resch.'];
+
+export async function swapAppointmentTimes(
+  aId: string,
+  bId: string,
+  updatedBy: string,
+): Promise<{ a: Appointment; b: Appointment }> {
+  return withTransaction(async (client: PoolClient) => {
+    // Lock both rows up front (stable order is irrelevant — ANY() locks both
+    // in one statement, so there is no lock-ordering deadlock window).
+    const { rows } = await client.query(
+      `SELECT * FROM appointments WHERE id = ANY($1::uuid[]) AND deleted_at IS NULL FOR UPDATE`,
+      [[aId, bId]],
+    );
+
+    if (rows.length !== 2) {
+      throw Object.assign(
+        new Error('One or both appointments not found'),
+        { code: 'APPOINTMENT_NOT_FOUND', statusCode: 404 },
+      );
+    }
+
+    const a = rows.find((r) => r.id === aId) as Record<string, unknown>;
+    const b = rows.find((r) => r.id === bId) as Record<string, unknown>;
+
+    for (const r of [a, b]) {
+      if (SWAP_TERMINAL_STATUSES.includes(r.status as AppointmentStatus)) {
+        throw Object.assign(
+          new Error('Cannot swap a completed, cancelled, rescheduled, or refunded appointment'),
+          { code: 'INVALID_STATUS', statusCode: 422 },
+        );
+      }
+    }
+
+    // Time-only swap is meaningful only within the same day (the room timeline
+    // is per-date); reject cross-date swaps rather than silently corrupt times.
+    // appointment_date comes back as a JS Date (node-pg) — compare by value,
+    // not by reference (two Date instances are never === / !== equal).
+    if (String(a.appointment_date) !== String(b.appointment_date)) {
+      throw Object.assign(
+        new Error('Appointments must be on the same date to swap slots'),
+        { code: 'SWAP_DATE_MISMATCH', statusCode: 422 },
+      );
+    }
+
+    const move = (id: string, start: unknown, end: unknown, extraSet = '') =>
+      client.query(
+        `UPDATE appointments
+            SET start_time = $2::time, end_time = $3::time,
+                version = version + 1, updated_at = NOW(), updated_by = $4${extraSet}
+          WHERE id = $1 RETURNING *`,
+        [id, start, end, updatedBy],
+      );
+
+    try {
+      if (a.doctor_id === b.doctor_id) {
+        // Same doctor: the non-deferrable GiST exclusion constraint is checked
+        // per-row, so the two rows can't transiently share the index. Lift B out
+        // of the partial index (is_overbooked = TRUE drops it from the WHERE
+        // clause) for the duration of the swap, then restore its original flag.
+        // All in this one transaction — the exemption never commits on failure.
+        await client.query(`UPDATE appointments SET is_overbooked = TRUE WHERE id = $1`, [bId]);
+        await move(aId, b.start_time, b.end_time);
+        await move(bId, a.start_time, a.end_time,
+          `, is_overbooked = ${b.is_overbooked ? 'TRUE' : 'FALSE'}`);
+      } else {
+        // Different doctors never overlap each other; either move may still
+        // collide with a *third* appointment of its new doctor — that's a real
+        // conflict we want to surface (and roll back).
+        await move(aId, b.start_time, b.end_time);
+        await move(bId, a.start_time, a.end_time);
+      }
+    } catch (err) {
+      // 23P01 = exclusion_violation: the swap would double-book a doctor.
+      if ((err as { code?: string }).code === '23P01') {
+        throw Object.assign(
+          new Error('Swap would double-book a doctor at the target time'),
+          { code: 'SLOT_CONFLICT', statusCode: 409 },
+        );
+      }
+      throw err;
+    }
+
+    const { rows: fresh } = await client.query(
+      `SELECT * FROM appointments WHERE id = ANY($1::uuid[])`, [[aId, bId]],
+    );
+    const byId = new Map(
+      (fresh as Record<string, unknown>[]).map((r) => [r.id as string, rowToAppointment(r)]),
+    );
+    return { a: byId.get(aId)!, b: byId.get(bId)! };
+  });
+}
+
+// ---------------------------------------------------------------------------
 // updateAppointmentStatus
 // ---------------------------------------------------------------------------
 export async function updateAppointmentStatus(

@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { useLang } from '@/contexts/LanguageContext';
 import { patientApi } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
-import { cn } from '@/lib/utils';
+import { cn, localDateISO } from '@/lib/utils';
 import { useTranslateName } from '@/hooks/useTranslateName';
 import type { Patient } from '@fadl/types';
 
@@ -71,7 +71,7 @@ const EMPTY_FORM: FormData = {
 function dobFromAge(age: number): string {
   const d = new Date();
   d.setFullYear(d.getFullYear() - age);
-  return d.toISOString().split('T')[0];
+  return localDateISO(d);
 }
 
 function ageFromDob(dob: string): string {

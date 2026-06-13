@@ -358,6 +358,48 @@ export interface paths {
         };
         trace?: never;
     };
+    "/api/v1/appointments/swap": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        appointmentIdA: string;
+                        /** Format: uuid */
+                        appointmentIdB: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/appointments/{id}/status": {
         parameters: {
             query?: never;
@@ -1135,6 +1177,60 @@ export interface paths {
                                 roomCode: string | null;
                                 /** @enum {string} */
                                 status: "available" | "reserved" | "occupied" | "inactive";
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rooms/assignments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    date?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            success: boolean;
+                            data: {
+                                id: string;
+                                roomId: number;
+                                roomCode: string | null;
+                                doctorId: string;
+                                assignedDate: string;
+                                assignedFrom: string;
+                                assignedUntil: string;
+                                assignedBy?: string | null;
+                                assignedAt?: string;
+                                /** @enum {string} */
+                                status: "reserved" | "active" | "released" | "cancelled";
+                                releasedAt?: string | null;
+                                branchId: number;
                             }[];
                         };
                     };

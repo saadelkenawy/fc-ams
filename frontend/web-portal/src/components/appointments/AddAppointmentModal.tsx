@@ -12,7 +12,7 @@ import {
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { useLang } from '@/contexts/LanguageContext';
-import { useDoctors, useSpecialties } from '@/hooks/useDoctors';
+import { useDoctors, useSpecialties, useDoctorAvailability } from '@/hooks/useDoctors';
 import { usePatients } from '@/hooks/usePatients';
 import { useProcedures } from '@/hooks/useProcedures';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -21,7 +21,7 @@ import { appointmentApi, patientApi, fileApi, billingApi } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 import { useAppointments } from '@/hooks/useAppointments';
 import { useRooms } from '@/hooks/useRooms';
-import { cn } from '@/lib/utils';
+import { cn, localDateISO } from '@/lib/utils';
 import type { Appointment, Doctor, Patient, Specialty } from '@fadl/types';
 
 const PATIENT_SOURCES = [
@@ -75,7 +75,7 @@ function nowHHMM(): string {
 }
 
 function todayYMD(): string {
-  return new Date().toISOString().split('T')[0];
+  return localDateISO();
 }
 
 function snapDuration(mins: number): number {
@@ -473,7 +473,7 @@ export function AddAppointmentModal({
 
   const [patient,       setPatient]       = useState<Patient | null>(editPatient ?? null);
   const [doctor,        setDoctor]        = useState<Doctor | null>(editDoctor ?? null);
-  const [date,          setDate]          = useState(editAppointment?.appointmentDate ?? defaultDate ?? new Date().toISOString().split('T')[0]);
+  const [date,          setDate]          = useState(editAppointment?.appointmentDate ?? defaultDate ?? localDateISO());
   const [time,          setTime]          = useState(editAppointment?.startTime ?? '09:00');
   const [duration,      setDuration]      = useState(
     editAppointment ? diffMinutes(editAppointment.startTime, editAppointment.endTime) : 20
@@ -507,6 +507,15 @@ export function AddAppointmentModal({
   // Clinic rooms with live usage for the selected date (C1–C5, 30 slots/day each)
   const ROOM_DAILY_CAPACITY = 30;
   const { data: rooms = [] } = useRooms(date);
+
+  // Doctor working window for the selected date — drives the dynamic slot
+  // count: total slots = floor((workEnd − workStart) / chosen session length).
+  const { data: dayAvail } = useDoctorAvailability(!isEdit ? (doctor?.id ?? '') : '', date);
+  const workWindow = dayAvail?.hasSchedule && dayAvail.isWorking && dayAvail.workStart && dayAvail.workEnd
+    ? { start: dayAvail.workStart, end: dayAvail.workEnd }
+    : null;
+  const windowMinutes = workWindow ? diffMinutes(workWindow.start, workWindow.end) : null;
+  const dynamicTotalSlots = windowMinutes ? Math.floor(windowMinutes / duration) : null;
 
   // Auto-select the room the doctor is already assigned to on this date —
   // the receptionist can still override it.
@@ -582,7 +591,7 @@ export function AddAppointmentModal({
       setProcedureId(editAppointment.procedureId ?? '');
       setProcCost(editAppointment.procedureCost != null ? String(editAppointment.procedureCost) : '');
     } else {
-      setDate(defaultDate ?? new Date().toISOString().split('T')[0]);
+      setDate(defaultDate ?? localDateISO());
       setTime('09:00');
       setDuration(20);
       setApptType('in_person');
@@ -720,6 +729,16 @@ export function AddAppointmentModal({
     if (!doctor)              e.doctor        = t('اختر طبيباً', 'Select a doctor');
     if (!date)                e.date          = t('التاريخ مطلوب', 'Date required');
     if (charge.trim() === '') e.charge        = t('التعرفة مطلوبة', 'Session fee is required');
+    // The whole session must fit inside the clinic working window for the day
+    if (!isEdit && apptType !== 'online' && workWindow) {
+      const end = addMinutes(time, duration);
+      if (time < workWindow.start || end > workWindow.end) {
+        e.time = t(
+          `الموعد خارج ساعات العمل (${workWindow.start}–${workWindow.end})`,
+          `Session falls outside working hours (${workWindow.start}–${workWindow.end})`,
+        );
+      }
+    }
 
     if (!paymentMethod)       e.paymentMethod = t('طريقة الدفع مطلوبة', 'Payment method is required to confirm this booking.');
     setErrors(e);
@@ -879,6 +898,16 @@ export function AddAppointmentModal({
                     <option key={m} value={m}>{m} {t('د', 'min')}</option>
                   ))}
                 </select>
+                {/* Dynamic slot capacity for the chosen session length */}
+                {workWindow && dynamicTotalSlots !== null && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {t(
+                      `ساعات العمل ${workWindow.start}–${workWindow.end} · ${dynamicTotalSlots} موعد بمدة ${duration} دقيقة (محجوز ${doctorAppts?.data?.length ?? 0})`,
+                      `Working ${workWindow.start}–${workWindow.end} · ${dynamicTotalSlots} slots at ${duration} min (${doctorAppts?.data?.length ?? 0} booked)`,
+                    )}
+                  </p>
+                )}
+                {errors.time && <p className="text-xs text-red-500">{errors.time}</p>}
               </div>
 
               {/* Clinic room — pick by remaining daily capacity; auto-selected

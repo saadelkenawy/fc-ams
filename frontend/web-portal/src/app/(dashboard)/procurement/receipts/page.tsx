@@ -1,5 +1,6 @@
 'use client';
 
+import { localDateISO } from '@/lib/utils';
 import { useState } from 'react';
 import { Plus, FileText, AlertTriangle, CheckCircle, Clock, XCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -51,7 +52,7 @@ type LineItemFormData = {
 
 const EMPTY_RECEIPT: ReceiptFormData = {
   vendorId: '', invoiceNumber: '', invoiceDate: '', invoiceTotalEgp: '',
-  dateReceived: new Date().toISOString().split('T')[0], notes: '',
+  dateReceived: localDateISO(), notes: '',
 };
 
 const EMPTY_LINE: LineItemFormData = {

@@ -91,6 +91,32 @@ export async function roomRoutes(app: FastifyInstance): Promise<void> {
     },
   }, ctrl.getRoomAvailability);
 
+  // GET /rooms/assignments — all assignments for a date (waiting screen)
+  app.get('/rooms/assignments', {
+    schema: {
+      tags: ['rooms'],
+      querystring: { type: 'object', properties: { date: { type: 'string', format: 'date' } } },
+      response: listEnvelope({
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          roomId: { type: 'integer' },
+          roomCode: { type: 'string', nullable: true },
+          doctorId: { type: 'string' },
+          assignedDate: { type: 'string' },
+          assignedFrom: { type: 'string' },
+          assignedUntil: { type: 'string' },
+          assignedBy: { type: 'string', nullable: true },
+          assignedAt: { type: 'string' },
+          status: { type: 'string', enum: ['reserved', 'active', 'released', 'cancelled'] },
+          releasedAt: { type: 'string', nullable: true },
+          branchId: { type: 'integer' },
+        },
+        required: ['id', 'roomId', 'roomCode', 'doctorId', 'assignedDate', 'assignedFrom', 'assignedUntil', 'status', 'branchId'],
+      }),
+    },
+  }, ctrl.listRoomAssignments);
+
   // GET /rooms/stats — usage stats per room
   app.get('/rooms/stats', {
     schema: { tags: ['rooms'], response: listEnvelope(roomStatsItemSchema) },

@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useLang } from '@/contexts/LanguageContext';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, localDateISO } from '@/lib/utils';
 import {
   useSettlements, useTransactions, useExtraServices, useReplaceExtraServices,
   useSettlementRecords, useReverseSettlement, useReconcileDoctor,
@@ -57,7 +57,7 @@ export default function SettlementsPage() {
   const locale = lang === 'ar' ? 'ar-EG' : 'en-US';
 
   const now = new Date();
-  const today = now.toISOString().split('T')[0];
+  const today = localDateISO(now);
   const [from, setFrom] = useState(today);
   const [to, setTo]     = useState(today);
   const [expanded, setExpanded] = useState<string | null>(null);

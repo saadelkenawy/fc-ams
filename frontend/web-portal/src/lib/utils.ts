@@ -39,3 +39,9 @@ export function getInitials(name: string): string {
     .join('')
     .toUpperCase();
 }
+
+/** YYYY-MM-DD in the user's local timezone. `toISOString().slice(0,10)` is
+ *  UTC — between midnight and UTC-offset hours it returns *yesterday*. */
+export function localDateISO(d: Date = new Date()): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}

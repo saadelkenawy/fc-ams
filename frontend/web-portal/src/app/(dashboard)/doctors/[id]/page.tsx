@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { StatCard } from '@/components/ui/StatCard';
 import { useLang } from '@/contexts/LanguageContext';
-import { cn, formatCurrency, formatDate } from '@/lib/utils';
+import { cn, formatCurrency, formatDate, localDateISO } from '@/lib/utils';
 import { billingApi } from '@/lib/api';
 import {
   useDoctors,
@@ -29,8 +29,8 @@ import type { Doctor, DoctorSettlement, VisitTypeSplits } from '@fadl/types';
 /* ── helpers ─────────────────────────────────────────────────────────── */
 
 function getMonthBounds(year: number, month: number) {
-  const from = new Date(year, month, 1).toISOString().split('T')[0];
-  const to   = new Date(year, month + 1, 0).toISOString().split('T')[0];
+  const from = localDateISO(new Date(year, month, 1));
+  const to   = localDateISO(new Date(year, month + 1, 0));
   return { from, to };
 }
 

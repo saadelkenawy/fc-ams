@@ -15,7 +15,7 @@ import { Pagination } from '@/components/ui/Pagination';
 import { useLang } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/Toast';
-import { formatCurrency, formatDate } from '@/lib/utils';
+import { formatCurrency, formatDate, localDateISO } from '@/lib/utils';
 import { useTransactions, useUpdateTransactionStatus, useBulkDeleteTransactions, useBulkEditPaymentMethod, useSettlements } from '@/hooks/useBilling';
 import { useDoctorMap } from '@/hooks/useDoctors';
 import { usePatientMap } from '@/hooks/usePatients';
@@ -579,7 +579,7 @@ export default function BillingPage() {
   const [detailTx, setDetailTx]             = useState<FinancialTransaction | null>(null);
 
   // Doctor Settlements section state
-  const today = new Date().toISOString().split('T')[0];
+  const today = localDateISO();
   const [settlFrom, setSettlFrom] = useState(today);
   const [settlTo, setSettlTo]     = useState(today);
 
@@ -776,7 +776,7 @@ export default function BillingPage() {
           Payment:        tx.paymentMethod ?? '',
         };
       });
-      const today = new Date().toISOString().split('T')[0];
+      const today = localDateISO();
       await writeXlsx(rows, 'All Transactions', `billing_all_${today}.xlsx`);
     } catch {
       toast(t('فشل التصدير', 'Export failed'), 'error');
@@ -804,7 +804,7 @@ export default function BillingPage() {
           Payment:       tx.paymentMethod ?? '',
         };
       });
-      const today = new Date().toISOString().split('T')[0];
+      const today = localDateISO();
       await writeXlsx(rows, 'Transactions', `billing_export_${today}.xlsx`);
     } catch {
       toast(t('فشل التصدير', 'Export failed'), 'error');
@@ -851,7 +851,7 @@ export default function BillingPage() {
             {exportLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
             {t('تقرير PDF', 'Settlement PDF')}
           </Button>
-          <Button variant="outline" size="sm" disabled={exportLoading} onClick={() => downloadPdf('/reports/financial-summary', `billing_all_${new Date().toISOString().split('T')[0]}.pdf`)}>
+          <Button variant="outline" size="sm" disabled={exportLoading} onClick={() => downloadPdf('/reports/financial-summary', `billing_all_${localDateISO()}.pdf`)}>
             {exportLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
             {t('ملخص PDF', 'Summary PDF')}
           </Button>

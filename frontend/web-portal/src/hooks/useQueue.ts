@@ -1,3 +1,4 @@
+import { localDateISO } from '@/lib/utils';
 import { useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { appointmentApi } from '@/lib/api';
@@ -21,7 +22,7 @@ type _QueueEntryContractCheck = AssertAssignable<NoNulls<ContractQueueEntry>, Pa
 type _QueueStatsContractCheck = AssertAssignable<NoNulls<ContractQueueStats>, QueueStats>;
 type _CancelPreviewContractCheck = AssertAssignable<NoNulls<ContractCancelPreview>, QueueCancelPreview>;
 
-const TODAY = () => new Date().toISOString().split('T')[0];
+const TODAY = () => localDateISO();
 
 // ── Standard queries ──────────────────────────────────────────────────────────
 

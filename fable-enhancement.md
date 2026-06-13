@@ -544,3 +544,32 @@ User-requested feature set (3 tasks), delivered end-to-end:
 
 ### 17.4 Verified
 Live API checks: clinical-intake fields round-trip; multi-specialty + bySpecialty splits round-trip (then reverted on the demo doctor); 422 on day-off and outside-hours for a configured doctor; create-with-room stores roomCode/roomId; unknown room 422; unconfigured doctor bookable; availability now returns 18 slots 09:00–14:40 with booked flags sourced cross-service. Suites: appointment 14/14, billing 6/6, portal 11/11, tsc clean (all drift checks), Playwright 29/29 (billing re-baselined after refund-flow data drift). Dev data: demo doctor now has Saturday 09:00–15:00 consultation hours (test fixture, kept).
+
+## 18. Feature batch 2 — room timeline, dynamic slots, waiting screen — IMPLEMENTED (2026-06-13)
+
+User-requested feature set (tasks 5–8), delivered end-to-end:
+
+### 18.1 Room timeline popup (Task 5)
+- New `RoomTimelineModal` opened from a calendar-clock button on every room card (`RoomStatusBoard`). Proportional horizontal timeline (2.6 px/min, hour ruler) of the room's appointments for the selected date, one rectangle per appointment colored by state: **green** = in service (queue `in_session`), **light blue** = in queue/scheduled, **red** = cancelled (`Canc.`/`Resch.`/`Ref.`), **gray** = consultation completed (`Comp.`).
+- Rectangles are draggable (HTML5 DnD) to **swap two slots**. The exchange is a single **atomic server endpoint** `POST /appointments/swap {appointmentIdA, appointmentIdB}` (`swapAppointmentTimes`, repo): both rows are locked `FOR UPDATE` and swapped inside **one transaction**, so any failure rolls the whole swap back — an appointment can never be stranded. The non-deferrable GiST exclusion constraint on `(doctor_id, date, time_range)` is checked per-row (not at statement end, unlike btree UNIQUE), so a same-doctor swap temporarily lifts one row out of the partial index via `is_overbooked = TRUE` (the flag's designed purpose) and restores its original value as part of the same transaction; a genuine collision with a *third* appointment surfaces as `409 SLOT_CONFLICT`. Covered by `tests/swap-slots.test.ts` (3 tests: same-doctor exchange, atomic rollback on conflict, terminal-status rejection).
+  - **Superseded**: the original implementation was three sequential client PATCHes parking one appointment on a temporary 23:58–23:59 slot — three separate transactions that could strand an appointment on the temp slot if a later call failed. Now one server transaction.
+
+### 18.2 Dynamic slot calculation (Task 6)
+- `AddAppointmentModal` derives the day's capacity from the doctor's working window and the *chosen* session duration: `slots = floor((workEnd − workStart) / duration)` — e.g. 09:00–11:00 at 20 min = 6 slots, at 30 min = 4. Shown live under the Duration field (`Working 09:00–15:00 · 18 slots at 20 min (2 booked)`).
+- Server-side enforcement extended: `POST /appointments` now rejects sessions whose **end** time exceeds the working window (not just the start) — `14:30→15:10` against a 09:00–15:00 day returns 422 with the window in the message — so no booking can spill past the clinic working day.
+- `DoctorAvailability` response gained `workStart`/`workEnd` (HH:MM, null when not working) feeding both the modal math and the gate.
+
+### 18.3 Waiting screen (Tasks 7+8)
+- New `/waiting` page (sidebar: admin + receptionist, Monitor icon): one panel per active clinic room showing the **clinic number** (header), the **doctor on duty**, **NOW SERVING** (current `in_session`/`called` queue entry with queue #), and **Next Patient** (first `waiting` entry). Auto-refreshes (rooms 30 s, assignments 15 s, queue via existing hooks).
+- **Next Doctor** (Task 8): each panel also shows the doctor whose room assignment follows the current one (with their from–until window), via new `GET /rooms/assignments?date=` (full response schema, §4.6) + `useRoomAssignments`.
+
+### 18.4 Schema change — sequential room assignments (V013)
+The V007 unique indexes (`uq_room_active_reserved`, `uq_doctor_active_reserved`) allowed only ONE reserved/active assignment per room (and per doctor) per **day**, which made Task 8 unrepresentable — a second doctor could never be booked into the room after the first. V013 replaces them with **btree_gist exclusion constraints on time-range overlap** (`tsrange(assigned_date + assigned_from, assigned_date + assigned_until)`): back-to-back assignments (Dr A 09:00–13:00, Dr B 13:00–15:00 in C1) now coexist; overlapping ones are still rejected at the DB level. Repository updated to match: assign/auto-assign conflict checks are overlap-based; `listRooms`/`getAvailabilityByDate` pick the room's **earliest** reserved/active assignment via LATERAL (the "current" doctor); releasing a room releases only that earliest assignment, advancing the room to the next doctor.
+
+### 18.5 Latent bugs fixed en route
+- **Queue check-in 500**: the atomic position claim used `SELECT MAX(position) … FOR UPDATE` — PostgreSQL rejects `FOR UPDATE` with aggregates (0A000), so `POST /queue/check-in` always 500'd. Replaced with a transaction-scoped advisory lock on (doctor, date) + plain MAX.
+- **Portal "today" was UTC**: 31 occurrences of `new Date().toISOString().split('T')[0]` across 20 files — between midnight and 03:00 EEST every page (rooms, queue, waiting, dashboard, billing exports, appointment defaults…) queried *yesterday*. All replaced with a new `localDateISO()` util (local-timezone YYYY-MM-DD).
+
+### 18.6 Verified
+Live: second same-room assignment accepted post-V013, overlapping assignment 409s; queue check-in → call → start-session works (in_session + waiting entries); status walk TBC→Ok!→Comp. and TBC→Canc.; endTime gate 422 with window in message; `GET /rooms/assignments` returns both C1 assignments ordered. Screenshots of /waiting and the C1 timeline eyeballed with seeded data (all four colors + NOW SERVING/Next Patient/Next Doctor). Suites: appointment 14/14, portal 11/11, tsc clean, Playwright visual suite green. Contracts regenerated (12 specs).
+- **Follow-up hardening (2026-06-13):** slot-swap made atomic on the server (`POST /appointments/swap`, single transaction) — see §18.1. Appointment suite now **17/17** (+3 swap tests); portal tsc clean.

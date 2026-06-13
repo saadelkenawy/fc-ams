@@ -13,6 +13,8 @@ export interface DoctorDayAvailability {
   date: string;
   hasSchedule?: boolean;
   isWorking: boolean;
+  workStart?: string | null;
+  workEnd?: string | null;
   slots: Array<{ time: string; available: boolean }>;
   totalSlots: number;
   bookedSlots: number;

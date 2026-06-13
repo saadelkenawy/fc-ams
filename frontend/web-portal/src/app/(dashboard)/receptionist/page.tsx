@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { AppointmentStatusBadge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
 import { useLang } from '@/contexts/LanguageContext';
-import { formatTime } from '@/lib/utils';
+import { formatTime, localDateISO } from '@/lib/utils';
 import { usePatients, usePatientBatch } from '@/hooks/usePatients';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useTodayAppointments } from '@/hooks/useAppointments';
@@ -40,7 +40,7 @@ interface RegisterPatientForm {
 // ---------------------------------------------------------------------------
 
 function todayIso(): string {
-  return new Date().toISOString().split('T')[0];
+  return localDateISO();
 }
 
 function addMinutes(time: string, mins: number): string {

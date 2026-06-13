@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { useMutation } from '@tanstack/react-query';
+import { CalendarClock } from 'lucide-react';
 import { useRooms, useRoomSSE, useAutoAssignRoom, useReleaseRoom, useNextPatient } from '@/hooks/useRooms';
 import { useQueue } from '@/hooks/useQueue';
 import { usePatientBatch } from '@/hooks/usePatients';
@@ -11,8 +12,9 @@ import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { useLang } from '@/contexts/LanguageContext';
 import { identityApi } from '@/lib/api';
-import { cn } from '@/lib/utils';
+import { cn, localDateISO } from '@/lib/utils';
 import type { RoomDetail, PatientQueueEntry, ApiResponse } from '@fadl/types';
+import { RoomTimelineModal } from './RoomTimelineModal';
 
 // ── Status config ─────────────────────────────────────────────────────────────
 
@@ -186,11 +188,13 @@ function RoomCard({
   date,
   onAssign,
   onRelease,
+  onTimeline,
 }: {
   room: RoomDetail;
   date: string;
   onAssign: (r: RoomDetail) => void;
   onRelease: (r: RoomDetail) => void;
+  onTimeline: (r: RoomDetail) => void;
 }) {
   const { lang, t } = useLang();
   const [expanded, setExpanded] = useState(false);
@@ -267,8 +271,19 @@ function RoomCard({
               </div>
             </div>
 
-            {/* Status badge */}
+            {/* Status badge + timeline */}
             <div className="flex items-center gap-1.5 flex-shrink-0">
+              <span
+                role="button"
+                tabIndex={0}
+                aria-label={t('عرض الجدول الزمني', 'Open timeline')}
+                title={t('الجدول الزمني', 'Timeline')}
+                className="p-1 rounded-md text-gray-400 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/30 transition-colors"
+                onClick={(e) => { e.stopPropagation(); onTimeline(room); }}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onTimeline(room); } }}
+              >
+                <CalendarClock className="w-4 h-4" />
+              </span>
               <span className={cn(
                 'w-2 h-2 rounded-full flex-shrink-0',
                 cfg.dot,
@@ -864,10 +879,11 @@ export function RoomDots({ date }: { date?: string }) {
 // ── Main Board ────────────────────────────────────────────────────────────────
 
 export function RoomStatusBoard({ date }: { date?: string }) {
-  const today = date ?? new Date().toISOString().split('T')[0];
+  const today = date ?? localDateISO();
   const { data: rooms = [], isLoading } = useRooms(today);
   const [assignTarget, setAssignTarget] = useState<RoomDetail | null>(null);
   const [releaseTarget, setReleaseTarget] = useState<RoomDetail | null>(null);
+  const [timelineTarget, setTimelineTarget] = useState<RoomDetail | null>(null);
 
   useRoomSSE(today);
 
@@ -891,6 +907,7 @@ export function RoomStatusBoard({ date }: { date?: string }) {
             date={today}
             onAssign={setAssignTarget}
             onRelease={setReleaseTarget}
+            onTimeline={setTimelineTarget}
           />
         ))}
       </div>
@@ -900,6 +917,9 @@ export function RoomStatusBoard({ date }: { date?: string }) {
       )}
       {releaseTarget && (
         <ReleaseConfirmModal room={releaseTarget} onClose={() => setReleaseTarget(null)} />
+      )}
+      {timelineTarget && (
+        <RoomTimelineModal room={timelineTarget} date={today} onClose={() => setTimelineTarget(null)} />
       )}
     </>
   );

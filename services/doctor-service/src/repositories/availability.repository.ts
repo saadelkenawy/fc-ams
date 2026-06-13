@@ -317,7 +317,7 @@ export async function getDoctorAvailability(
     }
 
     if (!isWorking || !startTime || !endTime) {
-      return { doctorId, date, hasSchedule, isWorking: false, slots: [], totalSlots: 0, bookedSlots: 0, maxPatients: 0 };
+      return { doctorId, date, hasSchedule, isWorking: false, workStart: null, workEnd: null, slots: [], totalSlots: 0, bookedSlots: 0, maxPatients: 0 };
     }
 
     // Generate slots (bookedTimes supplied by the controller — appointments
@@ -350,6 +350,8 @@ export async function getDoctorAvailability(
       date,
       hasSchedule,
       isWorking: true,
+      workStart: startTime.slice(0, 5),
+      workEnd: endTime.slice(0, 5),
       slots,
       totalSlots: slots.length,
       bookedSlots: bookedTimes.size,

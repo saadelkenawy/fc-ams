@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { useLang } from '@/contexts/LanguageContext';
-import { cn } from '@/lib/utils';
+import { cn, localDateISO } from '@/lib/utils';
 import {
   useDoctorSchedules,
   useDoctorScheduleOverrides,
@@ -67,7 +67,7 @@ function DayCard({
     startTime:           schedule?.startTime           ?? '09:00',
     endTime:             schedule?.endTime             ?? '17:00',
     slotDurationMinutes: schedule?.slotDurationMinutes ?? 20,
-    validFrom:           schedule?.validFrom           ?? new Date().toISOString().split('T')[0],
+    validFrom:           schedule?.validFrom           ?? localDateISO(),
   });
 
   const isActive = !!schedule?.isActive;
@@ -467,7 +467,7 @@ export default function DoctorSchedulePage() {
   const [showOverrideForm, setShowOverrideForm] = useState(false);
 
   const doctorId = params.id;
-  const today = new Date().toISOString().split('T')[0];
+  const today = localDateISO();
 
   const { data: schedules = [], isLoading: schedLoading } = useDoctorSchedules(doctorId);
   const { data: overrides = [], isLoading: ovLoading } = useDoctorScheduleOverrides(doctorId, today);

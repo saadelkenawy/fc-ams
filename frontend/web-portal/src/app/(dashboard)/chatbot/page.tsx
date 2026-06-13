@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { useLang } from '@/contexts/LanguageContext';
 import { chatbotApi, patientApi, appointmentApi } from '@/lib/api';
 import { useDoctors, useSpecialties } from '@/hooks/useDoctors';
-import { cn } from '@/lib/utils';
+import { cn, localDateISO } from '@/lib/utils';
 import type { Specialty, Doctor, Patient } from '@fadl/types';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -106,7 +106,7 @@ function getNextSevenDays(locale: string): { value: string; label: string }[] {
     const d = new Date();
     d.setDate(d.getDate() + i);
     return {
-      value: d.toISOString().split('T')[0],
+      value: localDateISO(d),
       label: d.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' }),
     };
   });
@@ -489,7 +489,7 @@ export default function ChatbotPage() {
   async function handleTodayAppts() {
     setLlmLoading(true);
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const today = localDateISO();
       const { data } = await appointmentApi.get<{ data?: { startTime: string; status: string }[] }>('/appointments', {
         params: { date: today, limit: 20 },
       });

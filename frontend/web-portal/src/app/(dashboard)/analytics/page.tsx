@@ -8,7 +8,7 @@ import { StatCard } from '@/components/ui/StatCard';
 import { Badge } from '@/components/ui/Badge';
 import { useLang } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { formatCurrency, formatNumber } from '@/lib/utils';
+import { formatCurrency, formatNumber, localDateISO } from '@/lib/utils';
 import { useAnalyticsOverview, useMonthlyRevenue, useSourceBreakdown, useSpecialtyBreakdown, useNoShowByDay, useTopDoctors } from '@/hooks/useAnalytics';
 import { useTransactions } from '@/hooks/useBilling';
 import { useAppointments } from '@/hooks/useAppointments';
@@ -147,7 +147,7 @@ export default function AnalyticsPage() {
   const thisMonthFrom = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   const thisMonthTo = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
-  const today = now.toISOString().split('T')[0];
+  const today = localDateISO(now);
 
   // Doctor-scoped data (used when isDoctor)
   const { data: drTxData } = useTransactions({ doctorId, dateFrom: thisMonthFrom, dateTo: thisMonthTo, limit: 500 });
