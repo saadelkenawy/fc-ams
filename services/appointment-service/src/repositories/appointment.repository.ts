@@ -260,7 +260,7 @@ export async function createAppointment(
           patient_source, payment_method, approved_charge, procedure_cost,
           queue_number, idempotency_key, notes,
           room_id, room_code, room_assigned_at,
-          status, created_by, branch_id
+          status, created_by, branch_id, doctor_confirmed
         ) VALUES (
           $1, $2, $3, $4,
           $5, $6, $7,
@@ -268,7 +268,7 @@ export async function createAppointment(
           $10, $11, $12, $13,
           $14, $15, $16,
           $17, $18, CASE WHEN $18::varchar IS NULL THEN NULL ELSE NOW() END,
-          'TBC', $19, $20
+          'TBC', $19, $20, $21
         ) RETURNING *`,
         [
           id,
@@ -291,6 +291,10 @@ export async function createAppointment(
           input.roomCode ?? null,
           createdBy,
           branchId,
+          // Doctor confirmation auto-on when this isn't the doctor's first
+          // appointment of the day (they're already present); first booking of
+          // the day starts unconfirmed. Patient confirmation is always manual.
+          queueNumber > 1,
         ],
       );
     } catch (err) {

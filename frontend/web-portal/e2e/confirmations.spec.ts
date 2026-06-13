@@ -46,6 +46,32 @@ async function api<T = unknown>(token: string, method: string, path: string, bod
 
 interface Appt { id: string; status: string; doctorConfirmed: boolean; patientConfirmed: boolean; doctorId: string; patientId: string; specialtyId: number; }
 
+async function createOnline(token: string, seed: Appt, date: string, hh: number): Promise<{ id: string; appt: Appt }> {
+  const mm = String(Math.floor(Math.random() * 58)).padStart(2, '0');
+  const appt = await api<Appt>(token, 'POST', '/appointments', {
+    patientId: seed.patientId,
+    doctorId: seed.doctorId,
+    specialtyId: seed.specialtyId,
+    appointmentDate: date,
+    startTime: `${String(hh).padStart(2, '0')}:${mm}`,
+    endTime: `${String(hh).padStart(2, '0')}:${String(Number(mm) + 1).padStart(2, '0')}`,
+    appointmentType: 'online',
+    patientSource: "Cl.'s",
+    approvedCharge: 100,
+    paymentMethod: 'cash',
+    idempotencyKey: `e2e-confirm-${Date.now()}-${hh}`,
+  });
+  return { id: appt.id, appt };
+}
+
+async function hardDelete(token: string, id: string): Promise<void> {
+  await fetch(`${APPT}/appointments/${id}`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ password: PASSWORD, reason: 'e2e confirmation toggle test cleanup' }),
+  }).catch(() => { /* best-effort */ });
+}
+
 test('three confirmations drive the appointment to auto-confirmed (Ok!)', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('fadl_lang', 'en'));
 
@@ -57,24 +83,20 @@ test('three confirmations drive the appointment to auto-confirmed (Ok!)', async 
   expect(list.length, 'need at least one existing appointment to borrow ids from').toBeGreaterThan(0);
   const seed = list[0];
 
-  // Unique late-evening time keeps clear of the double-booking exclusion constraint.
-  const mm = String(Math.floor(Math.random() * 58)).padStart(2, '0');
-  const created = await api<{ id: string }>(token, 'POST', '/appointments', {
-    patientId: seed.patientId,
-    doctorId: seed.doctorId,
-    specialtyId: seed.specialtyId,
-    appointmentDate: date,
-    startTime: `23:${mm}`,
-    endTime: `23:${String(Math.min(59, Number(mm) + 1)).padStart(2, '0')}`,
-    appointmentType: 'online',
-    patientSource: "Cl.'s",
-    approvedCharge: 100,
-    paymentMethod: 'cash',
-    idempotencyKey: `e2e-confirm-${Date.now()}`,
-  });
-  const id = created.id;
+  // Two throwaway online appointments for the same doctor/day. Late-evening
+  // times keep clear of the double-booking exclusion constraint.
+  const a = await createOnline(token, seed, date, 23);
+  const b = await createOnline(token, seed, date, 22);
+  const id = a.id;
 
   try {
+    // Feature: doctor confirmation auto-on when it isn't the doctor's first
+    // appointment of the day. `b` always follows `a` (and any pre-existing
+    // appointments), so it must be created already doctor-confirmed; patient
+    // confirmation is always manual (off).
+    expect(b.appt.doctorConfirmed, 'non-first appointment should be auto doctor-confirmed').toBe(true);
+    expect(b.appt.patientConfirmed, 'patient confirmation is always manual').toBe(false);
+
     await page.goto('/appointments');
     await page.waitForLoadState('load');
 
@@ -85,18 +107,18 @@ test('three confirmations drive the appointment to auto-confirmed (Ok!)', async 
     const patientBtn = row.getByTestId('confirm-patient');
     const roomBtn = row.getByTestId('confirm-room');
 
-    // Start state: nothing confirmed.
-    await expect(doctorBtn).toHaveAttribute('data-on', 'false');
-    await expect(row.getByTestId('confirm-toggles-compact')).toHaveAttribute('data-confirmed', '0');
+    // Patient + room always start off; doctor may already be on (feature above).
+    await expect(patientBtn).toHaveAttribute('data-on', 'false');
+    await expect(roomBtn).toHaveAttribute('data-on', 'false');
 
-    // Toggle doctor → patient. Room is auto-false (online, no room) so status
-    // must stay TBC until the manual room override.
-    await doctorBtn.click();
+    // Ensure doctor is confirmed (click only if it isn't already).
+    if (await doctorBtn.getAttribute('data-on') === 'false') await doctorBtn.click();
     await expect(doctorBtn).toHaveAttribute('data-on', 'true');
 
     await patientBtn.click();
     await expect(patientBtn).toHaveAttribute('data-on', 'true');
 
+    // Room is auto-false (online, no room) so status must stay TBC until override.
     await expect.poll(async () => (await api<Appt>(token, 'GET', `/appointments/${id}`)).status)
       .toBe('TBC');
 
@@ -110,21 +132,13 @@ test('three confirmations drive the appointment to auto-confirmed (Ok!)', async 
       { message: 'all three confirmations should auto-advance status to Ok!' },
     ).toBe('Ok!');
 
-    const final = await api<Appt>(token, 'GET', `/appointments/${id}`);
-    expect(final.doctorConfirmed).toBe(true);
-    expect(final.patientConfirmed).toBe(true);
-
-    // Withdraw the doctor confirmation → reverts Ok! → TBC.
-    await doctorBtn.click();
-    await expect(doctorBtn).toHaveAttribute('data-on', 'false');
+    // Withdraw the (always-manual) patient confirmation → reverts Ok! → TBC.
+    await patientBtn.click();
+    await expect(patientBtn).toHaveAttribute('data-on', 'false');
     await expect.poll(async () => (await api<Appt>(token, 'GET', `/appointments/${id}`)).status)
       .toBe('TBC');
   } finally {
-    // Clean up the throwaway appointment (admin hard-delete needs password + reason).
-    await fetch(`${APPT}/appointments/${id}`, {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ password: PASSWORD, reason: 'e2e confirmation toggle test cleanup' }),
-    }).catch(() => { /* best-effort */ });
+    await hardDelete(token, a.id);
+    await hardDelete(token, b.id);
   }
 });
