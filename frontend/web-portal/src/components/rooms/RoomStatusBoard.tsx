@@ -496,7 +496,7 @@ function RoomCard({
 
 type AssignStep = 'select' | 'confirm' | 'done';
 
-function AssignDoctorModal({ room, initialDate, onClose }: { room: RoomDetail; initialDate: string; onClose: () => void }) {
+export function AssignDoctorModal({ room, initialDate, onClose }: { room: RoomDetail; initialDate: string; onClose: () => void }) {
   const [step, setStep]         = useState<AssignStep>('select');
   const [doctorId, setDoctorId] = useState('');
   const [date, setDate]         = useState(initialDate);
@@ -766,7 +766,7 @@ function AssignDoctorModal({ room, initialDate, onClose }: { room: RoomDetail; i
 
 // ── Release Confirm Modal ─────────────────────────────────────────────────────
 
-function ReleaseConfirmModal({ room, onClose }: { room: RoomDetail; onClose: () => void }) {
+export function ReleaseConfirmModal({ room, onClose }: { room: RoomDetail; onClose: () => void }) {
   const [password, setPassword] = useState('');
   const [pwError, setPwError]   = useState('');
   const release = useReleaseRoom();
