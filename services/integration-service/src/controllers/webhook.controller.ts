@@ -1,15 +1,33 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
-import { createHash, timingSafeEqual } from 'crypto';
 import { config } from '../config';
 import { appointmentClient, patientClient } from '../clients/internal';
 import * as repo from '../repositories/event.repository';
+import { verifyHmacSignature } from '../lib/webhook-signature';
 
 // ── Signature verification ────────────────────────────────────────────────
+//
+// Webhooks authenticate with an HMAC-SHA256 signature over `${timestamp}.${rawBody}`
+// (Stripe/GitHub style), NOT a plaintext shared secret. This gives us:
+//   • payload integrity — a tampered body fails the MAC
+//   • replay protection — a stale `x-webhook-timestamp` is rejected
+//   • the secret never travels on the wire (only the derived signature does)
+//
+// Senders must send:
+//   x-webhook-signature: sha256=<hex>   (hex digest, optional "sha256=" prefix)
+//   x-webhook-timestamp: <unix seconds>
+// InstaPay uses the x-instapay-* equivalents.
+// The HMAC/replay core lives in ../lib/webhook-signature (pure, unit-tested).
 
 const unverifiedPlatformsWarned = new Set<string>();
 
-function verifySecret(header: string | undefined, expected: string, platform: string): boolean {
+function verifySignature(
+  rawBody: Buffer | undefined,
+  signature: string | undefined,
+  timestamp: string | undefined,
+  expected: string,
+  platform: string,
+): boolean {
   if (!expected) {
     // No secret configured: hard-fail in production, allow-with-warning in dev only.
     if (config.NODE_ENV === 'production') return false;
@@ -19,10 +37,7 @@ function verifySecret(header: string | undefined, expected: string, platform: st
     }
     return true;
   }
-  if (!header) return false;
-  const a = createHash('sha256').update(header).digest();
-  const b = createHash('sha256').update(expected).digest();
-  return timingSafeEqual(a, b);
+  return verifyHmacSignature(rawBody, signature, timestamp, expected);
 }
 
 // ── Normalised appointment shape ──────────────────────────────────────────
@@ -124,10 +139,11 @@ async function processAppointmentWebhook(
   secret: string,
   normalise: (p: Record<string, unknown>) => NormalisedAppointment | null,
 ): Promise<void> {
-  const headerSecret = (req.headers['x-webhook-secret'] ?? req.headers['x-hub-signature']) as string | undefined;
+  const signature = (req.headers['x-webhook-signature'] ?? req.headers['x-hub-signature-256']) as string | undefined;
+  const timestamp = req.headers['x-webhook-timestamp'] as string | undefined;
 
-  if (!verifySecret(headerSecret, secret, platform)) {
-    reply.status(401).send({ success: false, error: { code: 'INVALID_SECRET', message: 'Invalid webhook secret' } });
+  if (!verifySignature(req.rawBody, signature, timestamp, secret, platform)) {
+    reply.status(401).send({ success: false, error: { code: 'INVALID_SIGNATURE', message: 'Invalid or missing webhook signature' } });
     return;
   }
 
@@ -224,9 +240,10 @@ const instaPaySchema = z.object({
 });
 
 export async function instaPayWebhook(req: FastifyRequest, reply: FastifyReply): Promise<void> {
-  const headerSecret = req.headers['x-instapay-secret'] as string | undefined;
-  if (!verifySecret(headerSecret, config.INSTAPAY_WEBHOOK_SECRET, 'instapay')) {
-    reply.status(401).send({ success: false, error: { code: 'INVALID_SECRET', message: 'Invalid secret' } });
+  const signature = req.headers['x-instapay-signature'] as string | undefined;
+  const timestamp = req.headers['x-instapay-timestamp'] as string | undefined;
+  if (!verifySignature(req.rawBody, signature, timestamp, config.INSTAPAY_WEBHOOK_SECRET, 'instapay')) {
+    reply.status(401).send({ success: false, error: { code: 'INVALID_SIGNATURE', message: 'Invalid or missing webhook signature' } });
     return;
   }
 
