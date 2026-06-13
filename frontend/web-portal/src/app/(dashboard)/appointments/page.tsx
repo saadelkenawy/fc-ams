@@ -177,6 +177,7 @@ function ActionMenu({ appointment, lang, t, userRole, onStatusChange, onEdit, on
     >
       {canChange && (
         <button
+          data-testid="action-change-status"
           onClick={(e) => { e.stopPropagation(); setOpen(false); onStatusChange(appointment); }}
           className="w-full flex items-center gap-2.5 px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors"
         >
@@ -229,6 +230,7 @@ function ActionMenu({ appointment, lang, t, userRole, onStatusChange, onEdit, on
         <>
           <button
             ref={btnRef}
+            data-testid="row-actions-menu"
             onClick={openMenu}
             className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-700 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
           >

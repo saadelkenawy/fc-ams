@@ -36,6 +36,11 @@ export default defineConfig<AccountOptions>({
       use: { account: 'admin' },
     },
     {
+      name: 'visual-toggles',
+      testMatch: /visual-toggles\.spec\.ts/,
+      use: { account: 'admin' },
+    },
+    {
       name: 'visual',
       testMatch: /visual\.spec\.ts/,
       use: { account: 'admin' },
