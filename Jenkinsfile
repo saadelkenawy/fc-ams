@@ -153,6 +153,41 @@ sys.exit(0 if qg == 'OK' else 1)
             }
         }
 
+        // ── 2b. Security scans (advisory — surface findings, don't block) ────
+        // Promote to a hard gate once findings are triaged: extend .gitleaks.toml
+        // for any remaining dev-only secrets, then drop the catchError wrapper.
+        stage('Security Scan') {
+            steps {
+                catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                    script {
+                        // Secret scan over COMMITTED git content (not the raw
+                        // working tree) — so gitignored local files (.env etc.)
+                        // and node_modules are never scanned. Known dev JWT keys /
+                        // passwords are allowlisted in .gitleaks.toml so real leaks
+                        // stand out. --redact keeps any hit out of the build log.
+                        def leaks = sh(returnStatus: true, script: """
+                            docker run --rm --volumes-from fcms-jenkins -w "\${WORKSPACE}" \
+                              zricethezav/gitleaks:latest detect \
+                              --redact --config=.gitleaks.toml
+                        """)
+                        if (leaks != 0) {
+                            unstable('gitleaks flagged potential secrets — triage before release')
+                        }
+
+                        // Dependency CVEs (production deps, high/critical only).
+                        // Advisory: transitive advisories without a fix are common.
+                        def audit = sh(returnStatus: true, script: """
+                            docker run --rm --volumes-from fcms-jenkins -w "\${WORKSPACE}" \
+                              node:20-alpine sh -c "corepack enable && pnpm audit --prod --audit-level high"
+                        """)
+                        if (audit != 0) {
+                            unstable('pnpm audit found high/critical advisories — review pnpm-lock.yaml')
+                        }
+                    }
+                }
+            }
+        }
+
         // ── 3. Money-path + RLS test suites (hard gate — fails the build) ───
         stage('Tests') {
             steps {

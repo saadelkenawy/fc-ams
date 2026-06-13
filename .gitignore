@@ -55,3 +55,6 @@ frontend/web-portal/e2e/.auth/
 frontend/web-portal/e2e/.results/
 # …but the visual baselines must be tracked despite the global *.png rule
 !frontend/web-portal/e2e/__screenshots__/*.png
+
+# gitleaks CI report (never commit)
+.gitleaks-report.json

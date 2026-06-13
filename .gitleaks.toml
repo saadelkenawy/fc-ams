@@ -1,0 +1,43 @@
+# gitleaks config for FCMS — extends the built-in ruleset and allowlists
+# KNOWN DEV-ONLY secrets so genuine leaks in application source stand out.
+#
+# These are local-development fixtures only (see infra/jwt/README.md and the
+# docker-compose dev stack). Production secrets come from the environment /
+# Vault and must NEVER be committed — if gitleaks flags something outside the
+# allowlist below, treat it as a real finding.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Dev-only fixtures and known local credentials (non-production)"
+
+# Vendored / generated / build artifacts — not our source, and huge.
+# (gitleaks --no-git does not honour .gitignore, so exclude them explicitly.)
+paths = [
+  '''(^|/)node_modules/.*''',
+  '''(^|/)dist/.*''',
+  '''(^|/)\.git/.*''',
+  '''(^|/)graphify-out/.*''',
+  '''(^|/)coverage/.*''',
+  '''(^|/)\.next/.*''',
+  '''.*\.tsbuildinfo''',
+  '''(^|/)pnpm-lock\.yaml''',
+  # Files that legitimately contain dev-only secrets / keypairs.
+  '''docker-compose\.ya?ml''',
+  '''docker-compose\..*\.ya?ml''',
+  '''Jenkinsfile''',
+  '''Jenkinsfile\.deploy''',
+  '''infra/jwt/.*''',
+  '''infra/pgbouncer/userlist\.txt''',
+  '''.*/tests/.*''',
+  '''.*\.test\.ts''',
+]
+
+# Known dev credential values (local docker stack only).
+regexes = [
+  '''fadl_dev_secret''',
+  '''fadl_app_dev_secret''',
+  '''fadl_minio_secret''',
+  '''fadl_service_token_secret_min_32_chars_dev''',
+  '''fadl_minio''',
+]

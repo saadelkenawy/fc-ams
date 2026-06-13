@@ -1,6 +1,14 @@
 import crypto from 'crypto';
 import { pool, withTransaction } from '../config/database';
 
+// Explicit column list (matches rowToUser) instead of SELECT * — so a future
+// sensitive column added to `users` (e.g. a TOTP secret) is never pulled into
+// app memory or a response by accident. password_hash is included because the
+// auth-verification paths need it; response controllers whitelist fields.
+const USER_COLUMNS =
+  'id, email, password_hash, name_en, name_ar, role, branch_id, doctor_id, ' +
+  'is_active, last_login_at, failed_logins, locked_until, version';
+
 export interface UserRow {
   id: string;
   email: string;
@@ -47,7 +55,7 @@ function rowToUser(row: Record<string, unknown>): UserRow {
 
 export async function findUserByEmail(email: string): Promise<UserRow | null> {
   const { rows } = await pool.query(
-    `SELECT * FROM users WHERE email = $1`,
+    `SELECT ${USER_COLUMNS} FROM users WHERE email = $1`,
     [email.toLowerCase().trim()],
   );
   return rows.length ? rowToUser(rows[0] as Record<string, unknown>) : null;
@@ -55,7 +63,7 @@ export async function findUserByEmail(email: string): Promise<UserRow | null> {
 
 export async function findUserById(id: string): Promise<UserRow | null> {
   const { rows } = await pool.query(
-    `SELECT * FROM users WHERE id = $1 AND is_active = true`,
+    `SELECT ${USER_COLUMNS} FROM users WHERE id = $1 AND is_active = true`,
     [id],
   );
   return rows.length ? rowToUser(rows[0] as Record<string, unknown>) : null;
@@ -65,7 +73,7 @@ export async function createUser(input: CreateUserInput): Promise<UserRow> {
   const { rows } = await pool.query(
     `INSERT INTO users (email, password_hash, name_en, name_ar, role, branch_id, doctor_id)
      VALUES ($1, $2, $3, $4, $5, $6, $7)
-     RETURNING *`,
+     RETURNING ${USER_COLUMNS}`,
     [
       input.email.toLowerCase().trim(),
       input.passwordHash,
@@ -81,7 +89,7 @@ export async function createUser(input: CreateUserInput): Promise<UserRow> {
 
 export async function listUsers(branchId: number): Promise<UserRow[]> {
   const { rows } = await pool.query(
-    `SELECT * FROM users WHERE branch_id = $1 ORDER BY created_at DESC`,
+    `SELECT ${USER_COLUMNS} FROM users WHERE branch_id = $1 ORDER BY created_at DESC`,
     [branchId],
   );
   return rows.map((r) => rowToUser(r as Record<string, unknown>));
@@ -129,7 +137,7 @@ export async function updateUser(
   sets.push(`updated_at = NOW()`);
   vals.push(userId);
   const { rows } = await pool.query(
-    `UPDATE users SET ${sets.join(', ')} WHERE id = $${idx} RETURNING *`,
+    `UPDATE users SET ${sets.join(', ')} WHERE id = $${idx} RETURNING ${USER_COLUMNS}`,
     vals,
   );
   if (!rows.length) throw Object.assign(new Error('User not found'), { statusCode: 404 });
@@ -182,7 +190,7 @@ export async function revokeAllUserTokens(userId: string): Promise<void> {
 
 export async function findUserByDoctorId(doctorId: string): Promise<UserRow | null> {
   const { rows } = await pool.query(
-    `SELECT * FROM users WHERE doctor_id = $1 AND role = 'doctor' LIMIT 1`,
+    `SELECT ${USER_COLUMNS} FROM users WHERE doctor_id = $1 AND role = 'doctor' LIMIT 1`,
     [doctorId],
   );
   return rows.length ? rowToUser(rows[0] as Record<string, unknown>) : null;
