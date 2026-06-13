@@ -54,6 +54,9 @@ const scheduleSchema = z.object({
   slotDurationMinutes: z.number().int().min(5).max(120),
   validFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   validUntil: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+}).refine((s) => s.startTime < s.endTime, {
+  message: 'endTime must be after startTime',
+  path: ['endTime'],
 });
 
 const overrideSchema = z.object({
@@ -124,12 +127,32 @@ export async function getOverrides(request: FastifyRequest, reply: FastifyReply)
   reply.send({ success: true, data: overrides });
 }
 
-export async function upsertSchedule(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+export async function createScheduleBlock(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { id } = request.params as { id: string };
   const input = scheduleSchema.parse(request.body);
   const user = request.user as JwtPayload;
-  const schedule = await repo.upsertSchedule(id, input, user.branchId);
+  const schedule = await repo.createScheduleBlock(id, input, user.branchId);
+  reply.status(201).send({ success: true, data: schedule });
+}
+
+export async function updateScheduleBlock(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { id, scheduleId } = request.params as { id: string; scheduleId: string };
+  const input = scheduleSchema.parse(request.body);
+  const schedule = await repo.updateScheduleBlock(id, scheduleId, input);
   reply.send({ success: true, data: schedule });
+}
+
+export async function deleteScheduleBlock(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { id, scheduleId } = request.params as { id: string; scheduleId: string };
+  await repo.deleteScheduleBlock(id, scheduleId);
+  reply.status(204).send();
+}
+
+export async function setDayActive(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { id, dayOfWeek } = request.params as { id: string; dayOfWeek: string };
+  const { isActive } = z.object({ isActive: z.boolean() }).parse(request.body);
+  const schedules = await repo.setDayActive(id, Number(dayOfWeek), isActive);
+  reply.send({ success: true, data: schedules });
 }
 
 export async function createOverride(request: FastifyRequest, reply: FastifyReply): Promise<void> {

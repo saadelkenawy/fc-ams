@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  ArrowLeft, Clock, Calendar, Edit3, Save, X,
-  CheckCircle, Loader2, CalendarX,
+  ArrowLeft, Clock, Calendar, Edit3, Save, X, Plus, Trash2,
+  CheckCircle, Loader2, CalendarX, Power, AlertTriangle,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -12,10 +12,15 @@ import { Badge } from '@/components/ui/Badge';
 import { useLang } from '@/contexts/LanguageContext';
 import { cn, localDateISO } from '@/lib/utils';
 import {
+  useDoctors,
   useDoctorSchedules,
   useDoctorScheduleOverrides,
-  useUpsertSchedule,
   useCreateOverride,
+  useAddScheduleBlock,
+  useUpdateScheduleBlock,
+  useDeleteScheduleBlock,
+  useSetDayActive,
+  type ScheduleBlockInput,
 } from '@/hooks/useDoctors';
 import type { DoctorSchedule, DoctorScheduleOverride } from '@fadl/types';
 import { DialogOverlay } from '@/components/ui/DialogOverlay';
@@ -23,13 +28,13 @@ import { DialogOverlay } from '@/components/ui/DialogOverlay';
 /* ── Constants ───────────────────────────────────────────────────────── */
 
 const DAYS = [
-  { num: 0, ar: 'الأحد',    en: 'Sunday' },
-  { num: 1, ar: 'الاثنين',  en: 'Monday' },
-  { num: 2, ar: 'الثلاثاء', en: 'Tuesday' },
-  { num: 3, ar: 'الأربعاء', en: 'Wednesday' },
-  { num: 4, ar: 'الخميس',   en: 'Thursday' },
-  { num: 5, ar: 'الجمعة',   en: 'Friday' },
-  { num: 6, ar: 'السبت',    en: 'Saturday' },
+  { num: 0, ar: 'الأحد',    en: 'Sunday',    letter: 'S' },
+  { num: 1, ar: 'الاثنين',  en: 'Monday',    letter: 'M' },
+  { num: 2, ar: 'الثلاثاء', en: 'Tuesday',   letter: 'T' },
+  { num: 3, ar: 'الأربعاء', en: 'Wednesday', letter: 'W' },
+  { num: 4, ar: 'الخميس',   en: 'Thursday',  letter: 'T' },
+  { num: 5, ar: 'الجمعة',   en: 'Friday',    letter: 'F' },
+  { num: 6, ar: 'السبت',    en: 'Saturday',  letter: 'S' },
 ] as const;
 
 const SLOT_DURATIONS = [10, 15, 20, 30, 45, 60] as const;
@@ -40,183 +45,360 @@ const OVERRIDE_TYPES: { key: DoctorScheduleOverride['overrideType']; ar: string;
   { key: 'holiday',      ar: 'إجازة',           en: 'Holiday',       color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
 ];
 
-function slotsPerDay(start: string, end: string, duration: number): number {
-  const [sh, sm] = start.split(':').map(Number);
-  const [eh, em] = end.split(':').map(Number);
-  const totalMinutes = (eh * 60 + em) - (sh * 60 + sm);
-  return totalMinutes > 0 ? Math.floor(totalMinutes / duration) : 0;
+/* ── Time helpers ────────────────────────────────────────────────────── */
+
+const hhmm = (t: string) => (t ?? '').slice(0, 5);
+
+function timeToMin(t: string): number {
+  const [h, m] = hhmm(t).split(':').map(Number);
+  return h * 60 + m;
+}
+
+function slotsForBlock(start: string, end: string, duration: number): number {
+  const total = timeToMin(end) - timeToMin(start);
+  return total > 0 && duration > 0 ? Math.floor(total / duration) : 0;
+}
+
+// Half-open overlap: back-to-back blocks (…13:00 + 13:00…) don't clash.
+function rangesOverlap(aStart: string, aEnd: string, bStart: string, bEnd: string): boolean {
+  return timeToMin(aStart) < timeToMin(bEnd) && timeToMin(aEnd) > timeToMin(bStart);
+}
+
+/** Server-error → friendly message (overlap returns 409 SCHEDULE_OVERLAP). */
+function errMessage(err: unknown, t: (ar: string, en: string) => string): string {
+  const code = (err as { response?: { data?: { error?: { code?: string } } } })?.response?.data?.error?.code;
+  if (code === 'SCHEDULE_OVERLAP') return t('يتعارض هذا التوقيت مع فترة أخرى في نفس اليوم', 'This time overlaps another block on this day');
+  return t('تعذّر الحفظ، حاول مرة أخرى', 'Save failed, please try again');
+}
+
+/* ── Block edit / add form (inline) ──────────────────────────────────── */
+
+function BlockForm({
+  dayOfWeek,
+  initial,
+  siblingBlocks,
+  excludeId,
+  onSubmit,
+  onCancel,
+  pending,
+  serverError,
+}: {
+  dayOfWeek: number;
+  initial?: DoctorSchedule;
+  siblingBlocks: DoctorSchedule[];
+  excludeId?: string;
+  onSubmit: (body: ScheduleBlockInput) => void;
+  onCancel: () => void;
+  pending: boolean;
+  serverError?: string;
+}) {
+  const { t } = useLang();
+  const [form, setForm] = useState({
+    startTime:           hhmm(initial?.startTime ?? '09:00'),
+    endTime:             hhmm(initial?.endTime   ?? '17:00'),
+    slotDurationMinutes: initial?.slotDurationMinutes ?? 20,
+    validFrom:           initial?.validFrom ?? localDateISO(),
+    validUntil:          initial?.validUntil ?? '',
+  });
+
+  const timeInvalid = timeToMin(form.startTime) >= timeToMin(form.endTime);
+  const dateInvalid = !!form.validUntil && form.validUntil < form.validFrom;
+  const localOverlap = !timeInvalid && siblingBlocks
+    .filter((b) => b.isActive && b.id !== excludeId)
+    .some((b) => rangesOverlap(form.startTime, form.endTime, b.startTime, b.endTime));
+
+  const blocked = timeInvalid || dateInvalid || localOverlap || pending;
+  const slots = slotsForBlock(form.startTime, form.endTime, form.slotDurationMinutes);
+
+  function handleSubmit() {
+    if (blocked) return;
+    onSubmit({
+      dayOfWeek,
+      startTime: form.startTime,
+      endTime: form.endTime,
+      slotDurationMinutes: form.slotDurationMinutes,
+      validFrom: form.validFrom,
+      validUntil: form.validUntil || undefined,
+    });
+  }
+
+  return (
+    <div className="px-4 py-4 space-y-3 bg-gray-50/60 dark:bg-neutral-900/40 rounded-xl border border-gray-100 dark:border-neutral-700">
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="field-label">{t('من', 'Start')}</label>
+          <input
+            type="time"
+            value={form.startTime}
+            onChange={(e) => setForm((f) => ({ ...f, startTime: e.target.value }))}
+            className="w-full h-9 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-3 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-600 font-mono"
+          />
+        </div>
+        <div>
+          <label className="field-label">{t('إلى', 'End')}</label>
+          <input
+            type="time"
+            value={form.endTime}
+            onChange={(e) => setForm((f) => ({ ...f, endTime: e.target.value }))}
+            className="w-full h-9 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-3 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-600 font-mono"
+          />
+        </div>
+      </div>
+
+      <div>
+        <label className="field-label">{t('مدة الموعد', 'Slot Duration')}</label>
+        <div className="flex gap-1.5 flex-wrap">
+          {SLOT_DURATIONS.map((d) => (
+            <button
+              key={d}
+              type="button"
+              onClick={() => setForm((f) => ({ ...f, slotDurationMinutes: d }))}
+              className={cn(
+                'px-3 py-1 rounded-lg text-xs font-medium transition-colors border',
+                form.slotDurationMinutes === d
+                  ? 'bg-primary-600 text-white border-primary-600'
+                  : 'border-gray-200 dark:border-neutral-600 text-gray-600 dark:text-gray-400 hover:border-primary-400',
+              )}
+            >
+              {d}{t('د', 'min')}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="field-label">{t('صالح من', 'Valid From')}</label>
+          <input
+            type="date"
+            value={form.validFrom}
+            onChange={(e) => setForm((f) => ({ ...f, validFrom: e.target.value }))}
+            className="w-full h-9 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-3 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-600"
+          />
+        </div>
+        <div>
+          <label className="field-label">{t('صالح حتى (اختياري)', 'Valid Until (optional)')}</label>
+          <input
+            type="date"
+            value={form.validUntil}
+            min={form.validFrom}
+            onChange={(e) => setForm((f) => ({ ...f, validUntil: e.target.value }))}
+            className="w-full h-9 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-3 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-600"
+          />
+        </div>
+      </div>
+
+      {/* Validation / preview */}
+      {timeInvalid ? (
+        <div className="flex items-center gap-2 text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">
+          <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+          <span>{t('وقت النهاية يجب أن يكون بعد وقت البداية', 'End time must be after start time')}</span>
+        </div>
+      ) : dateInvalid ? (
+        <div className="flex items-center gap-2 text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">
+          <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+          <span>{t('"صالح حتى" يجب أن يكون بعد "صالح من"', '"Valid Until" must be after "Valid From"')}</span>
+        </div>
+      ) : localOverlap ? (
+        <div className="flex items-center gap-2 text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">
+          <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+          <span>{t('يتعارض هذا التوقيت مع فترة أخرى في نفس اليوم', 'This time overlaps another block on this day')}</span>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 text-xs text-primary-700 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20 rounded-lg px-3 py-2">
+          <CheckCircle className="w-3.5 h-3.5 flex-shrink-0" />
+          <span>{slots} {t('موعد لهذه الفترة', 'slots in this block')}</span>
+        </div>
+      )}
+
+      {serverError && !blocked && (
+        <p className="text-xs text-red-500">{serverError}</p>
+      )}
+
+      <div className="flex gap-2 pt-1">
+        <Button size="sm" onClick={handleSubmit} loading={pending} disabled={blocked} className="gap-1">
+          <Save className="w-3.5 h-3.5" />
+          {t('حفظ', 'Save')}
+        </Button>
+        <Button size="sm" variant="outline" onClick={onCancel}>
+          <X className="w-3.5 h-3.5" />
+          {t('إلغاء', 'Cancel')}
+        </Button>
+      </div>
+    </div>
+  );
 }
 
 /* ── Day card ────────────────────────────────────────────────────────── */
 
 function DayCard({
   day,
-  schedule,
+  blocks,
   lang,
   doctorId,
 }: {
   day: typeof DAYS[number];
-  schedule?: DoctorSchedule;
+  blocks: DoctorSchedule[];
   lang: 'ar' | 'en';
   doctorId: string;
 }) {
   const { t } = useLang();
-  const upsert = useUpsertSchedule(doctorId);
-  const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({
-    startTime:           schedule?.startTime           ?? '09:00',
-    endTime:             schedule?.endTime             ?? '17:00',
-    slotDurationMinutes: schedule?.slotDurationMinutes ?? 20,
-    validFrom:           schedule?.validFrom           ?? localDateISO(),
-  });
+  const add = useAddScheduleBlock(doctorId);
+  const update = useUpdateScheduleBlock(doctorId);
+  const remove = useDeleteScheduleBlock(doctorId);
+  const toggleDay = useSetDayActive(doctorId);
 
-  const isActive = !!schedule?.isActive;
-  const slots = schedule ? slotsPerDay(schedule.startTime, schedule.endTime, schedule.slotDurationMinutes) : 0;
+  const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
-  async function handleSave() {
-    await upsert.mutateAsync({ dayOfWeek: day.num, ...form });
-    setEditing(false);
+  const sorted = [...blocks].sort((a, b) => timeToMin(a.startTime) - timeToMin(b.startTime));
+  const hasActive = sorted.some((b) => b.isActive);
+  const dayHasBlocks = sorted.length > 0;
+
+  async function handleAdd(body: ScheduleBlockInput) {
+    try {
+      await add.mutateAsync(body);
+      setAdding(false);
+    } catch { /* error surfaced inline via add.error */ }
+  }
+  async function handleUpdate(scheduleId: string, body: ScheduleBlockInput) {
+    try {
+      await update.mutateAsync({ scheduleId, ...body });
+      setEditingId(null);
+    } catch { /* error surfaced inline via update.error */ }
   }
 
   return (
     <div className={cn(
       'rounded-2xl border transition-all duration-200 overflow-hidden',
-      isActive
+      hasActive
         ? 'border-gray-100 dark:border-neutral-700 bg-white dark:bg-neutral-800 shadow-sm hover:shadow-md'
         : 'border-dashed border-gray-200 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40',
     )}>
       {/* Day header */}
       <div className={cn(
         'flex items-center justify-between px-4 py-3',
-        isActive ? 'border-b border-gray-50 dark:border-neutral-700' : '',
+        dayHasBlocks ? 'border-b border-gray-50 dark:border-neutral-700' : '',
       )}>
         <div className="flex items-center gap-2.5">
           <div className={cn(
             'w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold',
-            isActive ? 'bg-primary-600 text-white' : 'bg-gray-200 dark:bg-neutral-700 text-gray-400 dark:text-gray-500',
+            hasActive ? 'bg-primary-600 text-white' : 'bg-gray-200 dark:bg-neutral-700 text-gray-400 dark:text-gray-500',
           )}>
-            {day.num === 0 ? 'S' : day.num === 1 ? 'M' : day.num === 2 ? 'T' : day.num === 3 ? 'W' : day.num === 4 ? 'T' : day.num === 5 ? 'F' : 'S'}
+            {day.letter}
           </div>
-          <span className={cn('font-semibold text-sm', isActive ? 'text-gray-900 dark:text-gray-100' : 'text-gray-400 dark:text-gray-500')}>
+          <span className={cn('font-semibold text-sm', hasActive ? 'text-gray-900 dark:text-gray-100' : 'text-gray-400 dark:text-gray-500')}>
             {lang === 'ar' ? day.ar : day.en}
           </span>
-          {isActive && (
-            <Badge variant="success" dot className="text-[10px]">{t('نشط', 'Active')}</Badge>
+          {hasActive && <Badge variant="success" dot className="text-[10px]">{t('نشط', 'Active')}</Badge>}
+          {dayHasBlocks && !hasActive && (
+            <Badge variant="default" className="text-[10px]">{t('معطّل', 'Disabled')}</Badge>
           )}
         </div>
-        <div className="flex gap-1">
-          {isActive && !editing && (
+
+        <div className="flex items-center gap-1">
+          {/* Per-day disable / enable toggle */}
+          {dayHasBlocks && (
             <button
-              onClick={() => setEditing(true)}
-              className="p-1.5 rounded-lg text-gray-400 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
-              title={t('تعديل', 'Edit')}
+              type="button"
+              onClick={() => toggleDay.mutate({ dayOfWeek: day.num, isActive: !hasActive })}
+              disabled={toggleDay.isPending}
+              className={cn(
+                'flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors',
+                hasActive
+                  ? 'text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20'
+                  : 'text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20',
+              )}
+              title={hasActive ? t('تعطيل اليوم', 'Disable day') : t('تفعيل اليوم', 'Enable day')}
             >
-              <Edit3 className="w-3.5 h-3.5" />
+              <Power className="w-3.5 h-3.5" />
+              {hasActive ? t('تعطيل', 'Disable') : t('تفعيل', 'Enable')}
             </button>
           )}
-          {!isActive && (
+          {!adding && (
             <button
-              onClick={() => setEditing(true)}
-              className="px-2.5 py-1 rounded-lg text-xs font-medium text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
+              type="button"
+              onClick={() => { setEditingId(null); setAdding(true); add.reset(); }}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
             >
-              {t('+ تفعيل', '+ Enable')}
+              <Plus className="w-3.5 h-3.5" />
+              {t('فترة', 'Hours')}
             </button>
           )}
         </div>
       </div>
 
-      {/* Active day details */}
-      {isActive && !editing && (
-        <div className="px-4 py-3 flex items-center gap-4 flex-wrap">
-          <div className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
-            <Clock className="w-3.5 h-3.5" />
-            <span className="font-mono">{schedule?.startTime} – {schedule?.endTime}</span>
-          </div>
-          <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-500">
-            <span className="font-medium text-gray-800 dark:text-gray-200">{slots}</span>
-            <span>{t('موعد', 'slots')} · {schedule?.slotDurationMinutes}{t('د', 'min')}</span>
-          </div>
-        </div>
-      )}
-
-      {/* Edit form */}
-      {editing && (
-        <div className="px-4 py-4 space-y-3 bg-gray-50/50 dark:bg-neutral-900/30">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="field-label">{t('من', 'Start')}</label>
-              <input
-                type="time"
-                value={form.startTime}
-                onChange={(e) => setForm((f) => ({ ...f, startTime: e.target.value }))}
-                className="w-full h-9 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-3 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-600 font-mono"
+      {/* Blocks */}
+      {(dayHasBlocks || adding) && (
+        <div className="px-4 py-3 space-y-2">
+          {sorted.map((block) => (
+            editingId === block.id ? (
+              <BlockForm
+                key={block.id}
+                dayOfWeek={day.num}
+                initial={block}
+                siblingBlocks={sorted}
+                excludeId={block.id}
+                onSubmit={(body) => handleUpdate(block.id, body)}
+                onCancel={() => setEditingId(null)}
+                pending={update.isPending}
+                serverError={update.isError ? errMessage(update.error, t) : undefined}
               />
-            </div>
-            <div>
-              <label className="field-label">{t('إلى', 'End')}</label>
-              <input
-                type="time"
-                value={form.endTime}
-                onChange={(e) => setForm((f) => ({ ...f, endTime: e.target.value }))}
-                className="w-full h-9 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-3 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-600 font-mono"
-              />
-            </div>
-          </div>
+            ) : (
+              <div
+                key={block.id}
+                className={cn(
+                  'flex items-center gap-3 flex-wrap rounded-xl px-3 py-2.5 border',
+                  block.isActive
+                    ? 'border-gray-100 dark:border-neutral-700 bg-gray-50/40 dark:bg-neutral-900/30'
+                    : 'border-dashed border-gray-200 dark:border-neutral-700 opacity-60',
+                )}
+              >
+                <div className="flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-200">
+                  <Clock className="w-3.5 h-3.5 text-gray-400" />
+                  <span className="font-mono font-medium">{hhmm(block.startTime)} – {hhmm(block.endTime)}</span>
+                </div>
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  <span className="font-medium text-gray-800 dark:text-gray-200">
+                    {slotsForBlock(block.startTime, block.endTime, block.slotDurationMinutes)}
+                  </span>{' '}
+                  {t('موعد', 'slots')} · {block.slotDurationMinutes}{t('د', 'min')}
+                </span>
+                <span className="text-[11px] text-gray-400 dark:text-gray-500 font-mono">
+                  {block.validFrom}{block.validUntil ? ` → ${block.validUntil}` : ''}
+                </span>
+                <div className="flex items-center gap-1 ms-auto">
+                  <button
+                    type="button"
+                    onClick={() => { setAdding(false); setEditingId(block.id); update.reset(); }}
+                    className="p-1.5 rounded-lg text-gray-400 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
+                    title={t('تعديل', 'Edit')}
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => remove.mutate(block.id)}
+                    disabled={remove.isPending}
+                    className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                    title={t('حذف', 'Delete')}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            )
+          ))}
 
-          <div>
-            <label className="field-label">{t('مدة الموعد', 'Slot Duration')}</label>
-            <div className="flex gap-1.5 flex-wrap">
-              {SLOT_DURATIONS.map((d) => (
-                <button
-                  key={d}
-                  onClick={() => setForm((f) => ({ ...f, slotDurationMinutes: d }))}
-                  className={cn(
-                    'px-3 py-1 rounded-lg text-xs font-medium transition-colors border',
-                    form.slotDurationMinutes === d
-                      ? 'bg-primary-600 text-white border-primary-600'
-                      : 'border-gray-200 dark:border-neutral-600 text-gray-600 dark:text-gray-400 hover:border-primary-400',
-                  )}
-                >
-                  {d}{t('د', 'min')}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label className="field-label">{t('صالح من', 'Valid From')}</label>
-            <input
-              type="date"
-              value={form.validFrom}
-              onChange={(e) => setForm((f) => ({ ...f, validFrom: e.target.value }))}
-              className="h-9 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-3 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-600"
+          {adding && (
+            <BlockForm
+              dayOfWeek={day.num}
+              siblingBlocks={sorted}
+              onSubmit={handleAdd}
+              onCancel={() => setAdding(false)}
+              pending={add.isPending}
+              serverError={add.isError ? errMessage(add.error, t) : undefined}
             />
-          </div>
-
-          {/* Preview */}
-          {form.startTime && form.endTime && form.slotDurationMinutes && (
-            <div className="flex items-center gap-2 text-xs text-primary-700 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20 rounded-lg px-3 py-2">
-              <CheckCircle className="w-3.5 h-3.5 flex-shrink-0" />
-              <span>
-                {slotsPerDay(form.startTime, form.endTime, form.slotDurationMinutes)}{' '}
-                {t('موعد يومياً', 'slots per day')}
-              </span>
-            </div>
-          )}
-
-          <div className="flex gap-2 pt-1">
-            <Button size="sm" onClick={() => handleSave()} loading={upsert.isPending} className="gap-1">
-              <Save className="w-3.5 h-3.5" />
-              {t('حفظ', 'Save')}
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => setEditing(false)}>
-              <X className="w-3.5 h-3.5" />
-              {t('إلغاء', 'Cancel')}
-            </Button>
-          </div>
-
-          {upsert.isError && (
-            <p className="text-xs text-red-500">{t('تعذّر الحفظ', 'Save failed')}</p>
           )}
         </div>
       )}
@@ -412,20 +594,21 @@ function OverrideItem({
 /* ── Visual week grid ─────────────────────────────────────────────────── */
 
 function WeekVisualGrid({
-  schedules,
+  blocksByDay,
   lang,
 }: {
-  schedules: DoctorSchedule[];
+  blocksByDay: Map<number, DoctorSchedule[]>;
   lang: 'ar' | 'en';
 }) {
-  const scheduleByDay = new Map(schedules.map((s) => [s.dayOfWeek, s]));
-
   return (
     <div className="flex gap-1">
       {DAYS.map((day) => {
-        const sched = scheduleByDay.get(day.num);
-        const active = sched?.isActive ?? false;
-        const slots = active && sched ? slotsPerDay(sched.startTime, sched.endTime, sched.slotDurationMinutes) : 0;
+        const dayBlocks = (blocksByDay.get(day.num) ?? []).filter((b) => b.isActive);
+        const active = dayBlocks.length > 0;
+        const slots = dayBlocks.reduce((s, b) => s + slotsForBlock(b.startTime, b.endTime, b.slotDurationMinutes), 0);
+        const earliest = active
+          ? dayBlocks.reduce((min, b) => (timeToMin(b.startTime) < timeToMin(min) ? b.startTime : min), dayBlocks[0].startTime)
+          : '';
 
         return (
           <div key={day.num} className="flex-1 flex flex-col items-center gap-1.5">
@@ -445,7 +628,10 @@ function WeekVisualGrid({
                 <>
                   <span className="text-[11px] font-mono font-semibold">{slots}</span>
                   <span className="text-[9px] text-white/70">{lang === 'ar' ? 'موعد' : 'slots'}</span>
-                  <span className="text-[9px] text-white/60 font-mono">{sched!.startTime.slice(0, 5)}</span>
+                  <span className="text-[9px] text-white/60 font-mono">{hhmm(earliest)}</span>
+                  {dayBlocks.length > 1 && (
+                    <span className="text-[8px] text-white/60">{dayBlocks.length} {lang === 'ar' ? 'فترات' : 'blocks'}</span>
+                  )}
                 </>
               ) : (
                 <span className="text-[10px]">—</span>
@@ -469,14 +655,23 @@ export default function DoctorSchedulePage() {
   const doctorId = params.id;
   const today = localDateISO();
 
+  const { data: doctorsData } = useDoctors({ limit: 500 });
+  const doctor = doctorsData?.data.find((d) => d.id === doctorId) ?? null;
+  const docName = doctor
+    ? (lang === 'ar' ? (doctor.nameAr ?? doctor.nameEn) : doctor.nameEn)
+    : doctorId.slice(-6).toUpperCase();
+
   const { data: schedules = [], isLoading: schedLoading } = useDoctorSchedules(doctorId);
   const { data: overrides = [], isLoading: ovLoading } = useDoctorScheduleOverrides(doctorId, today);
 
-  const scheduleByDay = new Map(schedules.map((s) => [s.dayOfWeek, s]));
-  const activeDays = schedules.filter((s) => s.isActive).length;
+  const blocksByDay = new Map<number, DoctorSchedule[]>();
+  DAYS.forEach((d) => blocksByDay.set(d.num, []));
+  schedules.forEach((s) => blocksByDay.get(s.dayOfWeek)?.push(s));
+
+  const activeDays = DAYS.filter((d) => (blocksByDay.get(d.num) ?? []).some((b) => b.isActive)).length;
   const totalSlotsPerWeek = schedules
     .filter((s) => s.isActive)
-    .reduce((sum, s) => sum + slotsPerDay(s.startTime, s.endTime, s.slotDurationMinutes), 0);
+    .reduce((sum, s) => sum + slotsForBlock(s.startTime, s.endTime, s.slotDurationMinutes), 0);
 
   const upcomingOverrides = overrides.slice(0, 10);
 
@@ -490,11 +685,13 @@ export default function DoctorSchedulePage() {
         >
           <ArrowLeft className={cn('w-5 h-5', lang === 'ar' && 'rotate-180')} />
         </button>
-        <div className="flex-1">
-          <h2 className="text-2xl font-bold font-display text-gray-900 dark:text-gray-100">
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
             {t('إدارة الجدول', 'Schedule Management')}
+          </p>
+          <h2 className="text-2xl font-bold font-display text-gray-900 dark:text-gray-100 truncate">
+            {docName}
           </h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 font-mono">{doctorId.slice(-12).toUpperCase()}</p>
         </div>
         <Button size="sm" onClick={() => setShowOverrideForm(true)} className="gap-1.5">
           <CalendarX className="w-4 h-4" />
@@ -528,7 +725,7 @@ export default function DoctorSchedulePage() {
         <Card>
           <CardHeader><CardTitle>{t('نظرة عامة على الأسبوع', 'Weekly Overview')}</CardTitle></CardHeader>
           <CardContent>
-            <WeekVisualGrid schedules={schedules} lang={lang} />
+            <WeekVisualGrid blocksByDay={blocksByDay} lang={lang} />
           </CardContent>
         </Card>
       )}
@@ -547,7 +744,7 @@ export default function DoctorSchedulePage() {
             <DayCard
               key={day.num}
               day={day}
-              schedule={scheduleByDay.get(day.num)}
+              blocks={blocksByDay.get(day.num) ?? []}
               lang={lang}
               doctorId={doctorId}
             />

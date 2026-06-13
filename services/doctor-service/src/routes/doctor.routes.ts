@@ -186,26 +186,72 @@ export async function doctorRoutes(app: FastifyInstance): Promise<void> {
     schema: { tags: ['doctors'], params: idParam },
   }, ctrl.getSchedules);
 
-  // PUT /doctors/:id/schedules
-  app.put('/doctors/:id/schedules', {
+  const scheduleBlockBody = {
+    type: 'object',
+    required: ['dayOfWeek', 'startTime', 'endTime', 'slotDurationMinutes', 'validFrom'],
+    properties: {
+      dayOfWeek:            { type: 'integer', minimum: 0, maximum: 6 },
+      startTime:            { type: 'string', pattern: '^\\d{2}:\\d{2}$' },
+      endTime:              { type: 'string', pattern: '^\\d{2}:\\d{2}$' },
+      slotDurationMinutes:  { type: 'integer', minimum: 5, maximum: 120 },
+      validFrom:            { type: 'string', format: 'date' },
+      validUntil:           { type: 'string', format: 'date' },
+    },
+  } as const;
+
+  // POST /doctors/:id/schedules  (add a working-hour block to a day)
+  app.post('/doctors/:id/schedules', {
+    preHandler: [requireRole('admin', 'receptionist')],
+    schema: { tags: ['doctors'], params: idParam, body: scheduleBlockBody },
+  }, ctrl.createScheduleBlock);
+
+  // PUT /doctors/:id/schedules/:scheduleId  (edit a block)
+  app.put('/doctors/:id/schedules/:scheduleId', {
     preHandler: [requireRole('admin', 'receptionist')],
     schema: {
       tags: ['doctors'],
-      params: idParam,
-      body: {
+      params: {
         type: 'object',
-        required: ['dayOfWeek', 'startTime', 'endTime', 'slotDurationMinutes', 'validFrom'],
-        properties: {
-          dayOfWeek:            { type: 'integer', minimum: 0, maximum: 6 },
-          startTime:            { type: 'string', pattern: '^\\d{2}:\\d{2}$' },
-          endTime:              { type: 'string', pattern: '^\\d{2}:\\d{2}$' },
-          slotDurationMinutes:  { type: 'integer', minimum: 5, maximum: 120 },
-          validFrom:            { type: 'string', format: 'date' },
-          validUntil:           { type: 'string', format: 'date' },
-        },
+        required: ['id', 'scheduleId'],
+        properties: { id: { type: 'string', format: 'uuid' }, scheduleId: { type: 'string', format: 'uuid' } },
+      },
+      body: scheduleBlockBody,
+    },
+  }, ctrl.updateScheduleBlock);
+
+  // DELETE /doctors/:id/schedules/:scheduleId
+  app.delete('/doctors/:id/schedules/:scheduleId', {
+    preHandler: [requireRole('admin', 'receptionist')],
+    schema: {
+      tags: ['doctors'],
+      params: {
+        type: 'object',
+        required: ['id', 'scheduleId'],
+        properties: { id: { type: 'string', format: 'uuid' }, scheduleId: { type: 'string', format: 'uuid' } },
       },
     },
-  }, ctrl.upsertSchedule);
+  }, ctrl.deleteScheduleBlock);
+
+  // PATCH /doctors/:id/schedules/day/:dayOfWeek  (enable/disable a whole day)
+  app.patch('/doctors/:id/schedules/day/:dayOfWeek', {
+    preHandler: [requireRole('admin', 'receptionist')],
+    schema: {
+      tags: ['doctors'],
+      params: {
+        type: 'object',
+        required: ['id', 'dayOfWeek'],
+        properties: {
+          id:        { type: 'string', format: 'uuid' },
+          dayOfWeek: { type: 'integer', minimum: 0, maximum: 6 },
+        },
+      },
+      body: {
+        type: 'object',
+        required: ['isActive'],
+        properties: { isActive: { type: 'boolean' } },
+      },
+    },
+  }, ctrl.setDayActive);
 
   // GET /doctors/:id/schedule-overrides
   app.get('/doctors/:id/schedule-overrides', {

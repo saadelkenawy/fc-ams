@@ -48,8 +48,9 @@ function rowToSchedule(row: Record<string, unknown>): DoctorSchedule {
     id: row.id as string,
     doctorId: row.doctor_id as string,
     dayOfWeek: row.day_of_week as DoctorSchedule['dayOfWeek'],
-    startTime: row.start_time as string,
-    endTime: row.end_time as string,
+    // Postgres TIME comes back as 'HH:MM:SS' — the UI works in 'HH:MM'.
+    startTime: (row.start_time as string)?.slice(0, 5),
+    endTime: (row.end_time as string)?.slice(0, 5),
     slotDurationMinutes: row.slot_duration_minutes as number,
     isActive: row.is_active as boolean,
     validFrom: row.valid_from
@@ -335,46 +336,71 @@ export async function softDeleteDoctor(id: string, deletedBy: string): Promise<v
 // Schedule queries
 // ---------------------------------------------------------------------------
 
+// Returns every block (active + disabled) so the management UI can show
+// turned-off days and re-enable them. Consumers that only want live hours
+// filter on isActive themselves.
 export async function findSchedulesByDoctorId(doctorId: string): Promise<DoctorSchedule[]> {
   return withRlsContext(async (client) => {
     const { rows } = await client.query(
-      `SELECT * FROM doctor_schedules WHERE doctor_id = $1 AND is_active = TRUE ORDER BY day_of_week, start_time`,
+      `SELECT * FROM doctor_schedules WHERE doctor_id = $1 ORDER BY day_of_week, start_time`,
       [doctorId],
     );
     return rows.map((r) => rowToSchedule(r as Record<string, unknown>));
   });
 }
 
-export async function upsertSchedule(
+interface ScheduleBlockInput {
+  dayOfWeek: DoctorSchedule['dayOfWeek'];
+  startTime: string;
+  endTime: string;
+  slotDurationMinutes: number;
+  validFrom: string;
+  validUntil?: string;
+}
+
+const overlapError = () =>
+  Object.assign(new Error('This time range overlaps an existing block on that day'), {
+    code: 'SCHEDULE_OVERLAP',
+    statusCode: 409,
+  });
+
+// Any ACTIVE block on the same weekday whose range intersects [start,end).
+// excludeId skips the row being edited. Half-open: touching ranges don't clash.
+async function hasOverlap(
+  client: PoolClient,
   doctorId: string,
-  input: {
-    dayOfWeek: DoctorSchedule['dayOfWeek'];
-    startTime: string;
-    endTime: string;
-    slotDurationMinutes: number;
-    validFrom: string;
-    validUntil?: string;
-  },
+  dayOfWeek: number,
+  startTime: string,
+  endTime: string,
+  excludeId: string | null,
+): Promise<boolean> {
+  const { rows } = await client.query(
+    `SELECT 1 FROM doctor_schedules
+      WHERE doctor_id = $1 AND day_of_week = $2 AND is_active = TRUE
+        AND ($5::uuid IS NULL OR id <> $5)
+        AND start_time < $4::time AND end_time > $3::time
+      LIMIT 1`,
+    [doctorId, dayOfWeek, startTime, endTime, excludeId],
+  );
+  return rows.length > 0;
+}
+
+export async function createScheduleBlock(
+  doctorId: string,
+  input: ScheduleBlockInput,
   branchId: number,
 ): Promise<DoctorSchedule> {
   return withTransaction(async (client: PoolClient) => {
-    const id = uuidv4();
+    if (await hasOverlap(client, doctorId, input.dayOfWeek, input.startTime, input.endTime, null)) {
+      throw overlapError();
+    }
     const { rows } = await client.query(
       `INSERT INTO doctor_schedules (
         id, doctor_id, day_of_week, start_time, end_time,
         slot_duration_minutes, is_active, valid_from, valid_until, branch_id
-      ) VALUES ($1,$2,$3,$4,$5,$6,TRUE,$7,$8,$9)
-      ON CONFLICT (doctor_id, day_of_week) DO UPDATE SET
-        start_time = EXCLUDED.start_time,
-        end_time = EXCLUDED.end_time,
-        slot_duration_minutes = EXCLUDED.slot_duration_minutes,
-        is_active = TRUE,
-        valid_from = EXCLUDED.valid_from,
-        valid_until = EXCLUDED.valid_until,
-        branch_id = EXCLUDED.branch_id
-      RETURNING *`,
+      ) VALUES ($1,$2,$3,$4,$5,$6,TRUE,$7,$8,$9) RETURNING *`,
       [
-        id,
+        uuidv4(),
         doctorId,
         input.dayOfWeek,
         input.startTime,
@@ -386,6 +412,82 @@ export async function upsertSchedule(
       ],
     );
     return rowToSchedule(rows[0] as Record<string, unknown>);
+  });
+}
+
+export async function updateScheduleBlock(
+  doctorId: string,
+  scheduleId: string,
+  input: ScheduleBlockInput,
+): Promise<DoctorSchedule> {
+  return withTransaction(async (client: PoolClient) => {
+    if (await hasOverlap(client, doctorId, input.dayOfWeek, input.startTime, input.endTime, scheduleId)) {
+      throw overlapError();
+    }
+    const { rows } = await client.query(
+      `UPDATE doctor_schedules SET
+         day_of_week = $3,
+         start_time = $4,
+         end_time = $5,
+         slot_duration_minutes = $6,
+         valid_from = $7,
+         valid_until = $8,
+         is_active = TRUE
+       WHERE id = $1 AND doctor_id = $2
+       RETURNING *`,
+      [
+        scheduleId,
+        doctorId,
+        input.dayOfWeek,
+        input.startTime,
+        input.endTime,
+        input.slotDurationMinutes,
+        input.validFrom,
+        input.validUntil ?? null,
+      ],
+    );
+    if (!rows.length) {
+      throw Object.assign(new Error('Schedule block not found'), { code: 'SCHEDULE_NOT_FOUND', statusCode: 404 });
+    }
+    return rowToSchedule(rows[0] as Record<string, unknown>);
+  });
+}
+
+export async function deleteScheduleBlock(doctorId: string, scheduleId: string): Promise<void> {
+  await withTransaction(async (client: PoolClient) => {
+    const { rowCount } = await client.query(
+      `DELETE FROM doctor_schedules WHERE id = $1 AND doctor_id = $2`,
+      [scheduleId, doctorId],
+    );
+    if (!rowCount) {
+      throw Object.assign(new Error('Schedule block not found'), { code: 'SCHEDULE_NOT_FOUND', statusCode: 404 });
+    }
+  });
+}
+
+// Enable/disable every block on a weekday at once (the per-day toggle).
+export async function setDayActive(
+  doctorId: string,
+  dayOfWeek: number,
+  isActive: boolean,
+): Promise<DoctorSchedule[]> {
+  return withTransaction(async (client: PoolClient) => {
+    try {
+      await client.query(
+        `UPDATE doctor_schedules SET is_active = $3
+          WHERE doctor_id = $1 AND day_of_week = $2`,
+        [doctorId, dayOfWeek, isActive],
+      );
+    } catch (err) {
+      // Re-enabling a day whose blocks overlap trips the exclusion constraint.
+      if ((err as { code?: string }).code === '23P01') throw overlapError();
+      throw err;
+    }
+    const { rows } = await client.query(
+      `SELECT * FROM doctor_schedules WHERE doctor_id = $1 ORDER BY day_of_week, start_time`,
+      [doctorId],
+    );
+    return rows.map((r) => rowToSchedule(r as Record<string, unknown>));
   });
 }
 

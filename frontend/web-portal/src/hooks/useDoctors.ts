@@ -94,21 +94,71 @@ export function useDoctorScheduleOverrides(doctorId: string, from?: string) {
   });
 }
 
-export function useUpsertSchedule(doctorId: string) {
+export interface ScheduleBlockInput {
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  slotDurationMinutes: number;
+  validFrom: string;
+  validUntil?: string;
+}
+
+/** Add a new working-hour block to a day (server rejects overlaps with 409). */
+export function useAddScheduleBlock(doctorId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (body: {
-      dayOfWeek: number;
-      startTime: string;
-      endTime: string;
-      slotDurationMinutes: number;
-      validFrom: string;
-    }) => {
-      const { data } = await doctorApi.put<ApiResponse<DoctorSchedule>>(
+    mutationFn: async (body: ScheduleBlockInput) => {
+      const { data } = await doctorApi.post<ApiResponse<DoctorSchedule>>(
         `/doctors/${doctorId}/schedules`,
         body,
       );
       return data.data!;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['doctor-schedules', doctorId] });
+    },
+  });
+}
+
+/** Edit an existing block by id (overlap-checked, excluding itself). */
+export function useUpdateScheduleBlock(doctorId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ scheduleId, ...body }: ScheduleBlockInput & { scheduleId: string }) => {
+      const { data } = await doctorApi.put<ApiResponse<DoctorSchedule>>(
+        `/doctors/${doctorId}/schedules/${scheduleId}`,
+        body,
+      );
+      return data.data!;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['doctor-schedules', doctorId] });
+    },
+  });
+}
+
+export function useDeleteScheduleBlock(doctorId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (scheduleId: string) => {
+      await doctorApi.delete(`/doctors/${doctorId}/schedules/${scheduleId}`);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['doctor-schedules', doctorId] });
+    },
+  });
+}
+
+/** Enable/disable every block on a weekday (the per-day toggle). */
+export function useSetDayActive(doctorId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ dayOfWeek, isActive }: { dayOfWeek: number; isActive: boolean }) => {
+      const { data } = await doctorApi.patch<ApiResponse<DoctorSchedule[]>>(
+        `/doctors/${doctorId}/schedules/day/${dayOfWeek}`,
+        { isActive },
+      );
+      return data.data ?? [];
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['doctor-schedules', doctorId] });
