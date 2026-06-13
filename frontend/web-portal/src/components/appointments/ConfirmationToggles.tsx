@@ -104,7 +104,7 @@ export function ConfirmationToggles({ appointment, rooms, lang, t, variant = 'co
 
   if (variant === 'compact') {
     return (
-      <div className="inline-flex items-center gap-1" data-testid="confirm-toggles-compact" data-confirmed={greenCount} title={t(`${greenCount}/3 مؤكد`, `${greenCount}/3 confirmed`)}>
+      <div className="inline-flex items-center gap-1" data-testid="confirm-toggles-compact" data-confirmed={String(greenCount)} title={t(`${greenCount}/3 مؤكد`, `${greenCount}/3 confirmed`)}>
         {segs.map(({ key, on, Icon, ar, en }) => (
           <button
             key={key}
@@ -112,7 +112,7 @@ export function ConfirmationToggles({ appointment, rooms, lang, t, variant = 'co
             onClick={(e) => toggle(key, e)}
             disabled={locked || mutation.isPending}
             data-testid={`confirm-${key}`}
-            data-on={on}
+            data-on={on ? 'true' : 'false'}
             title={`${lang === 'ar' ? ar : en}${on ? ' ✓' : ''}${key === 'room' ? t(' (تلقائي)', ' (auto)') : ''}`}
             className={cn(
               'w-5 h-5 rounded-full flex items-center justify-center transition-all',
@@ -132,7 +132,7 @@ export function ConfirmationToggles({ appointment, rooms, lang, t, variant = 'co
 
   // full variant — labelled toggles for the status popover/modal
   return (
-    <div className="space-y-2" data-testid="confirm-toggles-full" data-confirmed={greenCount} data-status={status}>
+    <div className="space-y-2" data-testid="confirm-toggles-full" data-confirmed={String(greenCount)} data-status={status}>
       {segs.map(({ key, on, Icon, ar, en }) => (
         <button
           key={key}
