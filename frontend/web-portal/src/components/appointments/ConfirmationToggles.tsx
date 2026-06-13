@@ -28,11 +28,15 @@ interface ConfirmationTogglesProps {
   t: (ar: string, en: string) => string;
   /** compact = row dots; full = labelled buttons for the popover */
   variant?: 'compact' | 'full';
+  /** Notifies the parent of the authoritative row after each toggle, so a
+   *  parent holding a one-time snapshot (the status modal) can advance its own
+   *  `version`/`status` and not resend a stale version on a later mutation. */
+  onUpdated?: (appt: Appointment) => void;
 }
 
 type Segment = 'doctor' | 'patient' | 'room';
 
-export function ConfirmationToggles({ appointment, rooms, lang, t, variant = 'compact' }: ConfirmationTogglesProps) {
+export function ConfirmationToggles({ appointment, rooms, lang, t, variant = 'compact', onUpdated }: ConfirmationTogglesProps) {
   const qc = useQueryClient();
 
   // Local, self-consistent state seeded from props and advanced from each
@@ -75,6 +79,7 @@ export function ConfirmationToggles({ appointment, rooms, lang, t, variant = 'co
       setPatientConfirmed(updated.patientConfirmed);
       setStatus(updated.status);
       setVersion(updated.version);
+      onUpdated?.(updated);
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ['appointments'] });

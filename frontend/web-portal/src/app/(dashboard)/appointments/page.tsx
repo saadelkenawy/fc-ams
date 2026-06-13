@@ -369,18 +369,34 @@ interface StatusModalProps {
 
 function StatusModal({ appointment, rooms, lang, t, onClose, onDone, userRole }: StatusModalProps) {
   const [selected, setSelected] = useState<AppointmentStatus | null>(null);
-  const allAllowed = TRANSITIONS[appointment.status] ?? [];
+  // Live view of the row: a confirmation toggle (rendered below) advances the
+  // server-side version/status, so we can't keep sending the open-time snapshot
+  // or the status PATCH 409s and the offered transitions go stale.
+  const [live, setLive] = useState<Appointment>(appointment);
+  useEffect(() => { setLive(appointment); setSelected(null); }, [appointment]);
+
+  const allAllowed = TRANSITIONS[live.status] ?? [];
   const allowed = userRole === 'admin' ? allAllowed : allAllowed.filter((s) => s !== 'Ref.');
+  // A pending selection can fall out of range once a toggle changes the status.
+  useEffect(() => {
+    if (selected && !allowed.includes(selected)) setSelected(null);
+  }, [allowed, selected]);
 
   const mutation = useMutation({
     mutationFn: async (status: AppointmentStatus) => {
-      await appointmentApi.patch(`/appointments/${appointment.id}/status`, {
+      await appointmentApi.patch(`/appointments/${live.id}/status`, {
         status,
-        version: appointment.version,
+        version: live.version,
       });
     },
     onSuccess: () => { onDone(); onClose(); },
   });
+
+  const errorCode = (mutation.error as { response?: { data?: { error?: { code?: string } } } } | null)
+    ?.response?.data?.error?.code;
+  const errorMsg = errorCode === 'VERSION_CONFLICT'
+    ? t('تم تحديث الموعد للتو. أغلق النافذة وأعد المحاولة.', 'Appointment was just updated. Close and try again.')
+    : t('فشل تغيير الحالة. تأكد من التسلسل الصحيح.', 'Status change failed. Check valid transition.');
 
   return (
     <DialogOverlay onClose={onClose} label={t('تغيير حالة الموعد', 'Change Appointment Status')}
@@ -394,16 +410,16 @@ function StatusModal({ appointment, rooms, lang, t, onClose, onDone, userRole }:
         </div>
         <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
           {t('الحالة الحالية:', 'Current status:')}
-          {' '}<AppointmentStatusBadge status={appointment.status} lang={lang} />
+          {' '}<AppointmentStatusBadge status={live.status} lang={lang} />
         </p>
 
         {/* Confirmation toggles — drive the TBC ⇄ Ok! auto-transition */}
-        {(appointment.status === 'TBC' || appointment.status === 'Ok!') && (
+        {(live.status === 'TBC' || live.status === 'Ok!') && (
           <div className="mb-4">
             <p className="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">
               {t('التأكيدات', 'Confirmations')}
             </p>
-            <ConfirmationToggles appointment={appointment} rooms={rooms} lang={lang} t={t} variant="full" />
+            <ConfirmationToggles appointment={appointment} rooms={rooms} lang={lang} t={t} variant="full" onUpdated={setLive} />
           </div>
         )}
 
@@ -429,9 +445,7 @@ function StatusModal({ appointment, rooms, lang, t, onClose, onDone, userRole }:
           ))}
         </div>
         {mutation.isError && (
-          <p className="text-xs text-red-500 mt-3">
-            {t('فشل تغيير الحالة. تأكد من التسلسل الصحيح.', 'Status change failed. Check valid transition.')}
-          </p>
+          <p className="text-xs text-red-500 mt-3">{errorMsg}</p>
         )}
         <div className="flex gap-2 mt-5">
           <Button
