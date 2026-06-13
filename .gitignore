@@ -43,7 +43,7 @@ skills-lock.json
 
 # §4.7 cleanup — local artifacts that polluted searches
 .scannerwork/
-.claude/worktrees/
+.claude/
 claude-convert-accounts/
 design-system/
 *.zip
