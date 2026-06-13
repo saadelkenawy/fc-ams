@@ -31,6 +31,11 @@ export default defineConfig<AccountOptions>({
   projects: [
     { name: 'login', testMatch: /login\.spec\.ts/ },
     {
+      name: 'confirmations',
+      testMatch: /confirmations\.spec\.ts/,
+      use: { account: 'admin' },
+    },
+    {
       name: 'visual',
       testMatch: /visual\.spec\.ts/,
       use: { account: 'admin' },

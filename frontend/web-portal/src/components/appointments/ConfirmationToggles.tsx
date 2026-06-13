@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Stethoscope, User, DoorOpen, Check, Loader2 } from 'lucide-react';
 import { appointmentApi } from '@/lib/api';
@@ -33,17 +34,47 @@ type Segment = 'doctor' | 'patient' | 'room';
 
 export function ConfirmationToggles({ appointment, rooms, lang, t, variant = 'compact' }: ConfirmationTogglesProps) {
   const qc = useQueryClient();
-  const roomReady = isRoomReady(appointment, rooms);
+
+  // Local, self-consistent state seeded from props and advanced from each
+  // mutation response. Necessary because some parents (the status modal) hold a
+  // one-time snapshot that never refreshes — without this, a second toggle
+  // would resend a stale `version` and 409, and the UI wouldn't reflect the
+  // first toggle. Re-seeded whenever a different appointment is shown.
+  const [doctorConfirmed, setDoctorConfirmed]   = useState(appointment.doctorConfirmed);
+  const [patientConfirmed, setPatientConfirmed] = useState(appointment.patientConfirmed);
+  const [status, setStatus]                     = useState(appointment.status);
+  const [version, setVersion]                   = useState(appointment.version);
+  // null = follow auto-derived room readiness; boolean = manual override.
+  const [roomOverride, setRoomOverride]         = useState<boolean | null>(null);
+
+  useEffect(() => {
+    setDoctorConfirmed(appointment.doctorConfirmed);
+    setPatientConfirmed(appointment.patientConfirmed);
+    setStatus(appointment.status);
+    setVersion(appointment.version);
+    setRoomOverride(null);
+  }, [appointment.id, appointment.version, appointment.doctorConfirmed, appointment.patientConfirmed, appointment.status]);
+
+  const autoRoomReady = isRoomReady(appointment, rooms);
+  const roomReady = roomOverride ?? autoRoomReady;
 
   // Confirmations are frozen once the visit has started or closed.
-  const locked = appointment.status !== 'TBC' && appointment.status !== 'Ok!';
+  const locked = status !== 'TBC' && status !== 'Ok!';
 
   const mutation = useMutation({
     mutationFn: async (body: { doctorConfirmed?: boolean; patientConfirmed?: boolean; roomConfirmed?: boolean }) => {
-      await appointmentApi.patch(`/appointments/${appointment.id}/confirmations`, {
-        ...body,
-        version: appointment.version,
-      });
+      const { data } = await appointmentApi.patch<{ data: Appointment }>(
+        `/appointments/${appointment.id}/confirmations`,
+        { ...body, version },
+      );
+      return data.data;
+    },
+    onSuccess: (updated) => {
+      // Advance local state from the authoritative response.
+      setDoctorConfirmed(updated.doctorConfirmed);
+      setPatientConfirmed(updated.patientConfirmed);
+      setStatus(updated.status);
+      setVersion(updated.version);
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ['appointments'] });
@@ -54,28 +85,34 @@ export function ConfirmationToggles({ appointment, rooms, lang, t, variant = 'co
   function toggle(seg: Segment, e: React.MouseEvent) {
     e.stopPropagation();
     if (locked || mutation.isPending) return;
-    if (seg === 'doctor')  mutation.mutate({ doctorConfirmed:  !appointment.doctorConfirmed });
-    if (seg === 'patient') mutation.mutate({ patientConfirmed: !appointment.patientConfirmed });
-    // Room is auto-derived — clicking forces a one-time manual override.
-    if (seg === 'room')    mutation.mutate({ roomConfirmed:    !roomReady });
+    if (seg === 'doctor')  mutation.mutate({ doctorConfirmed:  !doctorConfirmed });
+    if (seg === 'patient') mutation.mutate({ patientConfirmed: !patientConfirmed });
+    // Room is auto-derived — clicking forces a manual override for this call.
+    if (seg === 'room') {
+      const next = !roomReady;
+      setRoomOverride(next);
+      mutation.mutate({ roomConfirmed: next });
+    }
   }
 
   const segs: Array<{ key: Segment; on: boolean; Icon: typeof User; ar: string; en: string }> = [
-    { key: 'doctor',  on: appointment.doctorConfirmed,  Icon: Stethoscope, ar: 'الطبيب',  en: 'Doctor'  },
-    { key: 'patient', on: appointment.patientConfirmed, Icon: User,        ar: 'المريض',  en: 'Patient' },
-    { key: 'room',    on: roomReady,                    Icon: DoorOpen,    ar: 'الغرفة',  en: 'Room'    },
+    { key: 'doctor',  on: doctorConfirmed,  Icon: Stethoscope, ar: 'الطبيب',  en: 'Doctor'  },
+    { key: 'patient', on: patientConfirmed, Icon: User,        ar: 'المريض',  en: 'Patient' },
+    { key: 'room',    on: roomReady,        Icon: DoorOpen,    ar: 'الغرفة',  en: 'Room'    },
   ];
   const greenCount = segs.filter((s) => s.on).length;
 
   if (variant === 'compact') {
     return (
-      <div className="inline-flex items-center gap-1" title={t(`${greenCount}/3 مؤكد`, `${greenCount}/3 confirmed`)}>
+      <div className="inline-flex items-center gap-1" data-testid="confirm-toggles-compact" data-confirmed={greenCount} title={t(`${greenCount}/3 مؤكد`, `${greenCount}/3 confirmed`)}>
         {segs.map(({ key, on, Icon, ar, en }) => (
           <button
             key={key}
             type="button"
             onClick={(e) => toggle(key, e)}
             disabled={locked || mutation.isPending}
+            data-testid={`confirm-${key}`}
+            data-on={on}
             title={`${lang === 'ar' ? ar : en}${on ? ' ✓' : ''}${key === 'room' ? t(' (تلقائي)', ' (auto)') : ''}`}
             className={cn(
               'w-5 h-5 rounded-full flex items-center justify-center transition-all',
@@ -95,13 +132,15 @@ export function ConfirmationToggles({ appointment, rooms, lang, t, variant = 'co
 
   // full variant — labelled toggles for the status popover/modal
   return (
-    <div className="space-y-2">
+    <div className="space-y-2" data-testid="confirm-toggles-full" data-confirmed={greenCount} data-status={status}>
       {segs.map(({ key, on, Icon, ar, en }) => (
         <button
           key={key}
           type="button"
           onClick={(e) => toggle(key, e)}
           disabled={locked || mutation.isPending}
+          data-testid={`confirm-${key}`}
+          data-on={on}
           className={cn(
             'w-full flex items-center justify-between px-4 py-3 rounded-xl border-2 transition-all text-sm font-medium',
             on

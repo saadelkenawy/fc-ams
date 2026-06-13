@@ -1060,7 +1060,7 @@ export default function AppointmentsPage() {
                       : a.patientId.slice(-8).toUpperCase();
                     const isSelected = selectedIds.has(a.id);
                     return (
-                      <tr key={a.id} className={isSelected ? 'is-selected' : undefined}>
+                      <tr key={a.id} data-appointment-id={a.id} className={isSelected ? 'is-selected' : undefined}>
                         {isAdmin && (
                           <td>
                             <input
