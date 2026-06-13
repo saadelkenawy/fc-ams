@@ -6,7 +6,7 @@ import rateLimit from '@fastify/rate-limit';
 import multipart from '@fastify/multipart';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
-import { genReqId, registerErrorHandler, registerObservability } from '@fadl/service-kit';
+import { createRateLimitStore, genReqId, registerErrorHandler, registerObservability } from '@fadl/service-kit';
 import { config } from './config';
 import { fileRoutes } from './routes/file.routes';
 import { ensureBucket } from './config/storage';
@@ -22,7 +22,7 @@ export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
 
   await app.register(helmet, { contentSecurityPolicy: config.NODE_ENV === 'production' ? undefined : false });
   await app.register(cors, { origin: config.NODE_ENV === 'production' ? false : true });
-  await app.register(rateLimit, { max: 100, timeWindow: '1 minute' });
+  await app.register(rateLimit, { max: 100, timeWindow: '1 minute', ...createRateLimitStore(config.SERVICE_NAME, config.REDIS_URL) });
   await app.register(multipart, { limits: { fileSize: 50 * 1024 * 1024 } });
 
   await app.register(jwt, { secret: { public: config.JWT_PUBLIC_KEY }, verify: { algorithms: ['RS256'] } });

@@ -179,6 +179,7 @@ services:
       LOG_LEVEL: info
       BRANCH_ID: 1
       SERVICE_NAME: patient-service
+      REDIS_URL: redis://redis:6379
     ports:
       - "3002:3002"
     depends_on:
@@ -282,6 +283,7 @@ services:
       LOG_LEVEL: info
       BRANCH_ID: 1
       SERVICE_NAME: billing-service
+      REDIS_URL: redis://redis:6379
       APPOINTMENT_SERVICE_URL: http://appointment-service:3001/api/v1
       IDENTITY_SERVICE_URL: http://identity-service:3000
     ports:
@@ -313,6 +315,7 @@ services:
       LOG_LEVEL: info
       BRANCH_ID: 1
       SERVICE_NAME: notification-service
+      REDIS_URL: redis://redis:6379
       SMTP_HOST:     ${SMTP_HOST:-}
       SMTP_PORT:     ${SMTP_PORT:-587}
       SMTP_USER:     ${SMTP_USER:-}
@@ -350,6 +353,7 @@ services:
       LOG_LEVEL: info
       BRANCH_ID: 1
       SERVICE_NAME: ai-chatbot-service
+      REDIS_URL: redis://redis:6379
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       ANTHROPIC_MODEL: claude-haiku-4-5-20251001
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
@@ -392,6 +396,7 @@ services:
       LOG_LEVEL: info
       BRANCH_ID: 1
       SERVICE_NAME: file-service
+      REDIS_URL: redis://redis:6379
       MINIO_ENDPOINT: minio
       MINIO_PORT: 9000
       MINIO_ACCESS_KEY: fadl_minio
@@ -427,6 +432,7 @@ services:
       LOG_LEVEL: info
       BRANCH_ID: 1
       SERVICE_NAME: analytics-service
+      REDIS_URL: redis://redis:6379
       BILLING_SERVICE_URL:     http://billing-service:3004/api/v1
       APPOINTMENT_SERVICE_URL: http://appointment-service:3001/api/v1
       PATIENT_SERVICE_URL:     http://patient-service:3002/api/v1
@@ -462,6 +468,7 @@ services:
       LOG_LEVEL: info
       BRANCH_ID: 1
       SERVICE_NAME: ehr-service
+      REDIS_URL: redis://redis:6379
     ports:
       - "3005:3005"
     depends_on:
@@ -491,6 +498,7 @@ services:
       LOG_LEVEL: info
       BRANCH_ID: 1
       SERVICE_NAME: procedure-service
+      REDIS_URL: redis://redis:6379
     ports:
       - "3006:3006"
     depends_on:
@@ -520,6 +528,7 @@ services:
       LOG_LEVEL: info
       BRANCH_ID: 1
       SERVICE_NAME: procurement-service
+      REDIS_URL: redis://redis:6379
     ports:
       - "3013:3013"
     depends_on:
@@ -593,6 +602,7 @@ services:
       LOG_LEVEL: info
       BRANCH_ID: 1
       SERVICE_NAME: integration-service
+      REDIS_URL: redis://redis:6379
       APPOINTMENT_SERVICE_URL: http://appointment-service:3001/api/v1
       BILLING_SERVICE_URL: http://billing-service:3004/api/v1
       PATIENT_SERVICE_URL: http://patient-service:3002/api/v1

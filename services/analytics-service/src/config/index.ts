@@ -10,7 +10,7 @@ const envSchema = z.object({
   JWT_EXPIRY: z.string().default('15m'),
   BRANCH_ID: z.coerce.number().default(1),
   SERVICE_NAME: z.string().default('analytics-service'),
-  BILLING_SERVICE_URL:      z.string().default('http://localhost:3004/api/v1'),
+  REDIS_URL: z.string().optional(),  BILLING_SERVICE_URL:      z.string().default('http://localhost:3004/api/v1'),
   APPOINTMENT_SERVICE_URL:  z.string().default('http://localhost:3001/api/v1'),
   PATIENT_SERVICE_URL:      z.string().default('http://localhost:3002/api/v1'),
   DOCTOR_SERVICE_URL:       z.string().default('http://localhost:3003/api/v1'),

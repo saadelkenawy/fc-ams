@@ -3,7 +3,7 @@ import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import jwt from '@fastify/jwt';
 import rateLimit from '@fastify/rate-limit';
-import { genReqId, registerErrorHandler, registerObservability } from '@fadl/service-kit';
+import { createRateLimitStore, genReqId, registerErrorHandler, registerObservability } from '@fadl/service-kit';
 import { config } from './config';
 
 export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
@@ -24,7 +24,7 @@ export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
 
   await app.register(helmet, { contentSecurityPolicy: config.NODE_ENV === 'production' ? undefined : false });
   await app.register(cors, { origin: config.NODE_ENV === 'production' ? false : true });
-  await app.register(rateLimit, { max: 200, timeWindow: '1 minute' });
+  await app.register(rateLimit, { max: 200, timeWindow: '1 minute', ...createRateLimitStore(config.SERVICE_NAME, config.REDIS_URL) });
 
   await app.register(jwt, {
     secret: { public: config.JWT_PUBLIC_KEY },

@@ -5,9 +5,8 @@ import jwt from '@fastify/jwt';
 import rateLimit from '@fastify/rate-limit';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
-import { genReqId, registerErrorHandler, registerObservability } from '@fadl/service-kit';
+import { createRateLimitStore, genReqId, registerErrorHandler, registerObservability } from '@fadl/service-kit';
 import { config } from './config';
-import { rateLimitRedis } from './config/redis';
 import { authRoutes } from './routes/auth.routes';
 
 export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
@@ -38,7 +37,7 @@ export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
     max: 30,
     timeWindow: '1 minute',
     keyGenerator: (req) => req.ip,
-    ...(rateLimitRedis ? { redis: rateLimitRedis, nameSpace: 'rl:identity:' } : {}),
+    ...createRateLimitStore(config.SERVICE_NAME, config.REDIS_URL),
   });
 
   await app.register(jwt, {

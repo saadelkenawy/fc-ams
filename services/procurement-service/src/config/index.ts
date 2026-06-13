@@ -13,6 +13,7 @@ const envSchema = z.object({
   JWT_EXPIRY:         z.string().default('15m'),
   BRANCH_ID:          z.coerce.number().default(1),
   SERVICE_NAME:       z.string().default('procurement-service'),
+  REDIS_URL: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

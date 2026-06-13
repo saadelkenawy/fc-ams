@@ -13,7 +13,7 @@ const envSchema = z.object({
   JWT_EXPIRY: z.string().default('15m'),
   BRANCH_ID: z.coerce.number().default(1),
   SERVICE_NAME: z.string().default('notification-service'),
-  // SMTP — optional; if not set, email delivery is skipped (logged only)
+  REDIS_URL: z.string().optional(),  // SMTP — optional; if not set, email delivery is skipped (logged only)
   SMTP_HOST:     z.string().optional(),
   SMTP_PORT:     z.coerce.number().default(587),
   SMTP_SECURE:   z.coerce.boolean().default(false),

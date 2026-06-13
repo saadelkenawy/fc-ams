@@ -5,7 +5,7 @@ import jwt from '@fastify/jwt';
 import rateLimit from '@fastify/rate-limit';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
-import { genReqId, registerErrorHandler, registerObservability } from '@fadl/service-kit';
+import { createRateLimitStore, genReqId, registerErrorHandler, registerObservability } from '@fadl/service-kit';
 import { config } from './config';
 import { catalogRoutes } from './routes/catalog.routes';
 import { vendorRoutes } from './routes/vendor.routes';
@@ -26,7 +26,7 @@ export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
 
   await app.register(helmet, { contentSecurityPolicy: config.NODE_ENV === 'production' ? undefined : false });
   await app.register(cors, { origin: config.NODE_ENV !== 'production' });
-  await app.register(rateLimit, { max: 200, timeWindow: '1 minute' });
+  await app.register(rateLimit, { max: 200, timeWindow: '1 minute', ...createRateLimitStore(config.SERVICE_NAME, config.REDIS_URL) });
   await app.register(jwt, { secret: { public: config.JWT_PUBLIC_KEY }, verify: { algorithms: ['RS256'] } });
 
   await app.register(swagger, {

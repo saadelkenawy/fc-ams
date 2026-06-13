@@ -13,7 +13,7 @@ const envSchema = z.object({
   JWT_EXPIRY: z.string().default('15m'),
   BRANCH_ID: z.coerce.number().default(1),
   SERVICE_NAME: z.string().default('file-service'),
-  MINIO_ENDPOINT:   z.string().default('minio'),
+  REDIS_URL: z.string().optional(),  MINIO_ENDPOINT:   z.string().default('minio'),
   MINIO_PORT:       z.coerce.number().default(9000),
   MINIO_ACCESS_KEY: z.string().default('fadl_minio'),
   MINIO_SECRET_KEY: z.string().default('fadl_minio_secret'),

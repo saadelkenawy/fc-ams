@@ -13,7 +13,7 @@ const envSchema = z.object({
   JWT_EXPIRY: z.string().default('15m'),
   BRANCH_ID: z.coerce.number().default(1),
   SERVICE_NAME: z.string().default('ai-chatbot-service'),
-  ANTHROPIC_API_KEY: z.string().optional().default(''),
+  REDIS_URL: z.string().optional(),  ANTHROPIC_API_KEY: z.string().optional().default(''),
   ANTHROPIC_MODEL: z.string().default('claude-haiku-4-5-20251001'),
   OPENROUTER_API_KEY: z.string().optional().default(''),
   OPENROUTER_MODEL: z.string().default('deepseek/deepseek-v4-flash:free'),
