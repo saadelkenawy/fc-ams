@@ -452,14 +452,16 @@ export async function billingRoutes(app: FastifyInstance): Promise<void> {
       tags: ['billing'],
       body: {
         type: 'object',
-        required: ['doctorId', 'from', 'to'],
+        required: ['doctorId', 'from', 'to', 'voucherNo', 'notes', 'password'],
         properties: {
           doctorId:         { type: 'string', format: 'uuid' },
           from:             { type: 'string', format: 'date' },
           to:               { type: 'string', format: 'date' },
           paymentMethod:    { type: 'string', enum: ['cash', 'bank', 'cheque', 'transfer'] },
           paymentReference: { type: 'string', maxLength: 200 },
-          notes:            { type: 'string', maxLength: 1000 },
+          voucherNo:        { type: 'string', pattern: '^\\d{1,12}$' },
+          notes:            { type: 'string', minLength: 1, maxLength: 1000 },
+          password:         { type: 'string', minLength: 1 },
         },
       },
     },

@@ -277,12 +277,13 @@ const reconcileDoctorSchema = z.object({
   to:               z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   paymentMethod:    z.enum(['cash', 'bank', 'cheque', 'transfer']).default('cash'),
   paymentReference: z.string().max(200).optional(),
-  notes:            z.string().max(1000).optional(),
+  voucherNo:        z.string().regex(/^\d{1,12}$/, 'Voucher number must be 1–12 digits'),
+  notes:            z.string().trim().min(1, 'Notes are required').max(1000),
   password:         z.string().min(1),
 });
 
 export async function reconcileDoctorHandler(req: FastifyRequest, reply: FastifyReply): Promise<void> {
-  const { doctorId, from, to, paymentMethod, paymentReference, notes, password } = reconcileDoctorSchema.parse(req.body);
+  const { doctorId, from, to, paymentMethod, paymentReference, voucherNo, notes, password } = reconcileDoctorSchema.parse(req.body);
   const authHeader = req.headers.authorization as string;
   const valid = await verifyUserPassword(authHeader, password);
   if (!valid) {
@@ -293,6 +294,7 @@ export async function reconcileDoctorHandler(req: FastifyRequest, reply: Fastify
   const result = await repo.reconcileDoctor(doctorId, from, to, user.sub, user.branchId, {
     paymentMethod,
     paymentReference,
+    voucherNo,
     notes,
   });
   reply.send({ success: true, data: result });

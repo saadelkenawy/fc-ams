@@ -643,7 +643,7 @@ export async function reconcileDoctor(
   to: string,
   settledBy: string,
   branchId: number,
-  options?: { paymentMethod?: string; paymentReference?: string; notes?: string },
+  options?: { paymentMethod?: string; paymentReference?: string; voucherNo?: string; notes?: string },
 ): Promise<ReconcileResult> {
   return withTransaction(async (client: PoolClient) => {
     // Lock all Paid transactions for this doctor in the period
@@ -701,15 +701,16 @@ export async function reconcileDoctor(
     // Write immutable settlement audit record
     const { rows: srRows } = await client.query(
       `INSERT INTO settlement_records
-         (doctor_id, settlement_date, amount, payment_method, payment_reference, processed_by_user_id,
+         (doctor_id, settlement_date, amount, payment_method, payment_reference, voucher_no, processed_by_user_id,
           related_transaction_ids, notes, period_from, period_to, branch_id)
-       VALUES ($1, CURRENT_DATE, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       VALUES ($1, CURRENT_DATE, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING id`,
       [
         doctorId,
         totals.doctorShare,
         options?.paymentMethod ?? 'cash',
         options?.paymentReference ?? null,
+        options?.voucherNo ?? null,
         settledBy,
         transactionIds,
         options?.notes ?? `Reconciled ${transactionIds.length} transactions: ${from} to ${to}`,
@@ -1094,6 +1095,7 @@ export interface SettlementRecord {
   amount: number;
   paymentMethod: string;
   paymentReference: string | null;
+  voucherNo: string | null;
   notes: string | null;
   processedByUserId: string | null;
   relatedTransactionIds: string[];
@@ -1120,6 +1122,7 @@ function rowToSettlementRecord(row: Record<string, unknown>): SettlementRecord {
     amount:                Number(row.amount),
     paymentMethod:         row.payment_method as string,
     paymentReference:      (row.payment_reference as string | null) ?? null,
+    voucherNo:             (row.voucher_no as string | null) ?? null,
     notes:                 (row.notes as string | null) ?? null,
     processedByUserId:     (row.processed_by_user_id as string | null) ?? null,
     relatedTransactionIds: (row.related_transaction_ids as string[]) ?? [],

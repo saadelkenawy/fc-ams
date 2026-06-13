@@ -87,6 +87,8 @@ export interface SettlementRecord {
   amount: number;
   paymentMethod: string;
   paymentReference: string | null;
+  /** External voucher / transaction number (digits only, max 12) entered at settle time. */
+  voucherNo: string | null;
   notes: string | null;
   processedByUserId: string | null;
   relatedTransactionIds: string[];

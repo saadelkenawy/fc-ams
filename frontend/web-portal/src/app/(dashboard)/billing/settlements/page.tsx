@@ -77,7 +77,10 @@ export default function SettlementsPage() {
   const [settleTarget, setSettleTarget]           = useState<DoctorSettlement | null>(null);
   const [settleMethod, setSettleMethod]           = useState<'cash' | 'bank' | 'cheque' | 'transfer'>('cash');
   const [settleRef, setSettleRef]                 = useState('');
+  const [settleVoucher, setSettleVoucher]         = useState('');
+  const [settleVoucherErr, setSettleVoucherErr]   = useState('');
   const [settleNotes, setSettleNotes]             = useState('');
+  const [settleNotesErr, setSettleNotesErr]       = useState('');
   const [settlePassword, setSettlePassword]       = useState('');
   const [settlePasswordErr, setSettlePasswordErr] = useState('');
   const { mutateAsync: reconcile, isPending: settling, error: settleErr } = useReconcileDoctor();
@@ -152,26 +155,44 @@ export default function SettlementsPage() {
       ? (sortDir === 'asc' ? <ChevronUp className="w-3 h-3 inline ms-0.5" /> : <ChevronDown className="w-3 h-3 inline ms-0.5" />)
       : <ArrowUpDown className="w-3 h-3 inline ms-0.5 opacity-30" />;
 
+  const resetSettleDialog = () => {
+    setSettleTarget(null);
+    setSettleRef('');
+    setSettleVoucher('');
+    setSettleVoucherErr('');
+    setSettleNotes('');
+    setSettleNotesErr('');
+    setSettleMethod('cash');
+    setSettlePassword('');
+    setSettlePasswordErr('');
+  };
+
   const handleSettle = async () => {
     if (!settleTarget) return;
-    if (!settlePassword) { setSettlePasswordErr(t('كلمة المرور مطلوبة', 'Password is required')); return; }
-    setSettlePasswordErr('');
+    let invalid = false;
+    if (!/^\d{1,12}$/.test(settleVoucher.trim())) {
+      setSettleVoucherErr(t('رقم السند مطلوب (أرقام فقط، 12 رقم كحد أقصى)', 'Voucher number is required (digits only, max 12)'));
+      invalid = true;
+    } else setSettleVoucherErr('');
+    if (!settleNotes.trim()) {
+      setSettleNotesErr(t('الملاحظات مطلوبة', 'Notes are required'));
+      invalid = true;
+    } else setSettleNotesErr('');
+    if (!settlePassword) { setSettlePasswordErr(t('كلمة المرور مطلوبة', 'Password is required')); invalid = true; }
+    else setSettlePasswordErr('');
+    if (invalid) return;
     await reconcile({
       doctorId: settleTarget.doctorId,
       from, to,
       paymentMethod: settleMethod,
       paymentReference: settleRef || undefined,
-      notes: settleNotes || undefined,
+      voucherNo: settleVoucher.trim(),
+      notes: settleNotes.trim(),
       password: settlePassword,
     });
     refetch();
     refetchRecords();
-    setSettleTarget(null);
-    setSettleRef('');
-    setSettleNotes('');
-    setSettleMethod('cash');
-    setSettlePassword('');
-    setSettlePasswordErr('');
+    resetSettleDialog();
   };
 
   const handleReverse = async () => {
@@ -596,6 +617,7 @@ export default function SettlementsPage() {
                   : rec.settlementDate;
                 const method = PAYMENT_METHOD_LABELS[rec.paymentMethod] ?? rec.paymentMethod;
                 const ref = rec.paymentReference ? ` · Ref: ${rec.paymentReference}` : '';
+                const voucher = rec.voucherNo ? ` · ${t('سند', 'Voucher')}: ${rec.voucherNo}` : '';
                 return (
                   <div
                     key={rec.id}
@@ -618,7 +640,7 @@ export default function SettlementsPage() {
                             </span>
                           )}
                         </div>
-                        <div className="fc-stl-hist-meta">{period} · {method}{ref}</div>
+                        <div className="fc-stl-hist-meta">{period} · {method}{ref}{voucher}</div>
                       </div>
                     </div>
                     <div className="fc-stl-hist-amount">
@@ -697,9 +719,34 @@ export default function SettlementsPage() {
                   className="w-full text-sm border border-gray-200 dark:border-neutral-600 rounded-lg px-3 py-2 bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
               </div>
               <div>
-                <label className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 block">{t('ملاحظات (اختياري)', 'Notes (optional)')}</label>
-                <textarea rows={2} value={settleNotes} onChange={(e) => setSettleNotes(e.target.value)}
-                  className="w-full text-sm border border-gray-200 dark:border-neutral-600 rounded-lg px-3 py-2 bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none" />
+                <label className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 block">
+                  {t('رقم السند', 'Voucher No.')} <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  dir="ltr"
+                  value={settleVoucher}
+                  onChange={(e) => { setSettleVoucher(e.target.value.replace(/\D/g, '').slice(0, 12)); setSettleVoucherErr(''); }}
+                  placeholder="123456789012"
+                  maxLength={12}
+                  className={cn(
+                    'w-full text-sm border rounded-lg px-3 py-2 bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 font-mono tabular-nums focus:outline-none focus:ring-2 focus:ring-emerald-500',
+                    settleVoucherErr ? 'border-red-400' : 'border-gray-200 dark:border-neutral-600',
+                  )}
+                />
+                {settleVoucherErr && <p className="text-xs text-red-500 mt-1">{settleVoucherErr}</p>}
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 block">
+                  {t('ملاحظات', 'Notes')} <span className="text-red-500">*</span>
+                </label>
+                <textarea rows={2} value={settleNotes} onChange={(e) => { setSettleNotes(e.target.value); setSettleNotesErr(''); }}
+                  className={cn(
+                    'w-full text-sm border rounded-lg px-3 py-2 bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none',
+                    settleNotesErr ? 'border-red-400' : 'border-gray-200 dark:border-neutral-600',
+                  )} />
+                {settleNotesErr && <p className="text-xs text-red-500 mt-1">{settleNotesErr}</p>}
               </div>
               <div>
                 <label className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 block">{t('كلمة مرورك للتأكيد', 'Your password to confirm')}</label>
@@ -716,7 +763,7 @@ export default function SettlementsPage() {
               </p>
             )}
             <div className="flex gap-3 justify-end pt-1">
-              <button className="fc-btn fc-btn-outline fc-btn-sm" onClick={() => { setSettleTarget(null); setSettlePassword(''); setSettlePasswordErr(''); }} disabled={settling}>
+              <button className="fc-btn fc-btn-outline fc-btn-sm" onClick={resetSettleDialog} disabled={settling}>
                 {t('إلغاء', 'Cancel')}
               </button>
               <button className="fc-btn fc-btn-sm" style={{ minWidth: 120, background: '#059669', color: 'white', border: 'none' }}

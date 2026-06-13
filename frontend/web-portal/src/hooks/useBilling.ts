@@ -189,6 +189,7 @@ export interface SettlementRecordItem {
   amount: number;
   paymentMethod: string;
   paymentReference: string | null;
+  voucherNo: string | null;
   notes: string | null;
   processedByUserId: string | null;
   relatedTransactionIds: string[];
@@ -235,7 +236,8 @@ export function useReconcileDoctor() {
       to: string;
       paymentMethod?: string;
       paymentReference?: string;
-      notes?: string;
+      voucherNo: string;
+      notes: string;
       password: string;
     }) => {
       const { data } = await billingApi.post<{ data: ReconcileResult }>('/settlements/reconcile', payload);

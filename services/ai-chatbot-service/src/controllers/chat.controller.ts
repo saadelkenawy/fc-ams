@@ -1258,6 +1258,57 @@ const translateNameSchema = z.object({
   from: z.enum(['ar', 'en']),
 });
 
+// ── Deterministic phonetic transliteration ────────────────────────────────────
+// Used when no AI provider is configured (or the AI call fails) so the patient
+// form's Arabic name always auto-fills from the English parts. The result is an
+// editable suggestion — receptionists can correct it.
+
+const EN_AR_DIGRAPHS: [string, string][] = [
+  ['sh', 'ش'], ['ch', 'تش'], ['kh', 'خ'], ['gh', 'غ'], ['th', 'ث'],
+  ['ph', 'ف'], ['ck', 'ك'], ['oo', 'و'], ['ou', 'و'], ['ee', 'ي'],
+  ['ei', 'ي'], ['ai', 'اي'], ['aa', 'ا'],
+];
+const EN_AR_SINGLES: Record<string, string> = {
+  a: 'ا', b: 'ب', c: 'ك', d: 'د', e: 'ي', f: 'ف', g: 'ج', h: 'ه',
+  i: 'ي', j: 'ج', k: 'ك', l: 'ل', m: 'م', n: 'ن', o: 'و', p: 'ب',
+  q: 'ق', r: 'ر', s: 'س', t: 'ت', u: 'و', v: 'ف', w: 'و', x: 'كس',
+  y: 'ي', z: 'ز',
+};
+
+function transliterateEnToAr(input: string): string {
+  return input.split(/(\s+)/).map((word) => {
+    if (!word.trim()) return word;
+    const w = word.toLowerCase();
+    let out = '';
+    for (let i = 0; i < w.length;) {
+      const pair = w.slice(i, i + 2);
+      const dg = EN_AR_DIGRAPHS.find(([k]) => k === pair);
+      if (dg) { out += dg[1]; i += 2; continue; }
+      const ch = w[i];
+      out += EN_AR_SINGLES[ch] ?? (/[a-z]/.test(ch) ? '' : ch);
+      i += 1;
+    }
+    return out;
+  }).join('');
+}
+
+const AR_EN_MAP: Record<string, string> = {
+  'ا': 'a', 'أ': 'a', 'إ': 'i', 'آ': 'aa', 'ب': 'b', 'ت': 't', 'ث': 'th',
+  'ج': 'g', 'ح': 'h', 'خ': 'kh', 'د': 'd', 'ذ': 'th', 'ر': 'r', 'ز': 'z',
+  'س': 's', 'ش': 'sh', 'ص': 's', 'ض': 'd', 'ط': 't', 'ظ': 'z', 'ع': 'a',
+  'غ': 'gh', 'ف': 'f', 'ق': 'q', 'ك': 'k', 'ل': 'l', 'م': 'm', 'ن': 'n',
+  'ه': 'h', 'و': 'w', 'ي': 'y', 'ى': 'a', 'ة': 'a', 'ء': '', 'ئ': 'y', 'ؤ': 'w',
+};
+
+function transliterateArToEn(input: string): string {
+  const raw = input.split('').map((ch) => AR_EN_MAP[ch] ?? ch).join('');
+  return raw.replace(/(^|\s)([a-z])/g, (_, sp: string, c: string) => sp + c.toUpperCase());
+}
+
+function transliterateLocal(name: string, from: 'ar' | 'en'): string {
+  return (from === 'ar' ? transliterateArToEn(name) : transliterateEnToAr(name)).trim();
+}
+
 export async function translateName(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { name, from } = translateNameSchema.parse(request.body);
 
@@ -1265,37 +1316,43 @@ export async function translateName(request: FastifyRequest, reply: FastifyReply
     ? `Transliterate this Arabic name into English (phonetic only). Return ONLY the transliterated name, nothing else.\nName: ${name}`
     : `Transliterate this English name into Arabic (phonetic only). Return ONLY the Arabic transliteration, nothing else.\nName: ${name}`;
 
-  let transliterated: string;
+  let transliterated = '';
 
-  if (config.OPENROUTER_API_KEY) {
-    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type':  'application/json',
-        'Authorization': `Bearer ${config.OPENROUTER_API_KEY}`,
-        'HTTP-Referer':  'https://fadl-clinic.app',
-        'X-Title':       'Fadl Clinic AI Assistant',
-      },
-      body: JSON.stringify({
-        model:      config.OPENROUTER_MODEL,
+  try {
+    if (config.OPENROUTER_API_KEY) {
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'Authorization': `Bearer ${config.OPENROUTER_API_KEY}`,
+          'HTTP-Referer':  'https://fadl-clinic.app',
+          'X-Title':       'Fadl Clinic AI Assistant',
+        },
+        body: JSON.stringify({
+          model:      config.OPENROUTER_MODEL,
+          max_tokens: 60,
+          messages:   [{ role: 'user', content: prompt }],
+        }),
+      });
+      if (!res.ok) throw new Error(`OpenRouter error ${res.status}`);
+      const json = await res.json() as { choices: { message: { content: string } }[] };
+      transliterated = (json.choices[0]?.message?.content ?? '').trim();
+    } else if (anthropic) {
+      const r = await anthropic.messages.create({
+        model:      config.ANTHROPIC_MODEL,
         max_tokens: 60,
         messages:   [{ role: 'user', content: prompt }],
-      }),
-    });
-    if (!res.ok) throw new Error(`OpenRouter error ${res.status}`);
-    const json = await res.json() as { choices: { message: { content: string } }[] };
-    transliterated = (json.choices[0]?.message?.content ?? '').trim();
-  } else if (anthropic) {
-    const r = await anthropic.messages.create({
-      model:      config.ANTHROPIC_MODEL,
-      max_tokens: 60,
-      messages:   [{ role: 'user', content: prompt }],
-    });
-    transliterated = ((r.content[0] as { text: string }).text ?? '').trim();
-  } else {
-    reply.status(503).send({ success: false, error: { code: 'NO_AI', message: 'No AI provider configured' } });
-    return;
+      });
+      transliterated = ((r.content[0] as { text: string }).text ?? '').trim();
+    }
+  } catch (err) {
+    request.log.warn({ err }, 'AI transliteration failed — using local fallback');
+    transliterated = '';
   }
+
+  // No AI provider, or the AI call failed / returned nothing → deterministic
+  // local transliteration so the Arabic name field is never left empty.
+  if (!transliterated) transliterated = transliterateLocal(name, from);
 
   reply.send({ success: true, data: { transliterated } });
 }

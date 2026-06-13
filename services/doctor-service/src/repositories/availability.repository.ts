@@ -275,8 +275,9 @@ export async function getDoctorAvailability(
     // validation) only enforce working hours for configured doctors.
     const { rows: schedCount } = await client.query(
       `SELECT
-         (SELECT COUNT(*) FROM doctor_consultation_hours WHERE doctor_id = $1 AND is_active = TRUE)
-       + (SELECT COUNT(*) FROM doctor_day_overrides WHERE doctor_id = $1) AS cnt`,
+         (SELECT COUNT(*) FROM doctor_schedules           WHERE doctor_id = $1 AND is_active = TRUE)
+       + (SELECT COUNT(*) FROM doctor_consultation_hours  WHERE doctor_id = $1 AND is_active = TRUE)
+       + (SELECT COUNT(*) FROM doctor_day_overrides       WHERE doctor_id = $1) AS cnt`,
       [doctorId],
     );
     const hasSchedule = Number((schedCount[0] as { cnt: string | number }).cnt) > 0;
@@ -287,71 +288,109 @@ export async function getDoctorAvailability(
       [doctorId, date],
     );
 
-    let startTime: string | null = null;
-    let endTime: string | null = null;
     let maxPatients = 20;
     let isWorking = false;
+    // The day's working blocks, each carrying its own slot length. A same-day
+    // `doctor_day_overrides` row wins outright; otherwise the weekly schedule
+    // comes from `doctor_schedules` (the table the Schedule-Management UI
+    // writes to) — falling back to the legacy `doctor_consultation_hours`.
+    let blocks: Array<{ start: string; end: string; slotDuration: number }> = [];
 
     if (overrides.length) {
       const ov = overrides[0] as Record<string, unknown>;
       isWorking = ov.is_working as boolean;
-      if (isWorking) {
-        startTime = ov.start_time as string | null;
-        endTime = ov.end_time as string | null;
+      const start = ov.start_time as string | null;
+      const end = ov.end_time as string | null;
+      if (isWorking && start && end) {
         maxPatients = (ov.max_patients as number) ?? 20;
+        blocks = [{ start, end, slotDuration: 15 }];
+      } else {
+        isWorking = false;
       }
     } else {
-      // Fall back to regular consultation hours
-      const { rows: hours } = await client.query(
-        `SELECT * FROM doctor_consultation_hours
-         WHERE doctor_id = $1 AND day_of_week = $2 AND is_active = TRUE`,
-        [doctorId, dayOfWeek],
+      // Weekly schedule — honour the validity window + active flag and support
+      // multiple blocks per day.
+      const { rows: schedRows } = await client.query(
+        `SELECT start_time, end_time, slot_duration_minutes
+           FROM doctor_schedules
+          WHERE doctor_id = $1 AND day_of_week = $2 AND is_active = TRUE
+            AND valid_from <= $3::date
+            AND (valid_until IS NULL OR valid_until >= $3::date)
+          ORDER BY start_time`,
+        [doctorId, dayOfWeek, date],
       );
-      if (hours.length) {
-        const h = hours[0] as Record<string, unknown>;
+      if (schedRows.length) {
         isWorking = true;
-        startTime = h.start_time as string;
-        endTime = h.end_time as string;
-        maxPatients = h.max_patients as number;
+        blocks = schedRows.map((r) => {
+          const row = r as Record<string, unknown>;
+          return {
+            start: row.start_time as string,
+            end: row.end_time as string,
+            slotDuration: (row.slot_duration_minutes as number) ?? 15,
+          };
+        });
+      } else {
+        // Legacy fallback — doctors configured via the older consultation-hours
+        // editor (e.g. at creation) before a weekly schedule was set.
+        const { rows: hours } = await client.query(
+          `SELECT start_time, end_time, slot_duration_mins, max_patients
+             FROM doctor_consultation_hours
+            WHERE doctor_id = $1 AND day_of_week = $2 AND is_active = TRUE
+            ORDER BY start_time`,
+          [doctorId, dayOfWeek],
+        );
+        if (hours.length) {
+          isWorking = true;
+          maxPatients = (hours[0] as Record<string, unknown>).max_patients as number;
+          blocks = hours.map((r) => {
+            const row = r as Record<string, unknown>;
+            return {
+              start: row.start_time as string,
+              end: row.end_time as string,
+              slotDuration: (row.slot_duration_mins as number) ?? 15,
+            };
+          });
+        }
       }
     }
 
-    if (!isWorking || !startTime || !endTime) {
+    if (!isWorking || blocks.length === 0) {
       return { doctorId, date, hasSchedule, isWorking: false, workStart: null, workEnd: null, slots: [], totalSlots: 0, bookedSlots: 0, maxPatients: 0 };
     }
 
-    // Generate slots (bookedTimes supplied by the controller — appointments
-    // live in appointment-service's database, not here)
+    // Generate slots across every block (bookedTimes supplied by the controller
+    // — appointments live in appointment-service's database, not here). The
+    // reported working window spans the earliest start to the latest end.
     const slots: DoctorAvailabilitySlot[] = [];
-    const [startH, startM] = startTime.split(':').map(Number);
-    const [endH, endM] = endTime.split(':').map(Number);
-    const startMinutes = startH * 60 + startM;
-    const endMinutes = endH * 60 + endM;
-
-    // Get slot duration from consultation hours or default 15
-    const { rows: consultRows } = await client.query(
-      `SELECT slot_duration_mins FROM doctor_consultation_hours
-       WHERE doctor_id = $1 AND day_of_week = $2 AND is_active = TRUE`,
-      [doctorId, dayOfWeek],
-    );
-    const slotDuration = consultRows.length
-      ? (consultRows[0] as Record<string, unknown>).slot_duration_mins as number
-      : 15;
-
-    for (let m = startMinutes; m < endMinutes; m += slotDuration) {
-      const hh = String(Math.floor(m / 60)).padStart(2, '0');
-      const mm = String(m % 60).padStart(2, '0');
-      const time = `${hh}:${mm}`;
-      slots.push({ time, available: !bookedTimes.has(time) });
+    let windowStartMin = Infinity;
+    let windowEndMin = -Infinity;
+    for (const b of blocks) {
+      const [bsH, bsM] = b.start.split(':').map(Number);
+      const [beH, beM] = b.end.split(':').map(Number);
+      const bStartMin = bsH * 60 + bsM;
+      const bEndMin = beH * 60 + beM;
+      windowStartMin = Math.min(windowStartMin, bStartMin);
+      windowEndMin = Math.max(windowEndMin, bEndMin);
+      const dur = b.slotDuration > 0 ? b.slotDuration : 15;
+      for (let m = bStartMin; m < bEndMin; m += dur) {
+        const hh = String(Math.floor(m / 60)).padStart(2, '0');
+        const mm = String(m % 60).padStart(2, '0');
+        const time = `${hh}:${mm}`;
+        slots.push({ time, available: !bookedTimes.has(time) });
+      }
     }
+    slots.sort((a, b) => a.time.localeCompare(b.time));
+
+    const toHHMM = (min: number) =>
+      `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
 
     return {
       doctorId,
       date,
       hasSchedule,
       isWorking: true,
-      workStart: startTime.slice(0, 5),
-      workEnd: endTime.slice(0, 5),
+      workStart: toHHMM(windowStartMin),
+      workEnd: toHHMM(windowEndMin),
       slots,
       totalSlots: slots.length,
       bookedSlots: bookedTimes.size,
