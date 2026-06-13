@@ -26,6 +26,7 @@
     "@fastify/swagger-ui": "^5.2.6",
     "bcryptjs": "^2.4.3",
     "fastify": "^5.8.5",
+    "ioredis": "^5.3.2",
     "pg": "^8.11.0",
     "pino": "^8.19.0",
     "uuid": "^11.0.0",

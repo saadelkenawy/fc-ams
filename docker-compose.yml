@@ -145,12 +145,15 @@ services:
       LOG_LEVEL: info
       BRANCH_ID: 1
       SERVICE_NAME: identity-service
+      REDIS_URL: redis://redis:6379
     ports:
       # host 3100 → container 3000 (host port 3000 is held by an unrelated
       # local process; inter-service traffic uses the Docker network anyway)
       - "3100:3000"
     depends_on:
       pgbouncer:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/health || exit 1"]

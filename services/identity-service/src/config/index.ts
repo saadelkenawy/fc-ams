@@ -14,6 +14,18 @@ const envSchema = z.object({
   JWT_EXPIRY: z.string().default('15m'),
   BRANCH_ID: z.coerce.number().default(1),
   SERVICE_NAME: z.string().default('identity-service'),
+  // Optional: when set, rate-limit counters are shared across instances via Redis
+  // (accurate distributed brute-force limits). When unset, falls back to the
+  // per-instance in-memory store. Required in production — enforced below.
+  REDIS_URL: z.string().optional(),
+}).superRefine((env, ctx) => {
+  if (env.NODE_ENV === 'production' && !env.REDIS_URL) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['REDIS_URL'],
+      message: 'must be set in production — in-memory rate limiting is per-instance and weakens brute-force protection across replicas',
+    });
+  }
 });
 
 const parsed = envSchema.safeParse(process.env);
