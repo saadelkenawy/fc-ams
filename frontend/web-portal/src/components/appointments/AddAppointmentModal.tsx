@@ -12,7 +12,7 @@ import {
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { useLang } from '@/contexts/LanguageContext';
-import { useDoctors, useSpecialties, useDoctorAvailability } from '@/hooks/useDoctors';
+import { useDoctors, useSpecialties, useDoctorAvailability, useDoctorDayOverride } from '@/hooks/useDoctors';
 import { usePatients } from '@/hooks/usePatients';
 import { useProcedures } from '@/hooks/useProcedures';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -185,6 +185,83 @@ function QuickCreatePatient({ lang, t, prefillName, onCreated, onCancel }: {
           onClick={onCancel}
           className="h-8 px-3 rounded-lg border border-gray-200 dark:border-neutral-600 text-xs text-gray-500 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors"
         >
+          {t('إلغاء', 'Cancel')}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Doctor day-hours editor (inline popup) ────────────────────────────────────
+function DayHoursEditor({ doctorId, date, lang, t, initial, onClose }: {
+  doctorId: string; date: string; lang: 'ar' | 'en';
+  t: (a: string, b: string) => string;
+  initial: { isWorking: boolean; workStart: string | null; workEnd: string | null; maxPatients: number };
+  onClose: () => void;
+}) {
+  const [isWorking, setIsWorking] = useState(initial.isWorking);
+  const [start, setStart]         = useState(initial.workStart ?? '09:00');
+  const [end, setEnd]             = useState(initial.workEnd ?? '17:00');
+  const [maxPatients, setMax]     = useState(String(initial.maxPatients || 30));
+  const [reason, setReason]       = useState('');
+  const [error, setError]         = useState('');
+  const override = useDoctorDayOverride(doctorId);
+
+  async function save() {
+    if (isWorking && start >= end) { setError(t('وقت النهاية يجب أن يكون بعد البداية', 'End must be after start')); return; }
+    setError('');
+    try {
+      await override.mutateAsync({
+        overrideDate: date,
+        isWorking,
+        startTime:   isWorking ? start : undefined,
+        endTime:     isWorking ? end : undefined,
+        maxPatients: isWorking ? (Number(maxPatients) || undefined) : undefined,
+        reason:      reason.trim() || undefined,
+      });
+      onClose();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message;
+      setError(msg ?? t('فشل حفظ ساعات العمل', 'Failed to save working hours'));
+    }
+  }
+
+  const fieldCls = 'h-9 rounded-lg border px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 transition-shadow w-full bg-white dark:bg-neutral-800 text-gray-900 dark:text-gray-100 border-gray-200 dark:border-neutral-600';
+
+  return (
+    <div className="mt-2 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 p-4 space-y-3">
+      <p className="text-xs font-bold text-blue-700 dark:text-blue-300 flex items-center gap-1.5 uppercase tracking-wide">
+        <Pencil className="w-3.5 h-3.5" />{t('تعديل ساعات هذا اليوم فقط', 'Edit hours — this day only')}
+      </p>
+      <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200 cursor-pointer">
+        <input type="checkbox" checked={isWorking} onChange={(e) => setIsWorking(e.target.checked)} className="w-4 h-4 accent-blue-600" />
+        {t('الطبيب يعمل في هذا اليوم', 'Doctor is working this day')}
+      </label>
+      {isWorking && (
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="text-[11px] text-gray-500">{t('من', 'From')}</label>
+            <input type="time" step={300} className={fieldCls} value={start} onChange={(e) => setStart(e.target.value)} dir="ltr" />
+          </div>
+          <div>
+            <label className="text-[11px] text-gray-500">{t('إلى', 'To')}</label>
+            <input type="time" step={300} className={fieldCls} value={end} onChange={(e) => setEnd(e.target.value)} dir="ltr" />
+          </div>
+          <div className="col-span-2">
+            <label className="text-[11px] text-gray-500">{t('الحد الأقصى للمرضى', 'Max patients')}</label>
+            <input type="number" min="1" max="200" className={fieldCls} value={maxPatients} onChange={(e) => setMax(e.target.value)} dir="ltr" />
+          </div>
+        </div>
+      )}
+      <input className={fieldCls} placeholder={t('السبب (اختياري) — مثال: طلب الطبيب', 'Reason (optional) — e.g. doctor request')} value={reason} onChange={(e) => setReason(e.target.value)} />
+      {error && <p className="text-xs text-red-500 bg-red-50 dark:bg-red-900/20 rounded-lg px-2.5 py-1.5">{error}</p>}
+      <div className="flex gap-2">
+        <button type="button" disabled={override.isPending} onClick={save}
+          className="flex-1 h-8 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-40 transition-colors">
+          {override.isPending ? t('جاري الحفظ...', 'Saving...') : t('حفظ الساعات', 'Save hours')}
+        </button>
+        <button type="button" onClick={onClose}
+          className="h-8 px-3 rounded-lg border border-gray-200 dark:border-neutral-600 text-xs text-gray-500 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors">
           {t('إلغاء', 'Cancel')}
         </button>
       </div>
@@ -493,6 +570,7 @@ export function AddAppointmentModal({
   const [roomCode,      setRoomCode]      = useState(editAppointment?.roomCode ?? '');
   const [errors,        setErrors]        = useState<Record<string, string>>({});
   const [attachment,    setAttachment]    = useState<File | null>(null);
+  const [showHoursEditor, setShowHoursEditor] = useState(false);
 
   // Billing line items (edit mode only — persisted to transaction_extra_services)
   type ExtraLine = { key: string; serviceName: string; cost: string };
@@ -570,6 +648,7 @@ export function AddAppointmentModal({
   useEffect(() => {
     timeManuallyEdited.current     = false;
     durationManuallyEdited.current = false;
+    setShowHoursEditor(false);
   }, [doctor?.id, date]);
 
   // Sync when editAppointment changes (modal re-used)
@@ -861,6 +940,51 @@ export function AddAppointmentModal({
           <StepSection step={2} title={t('الطبيب', 'Doctor')} badge="bg-blue-600">
             <DoctorPicker lang={lang} t={t} value={doctor} onChange={setDoctor} specialties={specialties} />
             {errors.doctor && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{errors.doctor}</p>}
+
+            {/* Doctor availability for the selected date + quick edit-hours */}
+            {!isEdit && doctor && (
+              <div className="mt-2 rounded-xl border border-gray-100 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-900 px-3.5 py-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 text-xs min-w-0">
+                    <Clock className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                    {!dayAvail ? (
+                      <span className="text-gray-400">{t('جاري تحميل التوفر...', 'Loading availability…')}</span>
+                    ) : !dayAvail.hasSchedule ? (
+                      <span className="text-amber-600 dark:text-amber-400">{t('لا يوجد جدول محدد لهذا الطبيب', 'No schedule configured for this doctor')}</span>
+                    ) : !dayAvail.isWorking ? (
+                      <span className="text-red-500">{t('الطبيب لا يعمل في هذا اليوم', 'Not working on this date')}</span>
+                    ) : (
+                      <span className="text-gray-600 dark:text-gray-300 truncate" dir="ltr">
+                        {dayAvail.workStart}–{dayAvail.workEnd}
+                        <span className="text-gray-400"> · {dayAvail.bookedSlots}/{dayAvail.totalSlots} {t('محجوز', 'booked')}</span>
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowHoursEditor((v) => !v)}
+                    className="shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 px-2 py-1 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
+                  >
+                    <Pencil className="w-3 h-3" />{t('تعديل الساعات', 'Edit hours')}
+                  </button>
+                </div>
+                {showHoursEditor && (
+                  <DayHoursEditor
+                    doctorId={doctor.id}
+                    date={date}
+                    lang={lang}
+                    t={t}
+                    initial={{
+                      isWorking:   dayAvail?.isWorking ?? true,
+                      workStart:   dayAvail?.workStart ?? null,
+                      workEnd:     dayAvail?.workEnd ?? null,
+                      maxPatients: dayAvail?.maxPatients ?? 30,
+                    }}
+                    onClose={() => setShowHoursEditor(false)}
+                  />
+                )}
+              </div>
+            )}
           </StepSection>
 
           {/* Step 3 — Schedule */}

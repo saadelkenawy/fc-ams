@@ -28,6 +28,8 @@ const appointmentSchema = {
     endTime: { type: 'string' },
     timeZone: { type: 'string' },
     status: { type: 'string', enum: ['TBC', 'Ok!', 'Conf.', 'Comp.', 'Canc.', 'Resch.', 'Inf.', 'Ref.'] },
+    doctorConfirmed: { type: 'boolean' },
+    patientConfirmed: { type: 'boolean' },
     appointmentType: { type: 'string', enum: ['in_person', 'online', 'walk_in'] },
     isOnline: { type: 'boolean' },
     isOverbooked: { type: 'boolean' },
@@ -54,7 +56,7 @@ const appointmentSchema = {
     updatedAt: { type: 'string' },
     branchId: { type: 'integer' },
   },
-  required: ['id', 'patientId', 'doctorId', 'specialtyId', 'appointmentDate', 'startTime', 'endTime', 'timeZone', 'status', 'appointmentType', 'isOnline', 'isOverbooked', 'patientSource', 'rescheduleCount', 'version', 'createdAt', 'updatedAt', 'branchId'],
+  required: ['id', 'patientId', 'doctorId', 'specialtyId', 'appointmentDate', 'startTime', 'endTime', 'timeZone', 'status', 'doctorConfirmed', 'patientConfirmed', 'appointmentType', 'isOnline', 'isOverbooked', 'patientSource', 'rescheduleCount', 'version', 'createdAt', 'updatedAt', 'branchId'],
 } as const;
 
 // Response schema for a PatientQueueEntry (§4.6 contract). Keep in sync with
@@ -263,6 +265,25 @@ export async function appointmentRoutes(app: FastifyInstance): Promise<void> {
       },
     },
   }, ctrl.updateStatus);
+
+  // PATCH /appointments/:id/confirmations  (toggle doctor/patient/room confirmation)
+  app.patch('/appointments/:id/confirmations', {
+    preHandler: [requireRole('receptionist', 'doctor', 'admin')],
+    schema: {
+      tags: ['appointments'],
+      params: idParam,
+      body: {
+        type: 'object',
+        required: ['version'],
+        properties: {
+          doctorConfirmed:  { type: 'boolean' },
+          patientConfirmed: { type: 'boolean' },
+          roomConfirmed:    { type: 'boolean' },
+          version:          { type: 'integer', minimum: 1 },
+        },
+      },
+    },
+  }, ctrl.updateConfirmations);
 
   // POST /appointments/:id/checkin
   app.post('/appointments/:id/checkin', {

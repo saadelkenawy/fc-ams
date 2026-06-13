@@ -82,6 +82,8 @@ export interface paths {
                                 timeZone: string;
                                 /** @enum {string} */
                                 status: "TBC" | "Ok!" | "Conf." | "Comp." | "Canc." | "Resch." | "Inf." | "Ref.";
+                                doctorConfirmed: boolean;
+                                patientConfirmed: boolean;
                                 /** @enum {string} */
                                 appointmentType: "in_person" | "online" | "walk_in";
                                 isOnline: boolean;
@@ -249,6 +251,8 @@ export interface paths {
                                 timeZone: string;
                                 /** @enum {string} */
                                 status: "TBC" | "Ok!" | "Conf." | "Comp." | "Canc." | "Resch." | "Inf." | "Ref.";
+                                doctorConfirmed: boolean;
+                                patientConfirmed: boolean;
                                 /** @enum {string} */
                                 appointmentType: "in_person" | "online" | "walk_in";
                                 isOnline: boolean;

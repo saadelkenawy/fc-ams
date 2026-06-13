@@ -24,6 +24,10 @@ export interface Appointment {
   endTime: string;
   timeZone: string;
   status: AppointmentStatus;
+  /** Independent confirmation flags. When doctorConfirmed && patientConfirmed
+   *  && the assigned room is ready, status auto-advances TBC → Ok!. */
+  doctorConfirmed: boolean;
+  patientConfirmed: boolean;
   appointmentType: AppointmentType;
   isOnline: boolean;
   isOverbooked: boolean;

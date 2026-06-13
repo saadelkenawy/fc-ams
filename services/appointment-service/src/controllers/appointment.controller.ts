@@ -1,6 +1,6 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
-import type { AppointmentStatus, JwtPayload } from '@fadl/types';
+import type { Appointment, AppointmentStatus, JwtPayload } from '@fadl/types';
 import * as repo from '../repositories/appointment.repository';
 import * as queueRepo from '../repositories/queue.repository';
 import * as roomRepo from '../repositories/room.repository';
@@ -53,6 +53,18 @@ export const statusSchema = z.object({
   status:  APPOINTMENT_STATUS,
   version: z.number().int().positive(),
 });
+
+export const confirmationsSchema = z.object({
+  doctorConfirmed:  z.boolean().optional(),
+  patientConfirmed: z.boolean().optional(),
+  // Manual room/clinic override — when present, replaces the auto-derived
+  // room readiness for the auto-confirm decision.
+  roomConfirmed:    z.boolean().optional(),
+  version:          z.number().int().positive(),
+}).refine(
+  (d) => d.doctorConfirmed !== undefined || d.patientConfirmed !== undefined || d.roomConfirmed !== undefined,
+  { message: 'At least one confirmation flag must be provided' },
+);
 
 export const listSchema = z.object({
   doctorId:  z.string().uuid().optional(),
@@ -285,6 +297,67 @@ export async function updateStatus(request: FastifyRequest, reply: FastifyReply)
   } else if (status === 'Ref.') {
     void refundTransactionByAppointment(appointment.id).catch((err: Error) =>
       console.error('[appt] billing refund on Ref. status failed', err.message),
+    );
+  }
+
+  reply.send({ success: true, data: appointment });
+}
+
+// Derives whether the room assigned to an appointment is "ready": the room
+// must be assigned (directly or via the doctor's day assignment), active, and
+// still have free slots for the day.
+async function computeRoomReady(appt: Appointment, branchId: number): Promise<boolean> {
+  try {
+    const rooms = await roomRepo.listRooms(appt.appointmentDate, branchId);
+    const room = rooms.find((r) =>
+      (appt.roomCode && r.roomCode === appt.roomCode) ||
+      (r.assignedDoctor?.id === appt.doctorId),
+    );
+    if (!room) return false;
+    return room.isActive && room.status !== 'inactive' && room.appointmentsRemaining > 0;
+  } catch {
+    return false;
+  }
+}
+
+export async function updateConfirmations(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { id } = request.params as { id: string };
+  const { doctorConfirmed, patientConfirmed, roomConfirmed, version } = confirmationsSchema.parse(request.body);
+  const user = request.user as JwtPayload;
+
+  const existing = await repo.findAppointmentById(id);
+  if (!existing) {
+    reply.status(404).send({ success: false, error: { code: 'APPOINTMENT_NOT_FOUND', message: 'Appointment not found' } });
+    return;
+  }
+
+  // Manual override wins; otherwise derive room readiness from live capacity.
+  const roomReady = roomConfirmed !== undefined
+    ? roomConfirmed
+    : await computeRoomReady(existing, user.branchId);
+
+  const result = await repo.updateConfirmations(
+    id, { doctorConfirmed, patientConfirmed }, roomReady, version, user.sub,
+  );
+  const appointment = result.appointment;
+
+  // Mirror the side-effects of a manual TBC → Ok! transition.
+  if (result.autoConfirmed) {
+    void fireNotification({
+      channel:        'sms',
+      recipientId:    appointment.patientId,
+      recipientType:  'patient',
+      body:           `تم تأكيد موعدك بتاريخ ${appointment.appointmentDate} الساعة ${appointment.startTime}.`,
+      idempotencyKey: `appt-confirmed-${appointment.id}-${appointment.version}`,
+      appointmentId:  appointment.id,
+    });
+    void syncBillingPaymentStatus(appointment.id, 'paid').catch((err: Error) =>
+      console.error('[appt] billing status sync on auto-confirm failed', err.message),
+    );
+  } else if (result.reverted) {
+    // Confirmation withdrawn before check-in — roll the billing record back.
+    void syncBillingPaymentStatus(appointment.id, 'pending').catch((err: Error) =>
+      console.error('[appt] billing status revert failed', err.message),
     );
   }
 

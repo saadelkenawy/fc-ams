@@ -22,8 +22,10 @@ import { useDoctors, useDoctorMap, useSpecialtyMap } from '@/hooks/useDoctors';
 import { usePatientMap } from '@/hooks/usePatients';
 import { useDebounce } from '@/hooks/useDebounce';
 import { AddAppointmentModal } from '@/components/appointments/AddAppointmentModal';
+import { ConfirmationToggles } from '@/components/appointments/ConfirmationToggles';
+import { useRooms } from '@/hooks/useRooms';
 import { appointmentApi, billingApi } from '@/lib/api';
-import type { Appointment, AppointmentStatus, Patient, Doctor } from '@fadl/types';
+import type { Appointment, AppointmentStatus, Patient, Doctor, RoomDetail } from '@fadl/types';
 
 // ── State machine ──────────────────────────────────────────────────────────
 
@@ -355,6 +357,7 @@ function BulkDeleteModal({ ids, lang, t, onClose, onDeleted }: BulkDeleteModalPr
 
 interface StatusModalProps {
   appointment: Appointment;
+  rooms: RoomDetail[];
   lang: 'ar' | 'en';
   t: (ar: string, en: string) => string;
   onClose: () => void;
@@ -362,7 +365,7 @@ interface StatusModalProps {
   userRole: string;
 }
 
-function StatusModal({ appointment, lang, t, onClose, onDone, userRole }: StatusModalProps) {
+function StatusModal({ appointment, rooms, lang, t, onClose, onDone, userRole }: StatusModalProps) {
   const [selected, setSelected] = useState<AppointmentStatus | null>(null);
   const allAllowed = TRANSITIONS[appointment.status] ?? [];
   const allowed = userRole === 'admin' ? allAllowed : allAllowed.filter((s) => s !== 'Ref.');
@@ -391,6 +394,22 @@ function StatusModal({ appointment, lang, t, onClose, onDone, userRole }: Status
           {t('الحالة الحالية:', 'Current status:')}
           {' '}<AppointmentStatusBadge status={appointment.status} lang={lang} />
         </p>
+
+        {/* Confirmation toggles — drive the TBC ⇄ Ok! auto-transition */}
+        {(appointment.status === 'TBC' || appointment.status === 'Ok!') && (
+          <div className="mb-4">
+            <p className="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">
+              {t('التأكيدات', 'Confirmations')}
+            </p>
+            <ConfirmationToggles appointment={appointment} rooms={rooms} lang={lang} t={t} variant="full" />
+          </div>
+        )}
+
+        {allowed.length > 0 && (
+          <p className="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">
+            {t('نقل الحالة', 'Move status')}
+          </p>
+        )}
         <div className="space-y-2">
           {allowed.map((s) => (
             <button
@@ -625,6 +644,7 @@ export default function AppointmentsPage() {
     doctorId: doctorId || undefined,
   });
   const appointments  = data?.data ?? [];
+  const { data: rooms = [] } = useRooms(date);
   const doctorMap     = useDoctorMap();
   const specialtyMap  = useSpecialtyMap();
   const patientMap    = usePatientMap();
@@ -1080,7 +1100,10 @@ export default function AppointmentsPage() {
                             : <span style={{ color: 'var(--color-gray-300)' }}>—</span>}
                         </td>
                         <td>
-                          <AppointmentStatusBadge status={a.status} lang={lang} />
+                          <div className="flex flex-col items-start gap-1.5">
+                            <AppointmentStatusBadge status={a.status} lang={lang} />
+                            <ConfirmationToggles appointment={a} rooms={rooms} lang={lang} t={t} variant="compact" />
+                          </div>
                         </td>
                         <td>
                           {a.roomCode
@@ -1203,6 +1226,7 @@ export default function AppointmentsPage() {
       {statusAppt && (
         <StatusModal
           appointment={statusAppt}
+          rooms={rooms}
           lang={lang}
           t={t}
           onClose={() => setStatusAppt(null)}

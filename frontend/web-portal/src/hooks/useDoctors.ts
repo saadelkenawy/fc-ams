@@ -297,3 +297,28 @@ export function useDoctorAvailability(doctorId: string, date: string) {
     staleTime: 60_000,
   });
 }
+
+export interface DayOverrideInput {
+  overrideDate: string;          // YYYY-MM-DD
+  isWorking: boolean;
+  startTime?: string;            // HH:MM
+  endTime?: string;              // HH:MM
+  maxPatients?: number;
+  reason?: string;
+}
+
+/** Upsert a doctor's working hours for a single date (PUT /day-overrides).
+ *  Used by the in-booking "edit hours" popup — leaves the weekly schedule intact. */
+export function useDoctorDayOverride(doctorId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: DayOverrideInput) => {
+      const { data } = await doctorApi.put<ApiResponse<DoctorDayOverride>>(`/doctors/${doctorId}/day-overrides`, body);
+      return data.data!;
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['doctor-availability', doctorId, vars.overrideDate] });
+      qc.invalidateQueries({ queryKey: ['doctor-availability', doctorId] });
+    },
+  });
+}

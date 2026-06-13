@@ -33,6 +33,8 @@ function rowToAppointment(row: Record<string, unknown>): Appointment {
     endTime:                (row.end_time as string).slice(0, 5),
     timeZone:               (row.time_zone as string) ?? 'Africa/Cairo',
     status:                 row.status as AppointmentStatus,
+    doctorConfirmed:        (row.doctor_confirmed as boolean) ?? false,
+    patientConfirmed:       (row.patient_confirmed as boolean) ?? false,
     appointmentType:        row.appointment_type as Appointment['appointmentType'],
     isOnline:               row.is_online as boolean,
     isOverbooked:           row.is_overbooked as boolean,
@@ -575,6 +577,90 @@ export async function updateAppointmentStatus(
     }
 
     return rowToAppointment(updated[0] as Record<string, unknown>);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// updateConfirmations
+// ---------------------------------------------------------------------------
+// Toggles the doctor/patient confirmation flags and auto-advances the status:
+//   TBC → Ok!  when doctor + patient + room are all confirmed
+//   Ok! → TBC  when any of those conditions is no longer met (pre-check-in only)
+// `roomReady` is computed by the caller from live room capacity/status.
+export interface ConfirmationResult {
+  appointment: Appointment;
+  autoConfirmed: boolean; // flipped TBC → Ok! this call
+  reverted: boolean;      // flipped Ok! → TBC this call
+}
+
+export async function updateConfirmations(
+  id: string,
+  flags: { doctorConfirmed?: boolean; patientConfirmed?: boolean },
+  roomReady: boolean,
+  version: number,
+  updatedBy: string,
+): Promise<ConfirmationResult> {
+  return withTransaction(async (client: PoolClient) => {
+    const { rows } = await client.query(
+      `SELECT * FROM appointments WHERE id = $1 AND deleted_at IS NULL FOR UPDATE`,
+      [id],
+    );
+    if (!rows.length) {
+      throw Object.assign(new Error('Appointment not found'), { code: 'APPOINTMENT_NOT_FOUND', statusCode: 404 });
+    }
+
+    const current        = rows[0] as Record<string, unknown>;
+    const currentVersion = current.version as number;
+    const currentStatus  = current.status as AppointmentStatus;
+    const branchId       = current.branch_id as number;
+
+    if (currentVersion !== version) {
+      throw Object.assign(
+        new Error('Conflict: appointment was modified by another request'),
+        { code: 'VERSION_CONFLICT', statusCode: 409 },
+      );
+    }
+
+    // Confirmations can only be toggled while the appointment is still in the
+    // pre-visit window (TBC or auto-confirmed Ok!). Once checked-in/completed/
+    // cancelled the flags are frozen.
+    if (currentStatus !== 'TBC' && currentStatus !== 'Ok!') {
+      throw Object.assign(
+        new Error(`Confirmations cannot be changed while status is '${currentStatus}'`),
+        { code: 'CONFIRMATIONS_LOCKED', statusCode: 422 },
+      );
+    }
+
+    const doctorConfirmed  = flags.doctorConfirmed  ?? (current.doctor_confirmed  as boolean);
+    const patientConfirmed = flags.patientConfirmed ?? (current.patient_confirmed as boolean);
+    const allReady = doctorConfirmed && patientConfirmed && roomReady;
+
+    let nextStatus = currentStatus;
+    if (currentStatus === 'TBC' && allReady)      nextStatus = 'Ok!';
+    else if (currentStatus === 'Ok!' && !allReady) nextStatus = 'TBC';
+
+    const { rows: updated } = await client.query(
+      `UPDATE appointments
+          SET doctor_confirmed = $1, patient_confirmed = $2, status = $3,
+              version = version + 1, updated_at = NOW(), updated_by = $4
+        WHERE id = $5
+        RETURNING *`,
+      [doctorConfirmed, patientConfirmed, nextStatus, updatedBy, id],
+    );
+
+    if (nextStatus !== currentStatus) {
+      await client.query(
+        `INSERT INTO appointment_status_log (appointment_id, from_status, to_status, changed_by, branch_id)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [id, currentStatus, nextStatus, updatedBy, branchId],
+      );
+    }
+
+    return {
+      appointment:   rowToAppointment(updated[0] as Record<string, unknown>),
+      autoConfirmed: currentStatus === 'TBC' && nextStatus === 'Ok!',
+      reverted:      currentStatus === 'Ok!' && nextStatus === 'TBC',
+    };
   });
 }
 
