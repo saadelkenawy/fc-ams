@@ -29,6 +29,11 @@ function rowToDoctor(row: Record<string, unknown>): Doctor {
     specialtyId: row.specialty_id as number,
     secondarySpecialtyIds: (row.secondary_specialty_ids as number[]) ?? [],
     subSpecialty: row.sub_specialty as string | undefined,
+    subSpecialtyIds: (() => {
+      const raw = row.sub_specialty_ids;
+      if (!raw) return undefined;
+      return (typeof raw === 'string' ? JSON.parse(raw) : raw) as Record<string, number[]>;
+    })(),
     isOnlineDoctor: row.is_online_doctor as boolean,
     revenueSplits,
     paymentMethod: row.payment_method as Doctor['paymentMethod'],
@@ -155,6 +160,7 @@ export async function createDoctor(
     specialtyId: number;
     secondarySpecialtyIds?: number[];
     subSpecialty?: string;
+    subSpecialtyIds?: Record<string, number[]>;
     isOnlineDoctor: boolean;
     revenueSplits: Doctor['revenueSplits'];
     paymentMethod?: Doctor['paymentMethod'];
@@ -169,11 +175,11 @@ export async function createDoctor(
     const { rows } = await client.query(
       `INSERT INTO doctors (
         id, mobile, name_en, name_ar, specialty_id, secondary_specialty_ids, sub_specialty,
-        is_online_doctor, revenue_splits, payment_method,
+        sub_specialty_ids, is_online_doctor, revenue_splits, payment_method,
         allow_overbooking, overbooking_buffer_percentage,
         created_by, branch_id
       ) VALUES (
-        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14
+        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15
       ) RETURNING *`,
       [
         id,
@@ -183,6 +189,7 @@ export async function createDoctor(
         input.specialtyId,
         input.secondarySpecialtyIds ?? [],
         input.subSpecialty ?? null,
+        JSON.stringify(input.subSpecialtyIds ?? {}),
         input.isOnlineDoctor,
         JSON.stringify(input.revenueSplits),
         input.paymentMethod ?? null,
@@ -216,6 +223,7 @@ export async function updateDoctor(
     specialtyId: number;
     secondarySpecialtyIds?: number[];
     subSpecialty?: string;
+    subSpecialtyIds?: Record<string, number[]>;
     isOnlineDoctor: boolean;
     revenueSplits: Doctor['revenueSplits'];
     paymentMethod?: Doctor['paymentMethod'];
@@ -270,6 +278,11 @@ export async function updateDoctor(
     if ('revenueSplits' in input && input.revenueSplits !== undefined) {
       fields.push(`revenue_splits = $${idx++}`);
       values.push(JSON.stringify(input.revenueSplits));
+    }
+
+    if ('subSpecialtyIds' in input && input.subSpecialtyIds !== undefined) {
+      fields.push(`sub_specialty_ids = $${idx++}`);
+      values.push(JSON.stringify(input.subSpecialtyIds));
     }
 
     fields.push(`version = $${idx++}`, `updated_at = NOW()`, `updated_by = $${idx++}`);

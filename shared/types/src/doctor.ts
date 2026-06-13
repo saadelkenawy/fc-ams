@@ -26,7 +26,10 @@ export interface Doctor {
   specialtyId: number;
   /** Additional specialties beyond the primary specialtyId. */
   secondarySpecialtyIds: number[];
+  /** Legacy free-text sub-specialty (single). Superseded by subSpecialtyIds. */
   subSpecialty?: string;
+  /** Sub-specialties per specialty, keyed by specialtyId → sub-specialty catalogue IDs. */
+  subSpecialtyIds?: Record<string, number[]>;
   isOnlineDoctor: boolean;
   revenueSplits: DoctorRevenueSplits;
   paymentMethod?: DoctorPaymentMethod;

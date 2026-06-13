@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Stethoscope, Phone, BadgeDollarSign, CreditCard, AlertCircle, TrendingUp, Clock, Loader2 } from 'lucide-react';
+import { Stethoscope, Phone, BadgeDollarSign, CreditCard, AlertCircle, TrendingUp, Clock, Loader2, Plus, X, Layers } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { useLang } from '@/contexts/LanguageContext';
@@ -11,6 +11,7 @@ import { doctorApi } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 import { cn } from '@/lib/utils';
 import { useTranslateName } from '@/hooks/useTranslateName';
+import type { Specialty } from '@fadl/types';
 
 const DAYS_EN = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const DAYS_AR = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
@@ -42,20 +43,35 @@ const PAYMENT_METHODS = [
 
 interface SplitValues { doctor: number; clinic: number; }
 
+interface SpecialtySplits {
+  consultation: SplitValues;
+  operative: SplitValues;
+  online: SplitValues;
+}
+
+interface SpecialtyEntry {
+  specialtyId: string;        // catalogue id, '' until chosen
+  subSpecialtyIds: number[];  // catalogue ids
+  splits: SpecialtySplits;
+}
+
 interface FormData {
   nameAr: string;
   nameEn: string;
   mobile: string;
-  specialtyId: string;
-  subSpecialty: string;
   isOnlineDoctor: boolean;
-  consultationSplit: SplitValues;
-  operativeSplit: SplitValues;
-  onlineSplit: SplitValues;
   paymentMethod: string;
   paymentChannel: string;
   allowOverbooking: boolean;
 }
+
+const defaultSplits = (): SpecialtySplits => ({
+  consultation: { doctor: 50, clinic: 50 },
+  operative:    { doctor: 80, clinic: 20 },
+  online:       { doctor: 70, clinic: 30 },
+});
+
+const newEntry = (): SpecialtyEntry => ({ specialtyId: '', subSpecialtyIds: [], splits: defaultSplits() });
 
 function mobileToE164(raw: string): string {
   const digits = raw.replace(/\D/g, '');
@@ -63,6 +79,31 @@ function mobileToE164(raw: string): string {
   if (digits.startsWith('0') && digits.length === 11) return `+20${digits.slice(1)}`;
   if (digits.length === 10 && digits.startsWith('1')) return `+20${digits}`;
   return `+${digits}`;
+}
+
+const specLabel = (s: Specialty, lang: 'ar' | 'en') =>
+  lang === 'ar' ? `${s.nameAr} (${s.code})` : `${s.nameEn} (${s.code})`;
+
+/** Grouped <option> list, optionally excluding a set of ids. */
+function GroupedOptions({ specialties, lang, exclude }: { specialties: Specialty[]; lang: 'ar' | 'en'; exclude?: Set<number> }) {
+  const grouped = specialties
+    .filter((s) => !exclude?.has(s.id))
+    .reduce<Record<string, Specialty[]>>((acc, s) => {
+      const cat = s.category ?? 'other';
+      (acc[cat] ??= []).push(s);
+      return acc;
+    }, {});
+  return (
+    <>
+      {Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b)).map(([cat, specs]) => (
+        <optgroup key={cat} label={cat.charAt(0).toUpperCase() + cat.slice(1)}>
+          {specs.sort((a, b) => (a.nameEn > b.nameEn ? 1 : -1)).map((s) => (
+            <option key={s.id} value={s.id}>{specLabel(s, lang)}</option>
+          ))}
+        </optgroup>
+      ))}
+    </>
+  );
 }
 
 function SplitRow({
@@ -74,7 +115,7 @@ function SplitRow({
   lang: 'ar' | 'en';
 }) {
   return (
-    <div className="p-3 rounded-xl bg-gray-50 dark:bg-neutral-800/60 border border-gray-100 dark:border-neutral-700">
+    <div className="p-2.5 rounded-xl bg-white dark:bg-neutral-800/60 border border-gray-100 dark:border-neutral-700">
       <div className="flex items-center justify-between mb-2">
         <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">{label}</span>
         <div className="flex gap-1">
@@ -87,7 +128,7 @@ function SplitRow({
                 'px-2 py-0.5 rounded text-[10px] font-mono font-bold transition-all',
                 value.doctor === p.dr
                   ? 'bg-primary-600 text-white'
-                  : 'bg-white dark:bg-neutral-700 text-gray-500 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-neutral-600 border border-gray-200 dark:border-neutral-600',
+                  : 'bg-gray-50 dark:bg-neutral-700 text-gray-500 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-neutral-600 border border-gray-200 dark:border-neutral-600',
               )}
             >
               {p.label}
@@ -118,6 +159,122 @@ function SplitRow({
   );
 }
 
+/** Specialty card: specialty select + catalogue sub-specialties + full splits. */
+function SpecialtyCard({
+  entry, index, specialties, lang, t, onChange, onRemove, error,
+}: {
+  entry: SpecialtyEntry;
+  index: number;
+  specialties: Specialty[];
+  lang: 'ar' | 'en';
+  t: (ar: string, en: string) => string;
+  onChange: (e: SpecialtyEntry) => void;
+  onRemove?: () => void;
+  error?: string;
+}) {
+  const isPrimary = index === 0;
+  const specMap = new Map(specialties.map((s) => [s.id, s]));
+  const selfId = entry.specialtyId ? Number(entry.specialtyId) : undefined;
+  const inputClass = 'w-full h-10 rounded-lg border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-600 transition-shadow';
+
+  const subExclude = new Set<number>(entry.subSpecialtyIds);
+  if (selfId) subExclude.add(selfId);
+
+  function addSub(id: number) {
+    if (!id || entry.subSpecialtyIds.includes(id)) return;
+    onChange({ ...entry, subSpecialtyIds: [...entry.subSpecialtyIds, id] });
+  }
+  function removeSub(id: number) {
+    onChange({ ...entry, subSpecialtyIds: entry.subSpecialtyIds.filter((x) => x !== id) });
+  }
+  function setSplit(key: keyof SpecialtySplits, v: SplitValues) {
+    onChange({ ...entry, splits: { ...entry.splits, [key]: v } });
+  }
+
+  return (
+    <div className={cn(
+      'rounded-2xl border p-3 space-y-3',
+      isPrimary
+        ? 'border-primary-200 dark:border-primary-900/50 bg-primary-50/40 dark:bg-primary-950/20'
+        : 'border-gray-200 dark:border-neutral-700 bg-gray-50/60 dark:bg-neutral-900/30 ms-4 relative',
+    )}>
+      {!isPrimary && (
+        <span className="absolute -start-4 top-6 h-px w-4 bg-gray-300 dark:bg-neutral-600" aria-hidden />
+      )}
+      <div className="flex items-center justify-between">
+        <span className={cn('text-xs font-bold uppercase tracking-wide flex items-center gap-1.5',
+          isPrimary ? 'text-primary-700 dark:text-primary-300' : 'text-gray-500 dark:text-gray-400')}>
+          <Layers className="w-3.5 h-3.5" />
+          {isPrimary ? t('التخصص الأساسي', 'Primary Specialty') : t(`تخصص إضافي ${index}`, `Additional Specialty ${index}`)}
+        </span>
+        {onRemove && (
+          <button type="button" onClick={onRemove}
+            className="p-1 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+            title={t('إزالة', 'Remove')}>
+            <X className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+
+      {/* Specialty + sub-specialties */}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="field-label">{t('التخصص', 'Specialty')}{isPrimary ? ' *' : ''}</label>
+          <select
+            className={cn(inputClass, 'cursor-pointer', error && 'border-red-400')}
+            value={entry.specialtyId}
+            onChange={(e) => onChange({ ...entry, specialtyId: e.target.value })}
+          >
+            <option value="">{t('اختر التخصص', 'Select a specialty')}</option>
+            <GroupedOptions specialties={specialties} lang={lang} />
+          </select>
+        </div>
+        <div>
+          <label className="field-label">{t('التخصصات الفرعية', 'Sub-Specialties')}</label>
+          <select
+            className={cn(inputClass, 'cursor-pointer')}
+            value=""
+            onChange={(e) => { addSub(Number(e.target.value)); e.currentTarget.selectedIndex = 0; }}
+          >
+            <option value="">{t('أضف تخصص فرعي…', 'Add a sub-specialty…')}</option>
+            <GroupedOptions specialties={specialties} lang={lang} exclude={subExclude} />
+          </select>
+        </div>
+      </div>
+
+      {/* Sub-specialty chips */}
+      {entry.subSpecialtyIds.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {entry.subSpecialtyIds.map((id) => {
+            const s = specMap.get(id);
+            return (
+              <span key={id} className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-600 text-xs text-gray-700 dark:text-gray-200">
+                {s ? (lang === 'ar' ? s.nameAr : s.nameEn) : `#${id}`}
+                <button type="button" onClick={() => removeSub(id)} className="text-gray-400 hover:text-red-600">
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Per-specialty full splits */}
+      <div className="space-y-2 pt-1">
+        <p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide flex items-center gap-1">
+          <TrendingUp className="w-3 h-3" />
+          {t('نسب الأرباح', 'Revenue Splits')}
+        </p>
+        <SplitRow label={t('كشف (consultation)', 'Consultation')} value={entry.splits.consultation} onChange={(v) => setSplit('consultation', v)} lang={lang} />
+        <SplitRow label={t('إجراء عملي (operative)', 'Operative')} value={entry.splits.operative} onChange={(v) => setSplit('operative', v)} lang={lang} />
+        <SplitRow label={t('أونلاين (online)', 'Online')} value={entry.splits.online} onChange={(v) => setSplit('online', v)} lang={lang} />
+      </div>
+
+      {error && <p className="text-xs text-red-500">{error}</p>}
+    </div>
+  );
+}
+
 const DEFAULT_CONSULT_HOURS: ConsultHourRow[] = Array.from({ length: 7 }, () => ({
   enabled: false,
   startTime: '09:00',
@@ -140,42 +297,63 @@ export function AddDoctorModal({ open, onClose, onCreated }: AddDoctorModalProps
   const { translate, translating } = useTranslateName();
 
   const [form, setForm] = useState<FormData>({
-    nameAr: '', nameEn: '', mobile: '', specialtyId: '', subSpecialty: '',
+    nameAr: '', nameEn: '', mobile: '',
     isOnlineDoctor: false,
-    consultationSplit: { doctor: 50, clinic: 50 },
-    operativeSplit:    { doctor: 80, clinic: 20 },
-    onlineSplit:       { doctor: 70, clinic: 30 },
     paymentMethod: 'instapay', paymentChannel: '',
     allowOverbooking: false,
   });
+  const [entries, setEntries] = useState<SpecialtyEntry[]>([newEntry()]);
   const [consultHours, setConsultHours] = useState<ConsultHourRow[]>(DEFAULT_CONSULT_HOURS);
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
 
+  function resetAll() {
+    setForm({ nameAr: '', nameEn: '', mobile: '', isOnlineDoctor: false, paymentMethod: 'instapay', paymentChannel: '', allowOverbooking: false });
+    setEntries([newEntry()]);
+    setConsultHours(DEFAULT_CONSULT_HOURS);
+    setErrors({});
+  }
+
   const mutation = useMutation({
-    mutationFn: async (f: FormData) => {
+    mutationFn: async () => {
+      const toPct = (v: SplitValues) => ({ doctorPercentage: v.doctor, clinicPercentage: v.clinic });
+      const primary = entries[0];
+      const additional = entries.slice(1);
+
+      const bySpecialty = Object.fromEntries(
+        additional.map((e) => [String(Number(e.specialtyId)), {
+          consultation: toPct(e.splits.consultation),
+          operative:    toPct(e.splits.operative),
+          online:       toPct(e.splits.online),
+        }]),
+      );
+      const subSpecialtyIds = Object.fromEntries(
+        entries
+          .filter((e) => e.specialtyId && e.subSpecialtyIds.length > 0)
+          .map((e) => [String(Number(e.specialtyId)), e.subSpecialtyIds]),
+      );
+
       const body = {
-        mobile:      mobileToE164(f.mobile),
-        nameEn:      f.nameEn || f.nameAr,
-        nameAr:      f.nameAr || undefined,
-        specialtyId: Number(f.specialtyId),
-        subSpecialty: f.subSpecialty || undefined,
-        isOnlineDoctor: f.isOnlineDoctor,
+        mobile:      mobileToE164(form.mobile),
+        nameEn:      form.nameEn || form.nameAr,
+        nameAr:      form.nameAr || undefined,
+        specialtyId: Number(primary.specialtyId),
+        secondarySpecialtyIds: additional.map((e) => Number(e.specialtyId)),
+        subSpecialtyIds: Object.keys(subSpecialtyIds).length ? subSpecialtyIds : undefined,
+        isOnlineDoctor: form.isOnlineDoctor,
         revenueSplits: {
-          consultation: { doctorPercentage: f.consultationSplit.doctor, clinicPercentage: f.consultationSplit.clinic },
-          operative:    { doctorPercentage: f.operativeSplit.doctor,    clinicPercentage: f.operativeSplit.clinic },
-          online:       { doctorPercentage: f.onlineSplit.doctor,       clinicPercentage: f.onlineSplit.clinic },
+          consultation: toPct(primary.splits.consultation),
+          operative:    toPct(primary.splits.operative),
+          online:       toPct(primary.splits.online),
+          ...(Object.keys(bySpecialty).length ? { bySpecialty } : {}),
         },
-        paymentMethod:   f.paymentMethod || undefined,
-        allowOverbooking: f.allowOverbooking,
+        paymentMethod:   form.paymentMethod || undefined,
+        allowOverbooking: form.allowOverbooking,
         overbookingBufferPercentage: 10,
       };
       const { data } = await doctorApi.post<{ data: { id: string } }>('/doctors', body);
       const created = data.data;
 
-      // Save consultation hours (only enabled days)
-      const hours = consultHours
-        .map((h, i) => ({ ...h, dayOfWeek: i }))
-        .filter((h) => h.enabled);
+      const hours = consultHours.map((h, i) => ({ ...h, dayOfWeek: i })).filter((h) => h.enabled);
       if (hours.length > 0) {
         await doctorApi.put(`/doctors/${created.id}/consultation-hours/bulk`, { hours });
       }
@@ -186,9 +364,7 @@ export function AddDoctorModal({ open, onClose, onCreated }: AddDoctorModalProps
       toast(t('تم إضافة الطبيب بنجاح', 'Doctor added successfully'), 'success');
       onCreated?.(created.id);
       onClose();
-      setForm({ nameAr: '', nameEn: '', mobile: '', specialtyId: '', subSpecialty: '', isOnlineDoctor: false, consultationSplit: { doctor: 50, clinic: 50 }, operativeSplit: { doctor: 80, clinic: 20 }, onlineSplit: { doctor: 70, clinic: 30 }, paymentMethod: 'instapay', paymentChannel: '', allowOverbooking: false });
-      setConsultHours(DEFAULT_CONSULT_HOURS);
-      setErrors({});
+      resetAll();
     },
     onError: (err: unknown) => {
       const msg = (err as { response?: { data?: { message?: string; error?: string } } })?.response?.data?.message
@@ -203,17 +379,35 @@ export function AddDoctorModal({ open, onClose, onCreated }: AddDoctorModalProps
     if (errors[key]) setErrors((p) => ({ ...p, [key]: undefined }));
   }
 
+  function updateEntry(i: number, e: SpecialtyEntry) {
+    setEntries((prev) => prev.map((x, idx) => (idx === i ? e : x)));
+    setErrors((p) => ({ ...p, [`spec_${i}`]: undefined, specialties: undefined }));
+  }
+  function addSpecialty() {
+    setEntries((prev) => [...prev, newEntry()]);
+  }
+  function removeSpecialty(i: number) {
+    setEntries((prev) => prev.filter((_, idx) => idx !== i));
+  }
+
   function validate(): boolean {
     const e: Record<string, string> = {};
     if (!form.nameAr.trim() && !form.nameEn.trim()) e.nameAr = t('الاسم مطلوب', 'Name required');
     if (!form.mobile.trim()) { e.mobile = t('الموبايل مطلوب', 'Mobile required'); }
-    else {
-      const d = form.mobile.replace(/\D/g, '');
-      if (d.length < 10) e.mobile = t('رقم غير صحيح', 'Invalid number');
-    }
-    if (!form.specialtyId) e.specialtyId = t('التخصص مطلوب', 'Specialty required');
-    const splits = [form.consultationSplit, form.operativeSplit, form.onlineSplit];
-    if (splits.some((s) => s.doctor + s.clinic !== 100)) e.splits = t('مجموع النسب يجب أن يساوي 100%', 'Split must sum to 100%');
+    else if (form.mobile.replace(/\D/g, '').length < 10) e.mobile = t('رقم غير صحيح', 'Invalid number');
+
+    if (!entries[0].specialtyId) e.spec_0 = t('التخصص الأساسي مطلوب', 'Primary specialty required');
+
+    const ids = entries.map((x) => x.specialtyId).filter(Boolean);
+    if (new Set(ids).size !== ids.length) e.specialties = t('لا يمكن تكرار نفس التخصص', 'A specialty cannot be repeated');
+
+    entries.forEach((entry, i) => {
+      if (!entry.specialtyId && i > 0) { e[`spec_${i}`] = t('اختر التخصص أو احذف الصف', 'Choose a specialty or remove the row'); return; }
+      const bad = (['consultation', 'operative', 'online'] as const)
+        .some((k) => entry.splits[k].doctor + entry.splits[k].clinic !== 100);
+      if (bad) e[`spec_${i}`] = t('مجموع كل نسبة يجب أن يساوي 100%', 'Each split must sum to 100%');
+    });
+
     setErrors(e);
     return Object.keys(e).length === 0;
   }
@@ -221,18 +415,10 @@ export function AddDoctorModal({ open, onClose, onCreated }: AddDoctorModalProps
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!validate()) return;
-    mutation.mutate(form);
+    mutation.mutate();
   }
 
   const inputClass = 'w-full h-10 rounded-lg border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent transition-shadow';
-
-  // Group specialties by category
-  const grouped = specialties.reduce<Record<string, typeof specialties>>((acc, s) => {
-    const cat = s.category ?? 'other';
-    if (!acc[cat]) acc[cat] = [];
-    acc[cat].push(s);
-    return acc;
-  }, {});
 
   return (
     <Modal
@@ -329,33 +515,7 @@ export function AddDoctorModal({ open, onClose, onCreated }: AddDoctorModalProps
             </div>
             {errors.mobile && <p className="text-xs text-red-500 mt-1">{errors.mobile}</p>}
           </div>
-          <div>
-            <label className="field-label">{t('التخصص *', 'Specialty *')}</label>
-            <select
-              className={cn(inputClass, 'cursor-pointer', errors.specialtyId && 'border-red-400')}
-              value={form.specialtyId}
-              onChange={(e) => set('specialtyId', e.target.value)}
-            >
-              <option value="">{t('اختر التخصص', 'Select a specialty')}</option>
-              {Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b)).map(([cat, specs]) => (
-                <optgroup key={cat} label={cat.charAt(0).toUpperCase() + cat.slice(1)}>
-                  {specs.sort((a, b) => (a.nameEn > b.nameEn ? 1 : -1)).map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {lang === 'ar' ? `${s.nameAr} (${s.code})` : `${s.nameEn} (${s.code})`}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-            {errors.specialtyId && <p className="text-xs text-red-500 mt-1">{errors.specialtyId}</p>}
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="field-label">{t('التخصص الفرعي', 'Sub-Specialty')}</label>
-            <input className={inputClass} placeholder={t('اختياري', 'Optional')} value={form.subSpecialty} onChange={(e) => set('subSpecialty', e.target.value)} />
-          </div>
-          <div className="flex items-end gap-4 pb-1">
+          <div className="flex items-end gap-3 pb-1">
             <label className={cn('flex items-center gap-2.5 cursor-pointer select-none px-4 py-2.5 rounded-xl border transition-all', form.isOnlineDoctor ? 'border-blue-400 bg-blue-50 dark:bg-blue-950/30' : 'border-gray-200 dark:border-neutral-700')}>
               <input type="checkbox" className="w-4 h-4 rounded accent-blue-600" checked={form.isOnlineDoctor} onChange={(e) => set('isOnlineDoctor', e.target.checked)} />
               <span className="text-sm text-gray-700 dark:text-gray-300">{t('طبيب أونلاين', 'Online Doctor')}</span>
@@ -367,18 +527,34 @@ export function AddDoctorModal({ open, onClose, onCreated }: AddDoctorModalProps
           </div>
         </div>
 
-        {/* ── Revenue splits ── */}
+        {/* ── Specialties & per-specialty revenue splits ── */}
         <p className="form-section-title">
-          <TrendingUp className="w-3.5 h-3.5" />
-          {t('نسب الأرباح', 'Revenue Splits')}
+          <Layers className="w-3.5 h-3.5" />
+          {t('التخصصات ونسب الأرباح', 'Specialties & Revenue Splits')}
         </p>
-        {errors.splits && (
-          <p className="text-xs text-red-500 -mt-1 mb-2">{errors.splits}</p>
-        )}
-        <div className="space-y-2">
-          <SplitRow label={t('كشف (consultation)', 'Consultation')} value={form.consultationSplit} onChange={(v) => set('consultationSplit', v)} lang={lang} />
-          <SplitRow label={t('إجراء عملي (operative)', 'Operative')} value={form.operativeSplit}    onChange={(v) => set('operativeSplit', v)}    lang={lang} />
-          <SplitRow label={t('أونلاين (online)', 'Online')}         value={form.onlineSplit}        onChange={(v) => set('onlineSplit', v)}        lang={lang} />
+        {errors.specialties && <p className="text-xs text-red-500 -mt-1 mb-2">{errors.specialties}</p>}
+        <div className="space-y-3">
+          {entries.map((entry, i) => (
+            <SpecialtyCard
+              key={i}
+              entry={entry}
+              index={i}
+              specialties={specialties}
+              lang={lang}
+              t={t}
+              onChange={(e) => updateEntry(i, e)}
+              onRemove={i > 0 ? () => removeSpecialty(i) : undefined}
+              error={errors[`spec_${i}`]}
+            />
+          ))}
+          <button
+            type="button"
+            onClick={addSpecialty}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-dashed border-gray-300 dark:border-neutral-600 text-sm font-medium text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors w-full justify-center"
+          >
+            <Plus className="w-4 h-4" />
+            {t('إضافة تخصص آخر', 'Add another specialty')}
+          </button>
         </div>
 
         {/* ── Consultation Hours ── */}

@@ -28,6 +28,8 @@ const createDoctorSchema = z.object({
   specialtyId: z.number().int().positive(),
   secondarySpecialtyIds: z.array(z.number().int().positive()).max(10).optional(),
   subSpecialty: z.string().max(100).optional(),
+  // Sub-specialties per specialty: { "<specialtyId>": [subSpecialtyId, ...] }
+  subSpecialtyIds: z.record(z.string().regex(/^\d+$/), z.array(z.number().int().positive()).max(20)).optional(),
   isOnlineDoctor: z.boolean().default(false),
   revenueSplits: revenueSplitsSchema,
   paymentMethod: z.enum(['cash', 'instapay', 'bank_transfer', 'vfc_wallet', 'mobile_wallet']).optional(),
