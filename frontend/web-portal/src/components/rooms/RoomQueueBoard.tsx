@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Clock, GripVertical, Loader2, BellOff, DoorOpen, Stethoscope,
-  Plus, MoreHorizontal, Check, CalendarClock,
+  Plus, MoreHorizontal, Check, CheckCircle2, CalendarClock, Pencil, UserCheck,
 } from 'lucide-react';
 import { useRooms, useRoomSSE } from '@/hooks/useRooms';
 import { useQueue } from '@/hooks/useQueue';
@@ -63,9 +63,12 @@ function toMin(t: string): number {
 
 // ── Timeline panel for one active room ─────────────────────────────────────────
 
-const ROW_H = 46;       // px height of each appointment lane
-const ROW_GAP = 8;      // px vertical gap between lanes
-const MIN_BAR_PCT = 9;  // floor on bar width so the label stays readable
+const ROW_H = 48;        // px height of each appointment lane
+const ROW_GAP = 18;      // px vertical gap between lanes (room for the connector elbow)
+const MIN_BAR_PCT = 22;  // floor on bar width so name + time stay readable
+const GUTTER_W = 44;     // px left time-gutter
+const BADGE_W = 184;     // px fixed status-badge column
+const CHECK_W = 28;      // px right completion-check column
 
 function RoomTimelinePanel({
   room, date, onRelease, onTimeline,
@@ -151,6 +154,32 @@ function RoomTimelinePanel({
   const inSessionCount = queue.filter((q) => q.status === 'in_session').length;
   const roomName = lang === 'ar' ? (room.nameAr ?? room.nameEn) : room.nameEn;
 
+  // Per-row geometry — bar offset/width by time, plus the left-gutter hour label
+  // (shown only when the start hour changes from the row above).
+  const rows = useMemo(() => {
+    let prevHour = -1;
+    return appointments.map((a) => {
+      const start = toMin(a.startTime);
+      const end = Math.max(toMin(a.endTime), start + 15);
+      const width = Math.max(((end - start) / span) * 100, MIN_BAR_PCT);
+      const clampedLeft = Math.min(Math.max(((start - dayStart) / span) * 100, 0), 100 - width);
+      const hour = Math.floor(start / 60);
+      const showHour = hour !== prevHour;
+      prevHour = hour;
+      return {
+        appt: a,
+        clampedLeft,
+        width,
+        xStart: clampedLeft,
+        xEnd: clampedLeft + width,
+        hourLabel: `${String(hour).padStart(2, '0')}:00`,
+        showHour,
+      };
+    });
+  }, [appointments, dayStart, span]);
+
+  const laneHeight = appointments.length * (ROW_H + ROW_GAP);
+
   return (
     <section className="rounded-2xl border border-gray-200/80 dark:border-neutral-800 bg-white/80 dark:bg-neutral-900/60 backdrop-blur-sm shadow-sm overflow-hidden">
       {/* Panel header */}
@@ -225,117 +254,188 @@ function RoomTimelinePanel({
           {t('لا توجد مواعيد في هذا اليوم', 'No appointments on this date')}
         </p>
       ) : (
-        <div className="px-5 py-4" dir="ltr">
-          {/* Hour axis */}
-          <div className="relative h-5 ms-2 me-8 mb-1">
-            {hourTicks.map((m) => (
-              <span
-                key={m}
-                className="absolute top-0 -translate-x-1/2 text-[10px] font-mono text-gray-400 tabular-nums"
-                style={{ left: `${((m - dayStart) / span) * 100}%` }}
+        <div className="px-5 py-4 overflow-x-auto" dir="ltr">
+          <div className="min-w-[560px]">
+            {/* Top hour axis (aligned to the bar track) */}
+            <div className="flex">
+              <div style={{ width: GUTTER_W }} className="flex-shrink-0" />
+              <div className="relative flex-1 h-5 mb-1">
+                {hourTicks.map((m) => (
+                  <span
+                    key={m}
+                    className="absolute top-0 -translate-x-1/2 text-[10px] font-mono text-gray-400 tabular-nums"
+                    style={{ left: `${((m - dayStart) / span) * 100}%` }}
+                  >
+                    {String(Math.floor(m / 60)).padStart(2, '0')}:{String(m % 60).padStart(2, '0')}
+                  </span>
+                ))}
+              </div>
+              <div style={{ width: BADGE_W + CHECK_W }} className="flex-shrink-0" />
+            </div>
+
+            {/* Lanes */}
+            <div className="relative" style={{ height: laneHeight }}>
+              {/* Connector spine: stepped elbow from each bar's end to the next bar's start */}
+              <div
+                className="absolute top-0 bottom-0 pointer-events-none"
+                style={{ left: GUTTER_W, right: BADGE_W + CHECK_W }}
               >
-                {String(Math.floor(m / 60)).padStart(2, '0')}:{String(m % 60).padStart(2, '0')}
+                {rows.slice(0, -1).map((r, i) => {
+                  const next = rows[i + 1];
+                  const yBottom = i * (ROW_H + ROW_GAP) + ROW_H;
+                  const yMid = yBottom + ROW_GAP / 2;
+                  const yTop = (i + 1) * (ROW_H + ROW_GAP);
+                  const xA = r.xEnd;
+                  const xB = next.xStart;
+                  const lo = Math.min(xA, xB);
+                  const hi = Math.max(xA, xB);
+                  const line = 'bg-gray-200 dark:bg-neutral-700';
+                  return (
+                    <div key={r.appt.id}>
+                      {/* down from bar end */}
+                      <span className={cn('absolute w-px', line)} style={{ left: `${xA}%`, top: yBottom, height: yMid - yBottom }} />
+                      {/* horizontal run */}
+                      <span className={cn('absolute h-px', line)} style={{ left: `${lo}%`, width: `${hi - lo}%`, top: yMid }} />
+                      {/* down into next bar */}
+                      <span className={cn('absolute w-px', line)} style={{ left: `${xB}%`, top: yMid, height: yTop - yMid }} />
+                      {/* node dot at the elbow start */}
+                      <span className={cn('absolute w-1.5 h-1.5 rounded-full -translate-x-1/2 -translate-y-1/2', 'bg-gray-300 dark:bg-neutral-600')} style={{ left: `${xA}%`, top: yBottom }} />
+                    </div>
+                  );
+                })}
+              </div>
+
+              {rows.map((r, i) => {
+                const a = r.appt;
+                const st = rowState(a);
+                const s = STATE_STYLES[st];
+                const q = queueByAppt.get(a.id);
+                const name = patientMap.get(a.patientId);
+                const display = name
+                  ? (lang === 'ar' ? (name.nameAr ?? name.nameEn) : name.nameEn)
+                  : `#${a.patientId.slice(-6).toUpperCase()}`;
+                const checkedIn = !!q;
+                const isCompleted = st === 'completed';
+                const isConfirmed = a.status === 'Ok!' || st === 'in_service';
+                const top = i * (ROW_H + ROW_GAP);
+
+                return (
+                  <div key={a.id} className="absolute inset-x-0 flex items-stretch" style={{ top, height: ROW_H }}>
+                    {/* Left time-gutter */}
+                    <div style={{ width: GUTTER_W }} className="flex-shrink-0 flex items-start pt-0.5 text-[10px] font-mono text-gray-400 tabular-nums">
+                      {r.showHour ? r.hourLabel : ''}
+                    </div>
+
+                    {/* Bar track */}
+                    <div className="relative flex-1">
+                      <div
+                        draggable={!swap.isPending}
+                        onDragStart={() => setDragId(a.id)}
+                        onDragEnd={() => { setDragId(null); setDropId(null); }}
+                        onDragOver={(e) => { e.preventDefault(); if (dragId && dragId !== a.id) setDropId(a.id); }}
+                        onDragLeave={() => setDropId((p) => (p === a.id ? null : p))}
+                        onDrop={(e) => { e.preventDefault(); handleDrop(a.id); }}
+                        title={t('اسحب لتبديل الموعد', 'Drag onto another row to swap slots')}
+                        className={cn(
+                          'group/bar absolute top-0 h-full rounded-xl border ps-2.5 pe-2 flex items-center gap-2 overflow-hidden',
+                          'cursor-grab active:cursor-grabbing transition-shadow hover:shadow-md',
+                          s.bar,
+                          dragId === a.id && 'opacity-50 shadow-lg',
+                          dropId === a.id && 'ring-2 ring-primary-500 ring-offset-1 dark:ring-offset-neutral-900',
+                        )}
+                        style={{ left: `${r.clampedLeft}%`, width: `${r.width}%` }}
+                      >
+                        <span className={cn('absolute left-0 inset-y-1.5 w-1 rounded-full', s.rail)} />
+                        <GripVertical className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600 flex-shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[13px] font-semibold text-gray-900 dark:text-gray-100 truncate leading-tight">
+                            {display}
+                          </p>
+                          <p className="text-[10px] text-gray-500 dark:text-gray-400 font-mono flex items-center gap-1 leading-tight" dir="ltr">
+                            <Clock className="w-2.5 h-2.5" />
+                            {a.startTime.slice(0, 5)}–{a.endTime.slice(0, 5)}
+                          </p>
+                        </div>
+                        {/* Inline row actions — appear on hover */}
+                        <div className="flex items-center gap-0.5 flex-shrink-0 opacity-0 group-hover/bar:opacity-100 focus-within:opacity-100 transition-opacity">
+                          <button
+                            type="button"
+                            onClick={() => onTimeline(room)}
+                            title={t('تعديل الجدول', 'Edit schedule')}
+                            className="p-1 rounded-md text-gray-400 hover:text-primary-600 hover:bg-white/60 dark:hover:bg-neutral-900/60"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onTimeline(room)}
+                            title={t('المزيد', 'More')}
+                            className="p-1 rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-white/60 dark:hover:bg-neutral-900/60"
+                          >
+                            <MoreHorizontal className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Fixed status-badge column */}
+                    <div style={{ width: BADGE_W }} className="flex-shrink-0 flex items-center justify-end gap-1.5 ps-3">
+                      {st === 'assigned' ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-violet-50 dark:bg-violet-950/40 text-violet-600 dark:text-violet-300 border border-violet-200 dark:border-violet-800">
+                          <UserCheck className="w-3 h-3" />
+                          {t('تم التعيين', 'Provider Assigned')}
+                        </span>
+                      ) : st === 'cancelled' ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
+                          {lang === 'ar' ? s.labelAr : s.labelEn}
+                        </span>
+                      ) : (
+                        <>
+                          {checkedIn && !isCompleted && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-neutral-700 bg-white/60 dark:bg-neutral-900/40">
+                              <Check className="w-3 h-3 text-emerald-500" />
+                              {t('تم الحضور', 'Check-In')}
+                            </span>
+                          )}
+                          <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold text-white', s.rail)}>
+                            {lang === 'ar' ? s.labelAr : s.labelEn}
+                          </span>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Right completion check */}
+                    <div style={{ width: CHECK_W }} className="flex-shrink-0 flex items-center justify-center">
+                      {isCompleted ? (
+                        <CheckCircle2 className="w-4 h-4 text-gray-400" />
+                      ) : isConfirmed ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                      ) : (
+                        <Check className="w-4 h-4 text-gray-300 dark:text-neutral-600" />
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {swap.isPending && (
+              <p className="mt-3 text-xs text-gray-400 flex items-center gap-1.5">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                {t('جاري تبديل الموعدين...', 'Swapping slots...')}
+              </p>
+            )}
+          </div>
+
+          {/* Footer legend (repeated, matching the mockup) */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-2 pt-3 border-t border-gray-100 dark:border-neutral-800 text-[11px] text-gray-500 dark:text-gray-400">
+            {LEGEND.map((k) => (
+              <span key={k} className="flex items-center gap-1.5">
+                <span className={cn('w-2 h-2 rounded-full', STATE_STYLES[k].dot)} />
+                {lang === 'ar' ? STATE_STYLES[k].labelAr : STATE_STYLES[k].labelEn}
               </span>
             ))}
           </div>
-
-          {/* Lanes */}
-          <div
-            className="relative ms-2 me-8"
-            style={{ height: appointments.length * (ROW_H + ROW_GAP) }}
-          >
-            {/* vertical hour gridlines */}
-            {hourTicks.map((m) => (
-              <span
-                key={m}
-                className="absolute top-0 bottom-0 w-px bg-gray-100 dark:bg-neutral-800"
-                style={{ left: `${((m - dayStart) / span) * 100}%` }}
-              />
-            ))}
-
-            {appointments.map((a, i) => {
-              const st = rowState(a);
-              const s = STATE_STYLES[st];
-              const q = queueByAppt.get(a.id);
-              const start = toMin(a.startTime);
-              const end = Math.max(toMin(a.endTime), start + 15);
-              const left = ((start - dayStart) / span) * 100;
-              const width = Math.max(((end - start) / span) * 100, MIN_BAR_PCT);
-              const clampedLeft = Math.min(left, 100 - width);
-              const name = patientMap.get(a.patientId);
-              const display = name
-                ? (lang === 'ar' ? (name.nameAr ?? name.nameEn) : name.nameEn)
-                : `#${a.patientId.slice(-6).toUpperCase()}`;
-              const checkedIn = !!q;
-              const isCompleted = st === 'completed';
-
-              return (
-                <div key={a.id} className="absolute inset-x-0" style={{ top: i * (ROW_H + ROW_GAP), height: ROW_H }}>
-                  {/* lane baseline */}
-                  <div className="absolute inset-x-0 top-1/2 h-px bg-gray-50 dark:bg-neutral-800/60" />
-
-                  {/* the bar */}
-                  <div
-                    draggable={!swap.isPending}
-                    onDragStart={() => setDragId(a.id)}
-                    onDragEnd={() => { setDragId(null); setDropId(null); }}
-                    onDragOver={(e) => { e.preventDefault(); if (dragId && dragId !== a.id) setDropId(a.id); }}
-                    onDragLeave={() => setDropId((p) => (p === a.id ? null : p))}
-                    onDrop={(e) => { e.preventDefault(); handleDrop(a.id); }}
-                    title={t('اسحب لتبديل الموعد', 'Drag onto another row to swap slots')}
-                    className={cn(
-                      'absolute top-0 h-full rounded-xl border ps-2 pe-2.5 flex items-center gap-2 overflow-hidden',
-                      'cursor-grab active:cursor-grabbing transition-shadow hover:shadow-md',
-                      s.bar,
-                      dragId === a.id && 'opacity-50 shadow-lg',
-                      dropId === a.id && 'ring-2 ring-primary-500 ring-offset-1 dark:ring-offset-neutral-900',
-                    )}
-                    style={{ left: `${clampedLeft}%`, width: `${width}%` }}
-                  >
-                    <span className={cn('absolute left-0 inset-y-1.5 w-1 rounded-full', s.rail)} />
-                    <GripVertical className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600 flex-shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[13px] font-semibold text-gray-900 dark:text-gray-100 truncate leading-tight">
-                        {display}
-                      </p>
-                      <p className="text-[10px] text-gray-500 dark:text-gray-400 font-mono flex items-center gap-1 leading-tight" dir="ltr">
-                        <Clock className="w-2.5 h-2.5" />
-                        {a.startTime.slice(0, 5)}–{a.endTime.slice(0, 5)}
-                      </p>
-                    </div>
-                    {/* status chips */}
-                    <div className="hidden sm:flex items-center gap-1 flex-shrink-0">
-                      {checkedIn && !isCompleted && (
-                        <span className="px-1.5 py-0.5 rounded-md text-[9px] font-semibold bg-white/70 dark:bg-neutral-900/60 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-neutral-700">
-                          {t('تم الحضور', 'Check-In')}
-                        </span>
-                      )}
-                      <span className={cn(
-                        'px-1.5 py-0.5 rounded-md text-[9px] font-semibold text-white',
-                        s.rail,
-                      )}>
-                        {lang === 'ar' ? s.labelAr : s.labelEn}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* right gutter completion check */}
-                  <span className="absolute -right-7 top-1/2 -translate-y-1/2 text-gray-300 dark:text-neutral-600">
-                    {isCompleted
-                      ? <Check className="w-4 h-4 text-emerald-500" />
-                      : <Check className="w-4 h-4 opacity-40" />}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-
-          {swap.isPending && (
-            <p className="mt-3 text-xs text-gray-400 flex items-center gap-1.5">
-              <Loader2 className="w-3 h-3 animate-spin" />
-              {t('جاري تبديل الموعدين...', 'Swapping slots...')}
-            </p>
-          )}
         </div>
       )}
     </section>
