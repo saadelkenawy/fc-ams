@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import {
   ArrowLeft, Stethoscope, Wallet, TrendingUp, Clock,
   Calendar, Users, Star, Wifi, Pencil, ReceiptText,
-  Loader2, Banknote, Plus, X, Save,
+  Loader2, Banknote, Plus, Save,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -17,7 +17,6 @@ import { cn, formatCurrency, formatDate, localDateISO } from '@/lib/utils';
 import { billingApi } from '@/lib/api';
 import {
   useDoctors,
-  useSpecialties,
   useSpecialtyMap,
   useDoctorSchedules,
   useUpdateDoctor,
@@ -69,27 +68,14 @@ const PAYMENT_LABELS: Record<string, { ar: string; en: string }> = {
 
 /* ── specialty chips + add popup ─────────────────────────────────────── */
 
-function SpecialtyChips({ doctor }: { doctor: Doctor }) {
+// Read-only view of the doctor's specialties + free-text sub-specialties.
+// The "+" opens the full Edit modal so the configuration always matches the
+// structure defined during registration (multiple specialties, each with its
+// own sub-specialties and revenue splits).
+function SpecialtyChips({ doctor, onConfigure }: { doctor: Doctor; onConfigure: () => void }) {
   const { lang, t } = useLang();
-  const { toast } = useToast();
-  const { data: specialties = [] } = useSpecialties();
   const specialtyMap = useSpecialtyMap();
-  const update = useUpdateDoctor();
-  const [pickerOpen, setPickerOpen] = useState(false);
-
   const allIds = [doctor.specialtyId, ...(doctor.secondarySpecialtyIds ?? [])];
-  const available = specialties.filter((s) => !allIds.includes(s.id));
-
-  function persist(secondary: number[]) {
-    update.mutate(
-      { id: doctor.id, version: doctor.version, secondarySpecialtyIds: secondary },
-      {
-        onSuccess: () => toast(t('تم تحديث التخصصات', 'Specialties updated'), 'success'),
-        onError: () => toast(t('تعذّر تحديث التخصصات', 'Failed to update specialties'), 'error'),
-      },
-    );
-    setPickerOpen(false);
-  }
 
   return (
     <span className="flex items-center gap-1.5 flex-wrap">
@@ -98,55 +84,38 @@ function SpecialtyChips({ doctor }: { doctor: Doctor }) {
         const sp = specialtyMap.get(sid);
         const name = sp ? (lang === 'ar' ? sp.nameAr : sp.nameEn) : `#${sid}`;
         const isPrimary = i === 0;
+        const subs = doctor.subSpecialtyIds?.[String(sid)] ?? [];
         return (
-          <span
-            key={sid}
-            className={cn(
-              'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium',
-              isPrimary
-                ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300'
-                : 'bg-gray-100 dark:bg-neutral-700 text-gray-600 dark:text-gray-300',
-            )}
-          >
-            {name}
-            {!isPrimary && (
-              <button
-                aria-label={t('إزالة التخصص', 'Remove specialty')}
-                className="hover:text-red-500 transition-colors"
-                onClick={() => persist((doctor.secondarySpecialtyIds ?? []).filter((x) => x !== sid))}
+          <span key={sid} className="inline-flex items-center gap-1 flex-wrap">
+            <span
+              className={cn(
+                'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium',
+                isPrimary
+                  ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300'
+                  : 'bg-gray-100 dark:bg-neutral-700 text-gray-600 dark:text-gray-300',
+              )}
+            >
+              {name}
+            </span>
+            {subs.map((label) => (
+              <span
+                key={label}
+                className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-600 text-gray-500 dark:text-gray-400"
               >
-                <X className="w-3 h-3" />
-              </button>
-            )}
+                {label}
+              </span>
+            ))}
           </span>
         );
       })}
-      <span className="relative">
-        <button
-          aria-label={t('إضافة تخصص', 'Add specialty')}
-          className="inline-flex items-center justify-center w-5 h-5 rounded-full border border-dashed border-gray-300 dark:border-neutral-600 text-gray-400 hover:text-primary-600 hover:border-primary-400 transition-colors"
-          onClick={() => setPickerOpen((v) => !v)}
-          disabled={update.isPending}
-        >
-          <Plus className="w-3 h-3" />
-        </button>
-        {pickerOpen && (
-          <span className="absolute start-0 top-7 z-20 w-56 max-h-64 overflow-y-auto rounded-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 shadow-lg p-1 flex flex-col">
-            {available.length === 0 && (
-              <span className="px-3 py-2 text-xs text-gray-400">{t('لا توجد تخصصات أخرى', 'No more specialties')}</span>
-            )}
-            {available.map((s) => (
-              <button
-                key={s.id}
-                className="text-start px-3 py-2 rounded-lg text-xs text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors"
-                onClick={() => persist([...(doctor.secondarySpecialtyIds ?? []), s.id])}
-              >
-                {lang === 'ar' ? s.nameAr : s.nameEn} ({s.code})
-              </button>
-            ))}
-          </span>
-        )}
-      </span>
+      <button
+        aria-label={t('تهيئة التخصصات', 'Configure specialties')}
+        title={t('تعديل التخصصات والتخصصات الفرعية', 'Edit specialties & sub-specialties')}
+        className="inline-flex items-center justify-center w-5 h-5 rounded-full border border-dashed border-gray-300 dark:border-neutral-600 text-gray-400 hover:text-primary-600 hover:border-primary-400 transition-colors"
+        onClick={onConfigure}
+      >
+        <Plus className="w-3 h-3" />
+      </button>
     </span>
   );
 }
@@ -420,10 +389,7 @@ export default function DoctorProfilePage() {
                 <div className="min-w-0 flex-1">
                   <h2 className="text-xl font-display font-bold text-gray-900 dark:text-gray-100">{docName}</h2>
                   <div className="flex items-center gap-3 mt-1.5 flex-wrap text-sm text-gray-500 dark:text-gray-400">
-                    <SpecialtyChips doctor={doctor} />
-                    {doctor.subSpecialty && (
-                      <span className="text-gray-400 dark:text-gray-500">· {doctor.subSpecialty}</span>
-                    )}
+                    <SpecialtyChips doctor={doctor} onConfigure={() => setEditOpen(true)} />
                   </div>
                 </div>
 

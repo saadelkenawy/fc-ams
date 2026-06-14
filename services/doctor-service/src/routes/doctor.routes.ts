@@ -42,7 +42,7 @@ const doctorSchema = {
     secondarySpecialtyIds: { type: 'array', items: { type: 'integer' } },
     subSpecialty: { type: 'string', nullable: true },
     // Sub-specialties per specialty: { "<specialtyId>": [subSpecialtyId, ...] }
-    subSpecialtyIds: { type: 'object', additionalProperties: { type: 'array', items: { type: 'integer' } }, nullable: true },
+    subSpecialtyIds: { type: 'object', additionalProperties: { type: 'array', items: { type: 'string' } }, nullable: true },
     isOnlineDoctor: { type: 'boolean' },
     revenueSplits: {
       type: 'object',

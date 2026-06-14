@@ -1,107 +1,24 @@
 'use client';
 
-import { useState, useEffect, type FormEvent } from 'react';
-import { Stethoscope, Phone, BadgeDollarSign, CreditCard, AlertCircle, TrendingUp, Loader2 } from 'lucide-react';
+import { useEffect, useState, type FormEvent } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Stethoscope, Phone, BadgeDollarSign, CreditCard, AlertCircle, Loader2 } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { useLang } from '@/contexts/LanguageContext';
-import { useSpecialties, useUpdateDoctor } from '@/hooks/useDoctors';
+import { useSpecialties, useConsultHours } from '@/hooks/useDoctors';
 import { useToast } from '@/components/ui/Toast';
 import { cn } from '@/lib/utils';
-import type { Doctor } from '@fadl/types';
+import { doctorApi } from '@/lib/api';
+import type { ApiResponse, Doctor } from '@fadl/types';
 import { useTranslateName } from '@/hooks/useTranslateName';
-
-const SPLIT_PRESETS = [
-  { label: '50/50',        dr: 50,   cl: 50   },
-  { label: '70/30',        dr: 70,   cl: 30   },
-  { label: '37.5/62.5',   dr: 37.5, cl: 62.5 },
-  { label: '80/20',        dr: 80,   cl: 20   },
-  { label: '30/70',        dr: 30,   cl: 70   },
-];
-
-const PAYMENT_METHODS = [
-  { value: 'instapay',      labelAr: 'انستاباي',     labelEn: 'InstaPay'       },
-  { value: 'cash',          labelAr: 'كاش',           labelEn: 'Cash'           },
-  { value: 'mobile_wallet', labelAr: 'محفظة موبايل', labelEn: 'Mobile Wallet'  },
-  { value: 'bank_transfer', labelAr: 'تحويل بنكي',   labelEn: 'Bank Transfer'  },
-  { value: 'vfc_wallet',    labelAr: 'محفظة VFC',    labelEn: 'VFC Wallet'     },
-];
-
-interface SplitValues { doctor: number; clinic: number; }
-
-interface FormData {
-  nameAr: string;
-  nameEn: string;
-  mobile: string;
-  specialtyId: string;
-  subSpecialty: string;
-  isOnlineDoctor: boolean;
-  consultationSplit: SplitValues;
-  operativeSplit: SplitValues;
-  onlineSplit: SplitValues;
-  paymentMethod: string;
-  allowOverbooking: boolean;
-}
-
-function SplitRow({ label, value, onChange, lang }: {
-  label: string; value: SplitValues;
-  onChange: (v: SplitValues) => void; lang: 'ar' | 'en';
-}) {
-  return (
-    <div className="p-3 rounded-xl bg-gray-50 dark:bg-neutral-800/60 border border-gray-100 dark:border-neutral-700">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">{label}</span>
-        <div className="flex gap-1">
-          {SPLIT_PRESETS.map((p) => (
-            <button key={p.label} type="button" onClick={() => onChange({ doctor: p.dr, clinic: p.cl })}
-              className={cn('px-2 py-0.5 rounded text-[10px] font-mono font-bold transition-all',
-                value.doctor === p.dr
-                  ? 'bg-primary-600 text-white'
-                  : 'bg-white dark:bg-neutral-700 text-gray-500 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-neutral-600 border border-gray-200 dark:border-neutral-600'
-              )}>{p.label}</button>
-          ))}
-        </div>
-      </div>
-      <div className="flex items-center gap-3">
-        <div className="flex-1">
-          {/* Draggable bar: the invisible range input sits on top — moving the
-              doctor share immediately re-balances the clinic share. */}
-          <div className="relative h-2 group">
-            <div className="absolute inset-0 bg-gray-200 dark:bg-neutral-700 rounded-full overflow-hidden">
-              <div className="h-full w-full bg-primary-600 origin-left transition-transform duration-150" style={{ transform: `scaleX(${value.doctor / 100})` }} />
-            </div>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              step={0.5}
-              value={value.doctor}
-              onChange={(e) => {
-                const dr = Number(e.target.value);
-                onChange({ doctor: dr, clinic: Math.round((100 - dr) * 2) / 2 });
-              }}
-              aria-label={`${label} — doctor share`}
-              className="absolute inset-x-0 -inset-y-1.5 w-full opacity-0 cursor-pointer"
-            />
-            <div
-              className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-white border-2 border-primary-600 shadow pointer-events-none transition-all duration-150 group-hover:scale-110"
-              style={{ insetInlineStart: `calc(${value.doctor}% - 7px)` }}
-            />
-          </div>
-        </div>
-        <div className="flex items-center gap-2 text-xs">
-          <span className="text-primary-700 dark:text-primary-400 font-bold font-mono w-12 text-end">
-            {lang === 'ar' ? 'د.' : 'Dr'} {value.doctor}%
-          </span>
-          <span className="text-gray-400">·</span>
-          <span className="text-gray-500 dark:text-gray-400 font-mono w-16">
-            {lang === 'ar' ? 'ع.' : 'Cl'} {value.clinic}%
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
+import {
+  type IdentityForm, type SpecialtyEntry, type ConsultHourRow,
+  newEntry, DEFAULT_CONSULT_HOURS, PAYMENT_METHODS, inputClass,
+  identityFromDoctor, entriesFromDoctor, consultRowsFromApi,
+  buildDoctorBody, validateDoctor, consultHoursPayload,
+  SpecialtiesSection, ConsultationHoursEditor,
+} from './doctorForm';
 
 interface EditDoctorModalProps {
   open: boolean;
@@ -112,98 +29,71 @@ interface EditDoctorModalProps {
 export function EditDoctorModal({ open, onClose, doctor }: EditDoctorModalProps) {
   const { lang, t } = useLang();
   const { toast } = useToast();
+  const qc = useQueryClient();
   const { data: specialties = [] } = useSpecialties();
-  const mutation = useUpdateDoctor();
+  const { data: consultHoursApi } = useConsultHours(open ? doctor.id : '');
   const { translate, translating } = useTranslateName();
 
-  const [form, setForm] = useState<FormData>(toFormData(doctor));
-  const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
+  const [form, setForm] = useState<IdentityForm>(() => identityFromDoctor(doctor));
+  const [entries, setEntries] = useState<SpecialtyEntry[]>(() => entriesFromDoctor(doctor));
+  const [consultHours, setConsultHours] = useState<ConsultHourRow[]>(DEFAULT_CONSULT_HOURS);
+  const [errors, setErrors] = useState<Record<string, string | undefined>>({});
 
+  // Re-seed identity + specialties whenever the modal opens or the record changes.
   useEffect(() => {
-    if (open) { setForm(toFormData(doctor)); setErrors({}); }
+    if (open) {
+      setForm(identityFromDoctor(doctor));
+      setEntries(entriesFromDoctor(doctor));
+      setErrors({});
+    }
   }, [open, doctor]);
 
-  function toFormData(d: Doctor): FormData {
-    return {
-      nameAr:   d.nameAr ?? '',
-      nameEn:   d.nameEn ?? '',
-      mobile:   d.mobile.replace(/^\+20/, '0'),
-      specialtyId: String(d.specialtyId),
-      subSpecialty: d.subSpecialty ?? '',
-      isOnlineDoctor: d.isOnlineDoctor,
-      consultationSplit: { doctor: d.revenueSplits.consultation.doctorPercentage, clinic: d.revenueSplits.consultation.clinicPercentage },
-      operativeSplit:    { doctor: d.revenueSplits.operative.doctorPercentage,    clinic: d.revenueSplits.operative.clinicPercentage    },
-      onlineSplit:       { doctor: d.revenueSplits.online.doctorPercentage,       clinic: d.revenueSplits.online.clinicPercentage       },
-      paymentMethod: d.paymentMethod ?? '',
-      allowOverbooking: d.allowOverbooking,
-    };
-  }
+  // Seed consultation hours once they load (separate query).
+  useEffect(() => {
+    if (open && consultHoursApi) setConsultHours(consultRowsFromApi(consultHoursApi));
+  }, [open, consultHoursApi]);
 
-  function set<K extends keyof FormData>(key: K, val: FormData[K]) {
+  const mutation = useMutation({
+    mutationFn: async () => {
+      const body = buildDoctorBody(form, entries, doctor.overbookingBufferPercentage);
+      await doctorApi.patch<ApiResponse<Doctor>>(`/doctors/${doctor.id}`, { ...body, version: doctor.version });
+      // Only push consultation hours once the existing set has loaded — otherwise
+      // a quick save would replace real hours with the empty default and wipe them.
+      if (consultHoursApi !== undefined) {
+        await doctorApi.put(`/doctors/${doctor.id}/consultation-hours/bulk`, { hours: consultHoursPayload(consultHours) });
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['doctors'] });
+      qc.invalidateQueries({ queryKey: ['consult-hours', doctor.id] });
+      toast(t('تم حفظ بيانات الطبيب', 'Doctor profile saved.'), 'success');
+      onClose();
+    },
+    onError: (err: unknown) => {
+      const msg = (err as { response?: { data?: { message?: string; error?: string } } })?.response?.data?.message
+        ?? (err as { response?: { data?: { error?: string } } })?.response?.data?.error
+        ?? t('حدث خطأ. يرجى المحاولة مرة أخرى.', 'An error occurred. Please try again.');
+      toast(msg, 'error');
+    },
+  });
+
+  function set<K extends keyof IdentityForm>(key: K, val: IdentityForm[K]) {
     setForm((p) => ({ ...p, [key]: val }));
     if (errors[key]) setErrors((p) => ({ ...p, [key]: undefined }));
   }
 
-  function validate(): boolean {
-    const e: Record<string, string> = {};
-    if (!form.nameAr.trim() && !form.nameEn.trim()) e.nameAr = t('الاسم مطلوب', 'Name required');
-    if (!form.mobile.trim()) e.mobile = t('الموبايل مطلوب', 'Mobile required');
-    else { const d = form.mobile.replace(/\D/g, ''); if (d.length < 10) e.mobile = t('رقم غير صحيح', 'Invalid number'); }
-    if (!form.specialtyId) e.specialtyId = t('التخصص مطلوب', 'Specialty required');
-    const splits = [form.consultationSplit, form.operativeSplit, form.onlineSplit];
-    if (splits.some((s) => s.doctor + s.clinic !== 100)) e.splits = t('مجموع النسب يجب أن يساوي 100%', 'Split must sum to 100%');
-    setErrors(e);
-    return Object.keys(e).length === 0;
-  }
-
-  function mobileToE164(raw: string): string {
-    const digits = raw.replace(/\D/g, '');
-    if (digits.startsWith('20') && digits.length === 12) return `+${digits}`;
-    if (digits.startsWith('0') && digits.length === 11) return `+20${digits.slice(1)}`;
-    if (digits.length === 10 && digits.startsWith('1')) return `+20${digits}`;
-    return `+${digits}`;
+  function updateEntry(i: number, e: SpecialtyEntry) {
+    setEntries((prev) => prev.map((x, idx) => (idx === i ? e : x)));
+    setErrors((p) => ({ ...p, [`spec_${i}`]: undefined, specialties: undefined }));
   }
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!validate()) return;
-    mutation.mutate({
-      id: doctor.id,
-      version:      doctor.version,
-      mobile:       mobileToE164(form.mobile),
-      nameEn:       form.nameEn || form.nameAr,
-      nameAr:       form.nameAr || undefined,
-      specialtyId:  Number(form.specialtyId),
-      subSpecialty: form.subSpecialty || undefined,
-      isOnlineDoctor: form.isOnlineDoctor,
-      revenueSplits: {
-        consultation: { doctorPercentage: form.consultationSplit.doctor, clinicPercentage: form.consultationSplit.clinic },
-        operative:    { doctorPercentage: form.operativeSplit.doctor,    clinicPercentage: form.operativeSplit.clinic    },
-        online:       { doctorPercentage: form.onlineSplit.doctor,       clinicPercentage: form.onlineSplit.clinic       },
-      },
-      paymentMethod:   (form.paymentMethod || undefined) as Doctor['paymentMethod'],
-      allowOverbooking: form.allowOverbooking,
-    }, {
-      onSuccess: () => {
-        toast(t('تم حفظ بيانات الطبيب', 'Doctor profile saved.'), 'success');
-        onClose();
-      },
-      onError: (err: unknown) => {
-        const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-          ?? t('حدث خطأ', 'An error occurred');
-        toast(msg, 'error');
-      },
-    });
+    const errs = validateDoctor(form, entries, t);
+    setErrors(errs);
+    if (Object.keys(errs).length > 0) return;
+    mutation.mutate();
   }
-
-  const inputClass = 'w-full h-10 rounded-lg border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent transition-shadow';
-
-  const grouped = specialties.reduce<Record<string, typeof specialties>>((acc, s) => {
-    const cat = s.category ?? 'other';
-    if (!acc[cat]) acc[cat] = [];
-    acc[cat].push(s);
-    return acc;
-  }, {});
 
   return (
     <Modal
@@ -232,6 +122,7 @@ export function EditDoctorModal({ open, onClose, doctor }: EditDoctorModalProps)
           </div>
         )}
 
+        {/* ── Identity ── */}
         <p className="form-section-title">
           <Stethoscope className="w-3.5 h-3.5" />
           {t('بيانات الطبيب', 'Doctor Profile')}
@@ -278,6 +169,7 @@ export function EditDoctorModal({ open, onClose, doctor }: EditDoctorModalProps)
           </div>
         </div>
 
+        {/* ── Contact ── */}
         <p className="form-section-title">
           <Phone className="w-3.5 h-3.5" />
           {t('التواصل', 'Contact')}
@@ -298,33 +190,7 @@ export function EditDoctorModal({ open, onClose, doctor }: EditDoctorModalProps)
             </div>
             {errors.mobile && <p className="text-xs text-red-500 mt-1">{errors.mobile}</p>}
           </div>
-          <div>
-            <label className="field-label">{t('التخصص *', 'Specialty *')}</label>
-            <select
-              className={cn(inputClass, 'cursor-pointer', errors.specialtyId && 'border-red-400')}
-              value={form.specialtyId}
-              onChange={(e) => set('specialtyId', e.target.value)}
-            >
-              <option value="">{t('اختر التخصص', 'Select a specialty')}</option>
-              {Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b)).map(([cat, specs]) => (
-                <optgroup key={cat} label={cat.charAt(0).toUpperCase() + cat.slice(1)}>
-                  {specs.sort((a, b) => (a.nameEn > b.nameEn ? 1 : -1)).map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {lang === 'ar' ? `${s.nameAr} (${s.code})` : `${s.nameEn} (${s.code})`}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-            {errors.specialtyId && <p className="text-xs text-red-500 mt-1">{errors.specialtyId}</p>}
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="field-label">{t('التخصص الفرعي', 'Sub-Specialty')}</label>
-            <input className={inputClass} placeholder={t('اختياري', 'Optional')} value={form.subSpecialty} onChange={(e) => set('subSpecialty', e.target.value)} />
-          </div>
-          <div className="flex items-end gap-4 pb-1">
+          <div className="flex items-end gap-3 pb-1">
             <label className={cn('flex items-center gap-2.5 cursor-pointer select-none px-4 py-2.5 rounded-xl border transition-all', form.isOnlineDoctor ? 'border-blue-400 bg-blue-50 dark:bg-blue-950/30' : 'border-gray-200 dark:border-neutral-700')}>
               <input type="checkbox" className="w-4 h-4 rounded accent-blue-600" checked={form.isOnlineDoctor} onChange={(e) => set('isOnlineDoctor', e.target.checked)} />
               <span className="text-sm text-gray-700 dark:text-gray-300">{t('طبيب أونلاين', 'Online Doctor')}</span>
@@ -336,17 +202,22 @@ export function EditDoctorModal({ open, onClose, doctor }: EditDoctorModalProps)
           </div>
         </div>
 
-        <p className="form-section-title">
-          <TrendingUp className="w-3.5 h-3.5" />
-          {t('نسب الأرباح', 'Revenue Splits')}
-        </p>
-        {errors.splits && <p className="text-xs text-red-500 -mt-1 mb-2">{errors.splits}</p>}
-        <div className="space-y-2">
-          <SplitRow label={t('كشف (consultation)', 'Consultation')} value={form.consultationSplit} onChange={(v) => set('consultationSplit', v)} lang={lang} />
-          <SplitRow label={t('إجراء عملي (operative)', 'Operative')} value={form.operativeSplit}    onChange={(v) => set('operativeSplit', v)}    lang={lang} />
-          <SplitRow label={t('أونلاين (online)', 'Online')}         value={form.onlineSplit}        onChange={(v) => set('onlineSplit', v)}        lang={lang} />
-        </div>
+        {/* ── Specialties & per-specialty revenue splits ── */}
+        <SpecialtiesSection
+          entries={entries}
+          specialties={specialties}
+          lang={lang}
+          t={t}
+          errors={errors}
+          onChangeEntry={updateEntry}
+          onAdd={() => setEntries((prev) => [...prev, newEntry()])}
+          onRemove={(i) => setEntries((prev) => prev.filter((_, idx) => idx !== i))}
+        />
 
+        {/* ── Consultation Hours ── */}
+        <ConsultationHoursEditor rows={consultHours} lang={lang} t={t} onChange={setConsultHours} />
+
+        {/* ── Payment ── */}
         <p className="form-section-title">
           <CreditCard className="w-3.5 h-3.5" />
           <BadgeDollarSign className="w-3.5 h-3.5" />

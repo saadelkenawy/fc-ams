@@ -32,7 +32,7 @@ function rowToDoctor(row: Record<string, unknown>): Doctor {
     subSpecialtyIds: (() => {
       const raw = row.sub_specialty_ids;
       if (!raw) return undefined;
-      return (typeof raw === 'string' ? JSON.parse(raw) : raw) as Record<string, number[]>;
+      return (typeof raw === 'string' ? JSON.parse(raw) : raw) as Record<string, string[]>;
     })(),
     isOnlineDoctor: row.is_online_doctor as boolean,
     revenueSplits,
@@ -160,7 +160,7 @@ export async function createDoctor(
     specialtyId: number;
     secondarySpecialtyIds?: number[];
     subSpecialty?: string;
-    subSpecialtyIds?: Record<string, number[]>;
+    subSpecialtyIds?: Record<string, string[]>;
     isOnlineDoctor: boolean;
     revenueSplits: Doctor['revenueSplits'];
     paymentMethod?: Doctor['paymentMethod'];
@@ -223,7 +223,7 @@ export async function updateDoctor(
     specialtyId: number;
     secondarySpecialtyIds?: number[];
     subSpecialty?: string;
-    subSpecialtyIds?: Record<string, number[]>;
+    subSpecialtyIds?: Record<string, string[]>;
     isOnlineDoctor: boolean;
     revenueSplits: Doctor['revenueSplits'];
     paymentMethod?: Doctor['paymentMethod'];
