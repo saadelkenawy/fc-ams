@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Clock, GripVertical, Loader2, BellOff, DoorOpen, Stethoscope,
-  Plus, MoreHorizontal, Check, CheckCircle2, CalendarClock, Pencil, UserCheck,
+  CalendarPlus, MoreHorizontal, Check, CheckCircle2, CalendarClock, Pencil, UserCheck,
 } from 'lucide-react';
 import { useRooms, useRoomSSE } from '@/hooks/useRooms';
 import { useQueue } from '@/hooks/useQueue';
@@ -54,7 +54,10 @@ const STATE_STYLES: Record<RowState, {
   },
 };
 
-const LEGEND: RowState[] = ['in_service', 'queued', 'assigned', 'cancelled', 'completed'];
+// Legend mirrors the mockup: four states only. The "assigned" state still
+// renders its own row badge ("Provider Assigned") but is intentionally omitted
+// from the legend strip to match queue.png.
+const LEGEND: RowState[] = ['in_service', 'queued', 'cancelled', 'completed'];
 
 function toMin(t: string): number {
   const [h, m] = t.split(':').map(Number);
@@ -454,38 +457,42 @@ function IdleRoomCard({ room, onAssign }: { room: RoomDetail; onAssign: (r: Room
     : 'bg-gray-50 dark:bg-neutral-800/40 border-gray-200 dark:border-neutral-700';
 
   return (
-    <div className={cn('group relative rounded-xl border p-4 transition-all hover:shadow-sm', tone, !available && 'opacity-70')}>
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm leading-tight truncate">{roomName}</p>
-          {room.floor != null && (
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{t('الطابق', 'Floor')} {room.floor}</p>
-          )}
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{t('لا يوجد طبيب', 'No doctor assigned')}</p>
-        </div>
-        <span className="w-7 h-7 rounded-lg bg-white dark:bg-neutral-900 border border-gray-200 dark:border-neutral-700 flex items-center justify-center text-[11px] font-bold text-gray-700 dark:text-gray-200 shadow-sm flex-shrink-0">
+    <div className={cn('group relative rounded-xl border p-3.5 transition-all hover:shadow-sm', tone, !available && 'opacity-70')}>
+      <div className="flex items-start gap-3">
+        {/* Code chip — left */}
+        <span className="w-9 h-9 rounded-lg bg-white dark:bg-neutral-900 border border-gray-200 dark:border-neutral-700 flex items-center justify-center text-[11px] font-bold text-gray-700 dark:text-gray-200 shadow-sm flex-shrink-0">
           {room.roomCode}
         </span>
-      </div>
 
-      <div className="flex items-center justify-between mt-3">
-        <span className={cn(
-          'inline-flex items-center gap-1.5 text-xs font-medium',
-          available ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-400',
-        )}>
-          <span className={cn('w-1.5 h-1.5 rounded-full', available ? 'bg-emerald-500' : 'bg-gray-400')} />
-          {available ? t('متاحة', 'Available') : t('غير نشطة', 'Inactive')}
-        </span>
-        {available && (
-          <button
-            type="button"
-            onClick={() => onAssign(room)}
-            className="inline-flex items-center gap-1 text-xs font-semibold text-primary-600 dark:text-primary-400 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            {t('تعيين', 'Assign')}
-          </button>
-        )}
+        {/* Name + meta — middle */}
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm leading-tight truncate">{roomName}</p>
+          {room.floor != null && (
+            <p className="text-xs text-gray-500 dark:text-gray-400 leading-snug">{t('الطابق', 'Floor')} {room.floor}</p>
+          )}
+          <p className="text-xs text-gray-400 dark:text-gray-500 leading-snug truncate">{t('لا يوجد طبيب', 'No doctor assigned')}</p>
+        </div>
+
+        {/* Assign affordance + status — top-right cluster */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {available && (
+            <button
+              type="button"
+              onClick={() => onAssign(room)}
+              title={t('تعيين طبيب', 'Assign doctor')}
+              className="p-1 rounded-md text-gray-400 hover:text-primary-600 hover:bg-white/70 dark:hover:bg-neutral-900/60 transition-colors"
+            >
+              <CalendarPlus className="w-4 h-4" />
+            </button>
+          )}
+          <span className={cn(
+            'inline-flex items-center gap-1.5 text-xs font-medium whitespace-nowrap',
+            available ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-400',
+          )}>
+            <span className={cn('w-1.5 h-1.5 rounded-full', available ? 'bg-emerald-500' : 'bg-gray-400')} />
+            {available ? t('متاحة', 'Available') : t('غير نشطة', 'Inactive')}
+          </span>
+        </div>
       </div>
     </div>
   );
