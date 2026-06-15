@@ -2,6 +2,20 @@
 #   docker compose -f docker-compose.yml -f docker-compose.sonar.yml up -d sonarqube
 # Reachable from Jenkins/scanner containers at http://fcms-sonarqube:9000 (host: 9100).
 services:
+  # SonarQube's embedded Elasticsearch refuses to start unless the HOST kernel
+  # has vm.max_map_count >= 262144 (a non-namespaced sysctl that cannot be set
+  # via a container's `sysctls:` key). Without it the container crash-loops and
+  # is never resolvable on the network, so the CI scanner fails with
+  # "fcms-sonarqube: Name does not resolve". This privileged one-shot raises it
+  # on the host before SonarQube starts, so `docker compose up` is self-
+  # sufficient on a fresh host. (Also persisted in /etc/sysctl.d/99-sonarqube.conf.)
+  sonarqube-sysctl:
+    image: busybox:1.36
+    container_name: fcms-sonarqube-sysctl
+    privileged: true
+    command: ["sh", "-c", "sysctl -w vm.max_map_count=262144"]
+    restart: "no"
+
   sonarqube:
     image: sonarqube:lts-community
     container_name: fcms-sonarqube
@@ -9,6 +23,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      sonarqube-sysctl:
+        condition: service_completed_successfully
     environment:
       SONAR_JDBC_URL: jdbc:postgresql://postgres:5432/fadl_sonar
       SONAR_JDBC_USERNAME: sonar

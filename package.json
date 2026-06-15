@@ -3,6 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "description": "Fadl Clinic Management System — Enterprise healthcare platform",
+  "packageManager": "pnpm@8.15.9",
   "engines": {
     "node": ">=16.0.0",
     "pnpm": ">=8.0.0"
