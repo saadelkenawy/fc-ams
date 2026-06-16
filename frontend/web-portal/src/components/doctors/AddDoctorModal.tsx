@@ -14,7 +14,7 @@ import { useTranslateName } from '@/hooks/useTranslateName';
 import {
   type IdentityForm, type SpecialtyEntry, type ConsultHourRow,
   emptyIdentity, newEntry, DEFAULT_CONSULT_HOURS, PAYMENT_METHODS, inputClass,
-  buildDoctorBody, validateDoctor, consultHoursPayload,
+  buildDoctorBody, validateDoctor, consultRowsError, scheduleBlockBody,
   SpecialtiesSection, ConsultationHoursEditor,
 } from './doctorForm';
 
@@ -49,9 +49,11 @@ export function AddDoctorModal({ open, onClose, onCreated }: AddDoctorModalProps
       const { data } = await doctorApi.post<{ data: { id: string } }>('/doctors', body);
       const created = data.data;
 
-      const hours = consultHoursPayload(consultHours);
-      if (hours.length > 0) {
-        await doctorApi.put(`/doctors/${created.id}/consultation-hours/bulk`, { hours });
+      // Seed the canonical weekly schedule so the new doctor shows hours in
+      // Schedule Management immediately (one block per enabled day).
+      for (let day = 0; day < consultHours.length; day++) {
+        const row = consultHours[day];
+        if (row.enabled) await doctorApi.post(`/doctors/${created.id}/schedules`, scheduleBlockBody(row, day));
       }
       return created;
     },
@@ -85,6 +87,8 @@ export function AddDoctorModal({ open, onClose, onCreated }: AddDoctorModalProps
     const errs = validateDoctor(form, entries, t);
     setErrors(errs);
     if (Object.keys(errs).length > 0) return;
+    const hoursErr = consultRowsError(consultHours, t);
+    if (hoursErr) { toast(hoursErr, 'error'); return; }
     mutation.mutate();
   }
 

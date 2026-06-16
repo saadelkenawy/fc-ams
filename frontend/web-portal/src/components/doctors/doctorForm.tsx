@@ -6,9 +6,9 @@
 // revenue splits, free-text sub-specialties, and the consultation-hours editor.
 
 import { useState } from 'react';
-import { Layers, TrendingUp, X, Plus, Clock } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import type { Doctor, Specialty, VisitTypeSplits, DoctorConsultationHours } from '@fadl/types';
+import { Layers, TrendingUp, X, Plus, Clock, CalendarRange } from 'lucide-react';
+import { cn, localDateISO } from '@/lib/utils';
+import type { Doctor, Specialty, VisitTypeSplits, DoctorSchedule } from '@fadl/types';
 
 export const DAYS_EN = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 export const DAYS_AR = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
@@ -44,12 +44,20 @@ export interface SpecialtyEntry {
   splits: SpecialtySplits;
 }
 
+// One row per weekday in the Consultation-Hours editor. This now drives the
+// canonical `doctor_schedules` table (the same data the Schedule-Management
+// page reads/writes) so edits made here are reflected there — and vice-versa.
+// `id`/`wasEnabled` carry the originating block so a save can reconcile:
+// create new blocks, update existing ones, and disable days turned off.
 export interface ConsultHourRow {
+  id?: string;            // existing doctor_schedules block id (first block of the day)
+  wasEnabled: boolean;    // had ≥1 active block when seeded
   enabled: boolean;
   startTime: string;
   endTime: string;
-  slotDurationMins: number;
-  maxPatients: number;
+  slotDurationMinutes: number;
+  validFrom: string;
+  validUntil: string;     // '' = open-ended
 }
 
 export interface IdentityForm {
@@ -78,13 +86,48 @@ export const emptyIdentity = (): IdentityForm => ({
   isOnlineDoctor: false, paymentMethod: 'instapay', paymentChannel: '', allowOverbooking: false,
 });
 
+export const CONSULT_SLOT_DURATIONS = [10, 15, 20, 30, 45, 60] as const;
+
 export const DEFAULT_CONSULT_HOURS: ConsultHourRow[] = Array.from({ length: 7 }, () => ({
+  wasEnabled: false,
   enabled: false,
   startTime: '09:00',
   endTime: '17:00',
-  slotDurationMins: 15,
-  maxPatients: 20,
+  slotDurationMinutes: 20,
+  validFrom: localDateISO(),
+  validUntil: '',
 }));
+
+/** How many appointment slots a working block yields. */
+export function consultSlotCount(startTime: string, endTime: string, duration: number): number {
+  const toMin = (s: string) => { const [h, m] = (s ?? '').slice(0, 5).split(':').map(Number); return h * 60 + m; };
+  const total = toMin(endTime) - toMin(startTime);
+  return total > 0 && duration > 0 ? Math.floor(total / duration) : 0;
+}
+
+/** Schedule-block request body for create (POST) / update (PUT). */
+export function scheduleBlockBody(row: ConsultHourRow, dayOfWeek: number) {
+  return {
+    dayOfWeek,
+    startTime: row.startTime,
+    endTime: row.endTime,
+    slotDurationMinutes: row.slotDurationMinutes,
+    validFrom: row.validFrom,
+    validUntil: row.validUntil || undefined,
+  };
+}
+
+/** Inline validation for the Consultation-Hours editor — returns first error. */
+export function consultRowsError(rows: ConsultHourRow[], t: (ar: string, en: string) => string): string | undefined {
+  for (const r of rows) {
+    if (!r.enabled) continue;
+    if (consultSlotCount(r.startTime, r.endTime, r.slotDurationMinutes) <= 0)
+      return t('ساعات العمل: وقت النهاية يجب أن يكون بعد البداية', 'Consultation hours: end must be after start');
+    if (r.validUntil && r.validUntil < r.validFrom)
+      return t('ساعات العمل: "صالح حتى" يجب أن يكون بعد "صالح من"', 'Consultation hours: "valid until" must be after "valid from"');
+  }
+  return undefined;
+}
 
 export function mobileToE164(raw: string): string {
   const digits = raw.replace(/\D/g, '');
@@ -143,16 +186,25 @@ export function identityFromDoctor(d: Doctor): IdentityForm {
   };
 }
 
-export function consultRowsFromApi(hours: DoctorConsultationHours[]): ConsultHourRow[] {
+// Seed the per-day editor from the canonical `doctor_schedules` blocks. The
+// simplified editor surfaces one block per day (the earliest); extra blocks on
+// the same day are left untouched on save so multi-block days aren't clobbered.
+export function consultRowsFromSchedules(blocks: DoctorSchedule[]): ConsultHourRow[] {
   return DEFAULT_CONSULT_HOURS.map((def, day) => {
-    const h = hours.find((x) => x.dayOfWeek === day && x.isActive);
-    if (!h) return { ...def };
+    const dayBlocks = blocks.filter((b) => b.dayOfWeek === day);
+    if (dayBlocks.length === 0) return { ...def };
+    const sorted = [...dayBlocks].sort((a, b) => a.startTime.localeCompare(b.startTime));
+    const block = sorted.find((b) => b.isActive) ?? sorted[0];
+    const active = dayBlocks.some((b) => b.isActive);
     return {
-      enabled: true,
-      startTime: h.startTime.slice(0, 5),
-      endTime: h.endTime.slice(0, 5),
-      slotDurationMins: h.slotDurationMins,
-      maxPatients: h.maxPatients,
+      id: block.id,
+      wasEnabled: active,
+      enabled: active,
+      startTime: block.startTime.slice(0, 5),
+      endTime: block.endTime.slice(0, 5),
+      slotDurationMinutes: block.slotDurationMinutes,
+      validFrom: block.validFrom || localDateISO(),
+      validUntil: block.validUntil ?? '',
     };
   });
 }
@@ -521,37 +573,58 @@ export function ConsultationHoursEditor({
                 {lang === 'ar' ? DAYS_AR[i] : DAYS_EN[i]}
               </span>
             </label>
-            {row.enabled ? (
-              <div className="flex items-center gap-2 flex-1 flex-wrap">
-                <input
-                  type="time" className="h-8 rounded border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-2 text-xs w-24"
-                  value={row.startTime} onChange={(e) => patch(i, { startTime: e.target.value })}
-                />
-                <span className="text-gray-400 text-xs">–</span>
-                <input
-                  type="time" className="h-8 rounded border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-2 text-xs w-24"
-                  value={row.endTime} onChange={(e) => patch(i, { endTime: e.target.value })}
-                />
-                <div className="flex items-center gap-1">
-                  <label className="text-[10px] text-gray-500 shrink-0">{t('كل', 'Every')}</label>
-                  <select
-                    className="h-8 rounded border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-1 text-xs w-16"
-                    value={row.slotDurationMins} onChange={(e) => patch(i, { slotDurationMins: Number(e.target.value) })}
-                  >
-                    {[10, 15, 20, 30, 45, 60].map((m) => <option key={m} value={m}>{m}{t('د', 'm')}</option>)}
-                  </select>
-                </div>
-                <div className="flex items-center gap-1">
-                  <label className="text-[10px] text-gray-500 shrink-0">{t('أقصى', 'Max')}</label>
+            {row.enabled ? (() => {
+              const slots = consultSlotCount(row.startTime, row.endTime, row.slotDurationMinutes);
+              const dateInvalid = !!row.validUntil && row.validUntil < row.validFrom;
+              return (
+                <div className="flex items-center gap-2 flex-1 flex-wrap">
                   <input
-                    type="number" className="h-8 rounded border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-2 text-xs w-14"
-                    min={1} max={200}
-                    value={row.maxPatients} onChange={(e) => patch(i, { maxPatients: Number(e.target.value) })}
+                    type="time" className="h-8 rounded border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-2 text-xs w-24"
+                    value={row.startTime} onChange={(e) => patch(i, { startTime: e.target.value })}
                   />
-                  <span className="text-[10px] text-gray-400">{t('مريض', 'pts')}</span>
+                  <span className="text-gray-400 text-xs">–</span>
+                  <input
+                    type="time" className="h-8 rounded border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-2 text-xs w-24"
+                    value={row.endTime} onChange={(e) => patch(i, { endTime: e.target.value })}
+                  />
+                  <div className="flex items-center gap-1">
+                    <label className="text-[10px] text-gray-500 shrink-0">{t('المدة', 'Duration')}</label>
+                    <select
+                      className="h-8 rounded border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-1 text-xs w-16"
+                      value={row.slotDurationMinutes} onChange={(e) => patch(i, { slotDurationMinutes: Number(e.target.value) })}
+                    >
+                      {CONSULT_SLOT_DURATIONS.map((m) => <option key={m} value={m}>{m}{t('د', 'm')}</option>)}
+                    </select>
+                  </div>
+                  {/* Computed slot count (replaces the old max-patients box) */}
+                  <span className={cn(
+                    'px-2 py-1 rounded-md text-[10px] font-semibold tabular-nums',
+                    slots > 0
+                      ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
+                      : 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400',
+                  )}>
+                    {slots} {t('موعد', 'slots')}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <CalendarRange className="w-3 h-3 text-gray-400 shrink-0" />
+                    <label className="text-[10px] text-gray-500 shrink-0">{t('من', 'From')}</label>
+                    <input
+                      type="date" className="h-8 rounded border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-2 text-xs w-32"
+                      value={row.validFrom} onChange={(e) => patch(i, { validFrom: e.target.value })}
+                    />
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <label className="text-[10px] text-gray-500 shrink-0">{t('حتى', 'Until')}</label>
+                    <input
+                      type="date" className={cn('h-8 rounded border bg-white dark:bg-neutral-800 px-2 text-xs w-32',
+                        dateInvalid ? 'border-red-400' : 'border-gray-200 dark:border-neutral-600')}
+                      value={row.validUntil} min={row.validFrom}
+                      onChange={(e) => patch(i, { validUntil: e.target.value })}
+                    />
+                  </div>
                 </div>
-              </div>
-            ) : (
+              );
+            })() : (
               <span className="text-xs text-gray-400 dark:text-gray-500 italic">{t('غير متاح', 'Day off')}</span>
             )}
           </div>
@@ -559,14 +632,4 @@ export function ConsultationHoursEditor({
       </div>
     </>
   );
-}
-
-/** Map enabled consultation-hour rows to the bulk PUT payload. */
-export function consultHoursPayload(rows: ConsultHourRow[]) {
-  return rows
-    .map((h, i) => ({ ...h, dayOfWeek: i }))
-    .filter((h) => h.enabled)
-    .map(({ dayOfWeek, startTime, endTime, slotDurationMins, maxPatients }) => ({
-      dayOfWeek, startTime, endTime, slotDurationMins, maxPatients,
-    }));
 }

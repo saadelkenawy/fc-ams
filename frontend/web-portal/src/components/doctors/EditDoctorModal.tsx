@@ -6,7 +6,7 @@ import { Stethoscope, Phone, BadgeDollarSign, CreditCard, AlertCircle, Loader2 }
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { useLang } from '@/contexts/LanguageContext';
-import { useSpecialties, useConsultHours } from '@/hooks/useDoctors';
+import { useSpecialties, useDoctorSchedules } from '@/hooks/useDoctors';
 import { useToast } from '@/components/ui/Toast';
 import { cn } from '@/lib/utils';
 import { doctorApi } from '@/lib/api';
@@ -15,8 +15,8 @@ import { useTranslateName } from '@/hooks/useTranslateName';
 import {
   type IdentityForm, type SpecialtyEntry, type ConsultHourRow,
   newEntry, DEFAULT_CONSULT_HOURS, PAYMENT_METHODS, inputClass,
-  identityFromDoctor, entriesFromDoctor, consultRowsFromApi,
-  buildDoctorBody, validateDoctor, consultHoursPayload,
+  identityFromDoctor, entriesFromDoctor, consultRowsFromSchedules,
+  buildDoctorBody, validateDoctor, consultRowsError, scheduleBlockBody,
   SpecialtiesSection, ConsultationHoursEditor,
 } from './doctorForm';
 
@@ -31,7 +31,7 @@ export function EditDoctorModal({ open, onClose, doctor }: EditDoctorModalProps)
   const { toast } = useToast();
   const qc = useQueryClient();
   const { data: specialties = [] } = useSpecialties();
-  const { data: consultHoursApi } = useConsultHours(open ? doctor.id : '');
+  const { data: schedulesApi } = useDoctorSchedules(open ? doctor.id : '');
   const { translate, translating } = useTranslateName();
 
   const [form, setForm] = useState<IdentityForm>(() => identityFromDoctor(doctor));
@@ -48,24 +48,36 @@ export function EditDoctorModal({ open, onClose, doctor }: EditDoctorModalProps)
     }
   }, [open, doctor]);
 
-  // Seed consultation hours once they load (separate query).
+  // Seed consultation hours from the canonical weekly schedule once it loads.
   useEffect(() => {
-    if (open && consultHoursApi) setConsultHours(consultRowsFromApi(consultHoursApi));
-  }, [open, consultHoursApi]);
+    if (open && schedulesApi) setConsultHours(consultRowsFromSchedules(schedulesApi));
+  }, [open, schedulesApi]);
 
   const mutation = useMutation({
     mutationFn: async () => {
       const body = buildDoctorBody(form, entries, doctor.overbookingBufferPercentage);
       await doctorApi.patch<ApiResponse<Doctor>>(`/doctors/${doctor.id}`, { ...body, version: doctor.version });
-      // Only push consultation hours once the existing set has loaded — otherwise
-      // a quick save would replace real hours with the empty default and wipe them.
-      if (consultHoursApi !== undefined) {
-        await doctorApi.put(`/doctors/${doctor.id}/consultation-hours/bulk`, { hours: consultHoursPayload(consultHours) });
+      // Reconcile the canonical weekly schedule (doctor_schedules) so edits made
+      // here surface in Schedule Management. Only run once the existing schedule
+      // has loaded — otherwise a quick save would act on the empty default.
+      // Each day: update its existing block, create a new one, or disable a day
+      // that was turned off (disable preserves any extra blocks on that day).
+      if (schedulesApi !== undefined) {
+        for (let day = 0; day < consultHours.length; day++) {
+          const row = consultHours[day];
+          if (row.enabled) {
+            const blockBody = scheduleBlockBody(row, day);
+            if (row.id) await doctorApi.put(`/doctors/${doctor.id}/schedules/${row.id}`, blockBody);
+            else await doctorApi.post(`/doctors/${doctor.id}/schedules`, blockBody);
+          } else if (row.wasEnabled) {
+            await doctorApi.patch(`/doctors/${doctor.id}/schedules/day/${day}`, { isActive: false });
+          }
+        }
       }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['doctors'] });
-      qc.invalidateQueries({ queryKey: ['consult-hours', doctor.id] });
+      qc.invalidateQueries({ queryKey: ['doctor-schedules', doctor.id] });
       toast(t('تم حفظ بيانات الطبيب', 'Doctor profile saved.'), 'success');
       onClose();
     },
@@ -92,6 +104,8 @@ export function EditDoctorModal({ open, onClose, doctor }: EditDoctorModalProps)
     const errs = validateDoctor(form, entries, t);
     setErrors(errs);
     if (Object.keys(errs).length > 0) return;
+    const hoursErr = consultRowsError(consultHours, t);
+    if (hoursErr) { toast(hoursErr, 'error'); return; }
     mutation.mutate();
   }
 
