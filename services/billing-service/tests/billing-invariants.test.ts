@@ -137,6 +137,18 @@ describe('billing ledger invariants', () => {
     expect(Number(updated.clinic_share)).toBe(1000);
   });
 
+  it('approved_charge change on a PAID (settled) row is rejected (P0001)', async () => {
+    const tx = await withBranch(1, (c) => insertTx(c));
+    await withBranch(1, (c) => c.query(
+      `UPDATE financial_transactions SET payment_status = 'paid' WHERE id = $1`, [tx.id],
+    ));
+    await expect(
+      withBranch(1, (c) => c.query(
+        `UPDATE financial_transactions SET approved_charge = 5000 WHERE id = $1`, [tx.id],
+      )),
+    ).rejects.toMatchObject({ code: 'P0001' });
+  });
+
   it('RLS: rows are invisible without a branch context (fail closed)', async () => {
     const tx = await withBranch(1, (c) => insertTx(c));
     // A context-less query either errors (policy casts the unset/empty setting

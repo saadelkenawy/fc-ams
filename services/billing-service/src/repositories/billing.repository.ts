@@ -262,13 +262,34 @@ export async function updateProcedureCost(
     if (!existing.length) {
       throw Object.assign(new Error('Transaction not found'), { statusCode: 404, code: 'TRANSACTION_NOT_FOUND' });
     }
-    if ((existing[0] as Record<string, unknown>).payment_status === 'reconciled') {
+    // Charge/cost are frozen once the row is settled — mirrors the DB guard in
+    // V016 (protect_financial_amounts). Blocked here for a clean 403 instead of
+    // letting the trigger throw P0001 → 500.
+    const cstatus = (existing[0] as Record<string, unknown>).payment_status as string;
+    if (cstatus === 'reconciled') {
       throw Object.assign(new Error('Record is reconciled and locked'), { statusCode: 403, code: 'RECORD_RECONCILED' });
     }
-    const { rows } = await client.query(
-      `UPDATE financial_transactions SET procedure_cost = $2 WHERE id = $1 RETURNING *`,
-      [id, procedureCost],
-    );
+    if (cstatus === 'refunded') {
+      throw Object.assign(new Error('Transaction is refunded and locked'), { statusCode: 403, code: 'RECORD_REFUNDED' });
+    }
+    if (cstatus === 'paid') {
+      throw Object.assign(new Error('Transaction is settled and locked'), { statusCode: 403, code: 'RECORD_SETTLED' });
+    }
+    let rows;
+    try {
+      ({ rows } = await client.query(
+        `UPDATE financial_transactions SET procedure_cost = $2 WHERE id = $1 RETURNING *`,
+        [id, procedureCost],
+      ));
+    } catch (err) {
+      // Defense in depth: if the row settled between the SELECT FOR UPDATE check
+      // and here (or any other settled state), surface the DB guard as a 403.
+      if ((err as { code?: string }).code === 'P0001') {
+        throw Object.assign(new Error('Charge and procedure cost are immutable on settled transactions'),
+          { statusCode: 403, code: 'RECORD_SETTLED' });
+      }
+      throw err;
+    }
     return rowToTransaction(rows[0] as Record<string, unknown>);
   });
 }
@@ -987,12 +1008,25 @@ export async function updateApprovedChargeByAppointmentId(
     if (status === 'refunded') {
       throw Object.assign(new Error('Transaction is refunded and locked'), { statusCode: 403, code: 'RECORD_REFUNDED' });
     }
+    if (status === 'paid') {
+      throw Object.assign(new Error('Transaction is settled and locked'), { statusCode: 403, code: 'RECORD_SETTLED' });
+    }
     // DB trigger aab_recalc_charge recalculates source_fee_amount, gross_revenue,
     // doctor_share, clinic_share using the stored percentages.
-    const { rows } = await client.query(
-      `UPDATE financial_transactions SET approved_charge = $2 WHERE appointment_id = $1 RETURNING *`,
-      [appointmentId, newCharge],
-    );
+    let rows;
+    try {
+      ({ rows } = await client.query(
+        `UPDATE financial_transactions SET approved_charge = $2 WHERE appointment_id = $1 RETURNING *`,
+        [appointmentId, newCharge],
+      ));
+    } catch (err) {
+      // Defense in depth: V016 trigger freezes charge on settled rows (P0001).
+      if ((err as { code?: string }).code === 'P0001') {
+        throw Object.assign(new Error('Charge is immutable on settled transactions'),
+          { statusCode: 403, code: 'RECORD_SETTLED' });
+      }
+      throw err;
+    }
     return rowToTransaction(rows[0] as Record<string, unknown>);
   });
 }
