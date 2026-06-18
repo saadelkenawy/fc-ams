@@ -131,5 +131,21 @@ A change to `shared/` or root config files (`pnpm-workspace.yaml`, `tsconfig.bas
 - **Appointment double-booking**: prevented by a PostgreSQL exclusion constraint on `(doctor_id, appointment_date, time_range)` — collision is rejected at the DB level, not in application code.
 - **Patient search**: uses a GIN-indexed `tsvector` column (`name_search`) with `to_tsquery('simple', 'token:*')` — results appear from the first character typed.
 - **Revenue splits**: stored as JSONB on `doctors.revenue_splits`; when splits change, `billing-service POST /compensation/:id` with `applyToExisting: true` back-patches all non-reconciled transactions via a single UPDATE + trigger.
-- **Settlements**: immutable once created — `protect_financial_amounts()` blocks UPDATE/DELETE on `settlement_records`. Requires admin password verification via identity-service.
+- **Settlements**: immutable once created — `prevent_settlement_modification()` blocks UPDATE/DELETE on `settlement_records`. Requires admin password verification via identity-service.
 - **Idempotency**: `financial_transactions` has a `UNIQUE (branch_id, transaction_date, idempotency_key)` constraint per partition; duplicate POSTs return the existing record.
+
+---
+
+## Agent skills
+
+### Issue tracker
+
+Issues tracked in GitHub Issues (`saadelkenawy/fc-ams`) via the `gh` CLI. External PRs are not a triage surface. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Canonical five-role vocabulary, default strings (`needs-triage` / `needs-info` / `ready-for-agent` / `ready-for-human` / `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
