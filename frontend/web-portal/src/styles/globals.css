@@ -153,13 +153,15 @@
   :root[data-text-size="xl"] { font-size:20px; }
 
   html { @apply antialiased; }
-  body {
+  /* `html body` specificity (0,0,2) intentionally beats CoreUI/Bootstrap reboot
+     `body` (0,0,1) so our fonts + surface tokens win regardless of CSS load order. */
+  html body {
     background-color: var(--color-bg);
     color: var(--color-text-primary);
     font-family: var(--font-manrope), var(--font-tajawal), system-ui, sans-serif;
     transition: background-color 200ms ease, color 200ms ease;
   }
-  body[dir="rtl"] {
+  html body[dir="rtl"] {
     font-family: var(--font-tajawal), var(--font-manrope), system-ui, sans-serif;
   }
 

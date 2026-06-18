@@ -1,4 +1,5 @@
 'use client';
+import { CTable, CTableHead, CTableBody, CTableRow, CTableHeaderCell, CTableDataCell } from '@coreui/react';
 
 import { useState } from 'react';
 import { Search, Plus, Pencil, Store, CheckCircle, XCircle } from 'lucide-react';
@@ -174,26 +175,26 @@ export default function VendorsPage() {
         </CardHeader>
         <CardContent className="p-0 mt-4">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-100 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-800/50">
+            <CTable className="w-full text-sm">
+              <CTableHead>
+                <CTableRow className="border-b border-gray-100 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-800/50">
                   {[t('اسم المورد','Vendor'), t('النوع','Type'), t('الفئات','Categories'), t('جهة الاتصال','Contact'), t('الحالة','Status'), ''].map((h) => (
-                    <th key={h} className="text-start px-4 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">{h}</th>
+                    <CTableHeaderCell key={h} className="text-start px-4 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">{h}</CTableHeaderCell>
                   ))}
-                </tr>
-              </thead>
-              <tbody>
+                </CTableRow>
+              </CTableHead>
+              <CTableBody>
                 {isLoading
                   ? Array.from({ length: 6 }).map((_, i) => (
-                      <tr key={i} className="border-b border-gray-50 dark:border-neutral-700/50">
-                        <td colSpan={6} className="px-4 py-3"><div className="animate-pulse bg-gray-200 dark:bg-neutral-700 rounded h-4" /></td>
-                      </tr>
+                      <CTableRow key={i} className="border-b border-gray-50 dark:border-neutral-700/50">
+                        <CTableDataCell colSpan={6} className="px-4 py-3"><div className="animate-pulse bg-gray-200 dark:bg-neutral-700 rounded h-4" /></CTableDataCell>
+                      </CTableRow>
                     ))
                   : vendors.length === 0
-                  ? <tr><td colSpan={6} className="px-4 py-12 text-center text-gray-400">{t('لا يوجد موردون', 'No vendors found')}</td></tr>
+                  ? <CTableRow><CTableDataCell colSpan={6} className="px-4 py-12 text-center text-gray-400">{t('لا يوجد موردون', 'No vendors found')}</CTableDataCell></CTableRow>
                   : vendors.map((v) => (
-                      <tr key={v.id} className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors">
-                        <td className="px-4 py-3">
+                      <CTableRow key={v.id} className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors">
+                        <CTableDataCell className="px-4 py-3">
                           <div className="flex items-center gap-2">
                             <Store className="w-4 h-4 text-gray-400 flex-shrink-0" />
                             <div>
@@ -201,41 +202,41 @@ export default function VendorsPage() {
                               {v.brandsCovered && <p className="text-xs text-gray-500 max-w-xs truncate">{v.brandsCovered}</p>}
                             </div>
                           </div>
-                        </td>
-                        <td className="px-4 py-3">
+                        </CTableDataCell>
+                        <CTableDataCell className="px-4 py-3">
                           <Badge variant={TYPE_BADGE[v.vendorType] ?? 'default'} className="whitespace-nowrap text-xs">
                             {v.vendorType === 'Local Egyptian manufacturer' ? t('مصنّع مصري','Local Mfg.') :
                              v.vendorType === 'Authorized international distributor' ? t('موزع دولي معتمد','Intl. Dist.') :
                              t('مستورد طبي','Med. Importer')}
                           </Badge>
-                        </td>
-                        <td className="px-4 py-3">
+                        </CTableDataCell>
+                        <CTableDataCell className="px-4 py-3">
                           <div className="flex flex-wrap gap-1 max-w-xs">
                             {v.categoriesServed.slice(0, 2).map((cat) => (
                               <span key={cat} className="text-xs bg-gray-100 dark:bg-neutral-700 rounded px-1.5 py-0.5 text-gray-600 dark:text-gray-400">{cat.split(' ')[0]}</span>
                             ))}
                             {v.categoriesServed.length > 2 && <span className="text-xs text-gray-400">+{v.categoriesServed.length - 2}</span>}
                           </div>
-                        </td>
-                        <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-400">
+                        </CTableDataCell>
+                        <CTableDataCell className="px-4 py-3 text-xs text-gray-600 dark:text-gray-400">
                           {v.contactName && <p>{v.contactName}</p>}
                           {v.contactPhone && <p className="text-gray-400">{v.contactPhone}</p>}
-                        </td>
-                        <td className="px-4 py-3">
+                        </CTableDataCell>
+                        <CTableDataCell className="px-4 py-3">
                           {v.isApproved
                             ? <span className="flex items-center gap-1 text-xs text-emerald-600"><CheckCircle className="w-3.5 h-3.5" />{t('معتمد','Approved')}</span>
                             : <span className="flex items-center gap-1 text-xs text-red-500"><XCircle className="w-3.5 h-3.5" />{t('غير معتمد','Unapproved')}</span>}
-                        </td>
-                        <td className="px-4 py-3">
+                        </CTableDataCell>
+                        <CTableDataCell className="px-4 py-3">
                           <button onClick={() => openEdit(v)} className="p-1.5 rounded-md text-gray-400 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors">
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
-                        </td>
-                      </tr>
+                        </CTableDataCell>
+                      </CTableRow>
                     ))
                 }
-              </tbody>
-            </table>
+              </CTableBody>
+            </CTable>
           </div>
           {!isLoading && total > limit && (
             <Pagination page={page} total={total} limit={limit} onPageChange={setPage} onLimitChange={() => {}} pageSizes={[50]} />

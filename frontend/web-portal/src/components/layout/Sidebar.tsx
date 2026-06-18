@@ -1,321 +1,135 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
+import {
+  CSidebar, CSidebarHeader, CSidebarBrand, CSidebarNav, CSidebarFooter,
+  CSidebarToggler, CNavTitle, CNavItem, CNavLink, CBadge,
+} from '@coreui/react';
 import {
   LayoutDashboard, Users, CalendarDays, Stethoscope, Receipt,
   Banknote, BarChart3, FileText, Clipboard, Settings, Zap,
   List, CreditCard, TrendingUp, Home, LogOut, HeartPulse, FileHeart, Bot,
-  ChevronLeft, ChevronRight, Share2, Plug, Package, Archive, Store, Bell, DoorOpen,
+  Share2, Plug, Package, Archive, Store, Bell, DoorOpen,
   UserPlus, Pill, Monitor,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLang } from '@/contexts/LanguageContext';
-import { getNavForRole, NavItem } from './nav-config';
+import { getNavForRole } from './nav-config';
 
-const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+const ICON_MAP: Record<string, React.ComponentType<{ className?: string; style?: React.CSSProperties }>> = {
   LayoutDashboard, Users, CalendarDays, Stethoscope, Receipt,
   Banknote, BarChart3, FileText, Clipboard, Settings, Zap,
   List, CreditCard, TrendingUp, Home, FileHeart, Bot, Share2, Plug, Package,
   Archive, Store, Bell, DoorOpen, UserPlus, Pill, Monitor,
 };
 
-const MIN_WIDTH  = 60;
-const MAX_WIDTH  = 320;
-const SNAP_FULL  = 256;
-const COLLAPSED  = 68;
-const STORAGE_KEY = 'fcms_sidebar_width';
-
-function savedWidth(): number {
-  if (typeof window === 'undefined') return SNAP_FULL;
-  const v = localStorage.getItem(STORAGE_KEY);
-  const n = v ? parseInt(v, 10) : NaN;
-  return isNaN(n) ? SNAP_FULL : Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, n));
-}
-
-function NavLink({
-  item, active, collapsed, onMobileClose,
-}: {
-  item: NavItem;
-  active: boolean;
-  collapsed: boolean;
-  onMobileClose?: () => void;
-}) {
-  const { lang } = useLang();
-  const Icon = ICON_MAP[item.icon] ?? LayoutDashboard;
-  const label = lang === 'ar' ? item.labelAr : item.labelEn;
-  return (
-    <Link
-      href={item.href}
-      onClick={onMobileClose}
-      title={collapsed ? label : undefined}
-      aria-current={active ? 'page' : undefined}
-      className={cn(
-        'relative flex items-center gap-3 rounded-lg text-sm font-medium transition-colors duration-150 overflow-hidden',
-        collapsed ? 'justify-center p-2.5' : 'px-3 py-2.5',
-        active
-          ? collapsed
-            ? 'bg-primary-600/25 text-white'
-            : 'bg-white/[.08] text-white'
-          : 'text-slate-400 hover:text-white hover:bg-white/10',
-      )}
-    >
-      {/* Expanded: left-edge bar indicator */}
-      {active && !collapsed && (
-        <span className="absolute start-0 top-1 bottom-1 w-[3px] rounded-e-sm bg-primary-500" aria-hidden="true" />
-      )}
-      {/* Collapsed: bottom dot indicator */}
-      {active && collapsed && (
-        <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-primary-400" aria-hidden="true" />
-      )}
-      <Icon className="w-4 h-4 flex-shrink-0" />
-      <AnimatePresence>
-        {!collapsed && (
-          <motion.span
-            className="flex-1 truncate"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.12 }}
-          >
-            {label}
-          </motion.span>
-        )}
-      </AnimatePresence>
-      <AnimatePresence>
-        {!collapsed && item.badge && (
-          <motion.span
-            className="ms-auto bg-white/20 text-white text-xs rounded-full px-1.5 py-0.5 min-w-[1.25rem] text-center"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.12 }}
-          >
-            {item.badge}
-          </motion.span>
-        )}
-      </AnimatePresence>
-    </Link>
-  );
-}
-
 interface SidebarProps {
-  mobileOpen: boolean;
-  onMobileClose: () => void;
+  /** Visibility — true shows the sidebar (in-flow on desktop, drawer on mobile).
+      CoreUI routes this to its desktop/mobile buckets internally and auto-closes
+      the mobile drawer on nav click / outside click. We intentionally do NOT
+      bind CoreUI's onVisibleChange to our state: it fires with inViewport on
+      mount (false during hydration) which would re-hide the sidebar. */
+  visible: boolean;
+  /** Desktop collapsed-to-icons state (hover-expands via CoreUI `unfoldable`). */
+  unfoldable: boolean;
+  onUnfoldableToggle: () => void;
 }
 
-export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
-  const pathname       = usePathname();
-  const { user, logout } = useAuth();
-  const { lang, t }    = useLang();
-  const navGroups      = getNavForRole(user?.role ?? 'receptionist');
+export function Sidebar({ visible, unfoldable, onUnfoldableToggle }: SidebarProps) {
+  const pathname           = usePathname();
+  const { user, logout }   = useAuth();
+  const { lang, t }        = useLang();
+  const navGroups          = getNavForRole(user?.role ?? 'receptionist');
+  const userName           = lang === 'ar' ? user?.nameAr : user?.nameEn;
 
-  const [width, setWidth]       = useState(SNAP_FULL);
-  const [snapping, setSnapping] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-  const dragging  = useRef(false);
-  const startX    = useRef(0);
-  const startW    = useRef(SNAP_FULL);
-
-  // On mobile the sidebar is always fully expanded
-  const collapsed = !isMobile && width <= COLLAPSED;
-
-  useEffect(() => { setWidth(savedWidth()); }, []);
-  useEffect(() => { localStorage.setItem(STORAGE_KEY, String(width)); }, [width]);
-
-  useEffect(() => {
-    const mq = window.matchMedia('(max-width: 1023px)');
-    setIsMobile(mq.matches);
-    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-    mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
-  }, []);
-
-  const onHandleMouseDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    dragging.current = true;
-    startX.current   = e.clientX;
-    startW.current   = width;
-    document.body.style.cursor     = 'col-resize';
-    document.body.style.userSelect = 'none';
-
-    function move(ev: MouseEvent) {
-      if (!dragging.current) return;
-      const delta = lang === 'ar' ? startX.current - ev.clientX : ev.clientX - startX.current;
-      setWidth(Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, startW.current + delta)));
-    }
-    function up() {
-      dragging.current = false;
-      document.body.style.cursor     = '';
-      document.body.style.userSelect = '';
-      document.removeEventListener('mousemove', move);
-      document.removeEventListener('mouseup', up);
-    }
-    document.addEventListener('mousemove', move);
-    document.addEventListener('mouseup', up);
-  }, [width, lang]);
-
-  function toggleCollapse() {
-    setSnapping(true);
-    setWidth(collapsed ? SNAP_FULL : MIN_WIDTH);
-    setTimeout(() => setSnapping(false), 250);
-  }
-
-  // Mobile: translate off-screen toward the start edge; desktop: no transform
-  const mobileHiddenClass = lang === 'ar' ? 'translate-x-full' : '-translate-x-full';
+  const isActive = (href: string) =>
+    href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(href + '/');
 
   return (
-    <>
-      {/* Mobile backdrop */}
-      <AnimatePresence>
-        {isMobile && mobileOpen && (
-          <motion.div
-            className="fixed inset-0 z-30 bg-black/50 lg:hidden"
-            aria-hidden="true"
-            onClick={onMobileClose}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-          />
-        )}
-      </AnimatePresence>
-
-    <aside
-      className={cn(
-        'flex flex-col min-h-screen bg-sidebar select-none',
-        // Mobile: fixed overlay
-        'fixed inset-y-0 start-0 z-40',
-        'transition-transform duration-200 ease-out',
-        isMobile && !mobileOpen && mobileHiddenClass,
-        // Desktop: static in normal flow, no translate, variable width
-        'lg:static lg:translate-x-0 lg:z-auto lg:transition-none',
-        !isMobile && snapping && 'lg:transition-[width] lg:duration-200 lg:ease-out',
-      )}
-      style={isMobile ? undefined : { width }}
+    <CSidebar
+      className="border-end"
+      colorScheme="dark"
+      placement="start"
+      unfoldable={unfoldable}
+      visible={visible}
     >
-      {/* Logo */}
-      <div className={cn('pt-5 pb-4 border-b border-white/10', collapsed ? 'px-3' : 'px-4')}>
-        <div className="flex items-center justify-center">
-          {collapsed ? (
-            <HeartPulse className="w-6 h-6 text-primary-400 flex-shrink-0" />
-          ) : (
-            <Image
-              src="/images/logo-dark-transparent.png"
-              alt="Fadl Clinic"
-              width={160}
-              height={36}
-              className="h-8 w-auto object-contain"
-              priority
-            />
-          )}
-        </div>
-        {!collapsed && (
-          <p className="text-slate-500 text-[11px] text-center mt-2 font-medium tracking-wide uppercase">
-            {lang === 'ar' ? 'نظام الإدارة' : 'Management System'}
-          </p>
-        )}
-      </div>
+      <CSidebarHeader className="border-bottom justify-content-center">
+        <CSidebarBrand as={Link} href="/">
+          <Image
+            src="/images/logo-dark-transparent.png"
+            alt="Fadl Clinic"
+            width={150}
+            height={34}
+            className="sidebar-brand-full"
+            style={{ height: 32, width: 'auto', objectFit: 'contain' }}
+            priority
+          />
+          <HeartPulse className="sidebar-brand-narrow" style={{ width: 24, height: 24 }} />
+        </CSidebarBrand>
+      </CSidebarHeader>
 
-      {/* Nav */}
-      <nav id="sidebar-nav" className={cn('flex-1 py-4 space-y-5 overflow-y-auto overflow-x-hidden', collapsed ? 'px-1' : 'px-3')}>
+      <CSidebarNav>
         {navGroups.map((group, gi) => (
           <div key={gi}>
-            <AnimatePresence>
-              {!collapsed && (group.groupAr ?? group.groupEn) && (
-                <motion.p
-                  className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-500"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.12 }}
-                >
-                  {lang === 'ar' ? group.groupAr : group.groupEn}
-                </motion.p>
-              )}
-            </AnimatePresence>
-            <div className="space-y-0.5">
-              {group.items.map((item) => (
-                <NavLink
-                  key={item.key}
-                  item={item}
-                  active={
-                    item.href === '/'
-                      ? pathname === '/'
-                      : pathname === item.href || pathname.startsWith(item.href + '/')
-                  }
-                  collapsed={collapsed}
-                  onMobileClose={isMobile ? onMobileClose : undefined}
-                />
-              ))}
-            </div>
+            {(group.groupAr ?? group.groupEn) && (
+              <CNavTitle>{lang === 'ar' ? group.groupAr : group.groupEn}</CNavTitle>
+            )}
+            {group.items.map((item) => {
+              const Icon = ICON_MAP[item.icon] ?? LayoutDashboard;
+              const label = lang === 'ar' ? item.labelAr : item.labelEn;
+              return (
+                <CNavItem key={item.key}>
+                  <CNavLink
+                    as={Link}
+                    href={item.href}
+                    active={isActive(item.href)}
+                  >
+                    <Icon className="nav-icon" style={{ width: 18, height: 18 }} />
+                    {label}
+                    {item.badge && (
+                      <CBadge color="primary" className="ms-auto">{item.badge}</CBadge>
+                    )}
+                  </CNavLink>
+                </CNavItem>
+              );
+            })}
           </div>
         ))}
-      </nav>
+      </CSidebarNav>
 
-      {/* User footer */}
-      <div className={cn('border-t border-white/10 py-4', collapsed ? 'px-1' : 'px-3')}>
-        <div className={cn('flex items-center gap-3 rounded-lg', collapsed ? 'justify-center flex-col gap-1 py-2' : 'px-3 py-2.5')}>
-          <div className="w-8 h-8 rounded-full bg-primary-600 flex items-center justify-center flex-shrink-0 text-white text-xs font-bold">
-            {(lang === 'ar' ? user?.nameAr : user?.nameEn)?.charAt(0) ?? '?'}
+      <CSidebarFooter className="border-top d-flex align-items-center justify-content-between">
+        <div className="d-flex align-items-center gap-2 overflow-hidden">
+          <div
+            className="d-flex align-items-center justify-content-center flex-shrink-0 rounded-circle text-white fw-bold"
+            style={{ width: 32, height: 32, background: 'var(--color-primary-600, #B71C1C)', fontSize: 12 }}
+          >
+            {userName?.charAt(0) ?? '?'}
           </div>
-          <AnimatePresence>
-            {!collapsed && (
-              <motion.div
-                className="flex-1 min-w-0"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.12 }}
-              >
-                <p className="text-white text-sm font-medium truncate">
-                  {lang === 'ar' ? user?.nameAr : user?.nameEn}
-                </p>
-                <p className="text-slate-400 text-xs truncate capitalize">{user?.role}</p>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          <div className="overflow-hidden sidebar-brand-full">
+            <div className="text-truncate small text-white">{userName}</div>
+            <div className="text-truncate text-white-50" style={{ fontSize: 11, textTransform: 'capitalize' }}>
+              {user?.role}
+            </div>
+          </div>
+        </div>
+        <div className="d-flex align-items-center">
           <button
+            type="button"
             onClick={logout}
-            className="text-slate-400 hover:text-white transition-colors p-2.5 rounded-lg min-w-[44px] min-h-[44px] flex items-center justify-center"
+            className="btn btn-sm btn-link text-white-50 p-1 sidebar-brand-full"
             title={t('تسجيل الخروج', 'Logout')}
             aria-label={t('تسجيل الخروج', 'Logout')}
           >
-            <LogOut className="w-4 h-4" />
+            <LogOut style={{ width: 16, height: 16 }} />
           </button>
+          <CSidebarToggler
+            className="d-none d-lg-flex"
+            onClick={onUnfoldableToggle}
+          />
         </div>
-      </div>
-
-      {/* Toggle collapse button — desktop only */}
-      <button
-        onClick={toggleCollapse}
-        className="hidden lg:flex absolute top-[72px] -end-[18px] z-20 w-9 h-9 rounded-full bg-white dark:bg-neutral-700 border border-gray-200 dark:border-neutral-600 items-center justify-center shadow-md hover:bg-gray-50 dark:hover:bg-neutral-600 transition-colors"
-        title={collapsed ? t('توسيع', 'Expand') : t('طي', 'Collapse')}
-        aria-label={collapsed ? t('توسيع القائمة الجانبية', 'Expand sidebar') : t('طي القائمة الجانبية', 'Collapse sidebar')}
-        aria-expanded={!collapsed}
-        aria-controls="sidebar-nav"
-      >
-        {lang === 'ar'
-          ? (collapsed ? <ChevronLeft className="w-3 h-3 text-gray-600 dark:text-gray-300" /> : <ChevronRight className="w-3 h-3 text-gray-600 dark:text-gray-300" />)
-          : (collapsed ? <ChevronRight className="w-3 h-3 text-gray-600 dark:text-gray-300" /> : <ChevronLeft className="w-3 h-3 text-gray-600 dark:text-gray-300" />)
-        }
-      </button>
-
-      {/* Drag handle — desktop only; pointer-only affordance (sidebar width is
-          cosmetic), hidden from assistive tech */}
-      {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
-      <div
-        aria-hidden="true"
-        onMouseDown={onHandleMouseDown}
-        className="hidden lg:block absolute inset-y-0 end-0 w-1.5 cursor-col-resize group z-10"
-      >
-        <div className="absolute inset-y-0 end-0 w-0.5 bg-transparent group-hover:bg-primary-500/50 transition-colors duration-150" />
-      </div>
-    </aside>
-    </>
+      </CSidebarFooter>
+    </CSidebar>
   );
 }

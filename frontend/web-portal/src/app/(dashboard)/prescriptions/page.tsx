@@ -1,4 +1,5 @@
 'use client';
+import { CTable, CTableHead, CTableBody, CTableRow, CTableHeaderCell, CTableDataCell } from '@coreui/react';
 
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
@@ -179,39 +180,39 @@ export default function PrescriptionsPage() {
           )}
           {rxList.length > 0 && (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="border-b border-gray-100 dark:border-neutral-700">
-                  <tr className="text-left rtl:text-right text-xs text-gray-500 dark:text-gray-400">
-                    <th className="px-4 py-3 font-medium">{t('المريض', 'Patient')}</th>
-                    <th className="px-4 py-3 font-medium">{t('الطبيب', 'Doctor')}</th>
-                    <th className="px-4 py-3 font-medium">{t('التشخيص', 'Diagnosis')}</th>
-                    <th className="px-4 py-3 font-medium">{t('الأدوية', 'Medications')}</th>
-                    <th className="px-4 py-3 font-medium">{t('الحالة', 'Status')}</th>
-                    <th className="px-4 py-3 font-medium">{t('التاريخ', 'Date')}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50 dark:divide-neutral-800">
+              <CTable className="w-full text-sm">
+                <CTableHead className="border-b border-gray-100 dark:border-neutral-700">
+                  <CTableRow className="text-left rtl:text-right text-xs text-gray-500 dark:text-gray-400">
+                    <CTableHeaderCell className="px-4 py-3 font-medium">{t('المريض', 'Patient')}</CTableHeaderCell>
+                    <CTableHeaderCell className="px-4 py-3 font-medium">{t('الطبيب', 'Doctor')}</CTableHeaderCell>
+                    <CTableHeaderCell className="px-4 py-3 font-medium">{t('التشخيص', 'Diagnosis')}</CTableHeaderCell>
+                    <CTableHeaderCell className="px-4 py-3 font-medium">{t('الأدوية', 'Medications')}</CTableHeaderCell>
+                    <CTableHeaderCell className="px-4 py-3 font-medium">{t('الحالة', 'Status')}</CTableHeaderCell>
+                    <CTableHeaderCell className="px-4 py-3 font-medium">{t('التاريخ', 'Date')}</CTableHeaderCell>
+                  </CTableRow>
+                </CTableHead>
+                <CTableBody className="divide-y divide-gray-50 dark:divide-neutral-800">
                   {rxList.map((rx) => {
                     const patient = patientMap.get(rx.patientId);
                     const doctor  = doctorMap.get(rx.doctorId);
                     return (
-                      <tr
+                      <CTableRow
                         key={rx.id}
                         onClick={() => setSelected(rx)}
                         className="cursor-pointer hover:bg-gray-50 dark:hover:bg-neutral-800/60 transition-colors"
                       >
-                        <td className="px-4 py-3">
+                        <CTableDataCell className="px-4 py-3">
                           <span className="font-medium text-gray-900 dark:text-gray-100">
                             {(lang === 'ar' ? patient?.nameAr : undefined) ?? patient?.nameEn ?? truncateUUID(rx.patientId)}
                           </span>
-                        </td>
-                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
+                        </CTableDataCell>
+                        <CTableDataCell className="px-4 py-3 text-gray-600 dark:text-gray-400">
                           {(lang === 'ar' ? doctor?.nameAr : undefined) ?? doctor?.nameEn ?? truncateUUID(rx.doctorId)}
-                        </td>
-                        <td className="px-4 py-3 max-w-xs truncate text-gray-700 dark:text-gray-300">
+                        </CTableDataCell>
+                        <CTableDataCell className="px-4 py-3 max-w-xs truncate text-gray-700 dark:text-gray-300">
                           {rx.diagnosis ?? '—'}
-                        </td>
-                        <td className="px-4 py-3">
+                        </CTableDataCell>
+                        <CTableDataCell className="px-4 py-3">
                           <div className="flex flex-wrap gap-1">
                             {rx.items.slice(0, 3).map((it) => (
                               <span
@@ -229,20 +230,20 @@ export default function PrescriptionsPage() {
                               <span className="text-xs text-gray-400">+{rx.items.length - 3}</span>
                             )}
                           </div>
-                        </td>
-                        <td className="px-4 py-3">
+                        </CTableDataCell>
+                        <CTableDataCell className="px-4 py-3">
                           <Badge variant={STATUS_BADGE[rx.status] ?? 'outline'}>
                             {lang === 'ar' ? STATUS_LABELS[rx.status].ar : STATUS_LABELS[rx.status].en}
                           </Badge>
-                        </td>
-                        <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                        </CTableDataCell>
+                        <CTableDataCell className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">
                           {formatDate(rx.createdAt)}
-                        </td>
-                      </tr>
+                        </CTableDataCell>
+                      </CTableRow>
                     );
                   })}
-                </tbody>
-              </table>
+                </CTableBody>
+              </CTable>
             </div>
           )}
 

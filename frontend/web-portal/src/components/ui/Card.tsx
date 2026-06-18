@@ -1,23 +1,24 @@
 import { HTMLAttributes, forwardRef } from 'react';
+import { CCard, CCardBody, CCardHeader } from '@coreui/react';
 import { cn } from '@/lib/utils';
+
+/**
+ * Card primitives now wrap CoreUI's CCard family so every page picks up the
+ * CoreUI surface (border, radius, shadow, dark-mode) without changing call
+ * sites. The original prop surface (className passthrough, ref, children) is
+ * preserved. CardTitle stays a styled heading to keep the existing type ramp.
+ */
 
 export const Card = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
-    <div
-      ref={ref}
-      className={cn(
-        'bg-white dark:bg-neutral-800 rounded-xl shadow-2 border border-gray-100 dark:border-neutral-700 transition-shadow duration-200 hover:shadow-3',
-        className,
-      )}
-      {...props}
-    />
+    <CCard ref={ref} className={cn('shadow-sm', className)} {...props} />
   ),
 );
 Card.displayName = 'Card';
 
 export const CardHeader = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn('p-5 pb-0', className)} {...props} />
+    <CCardHeader ref={ref} className={className} {...props} />
   ),
 );
 CardHeader.displayName = 'CardHeader';
@@ -28,7 +29,7 @@ export const CardTitle = forwardRef<HTMLParagraphElement, HTMLAttributes<HTMLPar
     // eslint-disable-next-line jsx-a11y/heading-has-content
     <h3
       ref={ref}
-      className={cn('text-base font-semibold text-gray-900 dark:text-gray-100 font-display', className)}
+      className={cn('text-base font-semibold text-gray-900 dark:text-gray-100 font-display mb-0', className)}
       {...props}
     />
   ),
@@ -37,7 +38,7 @@ CardTitle.displayName = 'CardTitle';
 
 export const CardContent = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn('p-5', className)} {...props} />
+    <CCardBody ref={ref} className={className} {...props} />
   ),
 );
 CardContent.displayName = 'CardContent';

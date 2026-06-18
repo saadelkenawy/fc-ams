@@ -1,4 +1,5 @@
 'use client';
+import { CTable, CTableHead, CTableBody, CTableRow, CTableHeaderCell, CTableDataCell, CTableFoot } from '@coreui/react';
 
 import { useState, useMemo, useCallback } from 'react';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
@@ -484,38 +485,38 @@ export default function SettlementsPage() {
         ) : (
           <div className="fc-card">
             <div className="fc-table-wrap">
-              <table className="fc-table">
-                <thead>
-                  <tr>
-                    <th className="w-8" />
-                    <th className="cursor-pointer hover:text-gray-700 select-none" onClick={() => toggleSort('name')}>
+              <CTable className="fc-table">
+                <CTableHead>
+                  <CTableRow>
+                    <CTableHeaderCell className="w-8" />
+                    <CTableHeaderCell className="cursor-pointer hover:text-gray-700 select-none" onClick={() => toggleSort('name')}>
                       {t('الطبيب', 'Doctor')} <SortIcon col="name" />
-                    </th>
-                    <th className="text-end cursor-pointer hover:text-gray-700 select-none" onClick={() => toggleSort('sessions')}>
+                    </CTableHeaderCell>
+                    <CTableHeaderCell className="text-end cursor-pointer hover:text-gray-700 select-none" onClick={() => toggleSort('sessions')}>
                       {t('جلسات', 'Sessions')} <SortIcon col="sessions" />
-                    </th>
-                    <th className="text-end cursor-pointer hover:text-gray-700 select-none" onClick={() => toggleSort('sessionFees')}>
+                    </CTableHeaderCell>
+                    <CTableHeaderCell className="text-end cursor-pointer hover:text-gray-700 select-none" onClick={() => toggleSort('sessionFees')}>
                       {t('رسوم الجلسة', 'Session Fees')} <SortIcon col="sessionFees" />
-                    </th>
-                    <th className="text-end" style={{ color: '#D97706' }}>
+                    </CTableHeaderCell>
+                    <CTableHeaderCell className="text-end" style={{ color: '#D97706' }}>
                       <span className="inline-flex items-center gap-1"><Share2 className="w-3 h-3" />{t('الوسيط', 'Mediator')}</span>
-                    </th>
-                    <th className="text-end" style={{ color: '#7C3AED' }}>
+                    </CTableHeaderCell>
+                    <CTableHeaderCell className="text-end" style={{ color: '#7C3AED' }}>
                       <span className="inline-flex items-center gap-1"><FlaskConical className="w-3 h-3" />{t('إضافية', 'Extra Svcs')}</span>
-                    </th>
-                    <th className="text-end cursor-pointer hover:text-gray-700 select-none" onClick={() => toggleSort('netPool')}>
+                    </CTableHeaderCell>
+                    <CTableHeaderCell className="text-end cursor-pointer hover:text-gray-700 select-none" onClick={() => toggleSort('netPool')}>
                       {t('الصافي', 'Net Pool')} <SortIcon col="netPool" />
-                    </th>
-                    <th className="text-end cursor-pointer select-none" style={{ color: '#2563EB' }} onClick={() => toggleSort('doctor')}>
+                    </CTableHeaderCell>
+                    <CTableHeaderCell className="text-end cursor-pointer select-none" style={{ color: '#2563EB' }} onClick={() => toggleSort('doctor')}>
                       <span className="inline-flex items-center gap-1"><Stethoscope className="w-3 h-3" />{t('الطبيب', 'Doctor')} <SortIcon col="doctor" /></span>
-                    </th>
-                    <th className="text-end cursor-pointer select-none" style={{ color: '#059669' }} onClick={() => toggleSort('clinic')}>
+                    </CTableHeaderCell>
+                    <CTableHeaderCell className="text-end cursor-pointer select-none" style={{ color: '#059669' }} onClick={() => toggleSort('clinic')}>
                       <span className="inline-flex items-center gap-1"><Building2 className="w-3 h-3" />{t('العيادة', 'Clinic')} <SortIcon col="clinic" /></span>
-                    </th>
-                    <th />
-                  </tr>
-                </thead>
-                <tbody ref={settlementsBodyRef}>
+                    </CTableHeaderCell>
+                    <CTableHeaderCell />
+                  </CTableRow>
+                </CTableHead>
+                <CTableBody ref={settlementsBodyRef}>
                   {settlements.map((s) => {
                     const sessionFees = s.totalSessionFees ?? (s.grossRevenue + s.totalSourceFees);
                     const extraSvcs   = s.totalExtraServices ?? 0;
@@ -524,35 +525,35 @@ export default function SettlementsPage() {
                     const docName     = doctorMap.get(s.doctorId)?.nameEn ?? s.doctorId.slice(0, 8);
                     return (
                       <>
-                        <tr
+                        <CTableRow
                           key={s.doctorId}
                           onClick={() => setExpanded(isOpen ? null : s.doctorId)}
                           className="cursor-pointer"
                         >
-                          <td className="text-gray-400">
+                          <CTableDataCell className="text-gray-400">
                             {isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                          </td>
-                          <td>
+                          </CTableDataCell>
+                          <CTableDataCell>
                             <div className="fc-pat">
                               <LetterAvatar name={docName} size={28} />
                               <span className="fc-pat-name">{docName}</span>
                             </div>
-                          </td>
-                          <td className="text-end fc-mono text-gray-600 dark:text-gray-300">
+                          </CTableDataCell>
+                          <CTableDataCell className="text-end fc-mono text-gray-600 dark:text-gray-300">
                             {(s.totalConsultations ?? 0) + (s.totalProcedures ?? 0)}
-                          </td>
-                          <td className="text-end fc-mono text-gray-700 dark:text-gray-200">{fmt(sessionFees)}</td>
-                          <td className="text-end fc-mono" style={{ color: '#D97706' }}>{fmt(s.totalSourceFees)}</td>
-                          <td className="text-end">
+                          </CTableDataCell>
+                          <CTableDataCell className="text-end fc-mono text-gray-700 dark:text-gray-200">{fmt(sessionFees)}</CTableDataCell>
+                          <CTableDataCell className="text-end fc-mono" style={{ color: '#D97706' }}>{fmt(s.totalSourceFees)}</CTableDataCell>
+                          <CTableDataCell className="text-end">
                             <span className="fc-mono" style={{ color: '#7C3AED' }}>{fmt(extraSvcs)}</span>
                             {extraCount > 0 && (
                               <span className="block text-[10px] text-gray-400 mt-0.5">({extraCount} {t('بنود', 'items')})</span>
                             )}
-                          </td>
-                          <td className="text-end fc-mono text-gray-600 dark:text-gray-300">{fmt(s.grossRevenue)}</td>
-                          <td className="text-end fc-mono font-semibold" style={{ color: '#1D4ED8' }}>{fmt(s.doctorShare)}</td>
-                          <td className="text-end fc-mono font-semibold" style={{ color: '#047857' }}>{fmt(s.clinicShare)}</td>
-                          <td>
+                          </CTableDataCell>
+                          <CTableDataCell className="text-end fc-mono text-gray-600 dark:text-gray-300">{fmt(s.grossRevenue)}</CTableDataCell>
+                          <CTableDataCell className="text-end fc-mono font-semibold" style={{ color: '#1D4ED8' }}>{fmt(s.doctorShare)}</CTableDataCell>
+                          <CTableDataCell className="text-end fc-mono font-semibold" style={{ color: '#047857' }}>{fmt(s.clinicShare)}</CTableDataCell>
+                          <CTableDataCell>
                             {(s.netPayable ?? 0) > 0 && (
                               <div className="fc-row-actions" style={{ opacity: 1 }}>
                                 <button
@@ -563,34 +564,34 @@ export default function SettlementsPage() {
                                 </button>
                               </div>
                             )}
-                          </td>
-                        </tr>
+                          </CTableDataCell>
+                        </CTableRow>
                         {isOpen && (
-                          <tr key={`${s.doctorId}-detail`}>
-                            <td colSpan={10} className="bg-gray-50/40 dark:bg-neutral-800/30 px-6 py-4">
+                          <CTableRow key={`${s.doctorId}-detail`}>
+                            <CTableDataCell colSpan={10} className="bg-gray-50/40 dark:bg-neutral-800/30 px-6 py-4">
                               <SettlementDetail doctorId={s.doctorId} from={from} to={to} locale={locale} t={t} />
-                            </td>
-                          </tr>
+                            </CTableDataCell>
+                          </CTableRow>
                         )}
                       </>
                     );
                   })}
-                </tbody>
-                <tfoot>
-                  <tr style={{ borderTop: '2px solid #E5E7EB' }} className="bg-gray-50 dark:bg-neutral-800/60 font-semibold text-sm">
-                    <td className="px-4 py-3" />
-                    <td className="px-4 py-3 text-xs text-gray-500 uppercase tracking-wide">{t('الإجمالي', 'Total')}</td>
-                    <td className="px-4 py-3 text-end fc-mono text-gray-600">{totalSessions}</td>
-                    <td className="px-4 py-3 text-end fc-mono text-gray-900 dark:text-gray-100">{fmt(totalSessionFees)}</td>
-                    <td className="px-4 py-3 text-end fc-mono" style={{ color: '#D97706' }}>{fmt(totalMediator)}</td>
-                    <td className="px-4 py-3 text-end fc-mono" style={{ color: '#7C3AED' }}>{fmt(totalExtraServices)}</td>
-                    <td className="px-4 py-3 text-end fc-mono text-gray-700 dark:text-gray-300">{fmt(totalNetPool)}</td>
-                    <td className="px-4 py-3 text-end fc-mono" style={{ color: '#1D4ED8' }}>{fmt(totalDoctors)}</td>
-                    <td className="px-4 py-3 text-end fc-mono" style={{ color: '#047857' }}>{fmt(totalClinic)}</td>
-                    <td className="px-4 py-3" />
-                  </tr>
-                </tfoot>
-              </table>
+                </CTableBody>
+                <CTableFoot>
+                  <CTableRow style={{ borderTop: '2px solid #E5E7EB' }} className="bg-gray-50 dark:bg-neutral-800/60 font-semibold text-sm">
+                    <CTableDataCell className="px-4 py-3" />
+                    <CTableDataCell className="px-4 py-3 text-xs text-gray-500 uppercase tracking-wide">{t('الإجمالي', 'Total')}</CTableDataCell>
+                    <CTableDataCell className="px-4 py-3 text-end fc-mono text-gray-600">{totalSessions}</CTableDataCell>
+                    <CTableDataCell className="px-4 py-3 text-end fc-mono text-gray-900 dark:text-gray-100">{fmt(totalSessionFees)}</CTableDataCell>
+                    <CTableDataCell className="px-4 py-3 text-end fc-mono" style={{ color: '#D97706' }}>{fmt(totalMediator)}</CTableDataCell>
+                    <CTableDataCell className="px-4 py-3 text-end fc-mono" style={{ color: '#7C3AED' }}>{fmt(totalExtraServices)}</CTableDataCell>
+                    <CTableDataCell className="px-4 py-3 text-end fc-mono text-gray-700 dark:text-gray-300">{fmt(totalNetPool)}</CTableDataCell>
+                    <CTableDataCell className="px-4 py-3 text-end fc-mono" style={{ color: '#1D4ED8' }}>{fmt(totalDoctors)}</CTableDataCell>
+                    <CTableDataCell className="px-4 py-3 text-end fc-mono" style={{ color: '#047857' }}>{fmt(totalClinic)}</CTableDataCell>
+                    <CTableDataCell className="px-4 py-3" />
+                  </CTableRow>
+                </CTableFoot>
+              </CTable>
             </div>
           </div>
         )}
@@ -861,58 +862,58 @@ function SettlementDetail({ doctorId, from, to, locale, t }: {
 
   return (
     <div className="rounded-lg border border-gray-200 dark:border-neutral-700 overflow-hidden">
-      <table className="w-full text-xs">
-        <thead>
-          <tr className="bg-gray-100 dark:bg-neutral-700/50 border-b border-gray-200 dark:border-neutral-700">
-            <th className="text-start px-3 py-2 font-medium text-gray-500">{t('التاريخ', 'Date')}</th>
-            <th className="text-start px-3 py-2 font-medium text-blue-500">
+      <CTable className="w-full text-xs">
+        <CTableHead>
+          <CTableRow className="bg-gray-100 dark:bg-neutral-700/50 border-b border-gray-200 dark:border-neutral-700">
+            <CTableHeaderCell className="text-start px-3 py-2 font-medium text-gray-500">{t('التاريخ', 'Date')}</CTableHeaderCell>
+            <CTableHeaderCell className="text-start px-3 py-2 font-medium text-blue-500">
               <span className="flex items-center gap-1"><User className="w-3 h-3" />{t('المريض', 'Patient')}</span>
-            </th>
-            <th className="text-start px-3 py-2 font-medium text-gray-500">{t('نوع الزيارة', 'Visit Type')}</th>
-            <th className="text-start px-3 py-2 font-medium text-gray-500">{t('المصدر', 'Source')}</th>
-            <th className="text-end   px-3 py-2 font-medium text-gray-500">{t('رسم الجلسة', 'Session Fee')}</th>
-            <th className="text-end   px-3 py-2 font-medium text-orange-500">{t('وسيط %', 'Src %')}</th>
-            <th className="text-end   px-3 py-2 font-medium text-orange-500">{t('الوسيط', 'Mediator')}</th>
-            <th className="text-center px-3 py-2 font-medium text-violet-500">{t('الإضافية', 'Extra Svcs')}</th>
-            <th className="text-end   px-3 py-2 font-medium text-gray-600 dark:text-gray-300">{t('الصافي', 'Net Pool')}</th>
-            <th className="text-end   px-3 py-2 font-medium text-blue-500">{t('د %', 'Dr %')}</th>
-            <th className="text-end   px-3 py-2 font-medium text-blue-500">{t('الطبيب', 'Doctor')}</th>
-            <th className="text-end   px-3 py-2 font-medium text-emerald-500">{t('ع %', 'Cl %')}</th>
-            <th className="text-end   px-3 py-2 font-medium text-emerald-500">{t('العيادة', 'Clinic')}</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-100 dark:divide-neutral-700/50">
+            </CTableHeaderCell>
+            <CTableHeaderCell className="text-start px-3 py-2 font-medium text-gray-500">{t('نوع الزيارة', 'Visit Type')}</CTableHeaderCell>
+            <CTableHeaderCell className="text-start px-3 py-2 font-medium text-gray-500">{t('المصدر', 'Source')}</CTableHeaderCell>
+            <CTableHeaderCell className="text-end   px-3 py-2 font-medium text-gray-500">{t('رسم الجلسة', 'Session Fee')}</CTableHeaderCell>
+            <CTableHeaderCell className="text-end   px-3 py-2 font-medium text-orange-500">{t('وسيط %', 'Src %')}</CTableHeaderCell>
+            <CTableHeaderCell className="text-end   px-3 py-2 font-medium text-orange-500">{t('الوسيط', 'Mediator')}</CTableHeaderCell>
+            <CTableHeaderCell className="text-center px-3 py-2 font-medium text-violet-500">{t('الإضافية', 'Extra Svcs')}</CTableHeaderCell>
+            <CTableHeaderCell className="text-end   px-3 py-2 font-medium text-gray-600 dark:text-gray-300">{t('الصافي', 'Net Pool')}</CTableHeaderCell>
+            <CTableHeaderCell className="text-end   px-3 py-2 font-medium text-blue-500">{t('د %', 'Dr %')}</CTableHeaderCell>
+            <CTableHeaderCell className="text-end   px-3 py-2 font-medium text-blue-500">{t('الطبيب', 'Doctor')}</CTableHeaderCell>
+            <CTableHeaderCell className="text-end   px-3 py-2 font-medium text-emerald-500">{t('ع %', 'Cl %')}</CTableHeaderCell>
+            <CTableHeaderCell className="text-end   px-3 py-2 font-medium text-emerald-500">{t('العيادة', 'Clinic')}</CTableHeaderCell>
+          </CTableRow>
+        </CTableHead>
+        <CTableBody className="divide-y divide-gray-100 dark:divide-neutral-700/50">
           {txs.map((tx) => (
             <TransactionRow key={tx.id} tx={tx} fmt={fmt} t={t} patientMap={patientMap} />
           ))}
-        </tbody>
-        <tfoot>
-          <tr className="border-t border-gray-200 dark:border-neutral-600 bg-gray-50 dark:bg-neutral-700/30 font-semibold">
-            <td colSpan={4} className="px-3 py-2 text-gray-500">{t('المجموع', 'Total')} ({txs.length})</td>
-            <td className="px-3 py-2 text-end font-mono tabular-nums text-gray-800 dark:text-gray-200">
+        </CTableBody>
+        <CTableFoot>
+          <CTableRow className="border-t border-gray-200 dark:border-neutral-600 bg-gray-50 dark:bg-neutral-700/30 font-semibold">
+            <CTableDataCell colSpan={4} className="px-3 py-2 text-gray-500">{t('المجموع', 'Total')} ({txs.length})</CTableDataCell>
+            <CTableDataCell className="px-3 py-2 text-end font-mono tabular-nums text-gray-800 dark:text-gray-200">
               {fmt(txs.reduce((s, tx) => s + tx.approvedCharge, 0))}
-            </td>
-            <td />
-            <td className="px-3 py-2 text-end font-mono tabular-nums text-orange-600 dark:text-orange-400">
+            </CTableDataCell>
+            <CTableDataCell />
+            <CTableDataCell className="px-3 py-2 text-end font-mono tabular-nums text-orange-600 dark:text-orange-400">
               {fmt(txs.reduce((s, tx) => s + tx.sourceFeeAmount, 0))}
-            </td>
-            <td className="px-3 py-2 text-center font-mono tabular-nums text-violet-600 dark:text-violet-400">
+            </CTableDataCell>
+            <CTableDataCell className="px-3 py-2 text-center font-mono tabular-nums text-violet-600 dark:text-violet-400">
               {fmt(txs.reduce((s, tx) => s + (tx.procedureCost ?? 0), 0))}
-            </td>
-            <td className="px-3 py-2 text-end font-mono tabular-nums text-gray-700 dark:text-gray-300">
+            </CTableDataCell>
+            <CTableDataCell className="px-3 py-2 text-end font-mono tabular-nums text-gray-700 dark:text-gray-300">
               {fmt(txs.reduce((s, tx) => s + (tx.approvedCharge - tx.sourceFeeAmount) + (tx.procedureCost ?? 0), 0))}
-            </td>
-            <td />
-            <td className="px-3 py-2 text-end font-mono tabular-nums text-blue-700 dark:text-blue-300">
+            </CTableDataCell>
+            <CTableDataCell />
+            <CTableDataCell className="px-3 py-2 text-end font-mono tabular-nums text-blue-700 dark:text-blue-300">
               {fmt(txs.reduce((s, tx) => s + tx.doctorShare, 0))}
-            </td>
-            <td />
-            <td className="px-3 py-2 text-end font-mono tabular-nums text-emerald-700 dark:text-emerald-300">
+            </CTableDataCell>
+            <CTableDataCell />
+            <CTableDataCell className="px-3 py-2 text-end font-mono tabular-nums text-emerald-700 dark:text-emerald-300">
               {fmt(txs.reduce((s, tx) => s + tx.clinicShare, 0))}
-            </td>
-          </tr>
-        </tfoot>
-      </table>
+            </CTableDataCell>
+          </CTableRow>
+        </CTableFoot>
+      </CTable>
     </div>
   );
 }
@@ -954,28 +955,28 @@ function TransactionRow({ tx, fmt, t, patientMap }: {
 
   return (
     <>
-      <tr className="hover:bg-white dark:hover:bg-neutral-700/20 transition-colors">
-        <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{tx.transactionDate?.slice(0, 10)}</td>
-        <td className="px-3 py-2 max-w-[140px]">
+      <CTableRow className="hover:bg-white dark:hover:bg-neutral-700/20 transition-colors">
+        <CTableDataCell className="px-3 py-2 text-gray-500 whitespace-nowrap">{tx.transactionDate?.slice(0, 10)}</CTableDataCell>
+        <CTableDataCell className="px-3 py-2 max-w-[140px]">
           <span className="font-semibold text-gray-800 dark:text-gray-200 truncate block" title={patientName}>
             {patientName}
           </span>
-        </td>
-        <td className="px-3 py-2">
+        </CTableDataCell>
+        <CTableDataCell className="px-3 py-2">
           {visitTypeInfo ? (
             <span className={cn('text-[10px] font-medium px-1.5 py-0.5 rounded', visitTypeInfo.color)}>
               {lang === 'ar' ? visitTypeInfo.ar : visitTypeInfo.en}
             </span>
           ) : <span className="text-gray-300">—</span>}
-        </td>
-        <td className="px-3 py-2">
+        </CTableDataCell>
+        <CTableDataCell className="px-3 py-2">
           <span className="bg-gray-100 dark:bg-neutral-700 px-1.5 py-0.5 rounded text-gray-600 dark:text-gray-300">{tx.patientSource}</span>
-        </td>
-        <td className="px-3 py-2 text-end font-mono tabular-nums text-gray-700 dark:text-gray-300">{fmt(tx.approvedCharge)}</td>
-        <td className="px-3 py-2 text-end font-mono text-orange-500">{tx.sourceFeePercentage}%</td>
-        <td className="px-3 py-2 text-end font-mono tabular-nums text-orange-600 dark:text-orange-400">{fmt(tx.sourceFeeAmount)}</td>
+        </CTableDataCell>
+        <CTableDataCell className="px-3 py-2 text-end font-mono tabular-nums text-gray-700 dark:text-gray-300">{fmt(tx.approvedCharge)}</CTableDataCell>
+        <CTableDataCell className="px-3 py-2 text-end font-mono text-orange-500">{tx.sourceFeePercentage}%</CTableDataCell>
+        <CTableDataCell className="px-3 py-2 text-end font-mono tabular-nums text-orange-600 dark:text-orange-400">{fmt(tx.sourceFeeAmount)}</CTableDataCell>
 
-        <td className="px-3 py-2 text-center">
+        <CTableDataCell className="px-3 py-2 text-center">
           <div className="flex items-center justify-center gap-1">
             {itemCount > 0 ? (
               <button type="button" onClick={() => setShowExtras((v) => !v)}
@@ -993,54 +994,54 @@ function TransactionRow({ tx, fmt, t, patientMap }: {
               <Plus className="w-3 h-3" />
             </button>
           </div>
-        </td>
+        </CTableDataCell>
 
-        <td className="px-3 py-2 text-end font-mono tabular-nums text-gray-600 dark:text-gray-300">{fmt(netPool)}</td>
-        <td className="px-3 py-2 text-end font-mono text-blue-500">{tx.splitDoctorPercentage}%</td>
-        <td className="px-3 py-2 text-end font-mono tabular-nums font-semibold text-blue-700 dark:text-blue-400">{fmt(drShare)}</td>
-        <td className="px-3 py-2 text-end font-mono text-emerald-500">{tx.splitClinicPercentage}%</td>
-        <td className="px-3 py-2 text-end font-mono tabular-nums font-semibold text-emerald-700 dark:text-emerald-400">{fmt(clShare)}</td>
-      </tr>
+        <CTableDataCell className="px-3 py-2 text-end font-mono tabular-nums text-gray-600 dark:text-gray-300">{fmt(netPool)}</CTableDataCell>
+        <CTableDataCell className="px-3 py-2 text-end font-mono text-blue-500">{tx.splitDoctorPercentage}%</CTableDataCell>
+        <CTableDataCell className="px-3 py-2 text-end font-mono tabular-nums font-semibold text-blue-700 dark:text-blue-400">{fmt(drShare)}</CTableDataCell>
+        <CTableDataCell className="px-3 py-2 text-end font-mono text-emerald-500">{tx.splitClinicPercentage}%</CTableDataCell>
+        <CTableDataCell className="px-3 py-2 text-end font-mono tabular-nums font-semibold text-emerald-700 dark:text-emerald-400">{fmt(clShare)}</CTableDataCell>
+      </CTableRow>
 
       {showExtras && itemCount > 0 && (
-        <tr className="bg-violet-50/30 dark:bg-violet-900/5">
-          <td colSpan={13} className="px-6 py-2">
+        <CTableRow className="bg-violet-50/30 dark:bg-violet-900/5">
+          <CTableDataCell colSpan={13} className="px-6 py-2">
             <div className="rounded-lg border border-violet-100 dark:border-violet-900/30 overflow-hidden">
-              <table className="w-full text-[11px]">
-                <thead>
-                  <tr className="bg-violet-50 dark:bg-violet-900/20">
-                    <th className="text-start px-3 py-1.5 font-medium text-violet-600">{t('الخدمة', 'Service')}</th>
-                    <th className="text-end px-3 py-1.5 font-medium text-violet-600">{t('التكلفة', 'Cost')}</th>
-                    <th className="text-end px-3 py-1.5 font-medium text-blue-500">{t('الطبيب', 'Dr')}</th>
-                    <th className="text-end px-3 py-1.5 font-medium text-emerald-500">{t('العيادة', 'Cl')}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-violet-100 dark:divide-violet-900/20">
+              <CTable className="w-full text-[11px]">
+                <CTableHead>
+                  <CTableRow className="bg-violet-50 dark:bg-violet-900/20">
+                    <CTableHeaderCell className="text-start px-3 py-1.5 font-medium text-violet-600">{t('الخدمة', 'Service')}</CTableHeaderCell>
+                    <CTableHeaderCell className="text-end px-3 py-1.5 font-medium text-violet-600">{t('التكلفة', 'Cost')}</CTableHeaderCell>
+                    <CTableHeaderCell className="text-end px-3 py-1.5 font-medium text-blue-500">{t('الطبيب', 'Dr')}</CTableHeaderCell>
+                    <CTableHeaderCell className="text-end px-3 py-1.5 font-medium text-emerald-500">{t('العيادة', 'Cl')}</CTableHeaderCell>
+                  </CTableRow>
+                </CTableHead>
+                <CTableBody className="divide-y divide-violet-100 dark:divide-violet-900/20">
                   {serverItems.map((item) => {
                     const drSh = item.cost * tx.splitDoctorPercentage / 100;
                     const clSh = item.cost * tx.splitClinicPercentage / 100;
                     return (
-                      <tr key={item.id} className="bg-white dark:bg-neutral-900/50">
-                        <td className="px-3 py-1.5 text-gray-700 dark:text-gray-300">{item.serviceName}</td>
-                        <td className="px-3 py-1.5 text-end font-mono tabular-nums text-violet-700 dark:text-violet-400">{fmt(item.cost)}</td>
-                        <td className="px-3 py-1.5 text-end font-mono tabular-nums text-blue-600 dark:text-blue-400">{fmt(drSh)}</td>
-                        <td className="px-3 py-1.5 text-end font-mono tabular-nums text-emerald-600 dark:text-emerald-400">{fmt(clSh)}</td>
-                      </tr>
+                      <CTableRow key={item.id} className="bg-white dark:bg-neutral-900/50">
+                        <CTableDataCell className="px-3 py-1.5 text-gray-700 dark:text-gray-300">{item.serviceName}</CTableDataCell>
+                        <CTableDataCell className="px-3 py-1.5 text-end font-mono tabular-nums text-violet-700 dark:text-violet-400">{fmt(item.cost)}</CTableDataCell>
+                        <CTableDataCell className="px-3 py-1.5 text-end font-mono tabular-nums text-blue-600 dark:text-blue-400">{fmt(drSh)}</CTableDataCell>
+                        <CTableDataCell className="px-3 py-1.5 text-end font-mono tabular-nums text-emerald-600 dark:text-emerald-400">{fmt(clSh)}</CTableDataCell>
+                      </CTableRow>
                     );
                   })}
-                </tbody>
-                <tfoot>
-                  <tr className="bg-violet-50 dark:bg-violet-900/10 font-semibold border-t border-violet-100 dark:border-violet-900/30">
-                    <td className="px-3 py-1.5 text-violet-600">{t('الإجمالي', 'Total')} ({itemCount})</td>
-                    <td className="px-3 py-1.5 text-end font-mono tabular-nums text-violet-700 dark:text-violet-400">{fmt(cost)}</td>
-                    <td className="px-3 py-1.5 text-end font-mono tabular-nums text-blue-600">{fmt(cost * tx.splitDoctorPercentage / 100)}</td>
-                    <td className="px-3 py-1.5 text-end font-mono tabular-nums text-emerald-600">{fmt(cost * tx.splitClinicPercentage / 100)}</td>
-                  </tr>
-                </tfoot>
-              </table>
+                </CTableBody>
+                <CTableFoot>
+                  <CTableRow className="bg-violet-50 dark:bg-violet-900/10 font-semibold border-t border-violet-100 dark:border-violet-900/30">
+                    <CTableDataCell className="px-3 py-1.5 text-violet-600">{t('الإجمالي', 'Total')} ({itemCount})</CTableDataCell>
+                    <CTableDataCell className="px-3 py-1.5 text-end font-mono tabular-nums text-violet-700 dark:text-violet-400">{fmt(cost)}</CTableDataCell>
+                    <CTableDataCell className="px-3 py-1.5 text-end font-mono tabular-nums text-blue-600">{fmt(cost * tx.splitDoctorPercentage / 100)}</CTableDataCell>
+                    <CTableDataCell className="px-3 py-1.5 text-end font-mono tabular-nums text-emerald-600">{fmt(cost * tx.splitClinicPercentage / 100)}</CTableDataCell>
+                  </CTableRow>
+                </CTableFoot>
+              </CTable>
             </div>
-          </td>
-        </tr>
+          </CTableDataCell>
+        </CTableRow>
       )}
 
       {popupOpen && (

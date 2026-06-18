@@ -1,4 +1,5 @@
 'use client';
+import { CTable, CTableHead, CTableBody, CTableRow, CTableHeaderCell, CTableDataCell } from '@coreui/react';
 
 import Link from 'next/link';
 import { Package, Store, FileText, Bell, AlertTriangle, CheckCircle } from 'lucide-react';
@@ -140,28 +141,28 @@ export default function ProcurementPage() {
             </Link>
           </CardHeader>
           <CardContent className="p-0">
-            <table className="w-full text-sm">
-              <tbody>
+            <CTable className="w-full text-sm">
+              <CTableBody>
                 {recentAlerts.map((alert) => (
-                  <tr key={alert.id} className="border-b border-gray-50 dark:border-neutral-700/50 last:border-0">
-                    <td className="px-5 py-3">
+                  <CTableRow key={alert.id} className="border-b border-gray-50 dark:border-neutral-700/50 last:border-0">
+                    <CTableDataCell className="px-5 py-3">
                       <Badge variant={SEVERITY_BADGE[alert.severity] ?? 'warning'}>
                         {t(ALERT_TYPE_LABELS[alert.alertType]?.ar ?? alert.alertType, ALERT_TYPE_LABELS[alert.alertType]?.en ?? alert.alertType)}
                       </Badge>
-                    </td>
-                    <td className="px-5 py-3 text-gray-700 dark:text-gray-300 max-w-xs truncate">{alert.message}</td>
-                    <td className="px-5 py-3 text-xs text-gray-400 whitespace-nowrap">
+                    </CTableDataCell>
+                    <CTableDataCell className="px-5 py-3 text-gray-700 dark:text-gray-300 max-w-xs truncate">{alert.message}</CTableDataCell>
+                    <CTableDataCell className="px-5 py-3 text-xs text-gray-400 whitespace-nowrap">
                       {new Date(alert.triggeredAt).toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-US')}
-                    </td>
-                    <td className="px-5 py-3">
+                    </CTableDataCell>
+                    <CTableDataCell className="px-5 py-3">
                       {alert.isRead
                         ? <CheckCircle className="w-4 h-4 text-emerald-500" />
                         : <Bell className="w-4 h-4 text-amber-500" />}
-                    </td>
-                  </tr>
+                    </CTableDataCell>
+                  </CTableRow>
                 ))}
-              </tbody>
-            </table>
+              </CTableBody>
+            </CTable>
           </CardContent>
         </Card>
       )}

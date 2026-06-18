@@ -1,4 +1,5 @@
 'use client';
+import { CTable, CTableHead, CTableBody, CTableRow, CTableHeaderCell, CTableDataCell } from '@coreui/react';
 
 import { useState } from 'react';
 import { TrendingUp, TrendingDown, Users, Calendar, DollarSign, Activity, Download } from 'lucide-react';
@@ -388,45 +389,45 @@ export default function AnalyticsPage() {
               ))}
             </div>
           ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-800/50">
-                  <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('التخصص', 'Specialty')}</th>
-                  <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('الإيرادات', 'Revenue')}</th>
-                  <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs hidden md:table-cell">{t('المواعيد', 'Appointments')}</th>
-                  <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('معدل الغياب', 'No-Show %')}</th>
-                  <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs hidden lg:table-cell">{t('الحصة', 'Share')}</th>
-                </tr>
-              </thead>
-              <tbody>
+            <CTable className="w-full text-sm">
+              <CTableHead>
+                <CTableRow className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-800/50">
+                  <CTableHeaderCell className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('التخصص', 'Specialty')}</CTableHeaderCell>
+                  <CTableHeaderCell className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('الإيرادات', 'Revenue')}</CTableHeaderCell>
+                  <CTableHeaderCell className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs hidden md:table-cell">{t('المواعيد', 'Appointments')}</CTableHeaderCell>
+                  <CTableHeaderCell className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('معدل الغياب', 'No-Show %')}</CTableHeaderCell>
+                  <CTableHeaderCell className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs hidden lg:table-cell">{t('الحصة', 'Share')}</CTableHeaderCell>
+                </CTableRow>
+              </CTableHead>
+              <CTableBody>
                 {specialtyData.map((s: SpecialtyStat) => (
-                  <tr key={s.specialtyId} className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors">
-                    <td className="px-5 py-3.5 font-medium text-gray-900 dark:text-gray-100">
+                  <CTableRow key={s.specialtyId} className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors">
+                    <CTableDataCell className="px-5 py-3.5 font-medium text-gray-900 dark:text-gray-100">
                       {lang === 'ar' ? s.specialtyAr : s.specialtyEn}
-                    </td>
-                    <td className="px-5 py-3.5 font-mono tabular-nums text-gray-700 dark:text-gray-300">
+                    </CTableDataCell>
+                    <CTableDataCell className="px-5 py-3.5 font-mono tabular-nums text-gray-700 dark:text-gray-300">
                       {formatCurrency(s.revenue, 'EGP', locale)}
-                    </td>
-                    <td className="px-5 py-3.5 font-mono tabular-nums text-gray-600 dark:text-gray-400 hidden md:table-cell">
+                    </CTableDataCell>
+                    <CTableDataCell className="px-5 py-3.5 font-mono tabular-nums text-gray-600 dark:text-gray-400 hidden md:table-cell">
                       {formatNumber(s.appointments, locale)}
-                    </td>
-                    <td className="px-5 py-3.5">
+                    </CTableDataCell>
+                    <CTableDataCell className="px-5 py-3.5">
                       <Badge variant={s.noShowRate > 10 ? 'danger' : s.noShowRate > 7 ? 'warning' : 'success'}>
                         {formatNumber(s.noShowRate, locale)}%
                       </Badge>
-                    </td>
-                    <td className="px-5 py-3.5 hidden lg:table-cell">
+                    </CTableDataCell>
+                    <CTableDataCell className="px-5 py-3.5 hidden lg:table-cell">
                       <div className="flex items-center gap-2">
                         <div className="flex-1 h-1.5 bg-gray-100 dark:bg-neutral-700 rounded-full overflow-hidden w-20">
                           <div className="h-full w-full bg-primary-500 origin-left" style={{ transform: `scaleX(${s.sharePct / 100})` }} />
                         </div>
                         <span className="text-xs text-gray-500 dark:text-gray-400 w-8">{formatNumber(s.sharePct, locale)}%</span>
                       </div>
-                    </td>
-                  </tr>
+                    </CTableDataCell>
+                  </CTableRow>
                 ))}
-              </tbody>
-            </table>
+              </CTableBody>
+            </CTable>
           )}
         </CardContent>
       </Card>

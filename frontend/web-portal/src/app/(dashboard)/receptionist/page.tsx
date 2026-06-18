@@ -1,4 +1,5 @@
 'use client';
+import { CTable, CTableHead, CTableBody, CTableRow, CTableHeaderCell, CTableDataCell } from '@coreui/react';
 
 import { useState, useCallback } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -469,13 +470,13 @@ function QueueSkeleton() {
   return (
     <>
       {[1, 2, 3].map((n) => (
-        <tr key={n} className="border-b border-gray-50 dark:border-neutral-700/50">
+        <CTableRow key={n} className="border-b border-gray-50 dark:border-neutral-700/50">
           {[1, 2, 3, 4, 5, 6].map((c) => (
-            <td key={c} className="px-4 py-3">
+            <CTableDataCell key={c} className="px-4 py-3">
               <div className="h-4 bg-gray-100 dark:bg-neutral-700 rounded animate-pulse" />
-            </td>
+            </CTableDataCell>
           ))}
-        </tr>
+        </CTableRow>
       ))}
     </>
   );
@@ -643,36 +644,36 @@ export default function ReceptionistPage() {
             </CardHeader>
             <CardContent className="p-0">
               <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
-                    <th className="text-start px-4 py-2.5 font-medium text-gray-500 dark:text-gray-300 text-xs w-10">#</th>
-                    <th className="text-start px-4 py-2.5 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('المريض', 'Patient')}</th>
-                    <th className="text-start px-4 py-2.5 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('النوع', 'Type')}</th>
-                    <th className="text-start px-4 py-2.5 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الحالة', 'Status')}</th>
-                    <th className="text-start px-4 py-2.5 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الانتظار', 'Wait')}</th>
-                    <th className="px-4 py-2.5 text-xs" />
-                  </tr>
-                </thead>
-                <tbody>
+              <CTable className="w-full text-sm">
+                <CTableHead>
+                  <CTableRow className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
+                    <CTableHeaderCell className="text-start px-4 py-2.5 font-medium text-gray-500 dark:text-gray-300 text-xs w-10">#</CTableHeaderCell>
+                    <CTableHeaderCell className="text-start px-4 py-2.5 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('المريض', 'Patient')}</CTableHeaderCell>
+                    <CTableHeaderCell className="text-start px-4 py-2.5 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('النوع', 'Type')}</CTableHeaderCell>
+                    <CTableHeaderCell className="text-start px-4 py-2.5 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الحالة', 'Status')}</CTableHeaderCell>
+                    <CTableHeaderCell className="text-start px-4 py-2.5 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الانتظار', 'Wait')}</CTableHeaderCell>
+                    <CTableHeaderCell className="px-4 py-2.5 text-xs" />
+                  </CTableRow>
+                </CTableHead>
+                <CTableBody>
                   {apptFetching && appointments.length === 0 ? (
                     <QueueSkeleton />
                   ) : appointments.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-400 dark:text-gray-300">
+                    <CTableRow>
+                      <CTableDataCell colSpan={6} className="px-4 py-8 text-center text-sm text-gray-400 dark:text-gray-300">
                         {t('لا توجد مواعيد مجدولة اليوم', 'No appointments scheduled for today.')}
-                      </td>
-                    </tr>
+                      </CTableDataCell>
+                    </CTableRow>
                   ) : (
                     appointments.map((a) => (
-                      <tr
+                      <CTableRow
                         key={a.id}
                         className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors"
                       >
-                        <td className="px-4 py-3 font-bold text-gray-400 dark:text-gray-300 font-mono tabular-nums">
+                        <CTableDataCell className="px-4 py-3 font-bold text-gray-400 dark:text-gray-300 font-mono tabular-nums">
                           {a.queueNumber ?? '—'}
-                        </td>
-                        <td className="px-4 py-3">
+                        </CTableDataCell>
+                        <CTableDataCell className="px-4 py-3">
                           <div>
                             <p className="font-medium text-gray-900 dark:text-gray-100">
                               {(() => {
@@ -684,8 +685,8 @@ export default function ReceptionistPage() {
                               {formatTime(a.startTime)}
                             </p>
                           </div>
-                        </td>
-                        <td className="px-4 py-3">
+                        </CTableDataCell>
+                        <CTableDataCell className="px-4 py-3">
                           <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                             a.appointmentType === 'walk_in'
                               ? 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300'
@@ -699,11 +700,11 @@ export default function ReceptionistPage() {
                               ? t('أونلاين', 'Online')
                               : t('موعد', 'Scheduled')}
                           </span>
-                        </td>
-                        <td className="px-4 py-3">
+                        </CTableDataCell>
+                        <CTableDataCell className="px-4 py-3">
                           <AppointmentStatusBadge status={a.status} lang={lang} />
-                        </td>
-                        <td className="px-4 py-3 text-gray-500 dark:text-gray-300 text-xs">
+                        </CTableDataCell>
+                        <CTableDataCell className="px-4 py-3 text-gray-500 dark:text-gray-300 text-xs">
                           {(a.waitingTimeMinutes ?? 0) > 0 ? (
                             <span className="flex items-center gap-1">
                               <Clock className="w-3 h-3" />
@@ -714,8 +715,8 @@ export default function ReceptionistPage() {
                               <CheckCircle className="w-3 h-3" />{t('الآن', 'Now')}
                             </span>
                           )}
-                        </td>
-                        <td className="px-4 py-3">
+                        </CTableDataCell>
+                        <CTableDataCell className="px-4 py-3">
                           <div className="flex gap-1.5 justify-end">
                             <Button
                               size="sm"
@@ -734,12 +735,12 @@ export default function ReceptionistPage() {
                               {t('تأجيل', 'Delay')}
                             </Button>
                           </div>
-                        </td>
-                      </tr>
+                        </CTableDataCell>
+                      </CTableRow>
                     ))
                   )}
-                </tbody>
-              </table>
+                </CTableBody>
+              </CTable>
               </div>
             </CardContent>
           </Card>

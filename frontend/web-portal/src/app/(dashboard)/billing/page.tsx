@@ -1,4 +1,5 @@
 'use client';
+import { CTable, CTableHead, CTableBody, CTableRow, CTableHeaderCell, CTableDataCell } from '@coreui/react';
 
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
@@ -289,24 +290,24 @@ function BulkDeleteModal({ selected, onClose, onDeleted, lang, t, locale }: Bulk
             </p>
 
             <div className="max-h-48 overflow-y-auto rounded-xl border border-gray-100 dark:border-neutral-700 text-xs">
-              <table className="w-full">
-                <thead className="bg-gray-50 dark:bg-neutral-900/50 sticky top-0">
-                  <tr>
-                    <th className="text-start px-3 py-2 font-medium text-gray-500">{t('التاريخ', 'Date')}</th>
-                    <th className="text-start px-3 py-2 font-medium text-gray-500">{t('الحالة', 'Status')}</th>
-                    <th className="text-end px-3 py-2 font-medium text-gray-500">{t('الرسوم', 'Charge')}</th>
-                  </tr>
-                </thead>
-                <tbody>
+              <CTable className="w-full">
+                <CTableHead className="bg-gray-50 dark:bg-neutral-900/50 sticky top-0">
+                  <CTableRow>
+                    <CTableHeaderCell className="text-start px-3 py-2 font-medium text-gray-500">{t('التاريخ', 'Date')}</CTableHeaderCell>
+                    <CTableHeaderCell className="text-start px-3 py-2 font-medium text-gray-500">{t('الحالة', 'Status')}</CTableHeaderCell>
+                    <CTableHeaderCell className="text-end px-3 py-2 font-medium text-gray-500">{t('الرسوم', 'Charge')}</CTableHeaderCell>
+                  </CTableRow>
+                </CTableHead>
+                <CTableBody>
                   {selected.map((tx) => (
-                    <tr key={tx.id} className="border-t border-gray-50 dark:border-neutral-700">
-                      <td className="px-3 py-1.5 text-gray-600 dark:text-gray-300">{tx.transactionDate?.slice(0, 10)}</td>
-                      <td className="px-3 py-1.5 text-gray-600 dark:text-gray-300">{tx.paymentStatus}</td>
-                      <td className="px-3 py-1.5 text-end font-mono text-gray-900 dark:text-gray-100">{formatCurrency(tx.approvedCharge, 'EGP', locale)}</td>
-                    </tr>
+                    <CTableRow key={tx.id} className="border-t border-gray-50 dark:border-neutral-700">
+                      <CTableDataCell className="px-3 py-1.5 text-gray-600 dark:text-gray-300">{tx.transactionDate?.slice(0, 10)}</CTableDataCell>
+                      <CTableDataCell className="px-3 py-1.5 text-gray-600 dark:text-gray-300">{tx.paymentStatus}</CTableDataCell>
+                      <CTableDataCell className="px-3 py-1.5 text-end font-mono text-gray-900 dark:text-gray-100">{formatCurrency(tx.approvedCharge, 'EGP', locale)}</CTableDataCell>
+                    </CTableRow>
                   ))}
-                </tbody>
-              </table>
+                </CTableBody>
+              </CTable>
             </div>
 
             <div>
@@ -1080,10 +1081,10 @@ export default function BillingPage() {
             )}
             {!isLoading && !isError && (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
-                      <th className="w-10 px-3 py-3">
+                <CTable className="w-full text-sm">
+                  <CTableHead>
+                    <CTableRow className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
+                      <CTableHeaderCell className="w-10 px-3 py-3">
                         <button
                           onClick={toggleAll}
                           className="flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
@@ -1097,20 +1098,20 @@ export default function BillingPage() {
                             <Square className="w-4 h-4" />
                           )}
                         </button>
-                      </th>
-                      <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('التاريخ', 'Date')}</th>
-                      <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('المريض', 'Patient')}</th>
-                      <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الطبيب', 'Doctor')}</th>
-                      <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('المصدر', 'Source')}</th>
-                      <th className="text-end px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الرسوم', 'Charge')}</th>
-                      <th className="text-end px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('حصة الطبيب', 'Dr. Share')}</th>
-                      <th className="text-end px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('حصة العيادة', 'Clinic')}</th>
-                      <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الحالة', 'Status')}</th>
-                      <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الدفع', 'Payment')}</th>
-                      <th className="w-10" />
-                    </tr>
-                  </thead>
-                  <tbody ref={txBodyRef}>
+                      </CTableHeaderCell>
+                      <CTableHeaderCell className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('التاريخ', 'Date')}</CTableHeaderCell>
+                      <CTableHeaderCell className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('المريض', 'Patient')}</CTableHeaderCell>
+                      <CTableHeaderCell className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الطبيب', 'Doctor')}</CTableHeaderCell>
+                      <CTableHeaderCell className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('المصدر', 'Source')}</CTableHeaderCell>
+                      <CTableHeaderCell className="text-end px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الرسوم', 'Charge')}</CTableHeaderCell>
+                      <CTableHeaderCell className="text-end px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('حصة الطبيب', 'Dr. Share')}</CTableHeaderCell>
+                      <CTableHeaderCell className="text-end px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('حصة العيادة', 'Clinic')}</CTableHeaderCell>
+                      <CTableHeaderCell className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الحالة', 'Status')}</CTableHeaderCell>
+                      <CTableHeaderCell className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{t('الدفع', 'Payment')}</CTableHeaderCell>
+                      <CTableHeaderCell className="w-10" />
+                    </CTableRow>
+                  </CTableHead>
+                  <CTableBody ref={txBodyRef}>
                     {filtered.map((tx) => {
                       const cfg = STATUS_CONFIG[tx.paymentStatus];
                       const doc = tx.doctorId ? doctorMap.get(tx.doctorId) : null;
@@ -1121,7 +1122,7 @@ export default function BillingPage() {
                       const isChargeHighlight = highlightApptId && tx.appointmentId === highlightApptId;
                       const isSelected = selectedIds.has(tx.id);
                       return (
-                        <tr
+                        <CTableRow
                           key={tx.id}
                           id={isDeleteTarget ? 'delete-target-row' : isChargeHighlight ? 'charge-highlight-row' : undefined}
                           className={cn(
@@ -1135,7 +1136,7 @@ export default function BillingPage() {
                                   : 'border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30',
                           )}
                         >
-                          <td className="w-10 px-3 py-3.5">
+                          <CTableDataCell className="w-10 px-3 py-3.5">
                             <button
                               onClick={() => toggleRow(tx.id)}
                               className="flex items-center justify-center text-gray-300 hover:text-gray-500 dark:hover:text-gray-200 transition-colors"
@@ -1144,19 +1145,19 @@ export default function BillingPage() {
                                 ? <CheckSquare className="w-4 h-4 text-primary-600" />
                                 : <Square className="w-4 h-4" />}
                             </button>
-                          </td>
-                          <td className="px-5 py-3.5 text-gray-500 dark:text-gray-300 text-xs">{formatDate(tx.transactionDate, locale)}</td>
-                          <td className="px-5 py-3.5 text-gray-800 dark:text-gray-200 text-xs" title={patName}>{patName}</td>
-                          <td className="px-5 py-3.5 text-gray-600 dark:text-gray-300 text-xs" title={docName}>{docName}</td>
-                          <td className="px-5 py-3.5">
+                          </CTableDataCell>
+                          <CTableDataCell className="px-5 py-3.5 text-gray-500 dark:text-gray-300 text-xs">{formatDate(tx.transactionDate, locale)}</CTableDataCell>
+                          <CTableDataCell className="px-5 py-3.5 text-gray-800 dark:text-gray-200 text-xs" title={patName}>{patName}</CTableDataCell>
+                          <CTableDataCell className="px-5 py-3.5 text-gray-600 dark:text-gray-300 text-xs" title={docName}>{docName}</CTableDataCell>
+                          <CTableDataCell className="px-5 py-3.5">
                             <Badge variant={['VEZ', 'EKF', 'DO'].includes(tx.patientSource) ? 'info' : 'default'} className="text-xs">
                               {tx.patientSource}
                             </Badge>
-                          </td>
-                          <td className="px-5 py-3.5 text-end font-mono tabular-nums font-medium text-gray-900 dark:text-gray-100">{formatCurrency(tx.approvedCharge, 'EGP', locale)}</td>
-                          <td className="px-5 py-3.5 text-end font-mono tabular-nums text-primary-700 dark:text-primary-400">{formatCurrency(tx.doctorShare, 'EGP', locale)}</td>
-                          <td className="px-5 py-3.5 text-end font-mono tabular-nums text-emerald-700 dark:text-emerald-400">{formatCurrency(tx.clinicShare, 'EGP', locale)}</td>
-                          <td className="px-5 py-3.5">
+                          </CTableDataCell>
+                          <CTableDataCell className="px-5 py-3.5 text-end font-mono tabular-nums font-medium text-gray-900 dark:text-gray-100">{formatCurrency(tx.approvedCharge, 'EGP', locale)}</CTableDataCell>
+                          <CTableDataCell className="px-5 py-3.5 text-end font-mono tabular-nums text-primary-700 dark:text-primary-400">{formatCurrency(tx.doctorShare, 'EGP', locale)}</CTableDataCell>
+                          <CTableDataCell className="px-5 py-3.5 text-end font-mono tabular-nums text-emerald-700 dark:text-emerald-400">{formatCurrency(tx.clinicShare, 'EGP', locale)}</CTableDataCell>
+                          <CTableDataCell className="px-5 py-3.5">
                             <div className="relative inline-block">
                               {tx.paymentStatus === 'reconciled' || tx.paymentStatus === 'refunded' ? (
                                 <Badge variant={cfg?.variant ?? 'default'} dot>
@@ -1180,11 +1181,11 @@ export default function BillingPage() {
                                 />
                               )}
                             </div>
-                          </td>
-                          <td className="px-5 py-3.5 text-gray-500 dark:text-gray-300 text-xs capitalize">
+                          </CTableDataCell>
+                          <CTableDataCell className="px-5 py-3.5 text-gray-500 dark:text-gray-300 text-xs capitalize">
                             {tx.paymentMethod?.replace('_', ' ') ?? '—'}
-                          </td>
-                          <td className="px-3 py-3.5">
+                          </CTableDataCell>
+                          <CTableDataCell className="px-3 py-3.5">
                             <div className="flex items-center gap-1">
                               <button
                                 onClick={() => setDetailTx(tx)}
@@ -1201,15 +1202,15 @@ export default function BillingPage() {
                                 <FileDown className="w-3.5 h-3.5" />
                               </button>
                             </div>
-                          </td>
-                        </tr>
+                          </CTableDataCell>
+                        </CTableRow>
                       );
                     })}
                     {filtered.length === 0 && (
-                      <tr><td colSpan={10} className="px-5 py-12 text-center text-gray-400 dark:text-gray-300">{t('لا توجد سجلات تطابق الفلتر', 'No billing records match the filter.')}</td></tr>
+                      <CTableRow><CTableDataCell colSpan={10} className="px-5 py-12 text-center text-gray-400 dark:text-gray-300">{t('لا توجد سجلات تطابق الفلتر', 'No billing records match the filter.')}</CTableDataCell></CTableRow>
                     )}
-                  </tbody>
-                </table>
+                  </CTableBody>
+                </CTable>
               </div>
             )}
             <Pagination
@@ -1258,32 +1259,32 @@ export default function BillingPage() {
               </div>
             ) : (
               <div className="overflow-x-auto rounded-xl border border-gray-100 dark:border-neutral-700">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-gray-50 dark:bg-neutral-800 border-b border-gray-100 dark:border-neutral-700">
-                      <th className="px-4 py-3 text-start text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{t('الطبيب', 'Doctor')}</th>
-                      <th className="px-4 py-3 text-start text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{t('الاستشارات', 'Consultations')}</th>
-                      <th className="px-4 py-3 text-start text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{t('إجمالي الرسوم', 'Total Charge')}</th>
-                      <th className="px-4 py-3 text-start text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{t('نصيب الطبيب', 'Dr. Share')}</th>
-                      <th className="px-4 py-3 text-start text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{t('المستحق', 'Net Payable')}</th>
-                    </tr>
-                  </thead>
-                  <tbody ref={settlBodyRef} className="divide-y divide-gray-50 dark:divide-neutral-700/50">
+                <CTable className="w-full text-sm">
+                  <CTableHead>
+                    <CTableRow className="bg-gray-50 dark:bg-neutral-800 border-b border-gray-100 dark:border-neutral-700">
+                      <CTableHeaderCell className="px-4 py-3 text-start text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{t('الطبيب', 'Doctor')}</CTableHeaderCell>
+                      <CTableHeaderCell className="px-4 py-3 text-start text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{t('الاستشارات', 'Consultations')}</CTableHeaderCell>
+                      <CTableHeaderCell className="px-4 py-3 text-start text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{t('إجمالي الرسوم', 'Total Charge')}</CTableHeaderCell>
+                      <CTableHeaderCell className="px-4 py-3 text-start text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{t('نصيب الطبيب', 'Dr. Share')}</CTableHeaderCell>
+                      <CTableHeaderCell className="px-4 py-3 text-start text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{t('المستحق', 'Net Payable')}</CTableHeaderCell>
+                    </CTableRow>
+                  </CTableHead>
+                  <CTableBody ref={settlBodyRef} className="divide-y divide-gray-50 dark:divide-neutral-700/50">
                     {(isDoctor ? settlData.data.filter((s) => s.doctorId === user?.doctorId) : settlData.data).map((s) => {
                       const doc = doctorMap.get(s.doctorId);
                       const name = doc ? (lang === 'ar' ? (doc.nameAr ?? doc.nameEn) : doc.nameEn) : s.doctorId.slice(-8);
                       return (
-                        <tr key={s.doctorId} className="hover:bg-gray-50/50 dark:hover:bg-neutral-800/30 transition-colors">
-                          <td className="px-4 py-3.5 font-medium text-gray-900 dark:text-gray-100">{name}</td>
-                          <td className="px-4 py-3.5 text-gray-600 dark:text-gray-300">{s.totalConsultations}</td>
-                          <td className="px-4 py-3.5 text-gray-600 dark:text-gray-300">{formatCurrency(s.totalSessionFees ?? 0)}</td>
-                          <td className="px-4 py-3.5 text-gray-600 dark:text-gray-300">{formatCurrency(s.doctorShare)}</td>
-                          <td className="px-4 py-3.5 font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(s.netPayable)}</td>
-                        </tr>
+                        <CTableRow key={s.doctorId} className="hover:bg-gray-50/50 dark:hover:bg-neutral-800/30 transition-colors">
+                          <CTableDataCell className="px-4 py-3.5 font-medium text-gray-900 dark:text-gray-100">{name}</CTableDataCell>
+                          <CTableDataCell className="px-4 py-3.5 text-gray-600 dark:text-gray-300">{s.totalConsultations}</CTableDataCell>
+                          <CTableDataCell className="px-4 py-3.5 text-gray-600 dark:text-gray-300">{formatCurrency(s.totalSessionFees ?? 0)}</CTableDataCell>
+                          <CTableDataCell className="px-4 py-3.5 text-gray-600 dark:text-gray-300">{formatCurrency(s.doctorShare)}</CTableDataCell>
+                          <CTableDataCell className="px-4 py-3.5 font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(s.netPayable)}</CTableDataCell>
+                        </CTableRow>
                       );
                     })}
-                  </tbody>
-                </table>
+                  </CTableBody>
+                </CTable>
               </div>
             )}
           </CardContent>

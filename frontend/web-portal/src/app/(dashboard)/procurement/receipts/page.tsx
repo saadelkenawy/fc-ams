@@ -1,4 +1,5 @@
 'use client';
+import { CTable, CTableHead, CTableBody, CTableRow, CTableHeaderCell, CTableDataCell } from '@coreui/react';
 
 import { localDateISO } from '@/lib/utils';
 import { useState } from 'react';
@@ -254,35 +255,35 @@ export default function ReceiptsPage() {
                       {/* Expanded line items */}
                       {isExpanded && r.items && r.items.length > 0 && (
                         <div className="px-5 py-3 bg-gray-50/50 dark:bg-neutral-800/30">
-                          <table className="w-full text-xs">
-                            <thead>
-                              <tr className="text-gray-400">
+                          <CTable className="w-full text-xs">
+                            <CTableHead>
+                              <CTableRow className="text-gray-400">
                                 {[t('المادة','Item'), t('الكمية','Qty'), t('السعر/وحدة','Unit Price'), t('الدفعة','Lot'), t('الانتهاء','Expiry'), ''].map((h) => (
-                                  <th key={h} className="text-start pb-2 font-medium pe-4">{h}</th>
+                                  <CTableHeaderCell key={h} className="text-start pb-2 font-medium pe-4">{h}</CTableHeaderCell>
                                 ))}
-                              </tr>
-                            </thead>
-                            <tbody>
+                              </CTableRow>
+                            </CTableHead>
+                            <CTableBody>
                               {(r.items as ReceiptItem[]).map((li) => (
-                                <tr key={li.id} className="border-t border-gray-100 dark:border-neutral-700/30">
-                                  <td className="py-1.5 pe-4 text-gray-700 dark:text-gray-300 max-w-[200px] truncate">
+                                <CTableRow key={li.id} className="border-t border-gray-100 dark:border-neutral-700/30">
+                                  <CTableDataCell className="py-1.5 pe-4 text-gray-700 dark:text-gray-300 max-w-[200px] truncate">
                                     {catalogItems.find((ci) => ci.id === li.itemId)?.itemName ?? li.itemId.slice(0, 8)}
-                                  </td>
-                                  <td className="py-1.5 pe-4 tabular-nums">{li.quantityReceived}{li.quantityOrdered && ` / ${li.quantityOrdered}`}</td>
-                                  <td className="py-1.5 pe-4 tabular-nums">{li.unitPriceEgp.toLocaleString(locale)} {t('ج','EGP')}</td>
-                                  <td className="py-1.5 pe-4">{li.batchLotNumber ?? '—'}</td>
-                                  <td className="py-1.5 pe-4">{li.expiryDate ?? '—'}</td>
-                                  <td className="py-1.5">
+                                  </CTableDataCell>
+                                  <CTableDataCell className="py-1.5 pe-4 tabular-nums">{li.quantityReceived}{li.quantityOrdered && ` / ${li.quantityOrdered}`}</CTableDataCell>
+                                  <CTableDataCell className="py-1.5 pe-4 tabular-nums">{li.unitPriceEgp.toLocaleString(locale)} {t('ج','EGP')}</CTableDataCell>
+                                  <CTableDataCell className="py-1.5 pe-4">{li.batchLotNumber ?? '—'}</CTableDataCell>
+                                  <CTableDataCell className="py-1.5 pe-4">{li.expiryDate ?? '—'}</CTableDataCell>
+                                  <CTableDataCell className="py-1.5">
                                     {li.discrepancyFlagged && (
                                       <Badge variant="danger" className="text-[10px]">
                                         {t('تناقض','Discrepancy')} {li.discrepancyPct?.toFixed(1)}%
                                       </Badge>
                                     )}
-                                  </td>
-                                </tr>
+                                  </CTableDataCell>
+                                </CTableRow>
                               ))}
-                            </tbody>
-                          </table>
+                            </CTableBody>
+                          </CTable>
                         </div>
                       )}
                     </div>

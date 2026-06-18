@@ -1,4 +1,5 @@
 'use client';
+import { CTable, CTableHead, CTableBody, CTableRow, CTableHeaderCell, CTableDataCell } from '@coreui/react';
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -187,47 +188,47 @@ export default function IntegrationsPage() {
           )}
           {!isLoading && !isError && (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
+              <CTable className="w-full text-sm">
+                <CTableHead>
+                  <CTableRow className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
                     {['Platform', 'Event', 'Status', 'Error', 'Time'].map((h) => (
-                      <th key={h} className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{h}</th>
+                      <CTableHeaderCell key={h} className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-300 text-xs">{h}</CTableHeaderCell>
                     ))}
-                  </tr>
-                </thead>
-                <tbody>
+                  </CTableRow>
+                </CTableHead>
+                <CTableBody>
                   {(!events || events.length === 0) && (
-                    <tr>
-                      <td colSpan={5} className="px-5 py-12 text-center text-gray-400">
+                    <CTableRow>
+                      <CTableDataCell colSpan={5} className="px-5 py-12 text-center text-gray-400">
                         {t('لا توجد أحداث', 'No events found')}
-                      </td>
-                    </tr>
+                      </CTableDataCell>
+                    </CTableRow>
                   )}
                   {(events ?? []).map((ev) => {
                     const Icon = STATUS_ICON[ev.status] ?? Clock;
                     return (
-                      <tr key={ev.id} className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors">
-                        <td className="px-5 py-3.5">
+                      <CTableRow key={ev.id} className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors">
+                        <CTableDataCell className="px-5 py-3.5">
                           <span className="font-medium text-gray-900 dark:text-gray-100">{PLATFORM_LABELS[ev.platform] ?? ev.platform}</span>
-                        </td>
-                        <td className="px-5 py-3.5 text-gray-600 dark:text-gray-300 font-mono text-xs">{ev.eventType}</td>
-                        <td className="px-5 py-3.5">
+                        </CTableDataCell>
+                        <CTableDataCell className="px-5 py-3.5 text-gray-600 dark:text-gray-300 font-mono text-xs">{ev.eventType}</CTableDataCell>
+                        <CTableDataCell className="px-5 py-3.5">
                           <Badge variant={STATUS_VARIANT[ev.status] ?? 'default'} className="flex items-center gap-1 w-fit">
                             <Icon className="w-3 h-3" />
                             {ev.status}
                           </Badge>
-                        </td>
-                        <td className="px-5 py-3.5 text-xs text-red-500 max-w-[200px] truncate" title={ev.errorMessage}>
+                        </CTableDataCell>
+                        <CTableDataCell className="px-5 py-3.5 text-xs text-red-500 max-w-[200px] truncate" title={ev.errorMessage}>
                           {ev.errorMessage ?? '—'}
-                        </td>
-                        <td className="px-5 py-3.5 text-xs text-gray-400 whitespace-nowrap">
+                        </CTableDataCell>
+                        <CTableDataCell className="px-5 py-3.5 text-xs text-gray-400 whitespace-nowrap">
                           {relTime(ev.createdAt)}
-                        </td>
-                      </tr>
+                        </CTableDataCell>
+                      </CTableRow>
                     );
                   })}
-                </tbody>
-              </table>
+                </CTableBody>
+              </CTable>
             </div>
           )}
         </CardContent>

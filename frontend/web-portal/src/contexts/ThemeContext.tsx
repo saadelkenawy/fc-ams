@@ -21,6 +21,8 @@ function applyTheme(id: ThemeId) {
   const t = THEMES[id];
   const root = document.documentElement;
   root.setAttribute('data-theme', id);
+  // Bridge to CoreUI's theming so its components follow the same light/dark state.
+  root.setAttribute('data-coreui-theme', id === 'dark' ? 'dark' : 'light');
   root.style.setProperty('--color-bg',             t.bg);
   root.style.setProperty('--color-bg-elevated',    t.elevated);
   root.style.setProperty('--color-bg-card',        t.card);

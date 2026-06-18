@@ -3,8 +3,9 @@
 import { Bell, Search, Sun, Moon, Globe, LayoutGrid, Minus, Plus, X, User, CheckCircle2, AlertCircle, Clock, MessageSquare, Menu } from 'lucide-react';
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
+import { CHeader, CHeaderToggler, CContainer } from '@coreui/react';
 import { cn } from '@/lib/utils';
 import { useLang } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -503,15 +504,16 @@ export function Header({ onMobileMenuToggle, onSearchOpen }: HeaderProps) {
   const userName = lang === 'ar' ? user?.nameAr : user?.nameEn;
 
   return (
-    <header className="sticky top-0 z-20 h-14 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border-b border-gray-200/70 dark:border-neutral-800 flex items-center px-4 gap-3 flex-shrink-0 transition-colors duration-200">
+    <CHeader position="sticky" className="p-0 mb-0 border-bottom">
+      <CContainer fluid className="d-flex align-items-center gap-3 px-4" style={{ minHeight: 56 }}>
       {/* Hamburger — mobile only */}
-      <button
+      <CHeaderToggler
+        className="d-lg-none flex-shrink-0"
         onClick={onMobileMenuToggle}
-        className="lg:hidden h-9 w-9 flex items-center justify-center rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-neutral-800 transition-colors flex-shrink-0"
         aria-label={t('فتح القائمة', 'Open menu')}
       >
         <Menu className="w-5 h-5" />
-      </button>
+      </CHeaderToggler>
 
       <QuickSearch onOpenGlobal={onSearchOpen} />
 
@@ -620,6 +622,7 @@ export function Header({ onMobileMenuToggle, onSearchOpen }: HeaderProps) {
           </div>
         )}
       </div>
-    </header>
+      </CContainer>
+    </CHeader>
   );
 }

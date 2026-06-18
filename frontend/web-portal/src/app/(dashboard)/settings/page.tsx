@@ -1,4 +1,5 @@
 'use client';
+import { CTable, CTableHead, CTableBody, CTableRow, CTableHeaderCell, CTableDataCell } from '@coreui/react';
 
 import { useState, useEffect } from 'react';
 import { useTranslateName } from '@/hooks/useTranslateName';
@@ -722,27 +723,27 @@ function UsersContent({ t, lang }: { t: (ar: string, en: string) => string; lang
           </div>
         ) : (
           <div className="fc-table-wrap rounded-xl border border-gray-100 dark:border-neutral-700">
-            <table className="fc-table">
-              <thead>
-                <tr>
+            <CTable className="fc-table">
+              <CTableHead>
+                <CTableRow>
                   {[t('المستخدم', 'User'), t('الدور', 'Role'), t('الحالة', 'Status'), t('آخر دخول', 'Last Login'), t('إجراءات', 'Actions')].map((h) => (
-                    <th key={h}>{h}</th>
+                    <CTableHeaderCell key={h}>{h}</CTableHeaderCell>
                   ))}
-                </tr>
-              </thead>
-              <tbody>
+                </CTableRow>
+              </CTableHead>
+              <CTableBody>
                 {users.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="px-4 py-10 text-center text-gray-400 text-sm">
+                  <CTableRow>
+                    <CTableDataCell colSpan={5} className="px-4 py-10 text-center text-gray-400 text-sm">
                       {t('لا توجد نتائج', 'No users found')}
-                    </td>
-                  </tr>
+                    </CTableDataCell>
+                  </CTableRow>
                 )}
                 {users.map((u) => {
                   const isSelf = u.id === currentUser?.id;
                   return (
-                    <tr key={u.id}>
-                      <td>
+                    <CTableRow key={u.id}>
+                      <CTableDataCell>
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-900/40 flex items-center justify-center text-primary-700 dark:text-primary-400 text-sm font-bold flex-shrink-0">
                             {u.nameEn.charAt(0).toUpperCase()}
@@ -755,21 +756,21 @@ function UsersContent({ t, lang }: { t: (ar: string, en: string) => string; lang
                             <p className="text-xs text-gray-400 dark:text-gray-500 truncate">{u.email}</p>
                           </div>
                         </div>
-                      </td>
-                      <td>
+                      </CTableDataCell>
+                      <CTableDataCell>
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${ROLE_META[u.role as Role]?.color ?? 'bg-gray-100 text-gray-600'}`}>
                           {lang === 'ar' ? ROLE_META[u.role as Role]?.labelAr : ROLE_META[u.role as Role]?.labelEn}
                         </span>
-                      </td>
-                      <td>
+                      </CTableDataCell>
+                      <CTableDataCell>
                         {u.isActive ? (
                           <Badge variant="success" className="gap-1 text-xs"><Check className="w-3 h-3" />{t('نشط', 'Active')}</Badge>
                         ) : (
                           <Badge variant="default" className="text-xs text-gray-500">{t('معطل', 'Inactive')}</Badge>
                         )}
-                      </td>
-                      <td className="text-xs text-gray-400 whitespace-nowrap">{relTime(u.lastLoginAt)}</td>
-                      <td>
+                      </CTableDataCell>
+                      <CTableDataCell className="text-xs text-gray-400 whitespace-nowrap">{relTime(u.lastLoginAt)}</CTableDataCell>
+                      <CTableDataCell>
                         <div className="fc-row-actions">
                           <button
                             type="button"
@@ -811,12 +812,12 @@ function UsersContent({ t, lang }: { t: (ar: string, en: string) => string; lang
                             </button>
                           )}
                         </div>
-                      </td>
-                    </tr>
+                      </CTableDataCell>
+                    </CTableRow>
                   );
                 })}
-              </tbody>
-            </table>
+              </CTableBody>
+            </CTable>
           </div>
         )}
       </div>
@@ -826,25 +827,25 @@ function UsersContent({ t, lang }: { t: (ar: string, en: string) => string; lang
           {t('مصفوفة الصلاحيات', 'Permissions Matrix')}
         </h3>
         <div className="fc-table-wrap">
-          <table className="fc-table">
-            <thead>
-              <tr>
-                <th className="min-w-[160px]">{t('الصلاحية', 'Permission')}</th>
+          <CTable className="fc-table">
+            <CTableHead>
+              <CTableRow>
+                <CTableHeaderCell className="min-w-[160px]">{t('الصلاحية', 'Permission')}</CTableHeaderCell>
                 {ROLES.map((r) => (
-                  <th key={r} className="is-center whitespace-nowrap">
+                  <CTableHeaderCell key={r} className="is-center whitespace-nowrap">
                     <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold ${ROLE_META[r].color}`}>
                       {lang === 'ar' ? ROLE_META[r].labelAr : ROLE_META[r].labelEn}
                     </span>
-                  </th>
+                  </CTableHeaderCell>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
+              </CTableRow>
+            </CTableHead>
+            <CTableBody>
               {PERMISSIONS.map((perm) => (
-                <tr key={perm.labelEn}>
-                  <td className="font-medium text-xs">{lang === 'ar' ? perm.labelAr : perm.labelEn}</td>
+                <CTableRow key={perm.labelEn}>
+                  <CTableDataCell className="font-medium text-xs">{lang === 'ar' ? perm.labelAr : perm.labelEn}</CTableDataCell>
                   {ROLES.map((r) => (
-                    <td key={r} className="is-center">
+                    <CTableDataCell key={r} className="is-center">
                       {perm[r] ? (
                         <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-900/30 mx-auto">
                           <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
@@ -854,12 +855,12 @@ function UsersContent({ t, lang }: { t: (ar: string, en: string) => string; lang
                           <X className="w-3 h-3 text-gray-300 dark:text-gray-600" />
                         </span>
                       )}
-                    </td>
+                    </CTableDataCell>
                   ))}
-                </tr>
+                </CTableRow>
               ))}
-            </tbody>
-          </table>
+            </CTableBody>
+          </CTable>
         </div>
       </div>
 
@@ -1008,50 +1009,50 @@ function NotificationsContent({ t, lang }: { t: (ar: string, en: string) => stri
 
       {/* Table */}
       <div className="fc-table-wrap rounded-xl border border-gray-100 dark:border-neutral-700">
-        <table className="fc-table">
-          <thead>
-            <tr>
-              <th>{t('القناة', 'Channel')}</th>
-              <th>{t('المستلم', 'Recipient')}</th>
-              <th>{t('الرسالة', 'Message')}</th>
-              <th>{t('الحالة', 'Status')}</th>
-              <th>{t('التاريخ', 'Date')}</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
+        <CTable className="fc-table">
+          <CTableHead>
+            <CTableRow>
+              <CTableHeaderCell>{t('القناة', 'Channel')}</CTableHeaderCell>
+              <CTableHeaderCell>{t('المستلم', 'Recipient')}</CTableHeaderCell>
+              <CTableHeaderCell>{t('الرسالة', 'Message')}</CTableHeaderCell>
+              <CTableHeaderCell>{t('الحالة', 'Status')}</CTableHeaderCell>
+              <CTableHeaderCell>{t('التاريخ', 'Date')}</CTableHeaderCell>
+              <CTableHeaderCell />
+            </CTableRow>
+          </CTableHead>
+          <CTableBody>
             {isLoading ? (
               Array.from({ length: 5 }).map((_, i) => (
-                <tr key={i}>
-                  <td colSpan={6}>
+                <CTableRow key={i}>
+                  <CTableDataCell colSpan={6}>
                     <div className="animate-pulse bg-gray-100 dark:bg-neutral-700 rounded h-4 w-full" />
-                  </td>
-                </tr>
+                  </CTableDataCell>
+                </CTableRow>
               ))
             ) : records.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="py-10 text-center text-sm text-gray-400">
+              <CTableRow>
+                <CTableDataCell colSpan={6} className="py-10 text-center text-sm text-gray-400">
                   {t('لا توجد إشعارات', 'No notifications found')}
-                </td>
-              </tr>
+                </CTableDataCell>
+              </CTableRow>
             ) : (
               records.map((n) => {
                 const sb = STATUS_BADGE[n.status] ?? { variant: 'default' as const, ar: n.status, en: n.status };
                 const recipient = n.recipientEmail ?? n.recipientMobile ?? n.recipientType;
                 return (
-                  <tr key={n.id}>
-                    <td>
+                  <CTableRow key={n.id}>
+                    <CTableDataCell>
                       <div className="flex items-center gap-1.5">
                         {CHANNEL_ICON[n.channel] ?? <Bell className="w-3.5 h-3.5 text-gray-400" />}
                         <span className="text-xs font-medium uppercase tracking-wide text-gray-600 dark:text-gray-400">
                           {n.channel}
                         </span>
                       </div>
-                    </td>
-                    <td className="text-xs text-gray-600 dark:text-gray-400 font-mono max-w-[140px] truncate">
+                    </CTableDataCell>
+                    <CTableDataCell className="text-xs text-gray-600 dark:text-gray-400 font-mono max-w-[140px] truncate">
                       {recipient}
-                    </td>
-                    <td className="max-w-[200px]">
+                    </CTableDataCell>
+                    <CTableDataCell className="max-w-[200px]">
                       {n.subject && (
                         <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 truncate">{n.subject}</p>
                       )}
@@ -1059,14 +1060,14 @@ function NotificationsContent({ t, lang }: { t: (ar: string, en: string) => stri
                       {n.errorMessage && (
                         <p className="text-[10px] text-red-500 truncate mt-0.5">{n.errorMessage}</p>
                       )}
-                    </td>
-                    <td>
+                    </CTableDataCell>
+                    <CTableDataCell>
                       <Badge variant={sb.variant}>
                         {lang === 'ar' ? sb.ar : sb.en}
                       </Badge>
-                    </td>
-                    <td className="text-xs text-gray-400 whitespace-nowrap">{fmtDate(n.createdAt)}</td>
-                    <td>
+                    </CTableDataCell>
+                    <CTableDataCell className="text-xs text-gray-400 whitespace-nowrap">{fmtDate(n.createdAt)}</CTableDataCell>
+                    <CTableDataCell>
                       {n.status === 'failed' && (
                         <button
                           type="button"
@@ -1078,13 +1079,13 @@ function NotificationsContent({ t, lang }: { t: (ar: string, en: string) => stri
                           <RotateCw className="w-3.5 h-3.5" />
                         </button>
                       )}
-                    </td>
-                  </tr>
+                    </CTableDataCell>
+                  </CTableRow>
                 );
               })
             )}
-          </tbody>
-        </table>
+          </CTableBody>
+        </CTable>
       </div>
 
       {/* Pagination */}

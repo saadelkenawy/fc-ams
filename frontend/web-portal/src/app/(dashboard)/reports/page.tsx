@@ -1,4 +1,5 @@
 'use client';
+import { CTable, CTableHead, CTableBody, CTableRow, CTableHeaderCell, CTableDataCell } from '@coreui/react';
 
 import { useState } from 'react';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
@@ -261,30 +262,30 @@ function FinancialReport({ lang, locale, from, to }: { lang: string; locale: str
         <Card>
           <CardHeader><CardTitle>{lang === 'ar' ? 'أعلى الأطباء إيراداً' : 'Top Performing Doctors'}</CardTitle></CardHeader>
           <CardContent className="p-0">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
-                  <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">#</th>
-                  <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'الطبيب' : 'Doctor'}</th>
-                  <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'المعاملات' : 'Txns'}</th>
-                  <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'الإيرادات' : 'Revenue'}</th>
-                  <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'حصة الطبيب' : 'Dr. Share'}</th>
-                  <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'حصة العيادة' : 'Clinic'}</th>
-                </tr>
-              </thead>
-              <tbody>
+            <CTable className="w-full text-sm">
+              <CTableHead>
+                <CTableRow className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
+                  <CTableHeaderCell className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">#</CTableHeaderCell>
+                  <CTableHeaderCell className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'الطبيب' : 'Doctor'}</CTableHeaderCell>
+                  <CTableHeaderCell className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'المعاملات' : 'Txns'}</CTableHeaderCell>
+                  <CTableHeaderCell className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'الإيرادات' : 'Revenue'}</CTableHeaderCell>
+                  <CTableHeaderCell className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'حصة الطبيب' : 'Dr. Share'}</CTableHeaderCell>
+                  <CTableHeaderCell className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'حصة العيادة' : 'Clinic'}</CTableHeaderCell>
+                </CTableRow>
+              </CTableHead>
+              <CTableBody>
                 {topDoctors.map((dr, i) => (
-                  <tr key={dr.doctorId} className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors">
-                    <td className="px-5 py-3 text-gray-400 tabular-nums">{i + 1}</td>
-                    <td className="px-5 py-3 font-medium text-gray-900 dark:text-gray-100">{lang === 'ar' ? dr.nameAr : dr.nameEn}</td>
-                    <td className="px-5 py-3 tabular-nums text-gray-600 dark:text-gray-400">{formatNumber(dr.transactions, locale)}</td>
-                    <td className="px-5 py-3 font-mono tabular-nums text-gray-900 dark:text-gray-100">{formatCurrency(dr.revenue, 'EGP', locale)}</td>
-                    <td className="px-5 py-3 font-mono tabular-nums text-violet-600 dark:text-violet-400">{formatCurrency(dr.doctorShare, 'EGP', locale)}</td>
-                    <td className="px-5 py-3 font-mono tabular-nums text-emerald-600 dark:text-emerald-400">{formatCurrency(dr.revenue - dr.doctorShare, 'EGP', locale)}</td>
-                  </tr>
+                  <CTableRow key={dr.doctorId} className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors">
+                    <CTableDataCell className="px-5 py-3 text-gray-400 tabular-nums">{i + 1}</CTableDataCell>
+                    <CTableDataCell className="px-5 py-3 font-medium text-gray-900 dark:text-gray-100">{lang === 'ar' ? dr.nameAr : dr.nameEn}</CTableDataCell>
+                    <CTableDataCell className="px-5 py-3 tabular-nums text-gray-600 dark:text-gray-400">{formatNumber(dr.transactions, locale)}</CTableDataCell>
+                    <CTableDataCell className="px-5 py-3 font-mono tabular-nums text-gray-900 dark:text-gray-100">{formatCurrency(dr.revenue, 'EGP', locale)}</CTableDataCell>
+                    <CTableDataCell className="px-5 py-3 font-mono tabular-nums text-violet-600 dark:text-violet-400">{formatCurrency(dr.doctorShare, 'EGP', locale)}</CTableDataCell>
+                    <CTableDataCell className="px-5 py-3 font-mono tabular-nums text-emerald-600 dark:text-emerald-400">{formatCurrency(dr.revenue - dr.doctorShare, 'EGP', locale)}</CTableDataCell>
+                  </CTableRow>
                 ))}
-              </tbody>
-            </table>
+              </CTableBody>
+            </CTable>
           </CardContent>
         </Card>
       )}
@@ -294,28 +295,28 @@ function FinancialReport({ lang, locale, from, to }: { lang: string; locale: str
         <Card>
           <CardHeader><CardTitle>{lang === 'ar' ? 'أعلى المعاملات قيمةً' : 'Top Transactions by Value'}</CardTitle></CardHeader>
           <CardContent className="p-0">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
-                  <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'التاريخ' : 'Date'}</th>
-                  <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'نوع الزيارة' : 'Type'}</th>
-                  <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'طريقة الدفع' : 'Payment'}</th>
-                  <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'المصدر' : 'Source'}</th>
-                  <th className="text-end px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'المبلغ' : 'Amount'}</th>
-                </tr>
-              </thead>
-              <tbody>
+            <CTable className="w-full text-sm">
+              <CTableHead>
+                <CTableRow className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
+                  <CTableHeaderCell className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'التاريخ' : 'Date'}</CTableHeaderCell>
+                  <CTableHeaderCell className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'نوع الزيارة' : 'Type'}</CTableHeaderCell>
+                  <CTableHeaderCell className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'طريقة الدفع' : 'Payment'}</CTableHeaderCell>
+                  <CTableHeaderCell className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'المصدر' : 'Source'}</CTableHeaderCell>
+                  <CTableHeaderCell className="text-end px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'المبلغ' : 'Amount'}</CTableHeaderCell>
+                </CTableRow>
+              </CTableHead>
+              <CTableBody>
                 {recentTransactions.map((tx) => (
-                  <tr key={tx.id || tx.transactionDate} className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors">
-                    <td className="px-5 py-3 tabular-nums text-gray-600 dark:text-gray-400">{tx.transactionDate}</td>
-                    <td className="px-5 py-3"><Badge variant="outline">{visitLabel(tx.visitType)}</Badge></td>
-                    <td className="px-5 py-3 text-gray-600 dark:text-gray-400">{payLabel(tx.paymentMethod)}</td>
-                    <td className="px-5 py-3"><Badge variant="outline">{tx.patientSource}</Badge></td>
-                    <td className="px-5 py-3 text-end font-mono font-semibold tabular-nums text-gray-900 dark:text-gray-100">{formatCurrency(tx.approvedCharge, 'EGP', locale)}</td>
-                  </tr>
+                  <CTableRow key={tx.id || tx.transactionDate} className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors">
+                    <CTableDataCell className="px-5 py-3 tabular-nums text-gray-600 dark:text-gray-400">{tx.transactionDate}</CTableDataCell>
+                    <CTableDataCell className="px-5 py-3"><Badge variant="outline">{visitLabel(tx.visitType)}</Badge></CTableDataCell>
+                    <CTableDataCell className="px-5 py-3 text-gray-600 dark:text-gray-400">{payLabel(tx.paymentMethod)}</CTableDataCell>
+                    <CTableDataCell className="px-5 py-3"><Badge variant="outline">{tx.patientSource}</Badge></CTableDataCell>
+                    <CTableDataCell className="px-5 py-3 text-end font-mono font-semibold tabular-nums text-gray-900 dark:text-gray-100">{formatCurrency(tx.approvedCharge, 'EGP', locale)}</CTableDataCell>
+                  </CTableRow>
                 ))}
-              </tbody>
-            </table>
+              </CTableBody>
+            </CTable>
           </CardContent>
         </Card>
       )}
@@ -377,36 +378,36 @@ function SettlementsReport({ lang, locale, from, to, doctorId }: { lang: string;
 
       <Card>
         <CardContent className="p-0">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
-                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'الطبيب'         : 'Doctor'}</th>
-                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'معاملات'        : 'Txns'}</th>
-                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'إجمالي المحصل' : 'Total Charged'}</th>
-                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'حصة الطبيب'    : 'Doctor Share'}</th>
-                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'الحالة'         : 'Status'}</th>
-                <th className="px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400" />
-              </tr>
-            </thead>
-            <tbody ref={settlBodyRef}>
+          <CTable className="w-full text-sm">
+            <CTableHead>
+              <CTableRow className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
+                <CTableHeaderCell className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'الطبيب'         : 'Doctor'}</CTableHeaderCell>
+                <CTableHeaderCell className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'معاملات'        : 'Txns'}</CTableHeaderCell>
+                <CTableHeaderCell className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'إجمالي المحصل' : 'Total Charged'}</CTableHeaderCell>
+                <CTableHeaderCell className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'حصة الطبيب'    : 'Doctor Share'}</CTableHeaderCell>
+                <CTableHeaderCell className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'الحالة'         : 'Status'}</CTableHeaderCell>
+                <CTableHeaderCell className="px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400" />
+              </CTableRow>
+            </CTableHead>
+            <CTableBody ref={settlBodyRef}>
               {settlements.map((s: DoctorSettlement, i: number) => {
                 const dr = allDoctors.find((d) => d.id === s.doctorId);
                 const drName = lang === 'ar' ? (dr?.nameAr ?? dr?.nameEn ?? s.doctorId) : (dr?.nameEn ?? s.doctorId);
                 const drNameEn = dr?.nameEn ?? String(s.doctorId ?? '');
                 return (
-                  <tr key={s.doctorId ?? i} className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors">
-                    <td className="px-5 py-3.5 font-medium text-gray-900 dark:text-gray-100">{drName}</td>
-                    <td className="px-5 py-3.5 font-mono tabular-nums text-gray-600 dark:text-gray-400">{formatNumber(s.totalConsultations ?? 0, locale)}</td>
-                    <td className="px-5 py-3.5 font-mono tabular-nums text-gray-700 dark:text-gray-300">{formatCurrency(s.grossRevenue ?? 0, 'EGP', locale)}</td>
-                    <td className="px-5 py-3.5 font-mono tabular-nums font-semibold text-primary-700 dark:text-primary-400">{formatCurrency(s.doctorShare ?? 0, 'EGP', locale)}</td>
-                    <td className="px-5 py-3.5">
+                  <CTableRow key={s.doctorId ?? i} className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors">
+                    <CTableDataCell className="px-5 py-3.5 font-medium text-gray-900 dark:text-gray-100">{drName}</CTableDataCell>
+                    <CTableDataCell className="px-5 py-3.5 font-mono tabular-nums text-gray-600 dark:text-gray-400">{formatNumber(s.totalConsultations ?? 0, locale)}</CTableDataCell>
+                    <CTableDataCell className="px-5 py-3.5 font-mono tabular-nums text-gray-700 dark:text-gray-300">{formatCurrency(s.grossRevenue ?? 0, 'EGP', locale)}</CTableDataCell>
+                    <CTableDataCell className="px-5 py-3.5 font-mono tabular-nums font-semibold text-primary-700 dark:text-primary-400">{formatCurrency(s.doctorShare ?? 0, 'EGP', locale)}</CTableDataCell>
+                    <CTableDataCell className="px-5 py-3.5">
                       {(s.status === 'paid' || s.status === 'reconciled')
                         ? <Badge variant="success">{lang === 'ar' ? 'مُسوَّى' : 'Settled'}</Badge>
                         : s.status === 'approved'
                         ? <Badge variant="default">{lang === 'ar' ? 'معتمد' : 'Approved'}</Badge>
                         : <Badge variant="warning">{lang === 'ar' ? 'بانتظار التسوية' : 'Pending'}</Badge>}
-                    </td>
-                    <td className="px-5 py-3.5">
+                    </CTableDataCell>
+                    <CTableDataCell className="px-5 py-3.5">
                       {s.doctorId && (
                         <button
                           type="button"
@@ -417,15 +418,15 @@ function SettlementsReport({ lang, locale, from, to, doctorId }: { lang: string;
                           <FileDown className="w-4 h-4" />
                         </button>
                       )}
-                    </td>
-                  </tr>
+                    </CTableDataCell>
+                  </CTableRow>
                 );
               })}
               {settlements.length === 0 && (
-                <tr><td colSpan={6} className="px-5 py-12 text-center text-gray-400">{lang === 'ar' ? 'لا بيانات' : 'No data'}</td></tr>
+                <CTableRow><CTableDataCell colSpan={6} className="px-5 py-12 text-center text-gray-400">{lang === 'ar' ? 'لا بيانات' : 'No data'}</CTableDataCell></CTableRow>
               )}
-            </tbody>
-          </table>
+            </CTableBody>
+          </CTable>
         </CardContent>
       </Card>
     </div>
@@ -518,50 +519,50 @@ function SourcesReport({ lang, locale, from, to }: { lang: string; locale: strin
           <CardTitle>{lang === 'ar' ? 'الإيرادات ورسوم الوسيط' : 'Revenue & Mediator Fees'}</CardTitle>
         </CardHeader>
         <CardContent className="overflow-x-auto p-0">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-100 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-800/50">
-                <th className="px-5 py-3 text-start font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'المصدر' : 'Source'}</th>
-                <th className="px-5 py-3 text-end font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'المرضى' : 'Patients'}</th>
-                <th className="px-5 py-3 text-end font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'الإيرادات' : 'Revenue'}</th>
-                <th className="px-5 py-3 text-end font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'رسوم الوسيط' : 'Mediator Fee'}</th>
-                <th className="px-5 py-3 text-end font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'الصافي' : 'Net Revenue'}</th>
-              </tr>
-            </thead>
-            <tbody>
+          <CTable className="w-full text-sm">
+            <CTableHead>
+              <CTableRow className="border-b border-gray-100 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-800/50">
+                <CTableHeaderCell className="px-5 py-3 text-start font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'المصدر' : 'Source'}</CTableHeaderCell>
+                <CTableHeaderCell className="px-5 py-3 text-end font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'المرضى' : 'Patients'}</CTableHeaderCell>
+                <CTableHeaderCell className="px-5 py-3 text-end font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'الإيرادات' : 'Revenue'}</CTableHeaderCell>
+                <CTableHeaderCell className="px-5 py-3 text-end font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'رسوم الوسيط' : 'Mediator Fee'}</CTableHeaderCell>
+                <CTableHeaderCell className="px-5 py-3 text-end font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'الصافي' : 'Net Revenue'}</CTableHeaderCell>
+              </CTableRow>
+            </CTableHead>
+            <CTableBody>
               {sorted.map((row) => (
-                <tr key={row.sourceCode} className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-800/30">
-                  <td className="px-5 py-3">
+                <CTableRow key={row.sourceCode} className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-800/30">
+                  <CTableDataCell className="px-5 py-3">
                     <div className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: SOURCE_COLORS[row.sourceCode] ?? '#94A3B8' }} />
                       <span className="font-medium text-gray-900 dark:text-gray-100">
                         {lang === 'ar' ? row.sourceNameAr : row.sourceNameEn}
                       </span>
                     </div>
-                  </td>
-                  <td className="px-5 py-3 text-end font-mono tabular-nums text-gray-700 dark:text-gray-300">
+                  </CTableDataCell>
+                  <CTableDataCell className="px-5 py-3 text-end font-mono tabular-nums text-gray-700 dark:text-gray-300">
                     {formatNumber(row.uniquePatients, locale)}
-                  </td>
-                  <td className="px-5 py-3 text-end font-mono tabular-nums text-gray-900 dark:text-gray-100">
+                  </CTableDataCell>
+                  <CTableDataCell className="px-5 py-3 text-end font-mono tabular-nums text-gray-900 dark:text-gray-100">
                     {formatCurrency(row.revenue, 'EGP', locale)}
-                  </td>
-                  <td className="px-5 py-3 text-end font-mono tabular-nums text-amber-600 dark:text-amber-400">
+                  </CTableDataCell>
+                  <CTableDataCell className="px-5 py-3 text-end font-mono tabular-nums text-amber-600 dark:text-amber-400">
                     {row.sourceFees > 0 ? formatCurrency(row.sourceFees, 'EGP', locale) : '—'}
-                  </td>
-                  <td className="px-5 py-3 text-end font-mono tabular-nums font-semibold text-emerald-700 dark:text-emerald-400">
+                  </CTableDataCell>
+                  <CTableDataCell className="px-5 py-3 text-end font-mono tabular-nums font-semibold text-emerald-700 dark:text-emerald-400">
                     {formatCurrency(row.revenue - row.sourceFees, 'EGP', locale)}
-                  </td>
-                </tr>
+                  </CTableDataCell>
+                </CTableRow>
               ))}
               {sorted.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="px-5 py-12 text-center text-gray-400">
+                <CTableRow>
+                  <CTableDataCell colSpan={5} className="px-5 py-12 text-center text-gray-400">
                     {lang === 'ar' ? 'لا بيانات' : 'No data'}
-                  </td>
-                </tr>
+                  </CTableDataCell>
+                </CTableRow>
               )}
-            </tbody>
-          </table>
+            </CTableBody>
+          </CTable>
         </CardContent>
       </Card>
 
@@ -716,40 +717,40 @@ function ActivityReport({ lang, locale, from, to, doctorId }: { lang: string; lo
             : `Doctor Performance: ${new Date(from).toLocaleString('en-US', { month: 'long', year: 'numeric' })}`}</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
-                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">#</th>
-                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'الطبيب'       : 'Doctor'}</th>
-                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'مرضى'         : 'Patients'}</th>
-                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'الإيرادات'    : 'Revenue'}</th>
-                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'حصة الطبيب'  : 'Dr. Share'}</th>
-                <th className="px-5 py-3 w-32" />
-              </tr>
-            </thead>
-            <tbody ref={activityBodyRef}>
+          <CTable className="w-full text-sm">
+            <CTableHead>
+              <CTableRow className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
+                <CTableHeaderCell className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">#</CTableHeaderCell>
+                <CTableHeaderCell className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'الطبيب'       : 'Doctor'}</CTableHeaderCell>
+                <CTableHeaderCell className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'مرضى'         : 'Patients'}</CTableHeaderCell>
+                <CTableHeaderCell className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'الإيرادات'    : 'Revenue'}</CTableHeaderCell>
+                <CTableHeaderCell className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'حصة الطبيب'  : 'Dr. Share'}</CTableHeaderCell>
+                <CTableHeaderCell className="px-5 py-3 w-32" />
+              </CTableRow>
+            </CTableHead>
+            <CTableBody ref={activityBodyRef}>
               {sorted.map(([dId, stats], i) => {
                 const pct = maxRev > 0 ? (stats.revenue / maxRev) * 100 : 0;
                 return (
-                  <tr key={dId} className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors">
-                    <td className="px-5 py-3.5 text-xs font-bold text-gray-300 dark:text-gray-600">{formatNumber(i + 1, locale)}</td>
-                    <td className="px-5 py-3.5 font-medium text-gray-900 dark:text-gray-100">{lang === 'ar' ? (stats.nameAr ?? stats.name) : stats.name}</td>
-                    <td className="px-5 py-3.5 font-mono tabular-nums text-gray-600 dark:text-gray-400">{formatNumber(stats.count, locale)}</td>
-                    <td className="px-5 py-3.5 font-mono tabular-nums font-medium text-gray-900 dark:text-gray-100">{formatCurrency(stats.revenue, 'EGP', locale)}</td>
-                    <td className="px-5 py-3.5 font-mono tabular-nums text-primary-700 dark:text-primary-400">{formatCurrency(stats.drShare, 'EGP', locale)}</td>
-                    <td className="px-5 py-3.5">
+                  <CTableRow key={dId} className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors">
+                    <CTableDataCell className="px-5 py-3.5 text-xs font-bold text-gray-300 dark:text-gray-600">{formatNumber(i + 1, locale)}</CTableDataCell>
+                    <CTableDataCell className="px-5 py-3.5 font-medium text-gray-900 dark:text-gray-100">{lang === 'ar' ? (stats.nameAr ?? stats.name) : stats.name}</CTableDataCell>
+                    <CTableDataCell className="px-5 py-3.5 font-mono tabular-nums text-gray-600 dark:text-gray-400">{formatNumber(stats.count, locale)}</CTableDataCell>
+                    <CTableDataCell className="px-5 py-3.5 font-mono tabular-nums font-medium text-gray-900 dark:text-gray-100">{formatCurrency(stats.revenue, 'EGP', locale)}</CTableDataCell>
+                    <CTableDataCell className="px-5 py-3.5 font-mono tabular-nums text-primary-700 dark:text-primary-400">{formatCurrency(stats.drShare, 'EGP', locale)}</CTableDataCell>
+                    <CTableDataCell className="px-5 py-3.5">
                       <div className="h-1.5 bg-gray-100 dark:bg-neutral-700 rounded-full overflow-hidden w-28">
                         <div className="h-full w-full bg-primary-500 origin-left transition-transform duration-500" style={{ transform: `scaleX(${pct / 100})` }} />
                       </div>
-                    </td>
-                  </tr>
+                    </CTableDataCell>
+                  </CTableRow>
                 );
               })}
               {sorted.length === 0 && (
-                <tr><td colSpan={6} className="px-5 py-12 text-center text-gray-400">{lang === 'ar' ? 'لا بيانات' : 'No data'}</td></tr>
+                <CTableRow><CTableDataCell colSpan={6} className="px-5 py-12 text-center text-gray-400">{lang === 'ar' ? 'لا بيانات' : 'No data'}</CTableDataCell></CTableRow>
               )}
-            </tbody>
-          </table>
+            </CTableBody>
+          </CTable>
         </CardContent>
       </Card>
     </div>
@@ -823,40 +824,40 @@ function TrendsReport({ lang, locale }: { lang: string; locale: string }) {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
-                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'الشهر'       : 'Month'}</th>
-                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'الإيرادات'   : 'Revenue'}</th>
-                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 hidden md:table-cell">{lang === 'ar' ? 'حصة الأطباء' : 'Dr. Share'}</th>
-                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 hidden md:table-cell">{lang === 'ar' ? 'حصة العيادة' : 'Clinic'}</th>
-                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'معاملات'     : 'Txns'}</th>
-                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'نمو شهري'    : 'MoM'}</th>
-                <th className="px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 hidden lg:table-cell" />
-              </tr>
-            </thead>
-            <tbody ref={bodyRef}>
+          <CTable className="w-full text-sm">
+            <CTableHead>
+              <CTableRow className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
+                <CTableHeaderCell className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'الشهر'       : 'Month'}</CTableHeaderCell>
+                <CTableHeaderCell className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'الإيرادات'   : 'Revenue'}</CTableHeaderCell>
+                <CTableHeaderCell className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 hidden md:table-cell">{lang === 'ar' ? 'حصة الأطباء' : 'Dr. Share'}</CTableHeaderCell>
+                <CTableHeaderCell className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 hidden md:table-cell">{lang === 'ar' ? 'حصة العيادة' : 'Clinic'}</CTableHeaderCell>
+                <CTableHeaderCell className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'معاملات'     : 'Txns'}</CTableHeaderCell>
+                <CTableHeaderCell className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'نمو شهري'    : 'MoM'}</CTableHeaderCell>
+                <CTableHeaderCell className="px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 hidden lg:table-cell" />
+              </CTableRow>
+            </CTableHead>
+            <CTableBody ref={bodyRef}>
               {[...withGrowth].reverse().map((d) => {
                 const maxRev = Math.max(...withGrowth.map((r) => r.revenue), 1);
                 const barPct = maxRev > 0 ? (d.revenue / maxRev) * 100 : 0;
                 return (
-                  <tr key={d.month} className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors">
-                    <td className="px-5 py-3.5 font-medium text-gray-900 dark:text-gray-100">
+                  <CTableRow key={d.month} className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors">
+                    <CTableDataCell className="px-5 py-3.5 font-medium text-gray-900 dark:text-gray-100">
                       {new Date(d.month + '-01').toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-US', { month: 'short', year: 'numeric' })}
-                    </td>
-                    <td className="px-5 py-3.5 font-mono tabular-nums font-semibold text-gray-900 dark:text-gray-100">
+                    </CTableDataCell>
+                    <CTableDataCell className="px-5 py-3.5 font-mono tabular-nums font-semibold text-gray-900 dark:text-gray-100">
                       {formatCurrency(d.revenue, 'EGP', locale)}
-                    </td>
-                    <td className="px-5 py-3.5 font-mono tabular-nums text-gray-600 dark:text-gray-400 hidden md:table-cell">
+                    </CTableDataCell>
+                    <CTableDataCell className="px-5 py-3.5 font-mono tabular-nums text-gray-600 dark:text-gray-400 hidden md:table-cell">
                       {formatCurrency(d.doctorShare, 'EGP', locale)}
-                    </td>
-                    <td className="px-5 py-3.5 font-mono tabular-nums text-gray-600 dark:text-gray-400 hidden md:table-cell">
+                    </CTableDataCell>
+                    <CTableDataCell className="px-5 py-3.5 font-mono tabular-nums text-gray-600 dark:text-gray-400 hidden md:table-cell">
                       {formatCurrency(d.clinicShare, 'EGP', locale)}
-                    </td>
-                    <td className="px-5 py-3.5 font-mono tabular-nums text-gray-500 dark:text-gray-400">
+                    </CTableDataCell>
+                    <CTableDataCell className="px-5 py-3.5 font-mono tabular-nums text-gray-500 dark:text-gray-400">
                       {formatNumber(d.appointments, locale)}
-                    </td>
-                    <td className="px-5 py-3.5">
+                    </CTableDataCell>
+                    <CTableDataCell className="px-5 py-3.5">
                       {d.mom === null ? (
                         <span className="text-xs text-gray-300 dark:text-gray-600">—</span>
                       ) : (
@@ -865,20 +866,20 @@ function TrendsReport({ lang, locale }: { lang: string; locale: string }) {
                           {d.mom >= 0 ? '+' : ''}{d.mom.toFixed(1)}%
                         </span>
                       )}
-                    </td>
-                    <td className="px-5 py-3.5 hidden lg:table-cell">
+                    </CTableDataCell>
+                    <CTableDataCell className="px-5 py-3.5 hidden lg:table-cell">
                       <div className="h-1.5 bg-gray-100 dark:bg-neutral-700 rounded-full overflow-hidden w-24">
                         <div className="h-full w-full bg-primary-500 origin-left transition-transform duration-500" style={{ transform: `scaleX(${barPct / 100})` }} />
                       </div>
-                    </td>
-                  </tr>
+                    </CTableDataCell>
+                  </CTableRow>
                 );
               })}
               {withGrowth.length === 0 && (
-                <tr><td colSpan={7} className="px-5 py-12 text-center text-gray-400">{lang === 'ar' ? 'لا بيانات' : 'No data'}</td></tr>
+                <CTableRow><CTableDataCell colSpan={7} className="px-5 py-12 text-center text-gray-400">{lang === 'ar' ? 'لا بيانات' : 'No data'}</CTableDataCell></CTableRow>
               )}
-            </tbody>
-          </table>
+            </CTableBody>
+          </CTable>
         </CardContent>
       </Card>
     </div>
@@ -927,50 +928,50 @@ function SpecialtiesReport({ lang, locale }: { lang: string; locale: string }) {
           </span>
         </CardHeader>
         <CardContent className="p-0">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
-                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">#</th>
-                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'التخصص'      : 'Specialty'}</th>
-                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'الإيرادات'   : 'Revenue'}</th>
-                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 hidden md:table-cell">{lang === 'ar' ? 'المواعيد' : 'Appts'}</th>
-                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'معدل الغياب' : 'No-Show'}</th>
-                <th className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 hidden lg:table-cell">{lang === 'ar' ? 'الحصة' : 'Share'}</th>
-              </tr>
-            </thead>
-            <tbody ref={bodyRef}>
+          <CTable className="w-full text-sm">
+            <CTableHead>
+              <CTableRow className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
+                <CTableHeaderCell className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">#</CTableHeaderCell>
+                <CTableHeaderCell className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'التخصص'      : 'Specialty'}</CTableHeaderCell>
+                <CTableHeaderCell className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'الإيرادات'   : 'Revenue'}</CTableHeaderCell>
+                <CTableHeaderCell className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 hidden md:table-cell">{lang === 'ar' ? 'المواعيد' : 'Appts'}</CTableHeaderCell>
+                <CTableHeaderCell className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">{lang === 'ar' ? 'معدل الغياب' : 'No-Show'}</CTableHeaderCell>
+                <CTableHeaderCell className="text-start px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 hidden lg:table-cell">{lang === 'ar' ? 'الحصة' : 'Share'}</CTableHeaderCell>
+              </CTableRow>
+            </CTableHead>
+            <CTableBody ref={bodyRef}>
               {data.map((s, i) => (
-                <tr key={s.specialtyId} className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors">
-                  <td className="px-5 py-3.5 text-xs font-bold text-gray-300 dark:text-gray-600">{formatNumber(i + 1, locale)}</td>
-                  <td className="px-5 py-3.5 font-medium text-gray-900 dark:text-gray-100">
+                <CTableRow key={s.specialtyId} className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors">
+                  <CTableDataCell className="px-5 py-3.5 text-xs font-bold text-gray-300 dark:text-gray-600">{formatNumber(i + 1, locale)}</CTableDataCell>
+                  <CTableDataCell className="px-5 py-3.5 font-medium text-gray-900 dark:text-gray-100">
                     {lang === 'ar' ? s.specialtyAr : s.specialtyEn}
-                  </td>
-                  <td className="px-5 py-3.5 font-mono tabular-nums font-semibold text-gray-900 dark:text-gray-100">
+                  </CTableDataCell>
+                  <CTableDataCell className="px-5 py-3.5 font-mono tabular-nums font-semibold text-gray-900 dark:text-gray-100">
                     {formatCurrency(s.revenue, 'EGP', locale)}
-                  </td>
-                  <td className="px-5 py-3.5 font-mono tabular-nums text-gray-600 dark:text-gray-400 hidden md:table-cell">
+                  </CTableDataCell>
+                  <CTableDataCell className="px-5 py-3.5 font-mono tabular-nums text-gray-600 dark:text-gray-400 hidden md:table-cell">
                     {formatNumber(s.appointments, locale)}
-                  </td>
-                  <td className="px-5 py-3.5">
+                  </CTableDataCell>
+                  <CTableDataCell className="px-5 py-3.5">
                     <Badge variant={s.noShowRate > 10 ? 'danger' : s.noShowRate > 7 ? 'warning' : 'success'}>
                       {formatNumber(s.noShowRate, locale)}%
                     </Badge>
-                  </td>
-                  <td className="px-5 py-3.5 hidden lg:table-cell">
+                  </CTableDataCell>
+                  <CTableDataCell className="px-5 py-3.5 hidden lg:table-cell">
                     <div className="flex items-center gap-2">
                       <div className="flex-1 h-1.5 bg-gray-100 dark:bg-neutral-700 rounded-full overflow-hidden w-20">
                         <div className="h-full w-full bg-primary-500 origin-left" style={{ transform: `scaleX(${s.sharePct / 100})` }} />
                       </div>
                       <span className="text-xs text-gray-500 dark:text-gray-400 w-8">{formatNumber(s.sharePct, locale)}%</span>
                     </div>
-                  </td>
-                </tr>
+                  </CTableDataCell>
+                </CTableRow>
               ))}
               {data.length === 0 && (
-                <tr><td colSpan={6} className="px-5 py-12 text-center text-gray-400">{lang === 'ar' ? 'لا بيانات' : 'No data'}</td></tr>
+                <CTableRow><CTableDataCell colSpan={6} className="px-5 py-12 text-center text-gray-400">{lang === 'ar' ? 'لا بيانات' : 'No data'}</CTableDataCell></CTableRow>
               )}
-            </tbody>
-          </table>
+            </CTableBody>
+          </CTable>
         </CardContent>
       </Card>
     </div>

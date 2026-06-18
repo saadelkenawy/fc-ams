@@ -1,4 +1,5 @@
 'use client';
+import { CTable, CTableHead, CTableBody, CTableRow, CTableHeaderCell, CTableDataCell } from '@coreui/react';
 
 import { useState, useEffect, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -241,87 +242,87 @@ export default function EncountersPage() {
           )}
         </CardHeader>
         <CardContent className="p-0 mt-4">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-100 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-800/50">
-                <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">
+          <CTable className="w-full text-sm">
+            <CTableHead>
+              <CTableRow className="border-b border-gray-100 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-800/50">
+                <CTableHeaderCell className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">
                   {t('التاريخ', 'Date')}
-                </th>
-                <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">
+                </CTableHeaderCell>
+                <CTableHeaderCell className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">
                   {t('المريض', 'Patient')}
-                </th>
-                <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs hidden md:table-cell">
+                </CTableHeaderCell>
+                <CTableHeaderCell className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs hidden md:table-cell">
                   {t('الطبيب', 'Doctor')}
-                </th>
-                <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">
+                </CTableHeaderCell>
+                <CTableHeaderCell className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">
                   {t('النوع', 'Type')}
-                </th>
-                <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs hidden lg:table-cell">
+                </CTableHeaderCell>
+                <CTableHeaderCell className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs hidden lg:table-cell">
                   {t('الشكوى الرئيسية', 'Chief Complaint')}
-                </th>
-                <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">
+                </CTableHeaderCell>
+                <CTableHeaderCell className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">
                   {t('الحالة', 'Status')}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
+                </CTableHeaderCell>
+              </CTableRow>
+            </CTableHead>
+            <CTableBody>
               {isLoading
                 ? Array.from({ length: 6 }).map((_, i) => (
-                    <tr key={i} className="border-b border-gray-50 dark:border-neutral-700/50">
-                      <td colSpan={6} className="px-5 py-3">
+                    <CTableRow key={i} className="border-b border-gray-50 dark:border-neutral-700/50">
+                      <CTableDataCell colSpan={6} className="px-5 py-3">
                         <div className="animate-pulse bg-gray-200 dark:bg-neutral-700 rounded h-5" />
-                      </td>
-                    </tr>
+                      </CTableDataCell>
+                    </CTableRow>
                   ))
                 : encounters.length === 0
                 ? (
-                    <tr>
-                      <td colSpan={6} className="px-5 py-12 text-center">
+                    <CTableRow>
+                      <CTableDataCell colSpan={6} className="px-5 py-12 text-center">
                         <div className="flex flex-col items-center gap-2 text-gray-400 dark:text-gray-500">
                           <FileHeart className="w-8 h-8" />
                           <span>{t('لا توجد حالات سريرية مسجلة بعد', 'No clinical encounters recorded yet.')}</span>
                         </div>
-                      </td>
-                    </tr>
+                      </CTableDataCell>
+                    </CTableRow>
                   )
                 : encounters.map((enc: Encounter) => (
-                    <tr
+                    <CTableRow
                       key={enc.id}
                       onClick={() => setSelectedEnc(enc)}
                       className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors cursor-pointer"
                     >
-                      <td className="px-5 py-3.5 text-gray-700 dark:text-gray-300">
+                      <CTableDataCell className="px-5 py-3.5 text-gray-700 dark:text-gray-300">
                         {formatDate(enc.encounterDate, locale)}
-                      </td>
-                      <td className="px-5 py-3.5 text-gray-700 dark:text-gray-200 text-sm">
+                      </CTableDataCell>
+                      <CTableDataCell className="px-5 py-3.5 text-gray-700 dark:text-gray-200 text-sm">
                         {(() => { const p = patientMap.get(enc.patientId); return p ? (lang === 'ar' ? (p.nameAr ?? p.nameEn) : p.nameEn) : truncateUUID(enc.patientId); })()}
-                      </td>
-                      <td className="px-5 py-3.5 text-gray-700 dark:text-gray-200 text-sm hidden md:table-cell">
+                      </CTableDataCell>
+                      <CTableDataCell className="px-5 py-3.5 text-gray-700 dark:text-gray-200 text-sm hidden md:table-cell">
                         {(() => { const d = doctorMap.get(enc.doctorId); return d ? (lang === 'ar' ? (d.nameAr ?? d.nameEn) : d.nameEn) : truncateUUID(enc.doctorId); })()}
-                      </td>
-                      <td className="px-5 py-3.5">
+                      </CTableDataCell>
+                      <CTableDataCell className="px-5 py-3.5">
                         <span className="text-xs text-gray-600 dark:text-gray-400">
                           {t(
                             TYPE_LABELS[enc.encounterType]?.ar ?? enc.encounterType,
                             TYPE_LABELS[enc.encounterType]?.en ?? enc.encounterType,
                           )}
                         </span>
-                      </td>
-                      <td className="px-5 py-3.5 text-gray-600 dark:text-gray-400 hidden lg:table-cell max-w-xs truncate">
+                      </CTableDataCell>
+                      <CTableDataCell className="px-5 py-3.5 text-gray-600 dark:text-gray-400 hidden lg:table-cell max-w-xs truncate">
                         {enc.chiefComplaint ?? '—'}
-                      </td>
-                      <td className="px-5 py-3.5">
+                      </CTableDataCell>
+                      <CTableDataCell className="px-5 py-3.5">
                         <Badge variant={STATUS_BADGE[enc.status] ?? 'default'} dot>
                           {t(
                             STATUS_LABELS[enc.status]?.ar ?? enc.status,
                             STATUS_LABELS[enc.status]?.en ?? enc.status,
                           )}
                         </Badge>
-                      </td>
-                    </tr>
+                      </CTableDataCell>
+                    </CTableRow>
                   ))}
-            </tbody>
-          </table>
+            </CTableBody>
+          </CTable>
 
           {/* Pagination */}
           {!isLoading && total > 0 && (

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { CContainer } from '@coreui/react';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
 import { GlobalSearchOverlay } from '@/components/layout/GlobalSearchOverlay';
@@ -10,6 +11,7 @@ import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { useAuth } from '@/contexts/AuthContext';
 
 const PAGE_EASE = [0.25, 0.46, 0.45, 0.94] as const;
+const UNFOLDABLE_KEY = 'fcms_sidebar_unfoldable';
 
 function PageTransition({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -32,8 +34,21 @@ function PageTransition({ children }: { children: React.ReactNode }) {
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
   const router = useRouter();
-  const [mobileOpen, setMobileOpen]   = useState(false);
+  const [sidebarVisible, setSidebarVisible] = useState(true);
   const [searchOpen, setSearchOpen]   = useState(false);
+  const [unfoldable, setUnfoldable]   = useState(false);
+
+  useEffect(() => {
+    setUnfoldable(localStorage.getItem(UNFOLDABLE_KEY) === '1');
+  }, []);
+
+  function toggleUnfoldable() {
+    setUnfoldable((v) => {
+      const next = !v;
+      localStorage.setItem(UNFOLDABLE_KEY, next ? '1' : '0');
+      return next;
+    });
+  }
 
   useEffect(() => {
     function handler(e: KeyboardEvent) {
@@ -68,7 +83,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (!user) return null;
 
   return (
-    <div className="flex min-h-screen bg-atmospheric">
+    <>
       {/* Skip to main content — visible on keyboard focus only */}
       <a
         href="#main-content"
@@ -77,25 +92,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         تخطي للمحتوى / Skip to main content
       </a>
 
-      {/* Mobile backdrop — tap to close drawer */}
-      {mobileOpen && (
-        <div
-          className="lg:hidden fixed inset-0 z-30 bg-black/50 backdrop-blur-[2px]"
-          onClick={() => setMobileOpen(false)}
-          aria-hidden="true"
+      {/* Flex row: in-flow CoreUI sidebar (order:-1) + content wrapper. On <lg
+          CoreUI switches the sidebar to fixed off-canvas, toggled by `visible`. */}
+      <div className="d-flex min-vh-100">
+        <Sidebar
+          visible={sidebarVisible}
+          unfoldable={unfoldable}
+          onUnfoldableToggle={toggleUnfoldable}
         />
-      )}
 
-      <Sidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
-
-      <div className="flex flex-col flex-1 min-w-0">
-        <Header onMobileMenuToggle={() => setMobileOpen((o) => !o)} onSearchOpen={() => setSearchOpen(true)} />
-        <main id="main-content" className="flex-1 p-4 lg:p-6 overflow-auto" tabIndex={-1}>
-          <ErrorBoundary><PageTransition>{children}</PageTransition></ErrorBoundary>
-        </main>
+        <div className="wrapper d-flex flex-column flex-grow-1 min-vh-100 bg-atmospheric" style={{ minWidth: 0 }}>
+          <Header onMobileMenuToggle={() => setSidebarVisible((o) => !o)} onSearchOpen={() => setSearchOpen(true)} />
+          <main id="main-content" className="body flex-grow-1" tabIndex={-1}>
+            <CContainer fluid className="px-3 px-lg-4 py-4">
+              <ErrorBoundary><PageTransition>{children}</PageTransition></ErrorBoundary>
+            </CContainer>
+          </main>
+        </div>
       </div>
 
       <GlobalSearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
-    </div>
+    </>
   );
 }

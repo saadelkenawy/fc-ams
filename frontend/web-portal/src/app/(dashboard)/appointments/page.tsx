@@ -1,4 +1,5 @@
 'use client';
+import { CTable, CTableHead, CTableBody, CTableRow, CTableHeaderCell, CTableDataCell } from '@coreui/react';
 
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
@@ -96,13 +97,13 @@ function parseTimeMinutes(timeStr: string): number {
 
 function SkeletonRow() {
   return (
-    <tr className="border-b border-gray-50 dark:border-neutral-800">
+    <CTableRow className="border-b border-gray-50 dark:border-neutral-800">
       {[40, 60, 55, 45, 35, 30, 20].map((w, i) => (
-        <td key={i} className="px-5 py-3.5">
+        <CTableDataCell key={i} className="px-5 py-3.5">
           <div className="h-3.5 rounded-full bg-gray-100 dark:bg-neutral-700 animate-pulse" style={{ width: `${w}%` }} />
-        </td>
+        </CTableDataCell>
       ))}
-    </tr>
+    </CTableRow>
   );
 }
 
@@ -1002,19 +1003,19 @@ export default function AppointmentsPage() {
         <div className="fc-card">
           {isLoading && (
             <div className="fc-table-wrap">
-              <table className="fc-table">
-                <thead>
-                  <tr>
-                    {isAdmin && <th style={{ width: '40px' }} />}
+              <CTable className="fc-table">
+                <CTableHead>
+                  <CTableRow>
+                    {isAdmin && <CTableHeaderCell style={{ width: '40px' }} />}
                     {[t('الوقت','Time'), t('المريض','Patient'), t('الطبيب','Doctor'), t('التخصص','Specialty'), t('المصدر','Source'), t('الحالة','Status'), t('الغرفة','Room'), t('الرسوم','Charge'), ''].map((h, i) => (
-                      <th key={i}>{h}</th>
+                      <CTableHeaderCell key={i}>{h}</CTableHeaderCell>
                     ))}
-                  </tr>
-                </thead>
-                <tbody>
+                  </CTableRow>
+                </CTableHead>
+                <CTableBody>
                   {Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} />)}
-                </tbody>
-              </table>
+                </CTableBody>
+              </CTable>
             </div>
           )}
           {isError && (
@@ -1027,11 +1028,11 @@ export default function AppointmentsPage() {
           )}
           {!isLoading && !isError && (
             <div className="fc-table-wrap">
-              <table className="fc-table">
-                <thead>
-                  <tr>
+              <CTable className="fc-table">
+                <CTableHead>
+                  <CTableRow>
                     {isAdmin && (
-                      <th style={{ width: '40px' }}>
+                      <CTableHeaderCell style={{ width: '40px' }}>
                         <input
                           type="checkbox"
                           checked={allSelected}
@@ -1039,20 +1040,20 @@ export default function AppointmentsPage() {
                           onChange={toggleAll}
                           className="w-4 h-4 rounded border-gray-300 dark:border-neutral-600 text-red-600 focus:ring-red-500 cursor-pointer"
                         />
-                      </th>
+                      </CTableHeaderCell>
                     )}
-                    <th>{t('الوقت', 'Time')}</th>
-                    <th>{t('المريض', 'Patient')}</th>
-                    <th>{t('الطبيب', 'Doctor')}</th>
-                    <th>{t('التخصص', 'Specialty')}</th>
-                    <th>{t('المصدر', 'Source')}</th>
-                    <th>{t('الحالة', 'Status')}</th>
-                    <th>{t('الغرفة', 'Room')}</th>
-                    <th>{t('الرسوم', 'Charge')}</th>
-                    <th />
-                  </tr>
-                </thead>
-                <tbody ref={tbodyRef}>
+                    <CTableHeaderCell>{t('الوقت', 'Time')}</CTableHeaderCell>
+                    <CTableHeaderCell>{t('المريض', 'Patient')}</CTableHeaderCell>
+                    <CTableHeaderCell>{t('الطبيب', 'Doctor')}</CTableHeaderCell>
+                    <CTableHeaderCell>{t('التخصص', 'Specialty')}</CTableHeaderCell>
+                    <CTableHeaderCell>{t('المصدر', 'Source')}</CTableHeaderCell>
+                    <CTableHeaderCell>{t('الحالة', 'Status')}</CTableHeaderCell>
+                    <CTableHeaderCell>{t('الغرفة', 'Room')}</CTableHeaderCell>
+                    <CTableHeaderCell>{t('الرسوم', 'Charge')}</CTableHeaderCell>
+                    <CTableHeaderCell />
+                  </CTableRow>
+                </CTableHead>
+                <CTableBody ref={tbodyRef}>
                   {filtered.map((a) => {
                     const doctor    = a.doctorId ? doctorMap.get(a.doctorId) : null;
                     const specialty = a.specialtyId ? specialtyMap.get(a.specialtyId) : null;
@@ -1062,9 +1063,9 @@ export default function AppointmentsPage() {
                       : a.patientId.slice(-8).toUpperCase();
                     const isSelected = selectedIds.has(a.id);
                     return (
-                      <tr key={a.id} data-appointment-id={a.id} className={isSelected ? 'is-selected' : undefined}>
+                      <CTableRow key={a.id} data-appointment-id={a.id} className={isSelected ? 'is-selected' : undefined}>
                         {isAdmin && (
-                          <td>
+                          <CTableDataCell>
                             <input
                               type="checkbox"
                               checked={isSelected}
@@ -1072,52 +1073,52 @@ export default function AppointmentsPage() {
                               onClick={(e) => e.stopPropagation()}
                               className="w-4 h-4 rounded border-gray-300 dark:border-neutral-600 text-red-600 focus:ring-red-500 cursor-pointer"
                             />
-                          </td>
+                          </CTableDataCell>
                         )}
-                        <td>
+                        <CTableDataCell>
                           <div className="fc-time" dir="ltr">{formatTime(a.startTime, lang)}</div>
-                        </td>
-                        <td>
+                        </CTableDataCell>
+                        <CTableDataCell>
                           <div className="fc-pat">
                             <div>
                               <div className="fc-pat-name">{patName}</div>
                             </div>
                           </div>
-                        </td>
-                        <td>
+                        </CTableDataCell>
+                        <CTableDataCell>
                           <div className="fc-doc">
                             <span className="fc-doc-name">
                               {doctor ? (lang === 'ar' ? (doctor.nameAr ?? doctor.nameEn) : doctor.nameEn) : '—'}
                             </span>
                           </div>
-                        </td>
-                        <td>
+                        </CTableDataCell>
+                        <CTableDataCell>
                           <span style={{ font: '500 12px/1 var(--font-body)', color: 'var(--color-gray-500)' }}>
                             {specialty ? (lang === 'ar' ? specialty.nameAr : specialty.nameEn) : '—'}
                           </span>
-                        </td>
-                        <td>
+                        </CTableDataCell>
+                        <CTableDataCell>
                           {a.patientSource
                             ? <span className="fc-src">{a.patientSource}</span>
                             : <span style={{ color: 'var(--color-gray-300)' }}>—</span>}
-                        </td>
-                        <td>
+                        </CTableDataCell>
+                        <CTableDataCell>
                           <div className="flex flex-col items-start gap-1.5">
                             <AppointmentStatusBadge status={a.status} lang={lang} />
                             <ConfirmationToggles appointment={a} rooms={rooms} lang={lang} t={t} variant="compact" />
                           </div>
-                        </td>
-                        <td>
+                        </CTableDataCell>
+                        <CTableDataCell>
                           {a.roomCode
                             ? <span className="fc-apt-room">{a.roomCode}</span>
                             : <span style={{ color: 'var(--color-gray-300)' }}>—</span>}
-                        </td>
-                        <td>
+                        </CTableDataCell>
+                        <CTableDataCell>
                           <span style={{ font: '600 13px/1 var(--font-mono)', color: 'var(--color-gray-700)', fontVariantNumeric: 'tabular-nums' }} dir="ltr">
                             {a.approvedCharge != null ? `${a.approvedCharge} ${t('ج', 'EGP')}` : '—'}
                           </span>
-                        </td>
-                        <td>
+                        </CTableDataCell>
+                        <CTableDataCell>
                           <div className="fc-row-actions">
                             <ActionMenu
                               appointment={a}
@@ -1130,21 +1131,21 @@ export default function AppointmentsPage() {
                               onInvoice={setInvoiceAppt}
                             />
                           </div>
-                        </td>
-                      </tr>
+                        </CTableDataCell>
+                      </CTableRow>
                     );
                   })}
                   {filtered.length === 0 && (
-                    <tr>
-                      <td colSpan={isAdmin ? 10 : 9} style={{ padding: '48px 20px', textAlign: 'center', color: 'var(--color-gray-400)' }}>
+                    <CTableRow>
+                      <CTableDataCell colSpan={isAdmin ? 10 : 9} style={{ padding: '48px 20px', textAlign: 'center', color: 'var(--color-gray-400)' }}>
                         {hasActiveFilters
                           ? t('لا توجد نتائج تطابق الفلتر', 'No appointments match the filter')
                           : t('لا توجد مواعيد مجدولة بعد', 'No appointments scheduled yet.')}
-                      </td>
-                    </tr>
+                      </CTableDataCell>
+                    </CTableRow>
                   )}
-                </tbody>
-              </table>
+                </CTableBody>
+              </CTable>
             </div>
           )}
         </div>

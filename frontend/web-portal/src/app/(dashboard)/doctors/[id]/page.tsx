@@ -1,4 +1,5 @@
 'use client';
+import { CTable, CTableHead, CTableBody, CTableRow, CTableHeaderCell, CTableDataCell } from '@coreui/react';
 
 import { useState, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -784,35 +785,35 @@ export default function DoctorProfilePage() {
                     </div>
                   ) : (
                     <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
-                            <th className="text-start px-5 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">{t('التاريخ', 'Date')}</th>
-                            <th className="text-start px-5 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">{t('المريض', 'Patient')}</th>
-                            <th className="text-end px-5 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">{t('الرسوم', 'Charge')}</th>
-                            <th className="text-end px-5 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">{t('حصة الطبيب', 'Dr. Share')}</th>
-                            <th className="text-start px-5 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">{t('الحالة', 'Status')}</th>
-                          </tr>
-                        </thead>
-                        <tbody>
+                      <CTable className="w-full text-sm">
+                        <CTableHead>
+                          <CTableRow className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
+                            <CTableHeaderCell className="text-start px-5 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">{t('التاريخ', 'Date')}</CTableHeaderCell>
+                            <CTableHeaderCell className="text-start px-5 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">{t('المريض', 'Patient')}</CTableHeaderCell>
+                            <CTableHeaderCell className="text-end px-5 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">{t('الرسوم', 'Charge')}</CTableHeaderCell>
+                            <CTableHeaderCell className="text-end px-5 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">{t('حصة الطبيب', 'Dr. Share')}</CTableHeaderCell>
+                            <CTableHeaderCell className="text-start px-5 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">{t('الحالة', 'Status')}</CTableHeaderCell>
+                          </CTableRow>
+                        </CTableHead>
+                        <CTableBody>
                           {transactions.map((tx) => (
-                            <tr
+                            <CTableRow
                               key={tx.id}
                               className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors"
                             >
-                              <td className="px-5 py-3.5 text-gray-500 dark:text-gray-400 text-xs">
+                              <CTableDataCell className="px-5 py-3.5 text-gray-500 dark:text-gray-400 text-xs">
                                 {formatDate(tx.transactionDate, locale)}
-                              </td>
-                              <td className="px-5 py-3.5 font-mono text-xs text-gray-600 dark:text-gray-300">
+                              </CTableDataCell>
+                              <CTableDataCell className="px-5 py-3.5 font-mono text-xs text-gray-600 dark:text-gray-300">
                                 #{tx.patientId.slice(-8).toUpperCase()}
-                              </td>
-                              <td className="px-5 py-3.5 text-end font-mono tabular-nums text-gray-900 dark:text-gray-100 font-medium">
+                              </CTableDataCell>
+                              <CTableDataCell className="px-5 py-3.5 text-end font-mono tabular-nums text-gray-900 dark:text-gray-100 font-medium">
                                 {formatCurrency(tx.approvedCharge, 'EGP', locale)}
-                              </td>
-                              <td className="px-5 py-3.5 text-end font-mono tabular-nums text-primary-700 dark:text-primary-400 font-semibold">
+                              </CTableDataCell>
+                              <CTableDataCell className="px-5 py-3.5 text-end font-mono tabular-nums text-primary-700 dark:text-primary-400 font-semibold">
                                 {formatCurrency(tx.doctorShare, 'EGP', locale)}
-                              </td>
-                              <td className="px-5 py-3.5">
+                              </CTableDataCell>
+                              <CTableDataCell className="px-5 py-3.5">
                                 <Badge
                                   variant={
                                     tx.paymentStatus === 'paid' || tx.paymentStatus === 'reconciled'
@@ -825,11 +826,11 @@ export default function DoctorProfilePage() {
                                 >
                                   {tx.paymentStatus}
                                 </Badge>
-                              </td>
-                            </tr>
+                              </CTableDataCell>
+                            </CTableRow>
                           ))}
-                        </tbody>
-                      </table>
+                        </CTableBody>
+                      </CTable>
                     </div>
                   )}
                 </CardContent>

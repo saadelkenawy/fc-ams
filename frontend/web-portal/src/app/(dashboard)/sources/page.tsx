@@ -1,4 +1,5 @@
 'use client';
+import { CTable, CTableHead, CTableBody, CTableRow, CTableHeaderCell, CTableDataCell } from '@coreui/react';
 
 import { useState } from 'react';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
@@ -376,17 +377,17 @@ function SourceRow({
   const deductVariant = DEDUCT_VARIANT[source.deductFrom];
 
   return (
-    <tr>
-      <td>
+    <CTableRow>
+      <CTableDataCell>
         <span className="font-mono text-xs font-bold text-primary-700 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20 px-2 py-0.5 rounded">
           {source.sourceCode}
         </span>
-      </td>
-      <td>
+      </CTableDataCell>
+      <CTableDataCell>
         <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{source.sourceNameEn}</p>
         <p className="text-xs text-gray-400 dark:text-gray-500">{source.sourceNameAr}</p>
-      </td>
-      <td>
+      </CTableDataCell>
+      <CTableDataCell>
         <div className="flex items-center gap-1.5">
           <span className={cn(
             'text-sm font-semibold tabular-nums',
@@ -406,26 +407,26 @@ function SourceRow({
             </span>
           )}
         </div>
-      </td>
-      <td>
+      </CTableDataCell>
+      <CTableDataCell>
         <Badge variant={deductVariant} className="text-[11px]">
           {lang === 'ar' ? deduct.ar : deduct.en}
         </Badge>
-      </td>
-      <td>
+      </CTableDataCell>
+      <CTableDataCell>
         {source.isActive ? (
           <Badge variant="success" dot className="text-[11px]">{t('نشط', 'Active')}</Badge>
         ) : (
           <Badge variant="outline" className="text-[11px]">{t('معطّل', 'Inactive')}</Badge>
         )}
-      </td>
-      <td className="text-xs text-gray-500 dark:text-gray-400 font-mono">
+      </CTableDataCell>
+      <CTableDataCell className="text-xs text-gray-500 dark:text-gray-400 font-mono">
         {source.validFrom}
         {source.validUntil && (
           <span className="text-gray-300 dark:text-gray-600"> → {source.validUntil}</span>
         )}
-      </td>
-      <td>
+      </CTableDataCell>
+      <CTableDataCell>
         <div className="fc-row-actions">
           <button
             onClick={onEdit}
@@ -442,8 +443,8 @@ function SourceRow({
             <Trash2 className="w-3.5 h-3.5" />
           </button>
         </div>
-      </td>
-    </tr>
+      </CTableDataCell>
+    </CTableRow>
   );
 }
 
@@ -562,9 +563,9 @@ export default function SourcesPage() {
           </div>
         ) : (
           <div className="fc-table-wrap">
-            <table className="fc-table">
-              <thead>
-                <tr>
+            <CTable className="fc-table">
+              <CTableHead>
+                <CTableRow>
                   {[
                     t('الكود', 'Code'),
                     t('الاسم', 'Name'),
@@ -574,11 +575,11 @@ export default function SourcesPage() {
                     t('الفترة', 'Period'),
                     '',
                   ].map((label, i) => (
-                    <th key={i}>{label}</th>
+                    <CTableHeaderCell key={i}>{label}</CTableHeaderCell>
                   ))}
-                </tr>
-              </thead>
-              <tbody ref={sourcesBodyRef}>
+                </CTableRow>
+              </CTableHead>
+              <CTableBody ref={sourcesBodyRef}>
                 {sources.map((s) => (
                   <SourceRow
                     key={s.sourceCode}
@@ -589,8 +590,8 @@ export default function SourcesPage() {
                     onDelete={() => setDeleteTarget(s)}
                   />
                 ))}
-              </tbody>
-            </table>
+              </CTableBody>
+            </CTable>
           </div>
         )}
       </div>

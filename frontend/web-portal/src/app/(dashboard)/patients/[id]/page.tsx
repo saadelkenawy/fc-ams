@@ -1,4 +1,5 @@
 'use client';
+import { CTable, CTableHead, CTableBody, CTableRow, CTableHeaderCell, CTableDataCell } from '@coreui/react';
 
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
@@ -562,27 +563,27 @@ function VisitHistoryTab({
           </p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
-                  <th className="text-start px-5 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">
+            <CTable className="w-full text-sm">
+              <CTableHead>
+                <CTableRow className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
+                  <CTableHeaderCell className="text-start px-5 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">
                     {t('التاريخ', 'Date')}
-                  </th>
-                  <th className="text-start px-5 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">
+                  </CTableHeaderCell>
+                  <CTableHeaderCell className="text-start px-5 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">
                     {t('الطبيب', 'Doctor')}
-                  </th>
-                  <th className="text-start px-5 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">
+                  </CTableHeaderCell>
+                  <CTableHeaderCell className="text-start px-5 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">
                     {t('النوع', 'Type')}
-                  </th>
-                  <th className="text-start px-5 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">
+                  </CTableHeaderCell>
+                  <CTableHeaderCell className="text-start px-5 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">
                     {t('الحالة', 'Status')}
-                  </th>
-                  <th className="text-start px-5 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">
+                  </CTableHeaderCell>
+                  <CTableHeaderCell className="text-start px-5 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">
                     {t('الرسوم', 'Fee')}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
+                  </CTableHeaderCell>
+                </CTableRow>
+              </CTableHead>
+              <CTableBody>
                 {appointments.map((a) => {
                   const doctor = doctorMap.get(a.doctorId);
                   const doctorName = doctor
@@ -591,30 +592,30 @@ function VisitHistoryTab({
                   const statusInfo = APPT_STATUS_LABEL[a.status] ?? { ar: a.status, en: a.status, variant: 'default' as const };
 
                   return (
-                    <tr key={a.id} className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/20 transition-colors">
-                      <td className="px-5 py-3.5 text-gray-700 dark:text-gray-200">
+                    <CTableRow key={a.id} className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/20 transition-colors">
+                      <CTableDataCell className="px-5 py-3.5 text-gray-700 dark:text-gray-200">
                         {formatDate(a.appointmentDate, lang === 'ar' ? 'ar-EG' : 'en-US')}
                         <span className="ms-2 text-xs text-gray-400 dark:text-gray-400 font-mono">{a.startTime}</span>
-                      </td>
-                      <td className="px-5 py-3.5 text-gray-700 dark:text-gray-200">{doctorName}</td>
-                      <td className="px-5 py-3.5">
+                      </CTableDataCell>
+                      <CTableDataCell className="px-5 py-3.5 text-gray-700 dark:text-gray-200">{doctorName}</CTableDataCell>
+                      <CTableDataCell className="px-5 py-3.5">
                         <Badge variant="outline" className="text-[11px]">
                           {a.appointmentType}
                         </Badge>
-                      </td>
-                      <td className="px-5 py-3.5">
+                      </CTableDataCell>
+                      <CTableDataCell className="px-5 py-3.5">
                         <Badge variant={statusInfo.variant}>
                           {lang === 'ar' ? statusInfo.ar : statusInfo.en}
                         </Badge>
-                      </td>
-                      <td className="px-5 py-3.5 text-gray-700 dark:text-gray-200 font-mono text-xs">
+                      </CTableDataCell>
+                      <CTableDataCell className="px-5 py-3.5 text-gray-700 dark:text-gray-200 font-mono text-xs">
                         {a.approvedCharge != null ? `${a.approvedCharge} EGP` : '—'}
-                      </td>
-                    </tr>
+                      </CTableDataCell>
+                    </CTableRow>
                   );
                 })}
-              </tbody>
-            </table>
+              </CTableBody>
+            </CTable>
           </div>
         )}
       </CardContent>
@@ -843,9 +844,9 @@ function PrescriptionsTab({
 
           {rxList.length > 0 && (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
+              <CTable className="w-full text-sm">
+                <CTableHead>
+                  <CTableRow className="border-b border-gray-50 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-900/40">
                     {[
                       t('التاريخ', 'Date'),
                       t('الطبيب', 'Doctor'),
@@ -853,16 +854,16 @@ function PrescriptionsTab({
                       t('الحالة', 'Status'),
                       '',
                     ].map((h, i) => (
-                      <th
+                      <CTableHeaderCell
                         key={i}
                         className="text-start px-5 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide"
                       >
                         {h}
-                      </th>
+                      </CTableHeaderCell>
                     ))}
-                  </tr>
-                </thead>
-                <tbody>
+                  </CTableRow>
+                </CTableHead>
+                <CTableBody>
                   {rxList.map((rx) => {
                     const doctor = doctorMap.get(rx.doctorId);
                     const doctorName = doctor
@@ -870,17 +871,17 @@ function PrescriptionsTab({
                       : rx.doctorId.slice(-6).toUpperCase();
 
                     return (
-                      <tr
+                      <CTableRow
                         key={rx.id}
                         className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/20 transition-colors"
                       >
-                        <td className="px-5 py-3.5 text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                        <CTableDataCell className="px-5 py-3.5 text-gray-700 dark:text-gray-200 whitespace-nowrap">
                           {formatDate(rx.createdAt, lang === 'ar' ? 'ar-EG' : 'en-US')}
-                        </td>
-                        <td className="px-5 py-3.5 text-gray-700 dark:text-gray-200">
+                        </CTableDataCell>
+                        <CTableDataCell className="px-5 py-3.5 text-gray-700 dark:text-gray-200">
                           {doctorName}
-                        </td>
-                        <td className="px-5 py-3.5">
+                        </CTableDataCell>
+                        <CTableDataCell className="px-5 py-3.5">
                           <div className="flex flex-wrap gap-1">
                             {rx.items.slice(0, 2).map((it) => (
                               <span
@@ -899,13 +900,13 @@ function PrescriptionsTab({
                               {rx.diagnosis}
                             </p>
                           )}
-                        </td>
-                        <td className="px-5 py-3.5">
+                        </CTableDataCell>
+                        <CTableDataCell className="px-5 py-3.5">
                           <Badge variant={RX_STATUS_BADGE[rx.status] ?? 'outline'}>
                             {lang === 'ar' ? RX_STATUS_LABEL[rx.status]?.ar : RX_STATUS_LABEL[rx.status]?.en}
                           </Badge>
-                        </td>
-                        <td className="px-5 py-3.5">
+                        </CTableDataCell>
+                        <CTableDataCell className="px-5 py-3.5">
                           <button
                             onClick={() => setPrintRx(rx)}
                             title={t('طباعة', 'Print')}
@@ -913,12 +914,12 @@ function PrescriptionsTab({
                           >
                             <Printer className="w-3.5 h-3.5" />
                           </button>
-                        </td>
-                      </tr>
+                        </CTableDataCell>
+                      </CTableRow>
                     );
                   })}
-                </tbody>
-              </table>
+                </CTableBody>
+              </CTable>
             </div>
           )}
         </CardContent>
@@ -1051,9 +1052,9 @@ function PatientBillingTab({
 
       {/* Table */}
       <div className="overflow-x-auto rounded-xl border border-gray-100 dark:border-neutral-700">
-        <table className="min-w-full text-sm">
-          <thead className="bg-gray-50 dark:bg-neutral-800/60">
-            <tr>
+        <CTable className="min-w-full text-sm">
+          <CTableHead className="bg-gray-50 dark:bg-neutral-800/60">
+            <CTableRow>
               {[
                 t('التاريخ', 'Date'),
                 t('الرسوم', 'Charge'),
@@ -1063,51 +1064,51 @@ function PatientBillingTab({
                 t('المصدر', 'Source'),
                 t('التسوية', 'Settled'),
               ].map((h) => (
-                <th key={h} className="px-4 py-2.5 text-start text-xs font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                <CTableHeaderCell key={h} className="px-4 py-2.5 text-start text-xs font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap">
                   {h}
-                </th>
+                </CTableHeaderCell>
               ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100 dark:divide-neutral-700">
+            </CTableRow>
+          </CTableHead>
+          <CTableBody className="divide-y divide-gray-100 dark:divide-neutral-700">
             {transactions.map((tx) => {
               const methodLabel = tx.paymentMethod
                 ? (PAYMENT_METHOD_LABEL[tx.paymentMethod]?.[lang] ?? tx.paymentMethod)
                 : '—';
               return (
-                <tr key={tx.id} className="hover:bg-gray-50 dark:hover:bg-neutral-800/40 transition-colors">
-                  <td className="px-4 py-3 text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                <CTableRow key={tx.id} className="hover:bg-gray-50 dark:hover:bg-neutral-800/40 transition-colors">
+                  <CTableDataCell className="px-4 py-3 text-gray-700 dark:text-gray-300 whitespace-nowrap">
                     {formatDate(tx.transactionDate)}
-                  </td>
-                  <td className="px-4 py-3 font-mono tabular-nums font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">
+                  </CTableDataCell>
+                  <CTableDataCell className="px-4 py-3 font-mono tabular-nums font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">
                     {fmtCurrency(tx.approvedCharge)}
-                  </td>
-                  <td className="px-4 py-3 font-mono tabular-nums text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                  </CTableDataCell>
+                  <CTableDataCell className="px-4 py-3 font-mono tabular-nums text-gray-500 dark:text-gray-400 whitespace-nowrap">
                     {fmtCurrency(tx.vatAmount)}
-                  </td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                  </CTableDataCell>
+                  <CTableDataCell className="px-4 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap">
                     {methodLabel}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap">
+                  </CTableDataCell>
+                  <CTableDataCell className="px-4 py-3 whitespace-nowrap">
                     <Badge variant={PAYMENT_STATUS_BADGE[tx.paymentStatus] ?? 'default'}>
                       {tx.paymentStatus}
                     </Badge>
-                  </td>
-                  <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap text-xs">
+                  </CTableDataCell>
+                  <CTableDataCell className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap text-xs">
                     {tx.patientSource || '—'}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap">
+                  </CTableDataCell>
+                  <CTableDataCell className="px-4 py-3 whitespace-nowrap">
                     {tx.settledAt ? (
                       <Badge variant="success">{t('مسوّى', 'Settled')}</Badge>
                     ) : (
                       <Badge variant="outline">{t('معلق', 'Pending')}</Badge>
                     )}
-                  </td>
-                </tr>
+                  </CTableDataCell>
+                </CTableRow>
               );
             })}
-          </tbody>
-        </table>
+          </CTableBody>
+        </CTable>
       </div>
 
       {/* Pagination */}

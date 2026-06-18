@@ -1,4 +1,5 @@
 'use client';
+import { CTable, CTableHead, CTableBody, CTableRow, CTableHeaderCell, CTableDataCell } from '@coreui/react';
 
 import { useState } from 'react';
 import { Search, Filter, Plus, Pencil, Trash2, ToggleLeft, ToggleRight, ClipboardList, CheckCircle, DollarSign, Clock, Loader2 } from 'lucide-react';
@@ -406,64 +407,64 @@ export default function ProceduresPage() {
           )}
         </CardHeader>
         <CardContent className="p-0 mt-4">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-100 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-800/50">
-                <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('الكود', 'Code')}</th>
-                <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('الاسم', 'Name')}</th>
-                <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('النوع', 'Type')}</th>
-                <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('السعر', 'Price')}</th>
-                <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs hidden md:table-cell">{t('المدة', 'Duration')}</th>
-                <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs hidden lg:table-cell">{t('يتطلب موافقة', 'Auth Req.')}</th>
-                <th className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('الحالة', 'Status')}</th>
-                <th className="text-end px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('إجراءات', 'Actions')}</th>
-              </tr>
-            </thead>
-            <tbody>
+          <CTable className="w-full text-sm">
+            <CTableHead>
+              <CTableRow className="border-b border-gray-100 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-800/50">
+                <CTableHeaderCell className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('الكود', 'Code')}</CTableHeaderCell>
+                <CTableHeaderCell className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('الاسم', 'Name')}</CTableHeaderCell>
+                <CTableHeaderCell className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('النوع', 'Type')}</CTableHeaderCell>
+                <CTableHeaderCell className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('السعر', 'Price')}</CTableHeaderCell>
+                <CTableHeaderCell className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs hidden md:table-cell">{t('المدة', 'Duration')}</CTableHeaderCell>
+                <CTableHeaderCell className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs hidden lg:table-cell">{t('يتطلب موافقة', 'Auth Req.')}</CTableHeaderCell>
+                <CTableHeaderCell className="text-start px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('الحالة', 'Status')}</CTableHeaderCell>
+                <CTableHeaderCell className="text-end px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs">{t('إجراءات', 'Actions')}</CTableHeaderCell>
+              </CTableRow>
+            </CTableHead>
+            <CTableBody>
               {isLoading
                 ? Array.from({ length: 6 }).map((_, i) => (
-                    <tr key={i} className="border-b border-gray-50 dark:border-neutral-700/50">
-                      <td colSpan={8} className="px-5 py-3">
+                    <CTableRow key={i} className="border-b border-gray-50 dark:border-neutral-700/50">
+                      <CTableDataCell colSpan={8} className="px-5 py-3">
                         <div className="animate-pulse bg-gray-200 dark:bg-neutral-700 rounded h-5" />
-                      </td>
-                    </tr>
+                      </CTableDataCell>
+                    </CTableRow>
                   ))
                 : procedures.length === 0
                 ? (
-                    <tr>
-                      <td colSpan={8} className="px-5 py-12 text-center text-gray-400 dark:text-gray-500">
+                    <CTableRow>
+                      <CTableDataCell colSpan={8} className="px-5 py-12 text-center text-gray-400 dark:text-gray-500">
                         {t('لا توجد إجراءات', 'No procedures found')}
-                      </td>
-                    </tr>
+                      </CTableDataCell>
+                    </CTableRow>
                   )
                 : procedures.map((proc: Procedure) => (
-                    <tr key={proc.id} className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors">
-                      <td className="px-5 py-3.5 font-mono text-xs text-gray-600 dark:text-gray-400">
+                    <CTableRow key={proc.id} className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors">
+                      <CTableDataCell className="px-5 py-3.5 font-mono text-xs text-gray-600 dark:text-gray-400">
                         {proc.code}
-                      </td>
-                      <td className="px-5 py-3.5 font-medium text-gray-900 dark:text-gray-100">
+                      </CTableDataCell>
+                      <CTableDataCell className="px-5 py-3.5 font-medium text-gray-900 dark:text-gray-100">
                         {lang === 'ar' && proc.nameAr ? proc.nameAr : proc.nameEn}
-                      </td>
-                      <td className="px-5 py-3.5">
+                      </CTableDataCell>
+                      <CTableDataCell className="px-5 py-3.5">
                         <Badge variant={TYPE_BADGE[proc.procedureType] ?? 'default'}>
                           {t(
                             TYPE_LABELS[proc.procedureType]?.ar ?? proc.procedureType,
                             TYPE_LABELS[proc.procedureType]?.en ?? proc.procedureType,
                           )}
                         </Badge>
-                      </td>
-                      <td className="px-5 py-3.5 font-mono tabular-nums text-gray-700 dark:text-gray-300">
+                      </CTableDataCell>
+                      <CTableDataCell className="px-5 py-3.5 font-mono tabular-nums text-gray-700 dark:text-gray-300">
                         {formatCurrency(proc.basePrice, 'EGP', locale)}
-                      </td>
-                      <td className="px-5 py-3.5 text-gray-600 dark:text-gray-400 hidden md:table-cell">
+                      </CTableDataCell>
+                      <CTableDataCell className="px-5 py-3.5 text-gray-600 dark:text-gray-400 hidden md:table-cell">
                         {formatDuration(proc.durationMinutes)}
-                      </td>
-                      <td className="px-5 py-3.5 hidden lg:table-cell">
+                      </CTableDataCell>
+                      <CTableDataCell className="px-5 py-3.5 hidden lg:table-cell">
                         {proc.requiresPreAuth
                           ? <Badge variant="warning">{t('نعم', 'Yes')}</Badge>
                           : <Badge variant="default">{t('لا', 'No')}</Badge>}
-                      </td>
-                      <td className="px-5 py-3.5">
+                      </CTableDataCell>
+                      <CTableDataCell className="px-5 py-3.5">
                         <button
                           onClick={() => handleToggleStatus(proc)}
                           className="flex items-center gap-1.5 group"
@@ -476,8 +477,8 @@ export default function ProceduresPage() {
                             {proc.isActive ? t('نشط', 'Active') : t('غير نشط', 'Inactive')}
                           </span>
                         </button>
-                      </td>
-                      <td className="px-5 py-3.5">
+                      </CTableDataCell>
+                      <CTableDataCell className="px-5 py-3.5">
                         <div className="flex items-center justify-end gap-1">
                           <button
                             onClick={() => openEditModal(proc)}
@@ -494,11 +495,11 @@ export default function ProceduresPage() {
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
-                      </td>
-                    </tr>
+                      </CTableDataCell>
+                    </CTableRow>
                   ))}
-            </tbody>
-          </table>
+            </CTableBody>
+          </CTable>
 
           {!isLoading && total > 0 && (
             <Pagination

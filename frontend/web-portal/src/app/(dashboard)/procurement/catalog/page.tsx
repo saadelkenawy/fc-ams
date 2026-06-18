@@ -1,4 +1,5 @@
 'use client';
+import { CTable, CTableHead, CTableBody, CTableRow, CTableHeaderCell, CTableDataCell } from '@coreui/react';
 
 import { useState } from 'react';
 import { Search, Plus, Pencil, Package } from 'lucide-react';
@@ -235,58 +236,58 @@ export default function CatalogPage() {
         </CardHeader>
         <CardContent className="p-0 mt-4">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-100 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-800/50">
+            <CTable className="w-full text-sm">
+              <CTableHead>
+                <CTableRow className="border-b border-gray-100 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-800/50">
                   {[t('اسم المادة','Item Name'), t('الفئة','Category'), t('الشريحة','Tier'), t('حالة EDA','EDA'), t('المخزون','Stock'), t('التكلفة (ج)','Cost (EGP)'), t('إجراءات','')].map((h) => (
-                    <th key={h} className="text-start px-4 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">{h}</th>
+                    <CTableHeaderCell key={h} className="text-start px-4 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">{h}</CTableHeaderCell>
                   ))}
-                </tr>
-              </thead>
-              <tbody>
+                </CTableRow>
+              </CTableHead>
+              <CTableBody>
                 {isLoading
                   ? Array.from({ length: 8 }).map((_, i) => (
-                      <tr key={i} className="border-b border-gray-50 dark:border-neutral-700/50">
-                        <td colSpan={7} className="px-4 py-3"><div className="animate-pulse bg-gray-200 dark:bg-neutral-700 rounded h-4" /></td>
-                      </tr>
+                      <CTableRow key={i} className="border-b border-gray-50 dark:border-neutral-700/50">
+                        <CTableDataCell colSpan={7} className="px-4 py-3"><div className="animate-pulse bg-gray-200 dark:bg-neutral-700 rounded h-4" /></CTableDataCell>
+                      </CTableRow>
                     ))
                   : items.length === 0
-                  ? <tr><td colSpan={7} className="px-4 py-12 text-center text-gray-400">{t('لا توجد عناصر', 'No items found')}</td></tr>
+                  ? <CTableRow><CTableDataCell colSpan={7} className="px-4 py-12 text-center text-gray-400">{t('لا توجد عناصر', 'No items found')}</CTableDataCell></CTableRow>
                   : items.map((item) => (
-                      <tr key={item.id} className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors">
-                        <td className="px-4 py-3">
+                      <CTableRow key={item.id} className="border-b border-gray-50 dark:border-neutral-700/50 hover:bg-gray-50/50 dark:hover:bg-neutral-700/30 transition-colors">
+                        <CTableDataCell className="px-4 py-3">
                           <div className="font-medium text-gray-900 dark:text-gray-100 max-w-xs truncate">{item.itemName}</div>
                           {item.localFirst && <span className="text-xs text-emerald-600 dark:text-emerald-400">{t('محلي أولاً','Local-first')}</span>}
-                        </td>
-                        <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                        </CTableDataCell>
+                        <CTableDataCell className="px-4 py-3 text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">
                           <div className="flex items-center gap-1.5"><Package className="w-3 h-3" />{item.category}</div>
-                        </td>
-                        <td className="px-4 py-3"><Badge variant={TIER_BADGE[item.budgetTier] ?? 'default'}>{item.budgetTier}</Badge></td>
-                        <td className="px-4 py-3">
+                        </CTableDataCell>
+                        <CTableDataCell className="px-4 py-3"><Badge variant={TIER_BADGE[item.budgetTier] ?? 'default'}>{item.budgetTier}</Badge></CTableDataCell>
+                        <CTableDataCell className="px-4 py-3">
                           <div className="flex flex-col gap-1">
                             <Badge variant={EDA_BADGE[item.edaStatus] ?? 'default'}>{item.edaStatus}</Badge>
                             {item.edaClass && <span className="text-xs text-gray-400">Class {item.edaClass}</span>}
                           </div>
-                        </td>
-                        <td className="px-4 py-3 tabular-nums">
+                        </CTableDataCell>
+                        <CTableDataCell className="px-4 py-3 tabular-nums">
                           <span className={item.currentStock <= item.reorderThreshold && item.reorderThreshold > 0 ? 'text-red-600 dark:text-red-400 font-medium' : 'text-gray-700 dark:text-gray-300'}>
                             {item.currentStock}
                           </span>
                           {item.qtyUnit && <span className="text-xs text-gray-400 ms-1">{item.qtyUnit}</span>}
-                        </td>
-                        <td className="px-4 py-3 tabular-nums text-gray-700 dark:text-gray-300">
+                        </CTableDataCell>
+                        <CTableDataCell className="px-4 py-3 tabular-nums text-gray-700 dark:text-gray-300">
                           {item.unitCostEgp != null ? `${item.unitCostEgp.toLocaleString('ar-EG')} ج` : '—'}
-                        </td>
-                        <td className="px-4 py-3">
+                        </CTableDataCell>
+                        <CTableDataCell className="px-4 py-3">
                           <button onClick={() => openEdit(item)} className="p-1.5 rounded-md text-gray-400 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors">
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
-                        </td>
-                      </tr>
+                        </CTableDataCell>
+                      </CTableRow>
                     ))
                 }
-              </tbody>
-            </table>
+              </CTableBody>
+            </CTable>
           </div>
           {!isLoading && total > limit && (
             <Pagination page={page} total={total} limit={limit} onPageChange={setPage} onLimitChange={() => {}} pageSizes={[20]} />
