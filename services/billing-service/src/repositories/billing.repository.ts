@@ -321,10 +321,23 @@ export async function updatePaymentStatus(
     }
 
     if (status === 'refunded') {
+      // A settled transaction is referenced by an immutable settlement_record
+      // (prevent_settlement_modification blocks DELETE, P0003). Attempting that
+      // DELETE here aborts the whole transaction, so the later UPDATE fails with
+      // an opaque 25P02. Guard up front instead: reject the refund so the
+      // settlement must be voided through the proper flow first. Checked before
+      // any write so the transaction is never put into an aborted state.
+      const { rows: settled } = await client.query(
+        `SELECT 1 FROM settlement_records WHERE $1::uuid = ANY(related_transaction_ids) LIMIT 1`,
+        [id],
+      );
+      if (settled.length) {
+        throw Object.assign(
+          new Error('Transaction is part of a settlement and cannot be refunded; void the settlement first'),
+          { statusCode: 409, code: 'TRANSACTION_SETTLED' },
+        );
+      }
       await client.query(`DELETE FROM transaction_extra_services WHERE transaction_id = $1`, [id]);
-      try {
-        await client.query(`DELETE FROM settlement_records WHERE $1::uuid = ANY(related_transaction_ids)`, [id]);
-      } catch { /* immutability trigger may block — non-fatal */ }
     }
 
     const fields: string[] = ['payment_status = $2'];
