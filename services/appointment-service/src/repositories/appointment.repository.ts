@@ -162,6 +162,14 @@ export async function createAppointment(
 ): Promise<Appointment & { doctorSplitDoctor: number; doctorSplitClinic: number }> {
   return withTransaction(branchId, async (client: PoolClient) => {
     if (input.idempotencyKey) {
+      // Serialize concurrent inserts that share an idempotency key. Without this,
+      // two simultaneous requests both miss the SELECT below and both INSERT; the
+      // second hits the per-partition UNIQUE index (23505), which aborts the
+      // transaction (no clean "return existing" possible). The xact-scoped
+      // advisory lock (cluster-wide, released on commit) makes the
+      // check-then-insert atomic across processes, so the second request waits,
+      // then sees the row and returns it.
+      await client.query(`SELECT pg_advisory_xact_lock(1, hashtext($1))`, [input.idempotencyKey]);
       const { rows: existing } = await client.query(
         `SELECT * FROM appointments WHERE idempotency_key = $1 AND deleted_at IS NULL`,
         [input.idempotencyKey],
@@ -218,6 +226,17 @@ export async function createAppointment(
         });
       }
       roomId = (roomRows[0] as { id: number }).id;
+
+      // Serialize capacity checks for this room+date. The usage count below is a
+      // check-then-act: concurrent bookings would each read used < capacity and
+      // both insert, overflowing ROOM_DAILY_SLOT_CAPACITY (the doctor exclusion
+      // constraint guards time overlap, not room headcount). The xact-scoped
+      // advisory lock (cluster-wide, released on commit) makes the count + insert
+      // atomic per room+date.
+      await client.query(
+        `SELECT pg_advisory_xact_lock(2, hashtext($1 || '|' || $2::text))`,
+        [input.roomCode, input.appointmentDate],
+      );
 
       const { rows: usageRows } = await client.query(
         `SELECT cr.room_code, COUNT(a.id)::int AS used
@@ -303,6 +322,15 @@ export async function createAppointment(
         throw Object.assign(
           new Error('Appointment slot is already booked for this time range'),
           { code: 'DOUBLE_BOOKING', statusCode: 409 },
+        );
+      }
+      // Defensive: the idempotency advisory lock above makes this unreachable for
+      // keyed inserts, but surface a clean 409 rather than an opaque 500 if a
+      // duplicate idempotency key ever reaches the UNIQUE index.
+      if (pgErr.code === '23505') {
+        throw Object.assign(
+          new Error('Duplicate idempotency key'),
+          { code: 'DUPLICATE_IDEMPOTENCY_KEY', statusCode: 409 },
         );
       }
       throw err;
