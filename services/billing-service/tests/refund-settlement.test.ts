@@ -16,7 +16,9 @@ import { randomUUID, generateKeyPairSync } from 'crypto';
 
 // config/index.ts parses env at module load — set it before importing the repo.
 process.env.NODE_ENV = 'development'; // vitest forces 'test', which the schema rejects
-process.env.DATABASE_URL ??= 'postgresql://fadl_app:fadl_app_dev_secret@localhost:5432/fadl_billing';
+// The repo connects via config.DATABASE_URL; derive it from TEST_PG_APP_BASE so
+// CI (where the DB is not on localhost) drives the repo pool to the real host.
+process.env.DATABASE_URL ??= `${process.env.TEST_PG_APP_BASE ?? 'postgresql://fadl_app:fadl_app_dev_secret@localhost:5432'}/fadl_billing`;
 // config decodes JWT_PUBLIC_KEY_B64 → base64 of a real PEM. The refund path under
 // test never uses it, but config validates it eagerly at load.
 const { publicKey } = generateKeyPairSync('rsa', {
