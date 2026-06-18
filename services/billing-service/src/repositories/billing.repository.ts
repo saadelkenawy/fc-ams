@@ -8,6 +8,7 @@ import type {
   PaginatedResponse,
 } from '@fadl/types';
 import { withRlsContext, withTransaction, pool, rlsQuery } from '../config/database';
+import { assertTransactionMutable } from './tx-guard';
 
 
 function rowToTransaction(row: Record<string, unknown>): FinancialTransaction {
@@ -255,26 +256,9 @@ export async function updateProcedureCost(
   procedureCost: number | null,
 ): Promise<FinancialTransaction> {
   return withTransaction(async (client: PoolClient) => {
-    const { rows: existing } = await client.query(
-      `SELECT payment_status FROM financial_transactions WHERE id = $1 FOR UPDATE`,
-      [id],
-    );
-    if (!existing.length) {
-      throw Object.assign(new Error('Transaction not found'), { statusCode: 404, code: 'TRANSACTION_NOT_FOUND' });
-    }
-    // Charge/cost are frozen once the row is settled — mirrors the DB guard in
-    // V016 (protect_financial_amounts). Blocked here for a clean 403 instead of
-    // letting the trigger throw P0001 → 500.
-    const cstatus = (existing[0] as Record<string, unknown>).payment_status as string;
-    if (cstatus === 'reconciled') {
-      throw Object.assign(new Error('Record is reconciled and locked'), { statusCode: 403, code: 'RECORD_RECONCILED' });
-    }
-    if (cstatus === 'refunded') {
-      throw Object.assign(new Error('Transaction is refunded and locked'), { statusCode: 403, code: 'RECORD_REFUNDED' });
-    }
-    if (cstatus === 'paid') {
-      throw Object.assign(new Error('Transaction is settled and locked'), { statusCode: 403, code: 'RECORD_SETTLED' });
-    }
+    // Charge/cost are frozen once settled (mirrors the V016 DB trigger); the
+    // guard locks the row FOR UPDATE and raises the canonical 403.
+    await assertTransactionMutable(client, { id }, 'amend-charge');
     let rows;
     try {
       ({ rows } = await client.query(
@@ -305,38 +289,11 @@ export async function updatePaymentStatus(
   },
 ): Promise<FinancialTransaction> {
   return withTransaction(async (client: PoolClient) => {
-    const { rows: existing } = await client.query(
-      `SELECT id, payment_status FROM financial_transactions WHERE id = $1 FOR UPDATE`,
-      [id],
-    );
-    if (!existing.length) {
-      throw Object.assign(new Error('Transaction not found'), { code: 'TRANSACTION_NOT_FOUND', statusCode: 404 });
-    }
-    const currentStatus = (existing[0] as Record<string, unknown>).payment_status as string;
-    if (currentStatus === 'reconciled') {
-      throw Object.assign(new Error('Record is reconciled and locked'), { statusCode: 403, code: 'RECORD_RECONCILED' });
-    }
-    if (currentStatus === 'refunded') {
-      throw Object.assign(new Error('Transaction is refunded and locked'), { statusCode: 403, code: 'RECORD_REFUNDED' });
-    }
+    // 'refund' adds the settlement-orphan check (409) on top of the terminal
+    // status block; every other transition just can't leave a terminal state.
+    await assertTransactionMutable(client, { id }, status === 'refunded' ? 'refund' : 'change-status');
 
     if (status === 'refunded') {
-      // A settled transaction is referenced by an immutable settlement_record
-      // (prevent_settlement_modification blocks DELETE, P0003). Attempting that
-      // DELETE here aborts the whole transaction, so the later UPDATE fails with
-      // an opaque 25P02. Guard up front instead: reject the refund so the
-      // settlement must be voided through the proper flow first. Checked before
-      // any write so the transaction is never put into an aborted state.
-      const { rows: settled } = await client.query(
-        `SELECT 1 FROM settlement_records WHERE $1::uuid = ANY(related_transaction_ids) LIMIT 1`,
-        [id],
-      );
-      if (settled.length) {
-        throw Object.assign(
-          new Error('Transaction is part of a settlement and cannot be refunded; void the settlement first'),
-          { statusCode: 409, code: 'TRANSACTION_SETTLED' },
-        );
-      }
       await client.query(`DELETE FROM transaction_extra_services WHERE transaction_id = $1`, [id]);
     }
 
@@ -550,17 +507,7 @@ export async function replaceExtraServices(
   createdBy: string,
 ): Promise<ExtraServiceRecord[]> {
   return withTransaction(async (client: PoolClient) => {
-    // verify transaction exists and is not reconciled
-    const { rows: txRows } = await client.query(
-      `SELECT id, payment_status FROM financial_transactions WHERE id = $1`,
-      [transactionId],
-    );
-    if (!txRows.length) {
-      throw Object.assign(new Error('Transaction not found'), { statusCode: 404, code: 'TRANSACTION_NOT_FOUND' });
-    }
-    if ((txRows[0] as Record<string, unknown>).payment_status === 'reconciled') {
-      throw Object.assign(new Error('Record is reconciled and locked'), { statusCode: 403, code: 'RECORD_RECONCILED' });
-    }
+    await assertTransactionMutable(client, { id: transactionId }, 'add-extra');
 
     await client.query(
       `DELETE FROM transaction_extra_services WHERE transaction_id = $1`,
@@ -601,22 +548,8 @@ export async function replaceExtraServicesByAppointmentId(
   createdBy: string,
 ): Promise<ExtraServiceRecord[]> {
   return withTransaction(async (client: PoolClient) => {
-    const { rows: txRows } = await client.query(
-      `SELECT id, payment_status FROM financial_transactions WHERE appointment_id = $1 FOR UPDATE`,
-      [appointmentId],
-    );
-    if (!txRows.length) {
-      throw Object.assign(new Error('No billing record found for this appointment'), { statusCode: 404, code: 'TRANSACTION_NOT_FOUND' });
-    }
-    const tx = txRows[0] as Record<string, unknown>;
+    const tx = await assertTransactionMutable(client, { appointmentId }, 'add-extra');
     const transactionId = tx.id as string;
-    const status = tx.payment_status as string;
-    if (status === 'reconciled') {
-      throw Object.assign(new Error('Record is reconciled and locked'), { statusCode: 403, code: 'RECORD_RECONCILED' });
-    }
-    if (status === 'refunded') {
-      throw Object.assign(new Error('Record is refunded and locked'), { statusCode: 403, code: 'RECORD_REFUNDED' });
-    }
 
     // Capture old sum for audit delta
     const { rows: oldRows } = await client.query(
@@ -986,6 +919,7 @@ export async function deleteSource(sourceCode: string): Promise<void> {
 
 export async function updatePaymentStatusByAppointmentId(appointmentId: string, status: string): Promise<void> {
   await withTransaction(async (client: PoolClient) => {
+    await assertTransactionMutable(client, { appointmentId }, status === 'refunded' ? 'refund' : 'change-status');
     await client.query(
       `UPDATE financial_transactions SET payment_status = $2 WHERE appointment_id = $1`,
       [appointmentId, status],
@@ -995,6 +929,10 @@ export async function updatePaymentStatusByAppointmentId(appointmentId: string, 
 
 export async function refundTransactionByAppointmentId(appointmentId: string): Promise<void> {
   await withTransaction(async (client: PoolClient) => {
+    // Previously an unguarded blind UPDATE — would silently orphan a settlement
+    // (or no-op on an already-terminal row). The guard enforces the same
+    // settlement-orphan rule as the by-id refund path.
+    await assertTransactionMutable(client, { appointmentId }, 'refund');
     await client.query(
       `UPDATE financial_transactions SET payment_status = 'refunded' WHERE appointment_id = $1`,
       [appointmentId],
@@ -1007,23 +945,7 @@ export async function updateApprovedChargeByAppointmentId(
   newCharge: number,
 ): Promise<FinancialTransaction> {
   return withTransaction(async (client: PoolClient) => {
-    const { rows: existing } = await client.query(
-      `SELECT payment_status FROM financial_transactions WHERE appointment_id = $1 FOR UPDATE`,
-      [appointmentId],
-    );
-    if (!existing.length) {
-      throw Object.assign(new Error('Transaction not found for appointment'), { statusCode: 404, code: 'TRANSACTION_NOT_FOUND' });
-    }
-    const status = (existing[0] as Record<string, unknown>).payment_status as string;
-    if (status === 'reconciled') {
-      throw Object.assign(new Error('Record is reconciled and locked'), { statusCode: 403, code: 'RECORD_RECONCILED' });
-    }
-    if (status === 'refunded') {
-      throw Object.assign(new Error('Transaction is refunded and locked'), { statusCode: 403, code: 'RECORD_REFUNDED' });
-    }
-    if (status === 'paid') {
-      throw Object.assign(new Error('Transaction is settled and locked'), { statusCode: 403, code: 'RECORD_SETTLED' });
-    }
+    await assertTransactionMutable(client, { appointmentId }, 'amend-charge');
     // DB trigger aab_recalc_charge recalculates source_fee_amount, gross_revenue,
     // doctor_share, clinic_share using the stored percentages.
     let rows;
